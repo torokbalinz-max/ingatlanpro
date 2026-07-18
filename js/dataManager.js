@@ -19,7 +19,7 @@ class DataManager {
 
         console.log("DataManager indul...");
 
-        fetch("http://localhost:3000/api/ingatlanok")
+       fetch("/api/ingatlanok")
 
             .then(response => {
 
