@@ -182,6 +182,94 @@ app.delete("/api/ingatlanok/:id", async (req, res) => {
     }
 
 });
+app.post("/api/statistics/save", async (req, res) => {
+
+    try {
+
+        const stat = await db.query(`
+            SELECT
+                COUNT(*) AS property_count,
+                AVG(ar) AS avg_price,
+                AVG(nm) AS avg_nm,
+                AVG(arnm) AS avg_price_nm,
+                MIN(arnm) AS min_price_nm,
+                MAX(arnm) AS max_price_nm
+            FROM ingatlanok
+        `);
+
+        const s = stat.rows[0];
+
+        const snapshot = await db.query(`
+            INSERT INTO market_snapshots
+            (
+                property_count,
+                avg_price,
+                avg_nm,
+                avg_price_nm,
+                min_price_nm,
+                max_price_nm
+            )
+            VALUES ($1,$2,$3,$4,$5,$6)
+            RETURNING id
+        `,
+        [
+            s.property_count,
+            s.avg_price,
+            s.avg_nm,
+            s.avg_price_nm,
+            s.min_price_nm,
+            s.max_price_nm
+        ]);
+
+        const snapshotId = snapshot.rows[0].id;
+
+        const groups = await db.query(`
+            SELECT
+                allapot,
+                COUNT(*) AS property_count,
+                AVG(ar) AS avg_price,
+                AVG(arnm) AS avg_price_nm
+            FROM ingatlanok
+            GROUP BY allapot
+        `);
+
+        for (const g of groups.rows) {
+
+            await db.query(`
+                INSERT INTO market_snapshot_groups
+                (
+                    snapshot_id,
+                    category,
+                    value,
+                    property_count,
+                    avg_price,
+                    avg_price_nm
+                )
+                VALUES ($1,$2,$3,$4,$5,$6)
+            `,
+            [
+                snapshotId,
+                "allapot",
+                g.allapot,
+                g.property_count,
+                g.avg_price,
+                g.avg_price_nm
+            ]);
+
+        }
+
+        res.json({
+            success: true
+        });
+
+    } catch(err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
