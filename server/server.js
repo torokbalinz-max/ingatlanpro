@@ -270,6 +270,26 @@ app.post("/api/statistics/save", async (req, res) => {
     }
 
 });
+app.get("/api/statistics", async (req, res) => {
+
+    try {
+
+        const result = await db.query(`
+            SELECT *
+            FROM market_snapshots
+            ORDER BY created_at DESC
+        `);
+
+        res.json(result.rows);
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
