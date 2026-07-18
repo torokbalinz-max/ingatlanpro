@@ -31,5 +31,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
     };
+    document.getElementById("btnStatistics").onclick = () => {
+
+    PageManager.show("pageStatistics");
+
+    StatisticsManager.load();
+
+};
 
 });
