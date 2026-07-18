@@ -23,21 +23,34 @@ app.get("/api/ingatlanok", async (req, res) => {
 
     try {
 
-        console.log("GET /api/ingatlanok");
+    console.log("GET /api/ingatlanok");
 
-        const result = await db.query(
-            "SELECT * FROM ingatlanok ORDER BY id"
-        );
+    const result = await db.query(`
+        SELECT
+            id,
+            link,
+            ar,
+            nm,
+            arnm AS "arNm",
+            szobak,
+            emelet,
+            allapot,
+            eladva,
+            x,
+            y
+        FROM ingatlanok
+        ORDER BY id
+    `);
 
-        res.json(result.rows);
+    res.json(result.rows);
 
-    } catch (err) {
+} catch (err) {
 
-        console.error(err);
+    console.error(err);
 
-        res.status(500).json(err);
+    res.status(500).json(err);
 
-    }
+}
 
 });
 
