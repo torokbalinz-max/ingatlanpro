@@ -19,142 +19,156 @@ app.get("/", (req, res) => {
 });
 
 // API
-app.get("/api/ingatlanok", (req, res) => {
+app.get("/api/ingatlanok", async (req, res) => {
 
-    console.log("GET /api/ingatlanok");
+    try {
 
-    db.all("SELECT * FROM ingatlanok", [], (err, rows) => {
+        console.log("GET /api/ingatlanok");
 
-        if (err) {
-            console.error(err);
-            return res.status(500).json(err);
-        }
+        const result = await db.query(
+            "SELECT * FROM ingatlanok ORDER BY id"
+        );
 
-        res.json(rows);
+        res.json(result.rows);
 
-    });
+    } catch (err) {
 
-});
+        console.error(err);
 
+        res.status(500).json(err);
 
-app.post("/api/ingatlanok", (req, res) => {
-
-    const adat = req.body;
-
-    db.run(
-        `INSERT INTO ingatlanok
-        (link, ar, nm, arNm, szobak, emelet, allapot, eladva, x, y)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-            adat.link,
-            adat.ar,
-            adat.nm,
-            adat.arNm,
-            adat.szobak,
-            adat.emelet,
-            adat.allapot,
-            adat.eladva ? 1 : 0,
-            adat.x,
-            adat.y
-        ],
-        function(err) {
-
-            if (err) {
-                console.error(err);
-                return res.status(500).json(err);
-            }
-
-            res.json({
-                siker: true,
-                id: this.lastID
-            });
-
-        }
-    );
+    }
 
 });
-app.put("/api/ingatlanok/:id", (req, res) => {
 
-    console.log("PUT meghívva:", req.params.id);
-    console.log(req.body);
 
-    const adat = req.body;
+app.post("/api/ingatlanok", async (req, res) => {
 
-    db.run(
+    try {
 
-        `UPDATE ingatlanok
-        SET
-            link=?,
-            ar=?,
-            nm=?,
-            arNm=?,
-            szobak=?,
-            emelet=?,
-            allapot=?,
-            eladva=?,
-            x=?,
-            y=?
-        WHERE id=?`,
+        const adat = req.body;
 
-        [
-            adat.link,
-            adat.ar,
-            adat.nm,
-            adat.arNm,
-            adat.szobak,
-            adat.emelet,
-            adat.allapot,
-            adat.eladva ? 1 : 0,
-            adat.x,
-            adat.y,
-            req.params.id
-        ],
+        const result = await db.query(
 
-        function(err){
+            `INSERT INTO ingatlanok
+            (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            RETURNING id`,
 
-            if(err){
+            [
 
-                return res.status(500).json(err);
+                adat.link,
+                adat.ar,
+                adat.nm,
+                adat.arNm,
+                adat.szobak,
+                adat.emelet,
+                adat.allapot,
+                adat.eladva,
+                adat.x,
+                adat.y
 
-            }
+            ]
 
-            res.json({
-                siker:true
-            });
+        );
 
-        }
+        res.json({
 
-    );
+            siker: true,
+
+            id: result.rows[0].id
+
+        });
+
+    } catch(err) {
+
+        console.error(err);
+
+        res.status(500).json(err);
+
+    }
 
 });
-app.delete("/api/ingatlanok/:id", (req, res) => {
+app.put("/api/ingatlanok/:id", async (req, res) => {
 
-    db.run(
+    try {
 
-        "DELETE FROM ingatlanok WHERE id = ?",
+        const adat = req.body;
 
-        [req.params.id],
+        await db.query(
 
-        function(err){
+            `UPDATE ingatlanok
+            SET
+                link=$1,
+                ar=$2,
+                nm=$3,
+                arnm=$4,
+                szobak=$5,
+                emelet=$6,
+                allapot=$7,
+                eladva=$8,
+                x=$9,
+                y=$10
+            WHERE id=$11`,
 
-            if(err){
+            [
 
-                return res.status(500).json(err);
+                adat.link,
+                adat.ar,
+                adat.nm,
+                adat.arNm,
+                adat.szobak,
+                adat.emelet,
+                adat.allapot,
+                adat.eladva,
+                adat.x,
+                adat.y,
+                req.params.id
 
-            }
+            ]
 
-            res.json({
+        );
 
-                siker:true
+        res.json({
+            siker: true
+        });
 
-            });
+    } catch (err) {
 
-        }
+        console.error(err);
 
-    );
+        res.status(500).json(err);
 
-}
-);
+    }
+
+});
+app.delete("/api/ingatlanok/:id", async (req, res) => {
+
+    try {
+
+        await db.query(
+
+            "DELETE FROM ingatlanok WHERE id=$1",
+
+            [req.params.id]
+
+        );
+
+        res.json({
+
+            siker: true
+
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        res.status(500).json(err);
+
+    }
+
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
