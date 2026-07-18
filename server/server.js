@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const db = require("./database");
 
 const app = express();
@@ -7,13 +8,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// A teljes weboldal (index.html, js, css, képek) kiszolgálása
+app.use(express.static(path.join(__dirname, "../")));
+
 console.log("Server indul...");
 
+// Főoldal
 app.get("/", (req, res) => {
-    console.log("GET /");
-    res.send("IngatlanPro szerver működik!");
+    res.sendFile(path.join(__dirname, "../index.html"));
 });
 
+// API
 app.get("/api/ingatlanok", (req, res) => {
 
     console.log("GET /api/ingatlanok");
@@ -151,6 +156,10 @@ app.delete("/api/ingatlanok/:id", (req, res) => {
 }
 );
 const PORT = process.env.PORT || 3000;
+
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../index.html"));
+});
 
 app.listen(PORT, () => {
     console.log(`Szerver elindult a ${PORT} porton.`);
