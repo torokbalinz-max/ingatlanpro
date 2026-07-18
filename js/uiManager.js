@@ -69,7 +69,7 @@ document.getElementById("btnDelete").onclick = () => {
     const aktualisOldal = TableManager.grid.paginationGetCurrentPage();
 
     fetch(
-        "http://localhost:3000/api/ingatlanok/" + UIManager.selectedIngatlan.id,
+        "/api/ingatlanok/" + UIManager.selectedIngatlan.id,
         {
             method: "DELETE"
         }

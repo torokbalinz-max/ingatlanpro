@@ -39,9 +39,8 @@ class NewPropertyManager {
 
             const url =
                 NewPropertyManager.editId == null
-                    ? "http://localhost:3000/api/ingatlanok"
-                    : "http://localhost:3000/api/ingatlanok/" + NewPropertyManager.editId;
-
+                    ? "/api/ingatlanok"
+                    : "/api/ingatlanok/" + NewPropertyManager.editId;
             const method =
                 NewPropertyManager.editId == null
                     ? "POST"
