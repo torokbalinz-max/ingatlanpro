@@ -21,23 +21,26 @@ class FilterManager {
         const maxNm = Number(document.getElementById("maxNm").value) || Infinity;
 
         const minSzoba = Number(document.getElementById("minSzoba").value) || 0;
+        const minEmelet = Number(document.getElementById("minEmelet").value) || 0;
 
         const allapot = document.getElementById("allapot").value;
 
         // A jelenlegi keresési feltételek eltárolása
         DataManager.filter = {
 
-            minAr,
-            maxAr,
+             minAr,
+             maxAr,
 
-            minNm,
-            maxNm,
+             minNm,
+             maxNm,
 
             minSzoba,
 
+            minEmelet,
+
             allapot
 
-        };
+            };
 
         const lista = DataManager.ingatlanok.filter(i => {
 
@@ -48,6 +51,10 @@ class FilterManager {
             if (i.nm > maxNm) return false;
 
             if (i.szobak < minSzoba) return false;
+            const emelet = parseInt(i.emelet);
+
+            if (!isNaN(emelet) && emelet < minEmelet)
+            return false;
 
             if (allapot !== "" && i.allapot !== allapot) return false;
 
