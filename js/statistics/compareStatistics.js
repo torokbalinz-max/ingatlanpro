@@ -198,6 +198,70 @@ class CompareStatistics {
             </div>
 
         `;
+        // ===============================
+// Állapot szerinti összehasonlítás
+// ===============================
+
+html += `
+
+<br><br>
+
+<h2>🔧 Állapot szerinti változás</h2>
+
+<table class="statTable">
+
+<tr>
+
+    <th>Állapot</th>
+
+    <th>Régi €/m²</th>
+
+    <th>Új €/m²</th>
+
+    <th>Változás</th>
+
+</tr>
+
+`;
+
+oldData.groups.forEach(oldGroup => {
+
+    const uj = newData.groups.find(g => g.value === oldGroup.value);
+
+    if (!uj)
+        return;
+
+    const diff =
+        ((uj.avg_price_nm - oldGroup.avg_price_nm)
+        / oldGroup.avg_price_nm * 100);
+
+    const nyil =
+        diff >= 0 ? "🟢" : "🔴";
+
+    html += `
+
+        <tr>
+
+            <td>${oldGroup.value}</td>
+
+            <td>${Math.round(oldGroup.avg_price_nm)}</td>
+
+            <td>${Math.round(uj.avg_price_nm)}</td>
+
+            <td>
+
+                ${nyil}
+                ${diff.toFixed(1)} %
+
+            </td>
+
+        </tr>
+
+    `;
+
+});
+
+html += "</table>";
 
         document.getElementById("compareResult").innerHTML = html;
 
