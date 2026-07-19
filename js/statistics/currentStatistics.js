@@ -15,296 +15,76 @@ class CurrentStatistics {
 
         }
 
-        const db = lista.length;
+        ChartStatistics.destroy();
 
-        const atlagAr =
-            lista.reduce((s, i) => s + i.ar, 0) / db;
+        let html = "";
 
-        const atlagNm =
-            lista.reduce((s, i) => s + i.nm, 0) / db;
+        // Dashboard
+        html += DashboardStatistics.render(lista);
 
-        const atlagArNm =
-            lista.reduce((s, i) => s + i.arNm, 0) / db;
+        // ===== GRAFIKONOK =====
 
-        const minArNm =
-            Math.min(...lista.map(i => i.arNm));
+        html += `
 
-        const maxArNm =
-            Math.max(...lista.map(i => i.arNm));
+        <br>
 
-        let html = `
+        <div class="row">
 
-            <div class="statisticsGrid">
+            <div class="col-lg-6">
 
-                <div class="statCard">
-                    <h3>🏠 Ingatlanok</h3>
-                    <h1>${db}</h1>
-                </div>
+                <div class="card shadow">
 
-                <div class="statCard">
-                    <h3>💶 Átlag ár</h3>
-                    <h1>${Math.round(atlagAr).toLocaleString()} €</h1>
-                </div>
+                    <div class="card-body">
 
-                <div class="statCard">
-                    <h3>📐 Átlag m²</h3>
-                    <h1>${atlagNm.toFixed(1)}</h1>
-                </div>
+                        <canvas id="stateChart"></canvas>
 
-                <div class="statCard">
-                    <h3>💰 Átlag €/m²</h3>
-                    <h1>${Math.round(atlagArNm)}</h1>
-                </div>
+                    </div>
 
-                <div class="statCard">
-                    <h3>🟢 Minimum €/m²</h3>
-                    <h1>${Math.round(minArNm)}</h1>
-                </div>
-
-                <div class="statCard">
-                    <h3>🔴 Maximum €/m²</h3>
-                    <h1>${Math.round(maxArNm)}</h1>
                 </div>
 
             </div>
 
+            <div class="col-lg-6">
+
+                <div class="card shadow">
+
+                    <div class="card-body">
+
+                        <canvas id="roomChart"></canvas>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <br>
+
+        <div class="card shadow">
+
+            <div class="card-body">
+
+                <canvas id="floorChart"></canvas>
+
+            </div>
+
+        </div>
+
         `;
 
-        // ===========================
-        // ÁLLAPOT SZERINT
-        // ===========================
+        // ===== Táblázatok =====
 
-        if (DataManager.filter.allapot === "") {
+        html += StateStatistics.render(lista);
 
-            const allapotok = {};
+        html += RoomStatistics.render(lista);
 
-            lista.forEach(i => {
-
-                const nev = i.allapot || "Ismeretlen";
-
-                if (!allapotok[nev]) {
-
-                    allapotok[nev] = {
-
-                        db: 0,
-                        ar: 0,
-                        arNm: 0
-
-                    };
-
-                }
-
-                allapotok[nev].db++;
-                allapotok[nev].ar += i.ar;
-                allapotok[nev].arNm += i.arNm;
-
-            });
-
-            html += `
-
-                <br><br>
-
-                <h2>Állapot szerinti elemzés</h2>
-
-                <table class="statTable">
-
-                    <tr>
-
-                        <th>Állapot</th>
-                        <th>Darab</th>
-                        <th>Átlag ár</th>
-                        <th>Átlag €/m²</th>
-
-                    </tr>
-
-            `;
-
-            Object.keys(allapotok).forEach(a => {
-
-                const x = allapotok[a];
-
-                html += `
-
-                    <tr>
-
-                        <td>${a}</td>
-
-                        <td>${x.db}</td>
-
-                        <td>${Math.round(x.ar / x.db).toLocaleString()} €</td>
-
-                        <td>${Math.round(x.arNm / x.db)} €/m²</td>
-
-                    </tr>
-
-                `;
-
-            });
-
-            html += "</table>";
-
-        }
-
-        // ===========================
-        // SZOBASZÁM SZERINT
-        // ===========================
-
-        if (DataManager.filter.minSzoba === 0) {
-
-            const szobak = {};
-
-            lista.forEach(i => {
-
-                let kulcs;
-
-                if (i.szobak >= 4)
-                    kulcs = "4+ szoba";
-                else
-                    kulcs = i.szobak + " szoba";
-
-                if (!szobak[kulcs]) {
-
-                    szobak[kulcs] = {
-
-                        db: 0,
-                        arNm: 0
-
-                    };
-
-                }
-
-                szobak[kulcs].db++;
-                szobak[kulcs].arNm += i.arNm;
-
-            });
-
-            html += `
-
-                <br><br>
-
-                <h2>Szobaszám szerinti elemzés</h2>
-
-                <table class="statTable">
-
-                    <tr>
-
-                        <th>Szobák</th>
-                        <th>Darab</th>
-                        <th>Átlag €/m²</th>
-
-                    </tr>
-
-            `;
-
-            Object.keys(szobak).forEach(k => {
-
-                const s = szobak[k];
-
-                html += `
-
-                    <tr>
-
-                        <td>${k}</td>
-
-                        <td>${s.db}</td>
-
-                        <td>${Math.round(s.arNm / s.db)} €/m²</td>
-
-                    </tr>
-
-                `;
-
-            });
-
-            html += "</table>";
-
-        }
-        // ===========================
-// EMELET SZERINT
-// ===========================
-
-const emeletek = {};
-
-lista.forEach(i => {
-
-    let kulcs;
-
-    const e = parseInt(i.emelet);
-
-    if (isNaN(e))
-        kulcs = "Ismeretlen";
-    else if (e <= 0)
-        kulcs = "Földszint";
-    else if (e >= 4)
-        kulcs = "4+ emelet";
-    else
-        kulcs = e + ". emelet";
-
-    if (!emeletek[kulcs]) {
-
-        emeletek[kulcs] = {
-
-            db: 0,
-            ar: 0,
-            arNm: 0
-
-        };
-
-    }
-
-    emeletek[kulcs].db++;
-    emeletek[kulcs].ar += i.ar;
-    emeletek[kulcs].arNm += i.arNm;
-
-});
-
-html += `
-
-    <br><br>
-
-    <h2>🏢 Emelet szerinti elemzés</h2>
-
-    <table class="statTable">
-
-        <tr>
-
-            <th>Emelet</th>
-
-            <th>Darab</th>
-
-            <th>Átlag ár</th>
-
-            <th>Átlag €/m²</th>
-
-        </tr>
-
-`;
-
-Object.keys(emeletek).forEach(k => {
-
-    const e = emeletek[k];
-
-    html += `
-
-        <tr>
-
-            <td>${k}</td>
-
-            <td>${e.db}</td>
-
-            <td>${Math.round(e.ar / e.db).toLocaleString()} €</td>
-
-            <td>${Math.round(e.arNm / e.db)} €/m²</td>
-
-        </tr>
-
-    `;
-
-});
-
-html += "</table>";
+        html += FloorStatistics.render(lista);
 
         document.getElementById("statisticsContainer").innerHTML = html;
+
+ChartStatistics.render(lista);
 
     }
 
