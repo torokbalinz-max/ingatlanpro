@@ -39,7 +39,9 @@ class UIManager {
 };
 document.getElementById("menuStatisztika").onclick = () => {
 
-    PageManager.show("pageStats");
+    PageManager.show("pageStatistics");
+
+    StatisticsManager.loadCurrent();
 
 };
 

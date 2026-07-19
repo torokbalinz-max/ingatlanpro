@@ -490,27 +490,6 @@ Megnyitás
 <!-- ===================== ÚJ INGATLAN ===================== -->
 
 <div id="pageNew" style="display:none;">
-    <div id="pageStats" style="display:none;">
-
-    <div class="card shadow">
-
-        <div class="card-header">
-
-            <h3>📊 Statisztikák</h3>
-
-        </div>
-
-        <div class="card-body">
-
-            <h4>Fejlesztés alatt...</h4>
-
-            <p>Itt lesznek majd a grafikonok és statisztikák.</p>
-
-        </div>
-
-    </div>
-
-</div>
 
 <div class="card shadow">
 
@@ -523,27 +502,9 @@ Megnyitás
 </h3>
 
 </div>
-<div id="pageStatistics" class="page">
 
-    <h2>📊 Piaci statisztikák</h2>
 
-    <div class="statisticsTabs">
-
-        <button id="btnCurrentStatistics">
-            📈 Jelenlegi piac
-        </button>
-
-        <button id="btnHistoryStatistics">
-            🕒 Piaci előzmények
-        </button>
-
-    </div>
-
-    <hr>
-
-    <div id="statisticsContainer"></div>
-
-</div>
+    
 
 <div class="card-body">
 
@@ -744,6 +705,27 @@ class="btn btn-success btn-lg">
 </div>
 
 </div>
+<div id="pageStatistics" class="page">
+
+    <h2>📊 Piaci statisztikák</h2>
+
+    <div class="statisticsTabs">
+
+        <button id="btnCurrentStatistics">
+            📈 Jelenlegi piac
+        </button>
+
+        <button id="btnHistoryStatistics">
+            🕒 Piaci előzmények
+        </button>
+
+    </div>
+
+    <hr>
+
+    <div id="statisticsContainer"></div>
+
+</div>
    
    <!-- Könyvtárak -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -753,6 +735,7 @@ class="btn btn-success btn-lg">
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Saját modulok -->
+ <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="js/dataManager.js"></script>
 <script src="js/tableManager.js"></script>
 <script src="js/mapManager.js"></script>
