@@ -24,6 +24,21 @@ class FilterManager {
 
         const allapot = document.getElementById("allapot").value;
 
+        // A jelenlegi keresési feltételek eltárolása
+        DataManager.filter = {
+
+            minAr,
+            maxAr,
+
+            minNm,
+            maxNm,
+
+            minSzoba,
+
+            allapot
+
+        };
+
         const lista = DataManager.ingatlanok.filter(i => {
 
             if (i.ar < minAr) return false;
@@ -41,8 +56,11 @@ class FilterManager {
         });
 
         DataManager.szurtIngatlanok = lista;
+
         DashboardManager.load(lista);
-        TableManager.update(lista);        
+
+        TableManager.update(lista);
+
         MapManager.load(lista);
 
     }

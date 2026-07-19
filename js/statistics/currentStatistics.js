@@ -12,6 +12,7 @@ class CurrentStatistics {
             `;
 
             return;
+
         }
 
         const db = lista.length;
@@ -30,30 +31,6 @@ class CurrentStatistics {
 
         const maxArNm =
             Math.max(...lista.map(i => i.arNm));
-
-        // ===== Állapot szerinti statisztika =====
-
-        const allapotok = {};
-
-        lista.forEach(i => {
-
-            const nev = i.allapot || "Ismeretlen";
-
-            if (!allapotok[nev]) {
-
-                allapotok[nev] = {
-                    db: 0,
-                    ar: 0,
-                    arNm: 0
-                };
-
-            }
-
-            allapotok[nev].db++;
-            allapotok[nev].ar += i.ar;
-            allapotok[nev].arNm += i.arNm;
-
-        });
 
         let html = `
 
@@ -91,112 +68,157 @@ class CurrentStatistics {
 
             </div>
 
-            <br><br>
-
-            <h2>Állapot szerinti elemzés</h2>
-
-            <table class="statTable">
-
-                <tr>
-                    <th>Állapot</th>
-                    <th>Darab</th>
-                    <th>Átlag ár</th>
-                    <th>Átlag €/m²</th>
-                </tr>
-
         `;
 
-        Object.keys(allapotok).forEach(a => {
+        // ===========================
+        // ÁLLAPOT SZERINT
+        // ===========================
 
-            const x = allapotok[a];
+        if (DataManager.filter.allapot === "") {
+
+            const allapotok = {};
+
+            lista.forEach(i => {
+
+                const nev = i.allapot || "Ismeretlen";
+
+                if (!allapotok[nev]) {
+
+                    allapotok[nev] = {
+
+                        db: 0,
+                        ar: 0,
+                        arNm: 0
+
+                    };
+
+                }
+
+                allapotok[nev].db++;
+                allapotok[nev].ar += i.ar;
+                allapotok[nev].arNm += i.arNm;
+
+            });
 
             html += `
 
-                <tr>
+                <br><br>
 
-                    <td>${a}</td>
+                <h2>Állapot szerinti elemzés</h2>
 
-                    <td>${x.db}</td>
+                <table class="statTable">
 
-                    <td>${Math.round(x.ar / x.db).toLocaleString()} €</td>
+                    <tr>
 
-                    <td>${Math.round(x.arNm / x.db)} €/m²</td>
+                        <th>Állapot</th>
+                        <th>Darab</th>
+                        <th>Átlag ár</th>
+                        <th>Átlag €/m²</th>
 
-                </tr>
+                    </tr>
 
             `;
 
-        });
+            Object.keys(allapotok).forEach(a => {
 
-        html += "</table>";
-        // ===== Szobaszám szerinti elemzés =====
+                const x = allapotok[a];
 
-const szobak = {};
+                html += `
 
-lista.forEach(i => {
+                    <tr>
 
-    let kulcs;
+                        <td>${a}</td>
 
-    if (i.szobak >= 4)
-        kulcs = "4+ szoba";
-    else
-        kulcs = i.szobak + " szoba";
+                        <td>${x.db}</td>
 
-    if (!szobak[kulcs]) {
+                        <td>${Math.round(x.ar / x.db).toLocaleString()} €</td>
 
-        szobak[kulcs] = {
-            db: 0,
-            arNm: 0
-        };
+                        <td>${Math.round(x.arNm / x.db)} €/m²</td>
 
-    }
+                    </tr>
 
-    szobak[kulcs].db++;
-    szobak[kulcs].arNm += i.arNm;
+                `;
 
-});
+            });
 
-html += `
+            html += "</table>";
 
-    <br><br>
+        }
 
-    <h2>Szobaszám szerinti elemzés</h2>
+        // ===========================
+        // SZOBASZÁM SZERINT
+        // ===========================
 
-    <table class="statTable">
+        if (DataManager.filter.minSzoba === 0) {
 
-        <tr>
+            const szobak = {};
 
-            <th>Szobák</th>
+            lista.forEach(i => {
 
-            <th>Darab</th>
+                let kulcs;
 
-            <th>Átlag €/m²</th>
+                if (i.szobak >= 4)
+                    kulcs = "4+ szoba";
+                else
+                    kulcs = i.szobak + " szoba";
 
-        </tr>
+                if (!szobak[kulcs]) {
 
-`;
+                    szobak[kulcs] = {
 
-Object.keys(szobak).forEach(k => {
+                        db: 0,
+                        arNm: 0
 
-    const s = szobak[k];
+                    };
 
-    html += `
+                }
 
-        <tr>
+                szobak[kulcs].db++;
+                szobak[kulcs].arNm += i.arNm;
 
-            <td>${k}</td>
+            });
 
-            <td>${s.db}</td>
+            html += `
 
-            <td>${Math.round(s.arNm / s.db)} €/m²</td>
+                <br><br>
 
-        </tr>
+                <h2>Szobaszám szerinti elemzés</h2>
 
-    `;
+                <table class="statTable">
 
-});
+                    <tr>
 
-html += "</table>";
+                        <th>Szobák</th>
+                        <th>Darab</th>
+                        <th>Átlag €/m²</th>
+
+                    </tr>
+
+            `;
+
+            Object.keys(szobak).forEach(k => {
+
+                const s = szobak[k];
+
+                html += `
+
+                    <tr>
+
+                        <td>${k}</td>
+
+                        <td>${s.db}</td>
+
+                        <td>${Math.round(s.arNm / s.db)} €/m²</td>
+
+                    </tr>
+
+                `;
+
+            });
+
+            html += "</table>";
+
+        }
 
         document.getElementById("statisticsContainer").innerHTML = html;
 

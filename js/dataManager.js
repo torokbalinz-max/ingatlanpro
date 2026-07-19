@@ -2,6 +2,7 @@ class DataManager {
 
     static ingatlanok = [];
     static szurtIngatlanok = [];
+    static filter = {};
 
     static toNumber(value) {
 
