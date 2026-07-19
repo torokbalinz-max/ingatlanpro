@@ -1,0 +1,29 @@
+body.dark-mode {
+    --bg-primary: #0b0f19;
+    --bg-secondary: #111827;
+    --bg-surface: rgba(17, 24, 39, 0.7);
+    
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-light: rgba(59, 130, 246, 0.12);
+    
+    --border-color: #1f2937;
+    
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+}
+
+/* Sötét mód specifikus térkép korrekció (opcionális finomítás az elmosódáshoz) */
+body.dark-mode #map {
+    filter: grayscale(0.1) contrast(1.05);
+}
+
+/* Sötét módú kártya kiemelés */
+body.dark-mode .card:hover {
+    border-color: rgba(59, 130, 246, 0.3) !important;
+}

@@ -1,0 +1,61 @@
+/* TABLET TULAJDONSÁGOK (992px alatt) */
+@media (max-width: 991.98px) {
+    .navbar-brand {
+        font-size: 20px;
+    }
+    
+    #map {
+        height: 450px; /* Kisebb képernyőn alacsonyabb térkép */
+    }
+    
+    .card-header {
+        padding: 1rem 1.25rem !important;
+    }
+    
+    .card-body {
+        padding: 1.25rem;
+    }
+}
+
+/* MOBIL TULAJDONSÁGOK (768px alatt) */
+@media (max-width: 767.98px) {
+    :root {
+        --radius-lg: 14px; /* Kisebb képernyőn a túl nagy kerekítés furán néz ki */
+    }
+    
+    body {
+        font-size: 14px;
+    }
+    
+    #map {
+        height: 350px;
+    }
+    
+    .table-custom th, 
+    .table-custom td {
+        padding: 1rem 0.75rem;
+    }
+    
+    /* Gombok teljes szélességűek lesznek mobilon a könnyebb nyomhatóságért */
+    .btn-mobile-block {
+        width: 100%;
+        display: block;
+        text-align: center;
+    }
+    
+    .actions-cell {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
+
+/* EXTRA KIS KIJELZŐK (576px alatt) */
+@media (max-width: 575.98px) {
+    .navbar {
+        padding: 0.75rem 1rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+}
