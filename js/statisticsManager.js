@@ -66,6 +66,11 @@ document.getElementById("btnHistoryStatistics").onclick = () => {
     StatisticsManager.loadHistory();
 
 };
+document.getElementById("btnCompareStatistics").onclick = () => {
+
+    CompareStatistics.load();
+
+};
 
         });
 
