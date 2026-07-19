@@ -6,24 +6,86 @@ class StatisticsManager {
         .then(r => r.json())
         .then(lista => {
 
-            if(lista.length === 0){
+            let html = `
 
-                document.getElementById("statisticsContainer").innerHTML =
-                    "<h3>Nincs még mentett piaci pillanatkép.</h3>";
+                <div style="margin-bottom:20px;">
 
-                return;
+                    <label><b>Piaci mentés:</b></label>
+
+                    <select id="snapshotSelect">
+
+            `;
+
+            lista.forEach(s => {
+
+                html += `
+                    <option value="${s.id}">
+                        ${new Date(s.created_at).toLocaleString()}
+                    </option>
+                `;
+
+            });
+
+            html += `
+
+                    </select>
+
+                    <button id="btnLoadSnapshot">
+                        Betöltés
+                    </button>
+
+                </div>
+
+                <div id="snapshotContent"></div>
+
+            `;
+
+            document.getElementById("statisticsContainer").innerHTML = html;
+
+            document.getElementById("btnLoadSnapshot").onclick = () => {
+
+                StatisticsManager.loadSnapshot(
+                    document.getElementById("snapshotSelect").value
+                );
+
+            };
+
+            if(lista.length > 0){
+
+                StatisticsManager.loadSnapshot(lista[0].id);
 
             }
+            document.getElementById("btnCurrentStatistics").onclick = () => {
 
-            const s = lista[0];
+    StatisticsManager.loadCurrent();
 
-            document.getElementById("statisticsContainer").innerHTML = `
+};
+
+document.getElementById("btnHistoryStatistics").onclick = () => {
+
+    StatisticsManager.loadHistory();
+
+};
+
+        });
+
+    }
+
+    static loadSnapshot(id){
+
+        fetch("/api/statistics/" + id)
+
+        .then(r => r.json())
+
+        .then(data => {
+
+            const s = data.snapshot;
+
+            let html = `
 
                 <div class="statCard">
 
-                    <h3>Utolsó mentés</h3>
-
-                    <p>${new Date(s.created_at).toLocaleString()}</p>
+                    <h2>${new Date(s.created_at).toLocaleString()}</h2>
 
                     <hr>
 
@@ -31,20 +93,65 @@ class StatisticsManager {
 
                     <p><b>Átlag ár:</b> ${Math.round(s.avg_price).toLocaleString()} €</p>
 
-                    <p><b>Átlag m²:</b> ${Number(s.avg_nm).toFixed(1)} m²</p>
-
                     <p><b>Átlag €/m²:</b> ${Math.round(s.avg_price_nm)} €/m²</p>
-
-                    <p><b>Minimum €/m²:</b> ${Math.round(s.min_price_nm)}</p>
-
-                    <p><b>Maximum €/m²:</b> ${Math.round(s.max_price_nm)}</p>
 
                 </div>
 
+                <br>
+
+                <table border="1" cellpadding="8" cellspacing="0">
+
+                    <tr>
+
+                        <th>Állapot</th>
+
+                        <th>Darab</th>
+
+                        <th>Átlag ár</th>
+
+                        <th>€/m²</th>
+
+                    </tr>
+
             `;
+
+            data.groups.forEach(g => {
+
+                html += `
+
+                    <tr>
+
+                        <td>${g.value}</td>
+
+                        <td>${g.property_count}</td>
+
+                        <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+
+                        <td>${Math.round(g.avg_price_nm)} €/m²</td>
+
+                    </tr>
+
+                `;
+
+            });
+
+            html += "</table>";
+
+            document.getElementById("snapshotContent").innerHTML = html;
 
         });
 
     }
+    static loadCurrent(){
+
+    CurrentStatistics.load();
+
+}
+
+static loadHistory(){
+
+    StatisticsManager.load();
+
+}
 
 }

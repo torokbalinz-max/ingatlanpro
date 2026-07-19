@@ -40,6 +40,7 @@ class FilterManager {
 
         });
 
+        DataManager.szurtIngatlanok = lista;
         DashboardManager.load(lista);
         TableManager.update(lista);        
         MapManager.load(lista);

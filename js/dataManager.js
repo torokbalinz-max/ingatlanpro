@@ -1,6 +1,7 @@
 class DataManager {
 
     static ingatlanok = [];
+    static szurtIngatlanok = [];
 
     static toNumber(value) {
 
@@ -19,7 +20,7 @@ class DataManager {
 
         console.log("DataManager indul...");
 
-       fetch("/api/ingatlanok")
+        fetch("/api/ingatlanok")
 
             .then(response => {
 
@@ -38,6 +39,9 @@ class DataManager {
                 console.log("Beolvasott ingatlanok:", rows);
 
                 DataManager.ingatlanok = rows;
+
+                // Induláskor a szűrt lista is az összes ingatlan
+                DataManager.szurtIngatlanok = [...rows];
 
                 DashboardManager.load(DataManager.ingatlanok);
 
