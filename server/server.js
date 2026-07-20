@@ -409,6 +409,37 @@ app.get("/api/statistics/:id", async (req, res) => {
     }
 
 });
+app.get("/api/statistics/trend", async (req, res) => {
+
+    try {
+
+        const result = await db.query(`
+
+            SELECT
+                id,
+                created_at,
+                property_count,
+                avg_price,
+                avg_price_nm,
+                avg_nm
+            FROM market_snapshots
+            ORDER BY created_at ASC
+
+        `);
+
+        res.json(result.rows);
+
+    }
+
+    catch(err){
+
+        console.error(err);
+
+        res.status(500).json(err);
+
+    }
+
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

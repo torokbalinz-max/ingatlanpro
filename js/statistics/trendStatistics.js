@@ -2,7 +2,15 @@ class TrendStatistics {
 
     static load() {
 
-        alert("Trend indul");
+        fetch("/api/statistics/trend")
+
+.then(r => r.json())
+
+.then(lista => {
+
+    console.log(lista);
+
+});
 
     }
 
