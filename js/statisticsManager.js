@@ -19,6 +19,11 @@ class StatisticsManager {
             CompareStatistics.load();
 
         };
+        document.getElementById("btnTrend").onclick = () => {
+
+    TrendStatistics.load();
+
+};
 
     }
 

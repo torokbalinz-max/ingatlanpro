@@ -743,6 +743,83 @@ class="btn btn-success btn-lg">
     <div id="statisticsContainer"></div>
 
 </div>
+<hr>
+
+<h2>📈 Ártrend</h2>
+
+<div class="row mb-3">
+
+    <div class="col-md-3">
+
+        <label>Dátumtól</label>
+
+        <input
+            type="date"
+            id="trendFrom"
+            class="form-control">
+
+    </div>
+
+    <div class="col-md-3">
+
+        <label>Dátumig</label>
+
+        <input
+            type="date"
+            id="trendTo"
+            class="form-control">
+
+    </div>
+
+    <div class="col-md-3">
+
+        <label>Mutató</label>
+
+        <select
+            id="trendType"
+            class="form-select">
+
+            <option value="avg_price_nm">
+                Átlag €/m²
+            </option>
+
+            <option value="avg_price">
+                Átlag ár
+            </option>
+
+            <option value="property_count">
+                Ingatlanok száma
+            </option>
+
+        </select>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <br>
+
+        <button
+            id="btnTrend"
+            class="btn btn-primary w-100">
+
+            Grafikon frissítése
+
+        </button>
+
+    </div>
+
+</div>
+
+<div class="card shadow">
+
+    <div class="card-body">
+
+        <canvas id="trendChart" height="120"></canvas>
+
+    </div>
+
+</div>
    
    <!-- Könyvtárak -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -773,6 +850,7 @@ class="btn btn-success btn-lg">
 <script src="js/statistics/currentStatistics.js"></script>
 <script src="js/statistics/historyStatistics.js"></script>
 <script src="js/statistics/compareStatistics.js"></script>
+<script src="js/statistics/trendStatistics.js"></script>
 <script src="js/statisticsManager.js"></script>
 
 <!-- UI -->
