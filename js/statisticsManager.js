@@ -256,7 +256,7 @@ static loadSnapshot(id) {
 
     static loadHistory() {
 
-    HistoryStatistics.load();
+    StatisticsManager.load();
 
 }
 
