@@ -326,6 +326,7 @@ END
 ORDER BY 1;
 
 `);
+console.log("FLOORS:", floors.rows);
 for (const g of floors.rows) {
 
     await db.query(`
