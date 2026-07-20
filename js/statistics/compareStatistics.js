@@ -288,6 +288,8 @@ html += `
 `;
 
 const oldRooms = oldData.groups.filter(g => g.category === "szobak");
+console.log(oldData.groups);
+console.log(oldRooms);
 const newRooms = newData.groups.filter(g => g.category === "szobak");
 
 oldRooms.forEach(oldGroup => {
