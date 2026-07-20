@@ -8,7 +8,100 @@ class TrendStatistics {
 
 .then(lista => {
 
-    console.log(lista);
+    const from =
+        document.getElementById("trendFrom").value;
+
+    const to =
+        document.getElementById("trendTo").value;
+
+    const type =
+        document.getElementById("trendType").value;
+
+    let adatok = lista;
+
+    if(from){
+
+        adatok =
+            adatok.filter(x =>
+                x.created_at >= from
+            );
+
+    }
+
+    if(to){
+
+        adatok =
+            adatok.filter(x =>
+                x.created_at <= to + "T23:59:59"
+            );
+
+    }
+
+    const labels =
+        adatok.map(x =>
+            new Date(x.created_at).toLocaleDateString()
+        );
+
+    const values =
+        adatok.map(x =>
+            Number(x[type])
+        );
+
+    if(window.trendChart){
+
+        window.trendChart.destroy();
+
+    }
+
+    window.trendChart = new Chart(
+
+        document.getElementById("trendChart"),
+
+        {
+
+            type:"line",
+
+            data:{
+
+                labels,
+
+                datasets:[
+
+                    {
+
+                        label:type,
+
+                        data:values,
+
+                        borderWidth:3,
+
+                        tension:0.35,
+
+                        fill:false
+
+                    }
+
+                ]
+
+            },
+
+            options:{
+
+                responsive:true,
+
+                interaction:{
+
+                    intersect:false,
+
+                    mode:"index"
+
+                }
+
+            }
+
+        }
+
+    );
 
 });
 
