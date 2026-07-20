@@ -369,17 +369,8 @@ app.get("/api/statistics", async (req, res) => {
 
         const result = await db.query(`
             SELECT *
-            SELECT
-    id,
-    created_at,
-    property_count,
-    avg_price,
-    avg_price_nm,
-    avg_nm,
-    min_price_nm,
-    max_price_nm
-FROM market_snapshots
-ORDER BY created_at ASC
+            FROM market_snapshots
+            ORDER BY created_at DESC
         `);
 
         res.json(result.rows);
@@ -390,7 +381,6 @@ ORDER BY created_at ASC
         res.status(500).json(err);
 
     }
-
 });
 app.get("/api/statistics/:id", async (req, res) => {
 
