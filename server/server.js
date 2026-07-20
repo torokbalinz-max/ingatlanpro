@@ -292,11 +292,17 @@ for (const g of rooms.rows) {
 
 }
 const floors = await db.query(`
-    SELECT
+
+SELECT
+
 CASE
-    WHEN split_part(emelet,'/',1)::int <= 0 THEN 'Földszint'
-    WHEN split_part(emelet,'/',1)::int >= 4 THEN '4+ emelet'
-    ELSE split_part(emelet,'/',1) || '. emelet'
+
+WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 0 THEN 'Földszint'
+WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 1 THEN '1. emelet'
+WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 2 THEN '2. emelet'
+WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 3 THEN '3. emelet'
+ELSE '4+ emelet'
+
 END AS emelet,
 
 COUNT(*) AS property_count,
@@ -305,10 +311,21 @@ AVG(arnm) AS avg_price_nm
 
 FROM ingatlanok
 
-GROUP BY 1
-ORDER BY 1;
-`);
+GROUP BY
 
+CASE
+
+WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 0 THEN 'Földszint'
+WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 1 THEN '1. emelet'
+WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 2 THEN '2. emelet'
+WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 3 THEN '3. emelet'
+ELSE '4+ emelet'
+
+END
+
+ORDER BY 1;
+
+`);
 for (const g of floors.rows) {
 
     await db.query(`
