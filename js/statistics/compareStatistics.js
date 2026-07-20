@@ -321,6 +321,60 @@ oldRooms.forEach(oldGroup => {
 });
 
 html += "</table>";
+html += `
+
+<br><br>
+
+<h2>🏢 Emelet szerinti változás</h2>
+
+<table class="statTable">
+
+<tr>
+
+    <th>Emelet</th>
+
+    <th>Régi €/m²</th>
+
+    <th>Új €/m²</th>
+
+    <th>Változás</th>
+
+</tr>
+
+`;
+
+const oldFloors = oldData.groups.filter(g => g.category === "emelet");
+const newFloors = newData.groups.filter(g => g.category === "emelet");
+
+oldFloors.forEach(oldGroup => {
+
+    const uj = newFloors.find(g => g.value === oldGroup.value);
+
+    if (!uj) return;
+
+    const diff =
+        ((uj.avg_price_nm - oldGroup.avg_price_nm)
+        / oldGroup.avg_price_nm * 100);
+
+    html += `
+
+        <tr>
+
+            <td>${oldGroup.value}</td>
+
+            <td>${Math.round(oldGroup.avg_price_nm)}</td>
+
+            <td>${Math.round(uj.avg_price_nm)}</td>
+
+            <td>${diff >= 0 ? "🟢" : "🔴"} ${diff.toFixed(1)} %</td>
+
+        </tr>
+
+    `;
+
+});
+
+html += "</table>";
 
         document.getElementById("compareResult").innerHTML = html;
 
