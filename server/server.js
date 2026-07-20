@@ -369,8 +369,17 @@ app.get("/api/statistics", async (req, res) => {
 
         const result = await db.query(`
             SELECT *
-            FROM market_snapshots
-            ORDER BY created_at DESC
+            SELECT
+    id,
+    created_at,
+    property_count,
+    avg_price,
+    avg_price_nm,
+    avg_nm,
+    min_price_nm,
+    max_price_nm
+FROM market_snapshots
+ORDER BY created_at ASC
         `);
 
         res.json(result.rows);
