@@ -382,33 +382,6 @@ app.get("/api/statistics", async (req, res) => {
 
     }
 });
-app.get("/api/statistics/:id", async (req, res) => {
-
-    try {
-
-        const snapshot = await db.query(
-            "SELECT * FROM market_snapshots WHERE id=$1",
-            [req.params.id]
-        );
-
-        const groups = await db.query(
-            "SELECT * FROM market_snapshot_groups WHERE snapshot_id=$1",
-            [req.params.id]
-        );
-
-        res.json({
-            snapshot: snapshot.rows[0],
-            groups: groups.rows
-        });
-
-    } catch(err) {
-
-        console.error(err);
-        res.status(500).json(err);
-
-    }
-
-});
 app.get("/api/statistics/trend", async (req, res) => {
 
     try {
@@ -440,6 +413,34 @@ app.get("/api/statistics/trend", async (req, res) => {
     }
 
 });
+app.get("/api/statistics/:id", async (req, res) => {
+
+    try {
+
+        const snapshot = await db.query(
+            "SELECT * FROM market_snapshots WHERE id=$1",
+            [req.params.id]
+        );
+
+        const groups = await db.query(
+            "SELECT * FROM market_snapshot_groups WHERE snapshot_id=$1",
+            [req.params.id]
+        );
+
+        res.json({
+            snapshot: snapshot.rows[0],
+            groups: groups.rows
+        });
+
+    } catch(err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
