@@ -224,9 +224,12 @@ html += `
 
 `;
 
-oldData.groups.forEach(oldGroup => {
+const oldAllapot = oldData.groups.filter(g => g.category === "allapot");
+const newAllapot = newData.groups.filter(g => g.category === "allapot");
 
-    const uj = newData.groups.find(g => g.value === oldGroup.value);
+oldAllapot.forEach(oldGroup => {
+
+    const uj = newAllapot.find(g => g.value === oldGroup.value);
 
     if (!uj)
         return;
@@ -254,6 +257,60 @@ oldData.groups.forEach(oldGroup => {
                 ${diff.toFixed(1)} %
 
             </td>
+
+        </tr>
+
+    `;
+
+});
+
+html += "</table>";
+html += `
+
+<br><br>
+
+<h2>🛏 Szobaszám szerinti változás</h2>
+
+<table class="statTable">
+
+<tr>
+
+    <th>Szobák</th>
+
+    <th>Régi €/m²</th>
+
+    <th>Új €/m²</th>
+
+    <th>Változás</th>
+
+</tr>
+
+`;
+
+const oldRooms = oldData.groups.filter(g => g.category === "szobak");
+const newRooms = newData.groups.filter(g => g.category === "szobak");
+
+oldRooms.forEach(oldGroup => {
+
+    const uj = newRooms.find(g => g.value == oldGroup.value);
+
+    if (!uj) return;
+
+    const diff =
+        ((uj.avg_price_nm - oldGroup.avg_price_nm)
+        / oldGroup.avg_price_nm * 100);
+
+    html += `
+
+        <tr>
+
+            <td>${oldGroup.value}</td>
+
+            <td>${Math.round(oldGroup.avg_price_nm)}</td>
+
+            <td>${Math.round(uj.avg_price_nm)}</td>
+
+            <td>${diff >= 0 ? "🟢" : "🔴"} ${diff.toFixed(1)} %</td>
 
         </tr>
 
