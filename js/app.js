@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("IngatlanPro indult");
 
     UIManager.initMenu();
+    StatisticsManager.init();
 
     DataManager.init();
 

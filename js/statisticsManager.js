@@ -1,5 +1,27 @@
 class StatisticsManager {
 
+    static init() {
+
+        document.getElementById("btnCurrentStatistics").onclick = () => {
+
+            StatisticsManager.loadCurrent();
+
+        };
+
+        document.getElementById("btnHistoryStatistics").onclick = () => {
+
+            StatisticsManager.loadHistory();
+
+        };
+
+        document.getElementById("btnCompareStatistics").onclick = () => {
+
+            CompareStatistics.load();
+
+        };
+
+    }
+
     static load() {
 
         fetch("/api/statistics")
@@ -50,33 +72,17 @@ class StatisticsManager {
 
             };
 
-            if(lista.length > 0){
+            if (lista.length > 0) {
 
                 StatisticsManager.loadSnapshot(lista[0].id);
 
             }
-            document.getElementById("btnCurrentStatistics").onclick = () => {
-
-    StatisticsManager.loadCurrent();
-
-};
-
-document.getElementById("btnHistoryStatistics").onclick = () => {
-
-    StatisticsManager.loadHistory();
-
-};
-document.getElementById("btnCompareStatistics").onclick = () => {
-
-    CompareStatistics.load();
-
-};
 
         });
 
     }
 
-    static loadSnapshot(id){
+    static loadSnapshot(id) {
 
         fetch("/api/statistics/" + id)
 
@@ -104,7 +110,7 @@ document.getElementById("btnCompareStatistics").onclick = () => {
 
                 <br>
 
-                <table border="1" cellpadding="8" cellspacing="0">
+                <table class="statTable">
 
                     <tr>
 
@@ -147,16 +153,17 @@ document.getElementById("btnCompareStatistics").onclick = () => {
         });
 
     }
-    static loadCurrent(){
 
-    CurrentStatistics.load();
+    static loadCurrent() {
 
-}
+        CurrentStatistics.load();
 
-static loadHistory(){
+    }
 
-    StatisticsManager.load();
+    static loadHistory() {
 
-}
+        StatisticsManager.load();
+
+    }
 
 }

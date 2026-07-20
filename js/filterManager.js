@@ -64,11 +64,22 @@ class FilterManager {
 
         DataManager.szurtIngatlanok = lista;
 
-        DashboardManager.load(lista);
+DashboardManager.load(lista);
 
-        TableManager.update(lista);
+TableManager.update(lista);
 
-        MapManager.load(lista);
+MapManager.load(lista);
+
+// Ha a statisztika oldal látható,
+// akkor automatikusan frissítjük.
+
+const page = document.getElementById("pageStatistics");
+
+if (page && page.style.display !== "none") {
+
+    StatisticsManager.loadCurrent();
+
+}
 
     }
 
