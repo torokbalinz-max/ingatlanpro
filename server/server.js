@@ -257,6 +257,74 @@ app.post("/api/statistics/save", async (req, res) => {
             ]);
 
         }
+        const rooms = await db.query(`
+    SELECT
+        szobak,
+        COUNT(*) AS property_count,
+        AVG(ar) AS avg_price,
+        AVG(arnm) AS avg_price_nm
+    FROM ingatlanok
+    GROUP BY szobak
+`);
+
+for (const g of rooms.rows) {
+
+    await db.query(`
+        INSERT INTO market_snapshot_groups
+        (
+            snapshot_id,
+            category,
+            value,
+            property_count,
+            avg_price,
+            avg_price_nm
+        )
+        VALUES ($1,$2,$3,$4,$5,$6)
+    `,
+    [
+        snapshotId,
+        "szobak",
+        g.szobak,
+        g.property_count,
+        g.avg_price,
+        g.avg_price_nm
+    ]);
+
+}
+const floors = await db.query(`
+    SELECT
+        emelet,
+        COUNT(*) AS property_count,
+        AVG(ar) AS avg_price,
+        AVG(arnm) AS avg_price_nm
+    FROM ingatlanok
+    GROUP BY emelet
+`);
+
+for (const g of floors.rows) {
+
+    await db.query(`
+        INSERT INTO market_snapshot_groups
+        (
+            snapshot_id,
+            category,
+            value,
+            property_count,
+            avg_price,
+            avg_price_nm
+        )
+        VALUES ($1,$2,$3,$4,$5,$6)
+    `,
+    [
+        snapshotId,
+        "emelet",
+        g.emelet,
+        g.property_count,
+        g.avg_price,
+        g.avg_price_nm
+    ]);
+
+}
 
         res.json({
             success: true
@@ -271,7 +339,6 @@ app.post("/api/statistics/save", async (req, res) => {
 
 });
 app.get("/api/statistics", async (req, res) => {
-
     try {
 
         const result = await db.query(`
