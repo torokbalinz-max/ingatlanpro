@@ -81,78 +81,172 @@ class StatisticsManager {
         });
 
     }
+static loadSnapshot(id) {
 
-    static loadSnapshot(id) {
+    fetch("/api/statistics/" + id)
+    .then(r => r.json())
+    .then(data => {
 
-        fetch("/api/statistics/" + id)
+        const s = data.snapshot;
 
-        .then(r => r.json())
+        const allapotok = data.groups.filter(g => g.category === "allapot");
+        const szobak = data.groups.filter(g => g.category === "szobak");
+        const emeletek = data.groups.filter(g => g.category === "emelet");
 
-        .then(data => {
+        let html = `
 
-            const s = data.snapshot;
-
-            let html = `
+            <div class="statisticsGrid">
 
                 <div class="statCard">
-
-                    <h2>${new Date(s.created_at).toLocaleString()}</h2>
-
-                    <hr>
-
-                    <p><b>Ingatlanok:</b> ${s.property_count}</p>
-
-                    <p><b>Átlag ár:</b> ${Math.round(s.avg_price).toLocaleString()} €</p>
-
-                    <p><b>Átlag €/m²:</b> ${Math.round(s.avg_price_nm)} €/m²</p>
-
+                    <h3>🏠 Ingatlanok</h3>
+                    <h1>${s.property_count}</h1>
                 </div>
 
-                <br>
+                <div class="statCard">
+                    <h3>💶 Átlag ár</h3>
+                    <h1>${Math.round(s.avg_price).toLocaleString()} €</h1>
+                </div>
 
-                <table class="statTable">
+                <div class="statCard">
+                    <h3>💰 Átlag €/m²</h3>
+                    <h1>${Math.round(s.avg_price_nm)}</h1>
+                </div>
 
-                    <tr>
+            </div>
 
-                        <th>Állapot</th>
+            <br><br>
 
-                        <th>Darab</th>
+            <h2>🔧 Állapot szerinti elemzés</h2>
 
-                        <th>Átlag ár</th>
+            <table class="statTable">
 
-                        <th>€/m²</th>
+                <tr>
 
-                    </tr>
+                    <th>Állapot</th>
+                    <th>Darab</th>
+                    <th>Átlag ár</th>
+                    <th>Átlag €/m²</th>
+
+                </tr>
+
+        `;
+
+        allapotok.forEach(g => {
+
+            html += `
+
+                <tr>
+
+                    <td>${g.value}</td>
+
+                    <td>${g.property_count}</td>
+
+                    <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+
+                    <td>${Math.round(g.avg_price_nm)} €/m²</td>
+
+                </tr>
 
             `;
 
-            data.groups.forEach(g => {
+        });
 
-                html += `
+        html += `
 
-                    <tr>
+            </table>
 
-                        <td>${g.value}</td>
+            <br><br>
 
-                        <td>${g.property_count}</td>
+            <h2>🛏 Szobaszám szerinti elemzés</h2>
 
-                        <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+            <table class="statTable">
 
-                        <td>${Math.round(g.avg_price_nm)} €/m²</td>
+                <tr>
 
-                    </tr>
+                    <th>Szobák</th>
 
-                `;
+                    <th>Darab</th>
 
-            });
+                    <th>Átlag ár</th>
 
-            html += "</table>";
+                    <th>Átlag €/m²</th>
 
-            document.getElementById("snapshotContent").innerHTML = html;
+                </tr>
+
+        `;
+
+        szobak.forEach(g => {
+
+            html += `
+
+                <tr>
+
+                    <td>${g.value}</td>
+
+                    <td>${g.property_count}</td>
+
+                    <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+
+                    <td>${Math.round(g.avg_price_nm)} €/m²</td>
+
+                </tr>
+
+            `;
 
         });
 
-    }
+        html += `
+
+            </table>
+
+            <br><br>
+
+            <h2>🏢 Emelet szerinti elemzés</h2>
+
+            <table class="statTable">
+
+                <tr>
+
+                    <th>Emelet</th>
+
+                    <th>Darab</th>
+
+                    <th>Átlag ár</th>
+
+                    <th>Átlag €/m²</th>
+
+                </tr>
+
+        `;
+
+        emeletek.forEach(g => {
+
+            html += `
+
+                <tr>
+
+                    <td>${g.value}</td>
+
+                    <td>${g.property_count}</td>
+
+                    <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+
+                    <td>${Math.round(g.avg_price_nm)} €/m²</td>
+
+                </tr>
+
+            `;
+
+        });
+
+        html += "</table>";
+
+        document.getElementById("snapshotContent").innerHTML = html;
+
+    });
+
+}
+    
 
     static loadCurrent() {
 
