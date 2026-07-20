@@ -297,10 +297,10 @@ SELECT
 
 CASE
 
-WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 0 THEN 'Földszint'
-WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 1 THEN '1. emelet'
-WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 2 THEN '2. emelet'
-WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 3 THEN '3. emelet'
+WHEN COALESCE(NULLIF(split_part(emelet,'/',1),''),'0')::int = 0 THEN 'Földszint'
+WHEN COALESCE(NULLIF(split_part(emelet,'/',1),''),'0')::int = 1 THEN '1. emelet'
+WHEN COALESCE(NULLIF(split_part(emelet,'/',1),''),'0')::int = 2 THEN '2. emelet'
+WHEN COALESCE(NULLIF(split_part(emelet,'/',1),''),'0')::int = 3 THEN '3. emelet'
 ELSE '4+ emelet'
 
 END AS emelet,
@@ -315,15 +315,15 @@ GROUP BY
 
 CASE
 
-WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 0 THEN 'Földszint'
-WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 1 THEN '1. emelet'
-WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 2 THEN '2. emelet'
-WHEN CAST(split_part(emelet || '/', '/', 1) AS INTEGER) = 3 THEN '3. emelet'
+WHEN COALESCE(NULLIF(split_part(emelet,'/',1),''),'0')::int = 0 THEN 'Földszint'
+WHEN COALESCE(NULLIF(split_part(emelet,'/',1),''),'0')::int = 1 THEN '1. emelet'
+WHEN COALESCE(NULLIF(split_part(emelet,'/',1),''),'0')::int = 2 THEN '2. emelet'
+WHEN COALESCE(NULLIF(split_part(emelet,'/',1),''),'0')::int = 3 THEN '3. emelet'
 ELSE '4+ emelet'
 
 END
 
-ORDER BY 1;
+ORDER BY 1
 
 `);
 console.log("FLOORS:", floors.rows);
