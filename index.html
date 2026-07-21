@@ -331,138 +331,125 @@ class="btn btn-primary w-100">
 <!-- ===================== TÁBLÁZAT + ADATLAP ===================== -->
 
 <div class="row mt-4" id="mainContent">
-<div class="col-lg-8">
 
-<div class="card shadow">
+    <div class="col-lg-8">
 
-<div class="card-header">
+        <div class="card shadow">
 
-<h4>
+            <div class="card-header">
 
-<i class="fa-solid fa-table"></i>
+                <h4>
+                    <i class="fa-solid fa-table"></i>
+                    Ingatlanok
+                </h4>
 
-</div>
+            </div>
 
-<div class="card-body">
+            <div class="card-body">
 
-<div
-    id="ingatlanGrid"
-    class="ag-theme-quartz"
-    style="height:700px;width:100%;">
+                <div
+                    id="ingatlanGrid"
+                    class="ag-theme-quartz"
+                    style="height:700px;width:100%;">
+                </div>
 
-</div>
+            </div>
 
-</div>
+        </div>
 
-</div>
+    </div>
 
-</div>
+    <div class="col-lg-4">
 
-</div>
+        <div class="card shadow">
 
-<div class="col-lg-4">
+            <div class="card-header">
 
-<div class="card shadow">
+                <h4>
 
-<div class="card-header">
+                    <i class="fa-solid fa-house"></i>
 
-<h4>
+                    Ingatlan adatai
 
-<i class="fa-solid fa-house"></i>
+                </h4>
 
-Ingatlan adatai
+            </div>
 
-</h4>
+            <div class="card-body">
 
-</div>
+                <h3 id="detailId">
+                    Nincs kiválasztva
+                </h3>
 
-<div class="card-body">
+                <hr>
 
-<h3 id="detailId">
-Nincs kiválasztva
+                <p>
+                    <b>💰 Ár:</b>
+                    <span id="detailAr">-</span>
+                </p>
 
-</h3>
+                <p>
+                    <b>📐 Nm:</b>
+                    <span id="detailNm">-</span>
+                </p>
 
-<hr>
+                <p>
+                    <b>🛏 Szobák:</b>
+                    <span id="detailSzoba">-</span>
+                </p>
 
-<p>
+                <p>
+                    <b>🏢 Emelet:</b>
+                    <span id="detailEmelet">-</span>
+                </p>
 
-<b>💰 Ár:</b>
+                <p>
+                    <b>🔧 Állapot:</b>
+                    <span id="detailAllapot">-</span>
+                </p>
 
-<span id="detailAr">-</span>
+                <hr>
 
-</p>
+                <a
+                    id="detailLink"
+                    target="_blank"
+                    class="btn btn-primary w-100">
 
-<p>
+                    Megnyitás
 
-<b>📐 Nm:</b>
+                </a>
 
-<span id="detailNm">-</span>
+                <button
+                    id="btnEdit"
+                    class="btn btn-warning w-100 mt-2">
 
-</p>
+                    ✏️ Ingatlan szerkesztése
 
-<p>
+                </button>
 
-<b>🛏 Szobák:</b>
+                <hr>
 
-<span id="detailSzoba">-</span>
+                <button
+                    id="btnDelete"
+                    class="btn btn-danger w-100">
 
-</p>
+                    🗑️ Ingatlan törlése
 
-<p>
+                </button>
 
-<b>🏢 Emelet:</b>
+                <button
+                    id="btnSaveStatistics"
+                    class="btn btn-success w-100 mt-2">
 
-<span id="detailEmelet">-</span>
+                    💾 Piaci állapot mentése
 
-</p>
+                </button>
 
-<p>
+            </div>
 
-<b>🔧 Állapot:</b>
+        </div>
 
-<span id="detailAllapot">-</span>
-
-</p>
-
-<hr>
-
-<a
-
-id="detailLink"
-
-target="_blank"
-
-class="btn btn-primary w-100">
-
-Megnyitás
-
-</a>
-<button
-    id="btnEdit"
-    class="btn btn-warning w-100 mt-2">
-
-    ✏️ Ingatlan szerkesztése
-
-</button>
-<hr>
-
-<button
-    id="btnDelete"
-    class="btn btn-danger w-100">
-
-    🗑️ Ingatlan törlése
-
-</button>
-<button id="btnSaveStatistics">
-    💾 Piaci állapot mentése
-</button>
-
-</div>
-
-</div>
-
-</div>
+    </div>
 
 </div>
 <!-- ===================== TÉRKÉP ===================== -->
