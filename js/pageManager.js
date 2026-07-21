@@ -40,6 +40,7 @@ class PageManager {
             // A statisztika rész jelenjen meg
             statistics.style.display = "block";
 
+            StatisticsManager.init();
             StatisticsManager.loadCurrent();
 
         }
