@@ -2,19 +2,27 @@ class PageManager {
 
     static show(page) {
 
-        // Minden oldal elrejtése
+        const dashboard = document.getElementById("pageDashboard");
+        const newPage = document.getElementById("pageNew");
+        const statistics = document.getElementById("pageStatistics");
 
-        document.getElementById("pageDashboard").style.display = "none";
-        document.getElementById("pageNew").style.display = "none";
-        document.getElementById("pageStatistics").style.display = "none";
+        // Alapból minden elrejtése
+        dashboard.style.display = "none";
+        newPage.style.display = "none";
 
-        // Kiválasztott oldal megjelenítése
+        // A statisztika most már a dashboard része,
+        // ezért csak ezt rejtsük el külön.
+        statistics.style.display = "none";
 
-        document.getElementById(page).style.display = "block";
+        if (page === "pageDashboard") {
 
-        // Ha új ingatlan oldal
+            dashboard.style.display = "block";
+
+        }
 
         if (page === "pageNew") {
+
+            newPage.style.display = "block";
 
             setTimeout(() => {
 
@@ -24,9 +32,13 @@ class PageManager {
 
         }
 
-        // Ha statisztika oldal
-
         if (page === "pageStatistics") {
+
+            // Dashboard látszik, mert ebben van a statisztika
+            dashboard.style.display = "block";
+
+            // A statisztika rész jelenjen meg
+            statistics.style.display = "block";
 
             StatisticsManager.loadCurrent();
 
