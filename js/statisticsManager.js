@@ -258,6 +258,11 @@ static loadSnapshot(id) {
         CurrentStatistics.load();
 
     }
+    setTimeout(() => {
+
+    TrendStatistics.load();
+
+}, 100);
 
     static loadHistory() {
 

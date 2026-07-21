@@ -64,11 +64,14 @@ switch(type){
             Number(x[type])
         );
 
-    if(window.trendChart){
+    if (
+    window.trendChart &&
+    typeof window.trendChart.destroy === "function"
+) {
 
-        window.trendChart.destroy();
+    window.trendChart.destroy();
 
-    }
+}
 
     window.trendChart = new Chart(
 
@@ -121,6 +124,23 @@ switch(type){
     );
 
 });
+document.getElementById("trendFrom").onchange = () => {
+
+    TrendStatistics.load();
+
+};
+
+document.getElementById("trendTo").onchange = () => {
+
+    TrendStatistics.load();
+
+};
+
+document.getElementById("trendType").onchange = () => {
+
+    TrendStatistics.load();
+
+};
 
     }
 
