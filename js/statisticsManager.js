@@ -253,21 +253,14 @@ static loadSnapshot(id) {
 }
     
 
-    static loadCurrent() {
+ static loadCurrent() {
 
-        CurrentStatistics.load();
-
-    }
-    setTimeout(() => {
-
-    TrendStatistics.load();
-
-}, 100);
-
-    static loadHistory() {
-
-    StatisticsManager.load();
+    CurrentStatistics.load();
 
 }
+
+static loadHistory() {
+
+    StatisticsManager.load();
 
 }
