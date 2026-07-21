@@ -3,17 +3,17 @@ class PageManager {
     static show(page) {
 
         // Minden oldal elrejtése
+
         document.getElementById("pageDashboard").style.display = "none";
         document.getElementById("pageNew").style.display = "none";
         document.getElementById("pageStatistics").style.display = "none";
 
-        // Ingatlanlista alapból látszik
-        document.getElementById("propertyContent").style.display = "block";
+        // Kiválasztott oldal megjelenítése
 
-        // Kiválasztott oldal
         document.getElementById(page).style.display = "block";
 
-        // Új ingatlan
+        // Ha új ingatlan oldal
+
         if (page === "pageNew") {
 
             setTimeout(() => {
@@ -24,11 +24,9 @@ class PageManager {
 
         }
 
-        // Piaci statisztikák
-        if (page === "pageStatistics") {
+        // Ha statisztika oldal
 
-            document.getElementById("propertyContent").style.display = "none";
-            document.getElementById("pageStatistics").style.display = "block";
+        if (page === "pageStatistics") {
 
             StatisticsManager.loadCurrent();
 
