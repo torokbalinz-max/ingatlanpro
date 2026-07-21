@@ -5,17 +5,11 @@ class StatisticsManager {
 
         document.getElementById("btnCurrentStatistics").onclick = () => {
 
-    document.getElementById("mainContent").style.display = "none";
-    document.getElementById("pageStatistics").style.display = "block";
-
     StatisticsManager.loadCurrent();
 
 };
 
 document.getElementById("btnHistoryStatistics").onclick = () => {
-
-    document.getElementById("mainContent").style.display = "none";
-    document.getElementById("pageStatistics").style.display = "block";
 
     StatisticsManager.loadHistory();
 
@@ -23,26 +17,13 @@ document.getElementById("btnHistoryStatistics").onclick = () => {
 
 document.getElementById("btnCompareStatistics").onclick = () => {
 
-    document.getElementById("mainContent").style.display = "none";
-    document.getElementById("pageStatistics").style.display = "block";
-
     CompareStatistics.load();
 
 };
 
 document.getElementById("btnTrend").onclick = () => {
 
-    document.getElementById("mainContent").style.display = "none";
-    document.getElementById("pageStatistics").style.display = "block";
-
     TrendStatistics.load();
-
-};
-
-document.getElementById("btnBackToProperties").onclick = () => {
-
-    document.getElementById("pageStatistics").style.display = "none";
-    document.getElementById("mainContent").style.display = "flex";
 
 };
 
