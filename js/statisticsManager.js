@@ -4,18 +4,24 @@ class StatisticsManager {
         console.count("TrendStatistics.load");
 
         document.getElementById("btnCurrentStatistics").onclick = () => {
+            document.getElementById("propertyContent").style.display = "none";
+            document.getElementById("pageStatistics").style.display = "block";
 
     StatisticsManager.loadCurrent();
 
 };
 
 document.getElementById("btnHistoryStatistics").onclick = () => {
+    document.getElementById("propertyContent").style.display = "none";
+    document.getElementById("pageStatistics").style.display = "block";
 
     StatisticsManager.loadHistory();
 
 };
 
 document.getElementById("btnCompareStatistics").onclick = () => {
+    document.getElementById("propertyContent").style.display = "none";
+    document.getElementById("pageStatistics").style.display = "block";
 
     CompareStatistics.load();
 

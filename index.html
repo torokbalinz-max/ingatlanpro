@@ -341,21 +341,49 @@ class="btn btn-primary w-100">
 
 <i class="fa-solid fa-table"></i>
 
-Ingatlanok
+</div>
 
-</h4>
+<div id="pageStatistics" class="page" style="display:none;">
+
+    <h2>📊 Piaci statisztikák</h2>
+
+    <div class="statisticsTabs">
+
+        <button id="btnCurrentStatistics">
+            📈 Jelenlegi piac
+        </button>
+
+        <button id="btnHistoryStatistics">
+            🕒 Piaci előzmények
+        </button>
+
+        <button id="btnCompareStatistics">
+            📊 Piaci összehasonlítás
+        </button>
+
+        <button id="btnTrend">
+            📈 Ártrend
+        </button>
+
+    </div>
+
+    <hr>
+
+    <div id="statisticsContainer"></div>
 
 </div>
 
 <div class="card-body">
 
-<div
+    <div id="propertyContent">
 
-id="ingatlanGrid"
+        <div
+            id="ingatlanGrid"
+            class="ag-theme-quartz"
+            style="height:700px;width:100%;">
+        </div>
 
-class="ag-theme-quartz"
-
-style="height:700px;width:100%;">
+    </div>
 
 </div>
 
@@ -384,7 +412,6 @@ Ingatlan adatai
 <div class="card-body">
 
 <h3 id="detailId">
-
 Nincs kiválasztva
 
 </h3>
@@ -717,30 +744,7 @@ class="btn btn-success btn-lg">
 </div>
 
 </div>
-<div id="pageStatistics" class="page">
 
-    <h2>📊 Piaci statisztikák</h2>
-
-    <div class="statisticsTabs">
-
-        <button id="btnCurrentStatistics">
-            📈 Jelenlegi piac
-        </button>
-
-        <button id="btnHistoryStatistics">
-            🕒 Piaci előzmények
-        </button>
-        <button id="btnCompareStatistics">
-        📊 Piaci összehasonlítás
-        </button>
-
-    </div>
-
-    <hr>
-
-    <div id="statisticsContainer"></div>
-
-</div>
 <hr>
 
 
