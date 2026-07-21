@@ -16,6 +16,23 @@ class TrendStatistics {
 
     const type =
         document.getElementById("trendType").value;
+        let chartLabel = "";
+
+switch(type){
+
+    case "avg_price_nm":
+        chartLabel = "Átlag €/m²";
+        break;
+
+    case "avg_price":
+        chartLabel = "Átlag ár (€)";
+        break;
+
+    case "property_count":
+        chartLabel = "Ingatlanok száma";
+        break;
+
+}
 
     let adatok = lista;
 
@@ -69,7 +86,7 @@ class TrendStatistics {
 
                     {
 
-                        label:type,
+                        label: chartLabel,
 
                         data:values,
 
