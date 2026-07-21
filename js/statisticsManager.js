@@ -1,6 +1,7 @@
 class StatisticsManager {
 
     static init() {
+        console.count("TrendStatistics.load");
 
         document.getElementById("btnCurrentStatistics").onclick = () => {
 
