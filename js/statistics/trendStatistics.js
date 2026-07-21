@@ -129,8 +129,6 @@ class TrendStatistics {
 }
 
             const ctx = document.getElementById("trendChart").getContext("2d");
-            console.log(window.Chart);
-            console.log(window.trendChart);
 
 window.trendChart = new Chart(ctx, {
 
