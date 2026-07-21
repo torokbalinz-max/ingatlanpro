@@ -1,11 +1,11 @@
 /* ==========================================================================
-   2026 DESIGN SYSTEM & REBOOT
+   2026 DESIGN SYSTEM & REBOOT — INGATLANPRO PREMIUM EDITION
    ========================================================================== */
 :root {
     /* Modern Színpaletta */
     --bg-primary: #f8fafc;
     --bg-secondary: #ffffff;
-    --bg-surface: rgba(255, 255, 255, 0.75);
+    --bg-surface: rgba(255, 255, 255, 0.85);
     
     --text-primary: #0f172a;
     --text-secondary: #475569;
@@ -14,63 +14,106 @@
     --accent: #2563eb;
     --accent-hover: #1d4ed8;
     --accent-light: rgba(37, 99, 235, 0.08);
+    --accent-glow: rgba(37, 99, 235, 0.25);
+    
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
     
     --border-color: #e2e8f0;
+    --border-hover: #cbd5e1;
     
     /* UI Kerekítések & Geometria */
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 20px;
+    --radius-full: 9999px;
     
     /* Többrétegű Prémium Árnyékok */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
-    --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.03), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
     
-    /* Folyamatos Animációk */
+    /* Animációk */
     --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Alapbeállítások javítása */
-* {
+/* ==========================================================================
+   ALAPBEÁLLÍTÁSOK & ALAP RAJZOLÁS
+   ========================================================================== */
+*, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
+html {
+    scroll-behavior: smooth;
+}
+
 body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    /* Az Arial helyett reszponzív rendszer-betűkészlet a prémium natív hatásért */
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
-    line-height: 1.5;
+    line-height: 1.6;
     transition: var(--transition);
 }
 
+a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+a:hover {
+    color: var(--accent-hover);
+}
+
 /* ==========================================================================
-   NAVBAR & MÁRKALJELZÉS
+   NAVBAR & FEJLÉC (Glassmorphism effekt)
    ========================================================================== */
 .navbar {
-    background: var(--bg-secondary);
+    background: var(--bg-surface) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
-    padding: 1rem 1.5rem;
+    padding: 0.85rem 1.75rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
 .navbar-brand {
-    font-size: 24px; /* Finomított méret */
-    font-weight: 800; /* Extra vastag modern tipográfia */
+    font-size: 1.35rem;
+    font-weight: 800;
     letter-spacing: -0.03em;
-    color: var(--text-primary);
-    background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
+    background: linear-gradient(135deg, var(--text-primary) 30%, var(--accent) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nav-link {
+    color: var(--text-secondary) !important;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem !important;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.nav-link:hover, .nav-link.active {
+    color: var(--accent) !important;
+    background-color: var(--accent-light);
 }
 
 /* ==========================================================================
-   BENTO KÁRTYÁK (CARDS)
+   BENTO KÁRTYÁK & KONTÉNERI
    ========================================================================== */
 .card {
     background: var(--bg-secondary);
@@ -83,19 +126,22 @@ body {
 }
 
 .card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-lg);
-    border-color: rgba(37, 99, 235, 0.2) !important;
+    border-color: rgba(37, 99, 235, 0.3) !important;
 }
 
 .card-header {
     background: var(--bg-secondary) !important;
     border-bottom: 1px solid var(--border-color) !important;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 1.1rem;
     letter-spacing: -0.02em;
     color: var(--text-primary);
     padding: 1.25rem 1.5rem !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .card-body {
@@ -103,39 +149,142 @@ body {
 }
 
 /* ==========================================================================
-   TÉRKÉP MODUL (MAP)
+   ŰRLAPOK, INPUTOK & SZŰRŐK
+   ========================================================================== */
+.form-control, .form-select {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-light);
+    outline: none;
+    background-color: var(--bg-secondary);
+}
+
+.form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin-bottom: 0.4rem;
+}
+
+/* ==========================================================================
+   GOMBOK (BUTTONS)
+   ========================================================================== */
+.btn {
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    padding: 0.75rem 1.25rem;
+    transition: var(--transition);
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px var(--accent-glow);
+}
+
+.btn-outline-primary {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: transparent;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--accent-light);
+    color: var(--accent-hover);
+}
+
+.btn-secondary {
+    background-color: var(--bg-primary);
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.btn-secondary:hover {
+    background-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+/* ==========================================================================
+   TÉRKÉP MODUL (Leaflet / OpenStreetMap)
    ========================================================================== */
 #map {
     width: 100%;
-    height: 600px;
+    height: 580px;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-md);
     transition: var(--transition);
+    z-index: 1;
 }
 
 #map:hover {
     box-shadow: var(--shadow-lg);
 }
 
+/* Leaflet felugró ablak (Popup) stílus */
+.leaflet-popup-content-wrapper {
+    border-radius: var(--radius-md) !important;
+    padding: 0.5rem !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+.leaflet-popup-content {
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
 /* ==========================================================================
-   ALAP TÁBLÁZAT STRUKTÚRA
+   PRÉMIUM TÁBLÁZAT STRUKTÚRA
    ========================================================================== */
+.table-responsive {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
 table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 14px; /* Kicsit kompaktabb, olvashatóbb adat-sűrűség */
+    font-size: 0.9rem;
     color: var(--text-secondary);
+    margin: 0 !important;
 }
 
 th {
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     font-size: 0.75rem;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     padding: 1rem 1.25rem;
     border-bottom: 1px solid var(--border-color);
 }
@@ -143,6 +292,7 @@ th {
 td {
     padding: 1rem 1.25rem;
     border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
     transition: var(--transition);
 }
 
@@ -156,9 +306,61 @@ tr:hover td {
 }
 
 /* ==========================================================================
-   MODERN INPUTOK & GOMBOK ALAPJAI
+   BADGE-EK (Címkék) & ÁR JELZŐK
    ========================================================================== */
-input, select, .btn {
-    border-radius: var(--radius-md);
-    transition: var(--transition);
+.badge {
+    padding: 0.35em 0.75em;
+    font-weight: 600;
+    font-size: 0.75rem;
+    border-radius: var(--radius-full);
+    letter-spacing: 0.02em;
+}
+
+.badge-primary, .bg-primary {
+    background-color: var(--accent-light) !important;
+    color: var(--accent) !important;
+    border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.badge-success, .bg-success {
+    background-color: rgba(16, 185, 129, 0.1) !important;
+    color: var(--success) !important;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.price-tag {
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+}
+
+/* ==========================================================================
+   LÁBLÉC (FOOTER)
+   ========================================================================== */
+footer {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: 2.5rem 1.5rem;
+    margin-top: 4rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* ==========================================================================
+   RESZPONZÍV JAVÍTÁSOK
+   ========================================================================== */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+
+    #map {
+        height: 400px;
+    }
+
+    th, td {
+        padding: 0.75rem 0.85rem;
+    }
 }
