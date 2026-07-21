@@ -127,11 +127,9 @@ class TrendStatistics {
 
             }
 
-            window.trendChart = new Chart(
+            const ctx = document.getElementById("trendChart").getContext("2d");
 
-                document.getElementById("trendChart"),
-
-                {
+window.trendChart = new Chart(ctx, {
 
                     type: "line",
 
@@ -154,18 +152,37 @@ class TrendStatistics {
                                 fill: false
 
                             }
-
                         ]
 
                     },
 
                     options: {
 
-                        responsive: true,
+    responsive: true,
 
-                        maintainAspectRatio: false
+    maintainAspectRatio: false,
 
-                    }
+    plugins: {
+
+        legend: {
+
+            display: true
+
+        }
+
+    },
+
+    scales: {
+
+        y: {
+
+            beginAtZero: false
+
+        }
+
+    }
+
+}
 
                 }
 
