@@ -121,13 +121,16 @@ class TrendStatistics {
                 Number(x[type])
             );
 
-            if(window.trendChart){
-
-                window.trendChart.destroy();
-
-            }
+            if (
+    window.trendChart &&
+    typeof window.trendChart.destroy === "function"
+) {
+    window.trendChart.destroy();
+}
 
             const ctx = document.getElementById("trendChart").getContext("2d");
+            console.log(window.Chart);
+            console.log(window.trendChart);
 
 window.trendChart = new Chart(ctx, {
 
