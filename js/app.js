@@ -51,29 +51,38 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 100);
 
     };
-    // ===================== SÖTÉT MÓD =====================
+    // =======================
+// DARK MODE
+// =======================
 
-const body = document.body;
+const btnDark = document.getElementById("btnDarkMode");
 
-if (localStorage.getItem("theme") === "dark") {
+if (btnDark) {
 
-    body.classList.add("dark-mode");
+    if (localStorage.getItem("theme") === "dark") {
 
-}
-
-document.getElementById("btnDarkMode").onclick = () => {
-
-    body.classList.toggle("dark-mode");
-
-    if (body.classList.contains("dark-mode")) {
-
-        localStorage.setItem("theme", "dark");
-
-    } else {
-
-        localStorage.setItem("theme", "light");
+        document.body.classList.add("dark-mode");
+        btnDark.innerHTML = "☀️ Világos mód";
 
     }
 
-};
+    btnDark.onclick = () => {
+
+        document.body.classList.toggle("dark-mode");
+
+        if (document.body.classList.contains("dark-mode")) {
+
+            localStorage.setItem("theme", "dark");
+            btnDark.innerHTML = "☀️ Világos mód";
+
+        } else {
+
+            localStorage.setItem("theme", "light");
+            btnDark.innerHTML = "🌙 Sötét mód";
+
+        }
+
+    };
+
+}
 });
