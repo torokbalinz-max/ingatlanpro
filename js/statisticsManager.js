@@ -2,23 +2,45 @@ class StatisticsManager {
 
     static init() {
 
-        document.getElementById("btnCurrentStatistics").onclick = () => {
-            StatisticsManager.loadCurrent();
-        };
+    const buttons = document.querySelectorAll(".statisticsButton");
 
-        document.getElementById("btnHistoryStatistics").onclick = () => {
-            StatisticsManager.loadHistory();
-        };
+    function activate(buttonId){
 
-        document.getElementById("btnCompareStatistics").onclick = () => {
-            CompareStatistics.load();
-        };
+        buttons.forEach(b => b.classList.remove("active"));
 
-        document.getElementById("btnTrend").onclick = () => {
-            TrendStatistics.load();
-        };
+        document.getElementById(buttonId).classList.add("active");
 
     }
+
+    document.getElementById("btnCurrentStatistics").onclick = () => {
+
+        activate("btnCurrentStatistics");
+        StatisticsManager.loadCurrent();
+
+    };
+
+    document.getElementById("btnHistoryStatistics").onclick = () => {
+
+        activate("btnHistoryStatistics");
+        StatisticsManager.loadHistory();
+
+    };
+
+    document.getElementById("btnCompareStatistics").onclick = () => {
+
+        activate("btnCompareStatistics");
+        CompareStatistics.load();
+
+    };
+
+    document.getElementById("btnTrend").onclick = () => {
+
+        activate("btnTrend");
+        TrendStatistics.load();
+
+    };
+
+}
 
     static load() {
 

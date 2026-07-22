@@ -476,36 +476,55 @@ class="btn btn-primary w-100">
 
 </div>
 <!-- ===== Dashboard vége ===== -->
+
 <div id="pageStatistics" class="page" style="display:none;">
 
-    <h2>📊 Piaci statisztikák</h2>
+    <h2 class="statisticsTitle">
+        <i class="fa-solid fa-chart-simple"></i>
+        Piaci statisztikák
+    </h2>
 
-    <div class="statisticsTabs">
+    <div class="statisticsMenu">
 
-        <button id="btnCurrentStatistics">
-            📈 Jelenlegi piac
+        <button id="btnCurrentStatistics" class="statisticsButton active">
+
+            <i class="fa-solid fa-chart-column"></i>
+
+            <span>Jelenlegi piac</span>
+
         </button>
 
-        <button id="btnHistoryStatistics">
-            🕒 Piaci előzmények
+        <button id="btnHistoryStatistics" class="statisticsButton">
+
+            <i class="fa-solid fa-clock-rotate-left"></i>
+
+            <span>Piaci előzmények</span>
+
         </button>
 
-        <button id="btnCompareStatistics">
-            📊 Piaci összehasonlítás
+        <button id="btnCompareStatistics" class="statisticsButton">
+
+            <i class="fa-solid fa-scale-balanced"></i>
+
+            <span>Piaci összehasonlítás</span>
+
         </button>
 
-        <button id="btnTrend">
-            📈 Ártrend
+        <button id="btnTrend" class="statisticsButton">
+
+            <i class="fa-solid fa-chart-line"></i>
+
+            <span>Ártrend</span>
+
         </button>
 
     </div>
 
-    <hr>
+    <hr class="statisticsDivider">
 
     <div id="statisticsContainer"></div>
 
 </div>
-
 <!-- ===================== ÚJ INGATLAN ===================== -->
 
 <div id="pageNew" style="display:none;">
