@@ -32,12 +32,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
     };
+
     document.getElementById("btnStatistics").onclick = () => {
 
-    PageManager.show("pageStatistics");
+        PageManager.show("pageStatistics");
 
-    StatisticsManager.load();
+        StatisticsManager.loadCurrent();
 
-};
+        setTimeout(() => {
+
+            document.getElementById("pageStatistics").scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+            });
+
+        }, 50);
+
+    };
 
 });
