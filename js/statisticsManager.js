@@ -1,275 +1,222 @@
 class StatisticsManager {
 
     static init() {
-        console.count("TrendStatistics.load");
 
         document.getElementById("btnCurrentStatistics").onclick = () => {
-            document.getElementById("propertyContent").style.display = "none";
-            document.getElementById("pageStatistics").style.display = "block";
+            StatisticsManager.loadCurrent();
+        };
 
-    StatisticsManager.loadCurrent();
+        document.getElementById("btnHistoryStatistics").onclick = () => {
+            StatisticsManager.loadHistory();
+        };
 
-};
+        document.getElementById("btnCompareStatistics").onclick = () => {
+            CompareStatistics.load();
+        };
 
-document.getElementById("btnHistoryStatistics").onclick = () => {
-    document.getElementById("propertyContent").style.display = "none";
-    document.getElementById("pageStatistics").style.display = "block";
-
-    StatisticsManager.loadHistory();
-
-};
-
-document.getElementById("btnCompareStatistics").onclick = () => {
-    document.getElementById("propertyContent").style.display = "none";
-    document.getElementById("pageStatistics").style.display = "block";
-
-    CompareStatistics.load();
-
-};
-
-document.getElementById("btnTrend").onclick = () => {
-
-    TrendStatistics.load();
-
-};
+        document.getElementById("btnTrend").onclick = () => {
+            TrendStatistics.load();
+        };
 
     }
 
     static load() {
 
         fetch("/api/statistics")
-        .then(r => r.json())
-        .then(lista => {
+            .then(r => r.json())
+            .then(lista => {
 
-            let html = `
+                let html = `
 
-                <div style="margin-bottom:20px;">
+                    <div style="margin-bottom:20px;">
 
-                    <label><b>Piaci mentés:</b></label>
+                        <label><b>Piaci mentés:</b></label>
 
-                    <select id="snapshotSelect">
+                        <select id="snapshotSelect">
 
-            `;
+                `;
 
-            lista.forEach(s => {
+                lista.forEach(s => {
+
+                    html += `
+                        <option value="${s.id}">
+                            ${new Date(s.created_at).toLocaleString()}
+                        </option>
+                    `;
+
+                });
 
                 html += `
-                    <option value="${s.id}">
-                        ${new Date(s.created_at).toLocaleString()}
-                    </option>
+
+                        </select>
+
+                        <button id="btnLoadSnapshot">
+                            Betöltés
+                        </button>
+
+                    </div>
+
+                    <div id="snapshotContent"></div>
+
                 `;
+
+                document.getElementById("statisticsContainer").innerHTML = html;
+
+                document.getElementById("btnLoadSnapshot").onclick = () => {
+
+                    StatisticsManager.loadSnapshot(
+                        document.getElementById("snapshotSelect").value
+                    );
+
+                };
+
+                if (lista.length > 0) {
+                    StatisticsManager.loadSnapshot(lista[0].id);
+                }
 
             });
 
-            html += `
+    }
 
-                    </select>
+    static loadSnapshot(id) {
 
-                    <button id="btnLoadSnapshot">
-                        Betöltés
-                    </button>
+        fetch("/api/statistics/" + id)
+            .then(r => r.json())
+            .then(data => {
 
-                </div>
+                const s = data.snapshot;
 
-                <div id="snapshotContent"></div>
+                const allapotok = data.groups.filter(g => g.category === "allapot");
+                const szobak = data.groups.filter(g => g.category === "szobak");
+                const emeletek = data.groups.filter(g => g.category === "emelet");
 
-            `;
+                let html = `
 
-            document.getElementById("statisticsContainer").innerHTML = html;
+                    <div class="statisticsGrid">
 
-            document.getElementById("btnLoadSnapshot").onclick = () => {
+                        <div class="statCard">
+                            <h3>🏠 Ingatlanok</h3>
+                            <h1>${s.property_count}</h1>
+                        </div>
 
-                StatisticsManager.loadSnapshot(
-                    document.getElementById("snapshotSelect").value
-                );
+                        <div class="statCard">
+                            <h3>💶 Átlag ár</h3>
+                            <h1>${Math.round(s.avg_price).toLocaleString()} €</h1>
+                        </div>
 
-            };
+                        <div class="statCard">
+                            <h3>💰 Átlag €/m²</h3>
+                            <h1>${Math.round(s.avg_price_nm)}</h1>
+                        </div>
 
-            if (lista.length > 0) {
+                    </div>
 
-                StatisticsManager.loadSnapshot(lista[0].id);
+                    <br><br>
 
-            }
+                    <h2>🔧 Állapot szerinti elemzés</h2>
 
-        });
+                    <table class="statTable">
+
+                        <tr>
+                            <th>Állapot</th>
+                            <th>Darab</th>
+                            <th>Átlag ár</th>
+                            <th>Átlag €/m²</th>
+                        </tr>
+
+                `;
+
+                allapotok.forEach(g => {
+
+                    html += `
+                        <tr>
+                            <td>${g.value}</td>
+                            <td>${g.property_count}</td>
+                            <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+                            <td>${Math.round(g.avg_price_nm)} €/m²</td>
+                        </tr>
+                    `;
+
+                });
+
+                html += `
+
+                    </table>
+
+                    <br><br>
+
+                    <h2>🛏 Szobaszám szerinti elemzés</h2>
+
+                    <table class="statTable">
+
+                        <tr>
+                            <th>Szobák</th>
+                            <th>Darab</th>
+                            <th>Átlag ár</th>
+                            <th>Átlag €/m²</th>
+                        </tr>
+
+                `;
+
+                szobak.forEach(g => {
+
+                    html += `
+                        <tr>
+                            <td>${g.value}</td>
+                            <td>${g.property_count}</td>
+                            <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+                            <td>${Math.round(g.avg_price_nm)} €/m²</td>
+                        </tr>
+                    `;
+
+                });
+
+                html += `
+
+                    </table>
+
+                    <br><br>
+
+                    <h2>🏢 Emelet szerinti elemzés</h2>
+
+                    <table class="statTable">
+
+                        <tr>
+                            <th>Emelet</th>
+                            <th>Darab</th>
+                            <th>Átlag ár</th>
+                            <th>Átlag €/m²</th>
+                        </tr>
+
+                `;
+
+                emeletek.forEach(g => {
+
+                    html += `
+                        <tr>
+                            <td>${g.value}</td>
+                            <td>${g.property_count}</td>
+                            <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+                            <td>${Math.round(g.avg_price_nm)} €/m²</td>
+                        </tr>
+                    `;
+
+                });
+
+                html += `</table>`;
+
+                document.getElementById("snapshotContent").innerHTML = html;
+
+            });
 
     }
-static loadSnapshot(id) {
 
-    fetch("/api/statistics/" + id)
-    .then(r => r.json())
-    .then(data => {
+    static loadCurrent() {
+        CurrentStatistics.load();
+    }
 
-        const s = data.snapshot;
+    static loadHistory() {
+        StatisticsManager.load();
+    }
 
-        const allapotok = data.groups.filter(g => g.category === "allapot");
-        const szobak = data.groups.filter(g => g.category === "szobak");
-        const emeletek = data.groups.filter(g => g.category === "emelet");
-
-        let html = `
-
-            <div class="statisticsGrid">
-
-                <div class="statCard">
-                    <h3>🏠 Ingatlanok</h3>
-                    <h1>${s.property_count}</h1>
-                </div>
-
-                <div class="statCard">
-                    <h3>💶 Átlag ár</h3>
-                    <h1>${Math.round(s.avg_price).toLocaleString()} €</h1>
-                </div>
-
-                <div class="statCard">
-                    <h3>💰 Átlag €/m²</h3>
-                    <h1>${Math.round(s.avg_price_nm)}</h1>
-                </div>
-
-            </div>
-
-            <br><br>
-
-            <h2>🔧 Állapot szerinti elemzés</h2>
-
-            <table class="statTable">
-
-                <tr>
-
-                    <th>Állapot</th>
-                    <th>Darab</th>
-                    <th>Átlag ár</th>
-                    <th>Átlag €/m²</th>
-
-                </tr>
-
-        `;
-
-        allapotok.forEach(g => {
-
-            html += `
-
-                <tr>
-
-                    <td>${g.value}</td>
-
-                    <td>${g.property_count}</td>
-
-                    <td>${Math.round(g.avg_price).toLocaleString()} €</td>
-
-                    <td>${Math.round(g.avg_price_nm)} €/m²</td>
-
-                </tr>
-
-            `;
-
-        });
-
-        html += `
-
-            </table>
-
-            <br><br>
-
-            <h2>🛏 Szobaszám szerinti elemzés</h2>
-
-            <table class="statTable">
-
-                <tr>
-
-                    <th>Szobák</th>
-
-                    <th>Darab</th>
-
-                    <th>Átlag ár</th>
-
-                    <th>Átlag €/m²</th>
-
-                </tr>
-
-        `;
-
-        szobak.forEach(g => {
-
-            html += `
-
-                <tr>
-
-                    <td>${g.value}</td>
-
-                    <td>${g.property_count}</td>
-
-                    <td>${Math.round(g.avg_price).toLocaleString()} €</td>
-
-                    <td>${Math.round(g.avg_price_nm)} €/m²</td>
-
-                </tr>
-
-            `;
-
-        });
-
-        html += `
-
-            </table>
-
-            <br><br>
-
-            <h2>🏢 Emelet szerinti elemzés</h2>
-
-            <table class="statTable">
-
-                <tr>
-
-                    <th>Emelet</th>
-
-                    <th>Darab</th>
-
-                    <th>Átlag ár</th>
-
-                    <th>Átlag €/m²</th>
-
-                </tr>
-
-        `;
-
-        emeletek.forEach(g => {
-
-            html += `
-
-                <tr>
-
-                    <td>${g.value}</td>
-
-                    <td>${g.property_count}</td>
-
-                    <td>${Math.round(g.avg_price).toLocaleString()} €</td>
-
-                    <td>${Math.round(g.avg_price_nm)} €/m²</td>
-
-                </tr>
-
-            `;
-
-        });
-
-        html += "</table>";
-
-        document.getElementById("snapshotContent").innerHTML = html;
-
-    });
-
-}
-    
-
- static loadCurrent() {
-
-    CurrentStatistics.load();
-
-}
-
-static loadHistory() {
-
-    StatisticsManager.load();
-
-}
 }
