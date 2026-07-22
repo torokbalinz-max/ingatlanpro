@@ -48,11 +48,15 @@ class MapManager {
                     </a>
 
                 `);
+                marker.on("click", () => {
+
+    AppController.select(ingatlan);
+
+});
 
             // ==========================
             // TÉRKÉP -> TÁBLÁZAT
             // ==========================
-
             marker.on("click", () => {
 
     TableManager.selectById(ingatlan.id);
