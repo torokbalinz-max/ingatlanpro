@@ -35,18 +35,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("btnStatistics").onclick = () => {
 
+        alert("Statisztika gomb");
+
         PageManager.show("pageStatistics");
 
         StatisticsManager.loadCurrent();
 
         setTimeout(() => {
 
-            document.getElementById("pageStatistics").scrollIntoView({
-                behavior: "smooth",
-                block: "start"
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: "smooth"
             });
 
-        }, 50);
+        }, 100);
 
     };
 
