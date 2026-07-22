@@ -30,15 +30,6 @@ class UIManager {
 
     static initMenu() {
 
-        // Dashboard
-
-        document.getElementById("menuDashboard").onclick = () => {
-
-            UIManager.setActiveMenu("menuDashboard");
-
-            PageManager.show("pageDashboard");
-
-        };
 
         // Ingatlanok
 
