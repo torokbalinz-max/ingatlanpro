@@ -51,34 +51,31 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 100);
 
     };
-    // =======================
-// DARK MODE
-// =======================
+   // ===================== SÖTÉT MÓD =====================
 
-const btnDark = document.getElementById("btnDarkMode");
+const body = document.body;
+const darkBtn = document.getElementById("btnDarkMode");
 
-if (btnDark) {
+if (darkBtn) {
 
     if (localStorage.getItem("theme") === "dark") {
-
-        document.body.classList.add("dark-mode");
-        btnDark.innerHTML = "☀️ Világos mód";
-
+        body.classList.add("dark-mode");
+        darkBtn.innerHTML = "☀️ Világos mód";
     }
 
-    btnDark.onclick = () => {
+    darkBtn.onclick = () => {
 
-        document.body.classList.toggle("dark-mode");
+        body.classList.toggle("dark-mode");
 
-        if (document.body.classList.contains("dark-mode")) {
+        if (body.classList.contains("dark-mode")) {
 
             localStorage.setItem("theme", "dark");
-            btnDark.innerHTML = "☀️ Világos mód";
+            darkBtn.innerHTML = "☀️ Világos mód";
 
         } else {
 
             localStorage.setItem("theme", "light");
-            btnDark.innerHTML = "🌙 Sötét mód";
+            darkBtn.innerHTML = "🌙 Sötét mód";
 
         }
 
