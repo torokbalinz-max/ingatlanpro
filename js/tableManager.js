@@ -4,49 +4,91 @@ class TableManager {
 
     static load(lista) {
 
+        const euro = value =>
+            Number(value).toLocaleString("hu-HU") + " €";
+
         const columnDefs = [
 
             {
                 field: "id",
-                headerName: "ID",
-                width: 90
+                headerName: "#",
+                width: 80,
+                cellStyle: {
+                    fontWeight: "700",
+                    color: "#3b82f6"
+                }
             },
 
             {
                 field: "ar",
-                headerName: "Ár (€)"
+                headerName: "💶 Ár",
+                flex: 1.3,
+                valueFormatter: p => euro(p.value),
+                cellStyle: {
+                    fontWeight: "700",
+                    color: "#16a34a",
+                    fontSize: "15px"
+                }
             },
 
             {
                 field: "nm",
-                headerName: "Nm"
+                headerName: "📐 m²",
+                width: 110,
+                valueFormatter: p => p.value + " m²",
+                cellStyle: {
+                    fontWeight: "600"
+                }
             },
 
             {
                 field: "arNm",
-                headerName: "€/Nm"
+                headerName: "💰 €/m²",
+                width: 130,
+                valueFormatter: p => Math.round(p.value),
+                cellStyle: params => {
+
+                    let color = "#2563eb";
+
+                    if(params.value > 3500) color = "#dc2626";
+
+                    if(params.value < 2200) color = "#16a34a";
+
+                    return {
+
+                        fontWeight:"700",
+
+                        color:color
+
+                    };
+
+                }
+
             },
 
             {
-                field: "szobak",
-                headerName: "Szobák"
+                field:"szobak",
+                headerName:"🛏",
+                width:100
             },
 
             {
-                field: "emelet",
-                headerName: "Emelet"
+                field:"emelet",
+                headerName:"🏢",
+                width:120
             },
 
             {
-                field: "allapot",
-                headerName: "Állapot"
+                field:"allapot",
+                headerName:"🔧 Állapot",
+                flex:1
             }
 
         ];
 
-        if (this.grid) {
+        if(this.grid){
 
-            this.grid.setGridOption("rowData", lista);
+            this.grid.setGridOption("rowData",lista);
 
             return;
 
@@ -58,31 +100,47 @@ class TableManager {
 
             {
 
-                rowData: lista,
+                rowData:lista,
 
                 columnDefs,
 
-                onRowClicked(event) {
+                animateRows:true,
 
-                    AppController.select(event.data);
+                pagination:true,
+
+                paginationPageSize:25,
+
+                paginationPageSizeSelector:[25,50,100,250],
+
+                rowSelection:"single",
+
+                suppressRowClickSelection:false,
+
+                defaultColDef:{
+
+                    sortable:true,
+
+                    filter:true,
+
+                    resizable:true
 
                 },
 
-                pagination: true,
+                onGridReady(params){
 
-                paginationPageSize: 25,
+                    params.api.sizeColumnsToFit();
 
-                animateRows: true,
+                },
 
-                rowSelection: "single",
+                onGridSizeChanged(params){
 
-                defaultColDef: {
+                    params.api.sizeColumnsToFit();
 
-                    resizable: true,
+                },
 
-                    sortable: true,
+                onRowClicked(event){
 
-                    filter: true
+                    AppController.select(event.data);
 
                 }
 
@@ -92,23 +150,23 @@ class TableManager {
 
     }
 
-    static update(lista) {
+    static update(lista){
 
-        if (this.grid) {
+        if(this.grid){
 
-            this.grid.setGridOption("rowData", lista);
+            this.grid.setGridOption("rowData",lista);
 
         }
 
     }
 
-    static remove(ingatlan) {
+    static remove(ingatlan){
 
-        if (this.grid) {
+        if(this.grid){
 
             this.grid.applyTransaction({
 
-                remove: [ingatlan]
+                remove:[ingatlan]
 
             });
 
@@ -116,42 +174,37 @@ class TableManager {
 
     }
 
-    static selectById(id) {
+    static selectById(id){
 
-        if (!this.grid) return;
+        if(!this.grid) return;
 
-        let targetNode = null;
-        let index = 0;
+        let targetNode=null;
 
-        this.grid.forEachNode(node => {
+        this.grid.forEachNode(node=>{
 
-            if (node.data.id === id) {
+            if(node.data.id===id){
 
-                targetNode = node;
+                targetNode=node;
 
             }
 
-            index++;
-
         });
 
-        if (!targetNode) return;
+        if(!targetNode) return;
 
-        // Oldal kiszámítása
-        const pageSize = this.grid.paginationGetPageSize();
-        const page = Math.floor(targetNode.rowIndex / pageSize);
+        const pageSize=this.grid.paginationGetPageSize();
 
-        // Átváltás a megfelelő oldalra
+        const page=Math.floor(targetNode.rowIndex/pageSize);
+
         this.grid.paginationGoToPage(page);
 
-        // Kis késleltetés után kijelölés
-        setTimeout(() => {
+        setTimeout(()=>{
 
             targetNode.setSelected(true);
 
-            this.grid.ensureNodeVisible(targetNode, "middle");
+            this.grid.ensureNodeVisible(targetNode,"middle");
 
-        }, 100);
+        },120);
 
     }
 

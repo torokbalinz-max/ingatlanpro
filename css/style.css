@@ -980,3 +980,76 @@ body.dark-mode .infoBox small{
     color:#cbd5e1;
 
 }
+/* ==========================================================
+   AG GRID PREMIUM
+========================================================== */
+
+.ag-theme-quartz{
+
+    --ag-font-size:15px;
+
+    --ag-font-family:inherit;
+
+    --ag-border-radius:20px;
+
+    --ag-header-height:55px;
+
+    --ag-row-height:54px;
+
+    --ag-header-background-color:#f8fafc;
+
+    --ag-header-foreground-color:#0f172a;
+
+    --ag-border-color:#e2e8f0;
+
+    --ag-row-hover-color:#eff6ff;
+
+    --ag-selected-row-background-color:#dbeafe;
+
+    --ag-odd-row-background-color:#ffffff;
+
+    --ag-background-color:#ffffff;
+
+    --ag-foreground-color:#334155;
+
+}
+
+.ag-theme-quartz .ag-root-wrapper{
+
+    border-radius:20px;
+
+    overflow:hidden;
+
+    border:none;
+
+    box-shadow:0 15px 40px rgba(0,0,0,.08);
+
+}
+
+.ag-theme-quartz .ag-header{
+
+    font-size:15px;
+
+    font-weight:700;
+
+}
+
+.ag-theme-quartz .ag-row{
+
+    transition:.25s;
+
+}
+
+.ag-theme-quartz .ag-row:hover{
+
+    transform:scale(1.003);
+
+}
+
+.ag-theme-quartz .ag-cell{
+
+    display:flex;
+
+    align-items:center;
+
+}
