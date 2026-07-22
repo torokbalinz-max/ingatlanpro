@@ -7,10 +7,116 @@ class DashboardStatistics {
         if (db === 0) {
 
             return `
-                <div class="alert alert-warning">
-                    Nincs adat.
-                </div>
-            `;
+
+<h2 class="statisticsTitle">
+
+    <i class="fa-solid fa-chart-simple"></i>
+
+    Jelenlegi piaci áttekintés
+
+</h2>
+
+<div class="dashboardCards">
+
+    <div class="premiumStatCard">
+
+        <div class="premiumIcon blue">
+            <i class="fa-solid fa-house"></i>
+        </div>
+
+        <div class="premiumInfo">
+
+            <span>Ingatlanok</span>
+
+            <h2>${db}</h2>
+
+        </div>
+
+    </div>
+
+    <div class="premiumStatCard">
+
+        <div class="premiumIcon green">
+            <i class="fa-solid fa-sack-dollar"></i>
+        </div>
+
+        <div class="premiumInfo">
+
+            <span>Átlag ár</span>
+
+            <h2>${Math.round(atlagAr).toLocaleString()} €</h2>
+
+        </div>
+
+    </div>
+
+    <div class="premiumStatCard">
+
+        <div class="premiumIcon orange">
+            <i class="fa-solid fa-ruler-combined"></i>
+        </div>
+
+        <div class="premiumInfo">
+
+            <span>Átlag m²</span>
+
+            <h2>${atlagNm.toFixed(1)}</h2>
+
+        </div>
+
+    </div>
+
+    <div class="premiumStatCard">
+
+        <div class="premiumIcon purple">
+            <i class="fa-solid fa-chart-column"></i>
+        </div>
+
+        <div class="premiumInfo">
+
+            <span>Átlag €/m²</span>
+
+            <h2>${Math.round(atlagArNm)}</h2>
+
+        </div>
+
+    </div>
+
+    <div class="premiumStatCard">
+
+        <div class="premiumIcon emerald">
+            <i class="fa-solid fa-arrow-down"></i>
+        </div>
+
+        <div class="premiumInfo">
+
+            <span>Minimum €/m²</span>
+
+            <h2>${Math.round(minArNm)}</h2>
+
+        </div>
+
+    </div>
+
+    <div class="premiumStatCard">
+
+        <div class="premiumIcon red">
+            <i class="fa-solid fa-arrow-up"></i>
+        </div>
+
+        <div class="premiumInfo">
+
+            <span>Maximum €/m²</span>
+
+            <h2>${Math.round(maxArNm)}</h2>
+
+        </div>
+
+    </div>
+
+</div>
+
+`;
 
         }
 

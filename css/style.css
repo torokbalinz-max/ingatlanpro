@@ -701,3 +701,128 @@ body.dark-mode canvas{
     max-height:380px;
 
 }
+/* ===========================
+   PREMIUM DASHBOARD
+=========================== */
+
+.dashboardCards{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+
+    gap:24px;
+
+    margin-bottom:45px;
+
+}
+
+.premiumStatCard{
+
+    background:white;
+
+    border-radius:22px;
+
+    padding:28px;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:22px;
+
+    box-shadow:0 12px 35px rgba(0,0,0,.08);
+
+    transition:.3s;
+
+}
+
+.premiumStatCard:hover{
+
+    transform:translateY(-6px);
+
+    box-shadow:0 20px 45px rgba(37,99,235,.18);
+
+}
+
+.premiumIcon{
+
+    width:70px;
+
+    height:70px;
+
+    border-radius:20px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:28px;
+
+    color:white;
+
+}
+
+.blue{
+
+    background:#2563eb;
+
+}
+
+.green{
+
+    background:#10b981;
+
+}
+
+.orange{
+
+    background:#f59e0b;
+
+}
+
+.purple{
+
+    background:#7c3aed;
+
+}
+
+.emerald{
+
+    background:#22c55e;
+
+}
+
+.red{
+
+    background:#ef4444;
+
+}
+
+.premiumInfo{
+
+    flex:1;
+
+}
+
+.premiumInfo span{
+
+    color:#64748b;
+
+    font-size:15px;
+
+    display:block;
+
+}
+
+.premiumInfo h2{
+
+    margin-top:8px;
+
+    font-size:34px;
+
+    font-weight:800;
+
+}
