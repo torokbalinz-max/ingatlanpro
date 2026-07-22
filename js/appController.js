@@ -15,17 +15,7 @@ class AppController {
         // Táblázat kijelölése
         if (TableManager.grid) {
 
-            TableManager.grid.forEachNode(node => {
-
-                if (node.data.id === ingatlan.id) {
-
-                    node.setSelected(true);
-
-                    TableManager.grid.ensureNodeVisible(node, "middle");
-
-                }
-
-            });
+           TableManager.selectById(ingatlan.id);
 
         }
 
