@@ -115,5 +115,22 @@ class TableManager {
     }
 
 }
+static selectById(id) {
+
+    if (!this.grid) return;
+
+    this.grid.forEachNode(node => {
+
+        if (node.data.id === id) {
+
+            node.setSelected(true);
+
+            this.grid.ensureNodeVisible(node, "middle");
+
+        }
+
+    });
+
+}
 
 }

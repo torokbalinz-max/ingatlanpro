@@ -55,25 +55,11 @@ class MapManager {
 
             marker.on("click", () => {
 
-                if (TableManager.gridApi) {
+    TableManager.selectById(ingatlan.id);
 
-                    TableManager.gridApi.forEachNode(node => {
+    UIManager.showDetails(ingatlan);
 
-                        if (node.data.id === ingatlan.id) {
-
-                            node.setSelected(true);
-
-                            TableManager.gridApi.ensureNodeVisible(node, "middle");
-
-                        }
-
-                    });
-
-                }
-
-                UIManager.showDetails(ingatlan);
-
-            });
+});
 
             this.markers.push(marker);
             this.markerMap.set(ingatlan.id, marker);
