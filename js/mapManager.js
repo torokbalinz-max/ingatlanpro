@@ -4,50 +4,76 @@ class MapManager {
     static markers = [];
     static markerMap = new Map();
 
-    static load(lista){
+    static load(lista) {
 
-        if(this.map){
-
+        if (this.map) {
             this.map.remove();
-
         }
 
-        this.map = L.map("map").setView([45.8590,25.7900],13);
+        this.map = L.map("map").setView([45.8590, 25.7900], 13);
 
         L.tileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             {
-                attribution:"© OpenStreetMap"
+                attribution: "© OpenStreetMap"
             }
         ).addTo(this.map);
 
         this.markers = [];
+        this.markerMap.clear();
 
-        lista.forEach(ingatlan=>{
+        lista.forEach(ingatlan => {
 
-            if(isNaN(ingatlan.y) || isNaN(ingatlan.x)) return;
+            if (isNaN(ingatlan.y) || isNaN(ingatlan.x))
+                return;
 
-            const marker = L.marker([ingatlan.y,ingatlan.x])
+            const marker = L.marker([ingatlan.y, ingatlan.x])
 
-            .addTo(this.map)
+                .addTo(this.map)
 
-            .bindPopup(`
+                .bindPopup(`
 
-                <b>${ingatlan.id}</b><br>
+                    <b>${ingatlan.id}</b><br>
 
-                Ár: ${ingatlan.ar.toLocaleString()} €<br>
+                    Ár: ${ingatlan.ar.toLocaleString()} €<br>
 
-                ${ingatlan.nm} nm<br>
+                    ${ingatlan.nm} nm<br>
 
-                ${ingatlan.allapot}<br><br>
+                    ${ingatlan.allapot}<br><br>
 
-                <a href="${ingatlan.link}" target="_blank">
+                    <a href="${ingatlan.link}" target="_blank">
 
-                Megnyitás
+                        Megnyitás
 
-                </a>
+                    </a>
 
-            `);
+                `);
+
+            // ==========================
+            // TÉRKÉP -> TÁBLÁZAT
+            // ==========================
+
+            marker.on("click", () => {
+
+                if (TableManager.gridApi) {
+
+                    TableManager.gridApi.forEachNode(node => {
+
+                        if (node.data.id === ingatlan.id) {
+
+                            node.setSelected(true);
+
+                            TableManager.gridApi.ensureNodeVisible(node, "middle");
+
+                        }
+
+                    });
+
+                }
+
+                UIManager.showDetails(ingatlan);
+
+            });
 
             this.markers.push(marker);
             this.markerMap.set(ingatlan.id, marker);
@@ -55,22 +81,25 @@ class MapManager {
         });
 
     }
-static focus(ingatlan){
 
-    const marker = this.markerMap.get(ingatlan.id);
+    static focus(ingatlan) {
 
-    if(!marker) return;
+        const marker = this.markerMap.get(ingatlan.id);
 
-    this.map.flyTo(
-        marker.getLatLng(),
-        17,
-        {
-            animate: true,
-            duration: 0.8
-        }
-    );
+        if (!marker)
+            return;
 
-    marker.openPopup();
+        this.map.flyTo(
+            marker.getLatLng(),
+            17,
+            {
+                animate: true,
+                duration: 0.8
+            }
+        );
 
-}
+        marker.openPopup();
+
+    }
+
 }
