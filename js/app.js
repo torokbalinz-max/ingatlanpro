@@ -6,80 +6,96 @@ document.addEventListener("DOMContentLoaded", () => {
     StatisticsManager.init();
 
     DataManager.init();
-
     FilterManager.init();
 
     NewPropertyMap.init();
-
     NewPropertyManager.init();
 
-    document.getElementById("btnSaveStatistics").onclick = () => {
+    // ===================== PIACI MENTÉS =====================
 
-        if (!confirm("Biztosan szeretnél egy piaci pillanatképet menteni?")) {
-            return;
-        }
+    const btnSaveStatistics = document.getElementById("btnSaveStatistics");
 
-        fetch("/api/statistics/save", {
-            method: "POST"
-        })
-        .then(r => r.json())
-        .then(() => {
-            alert("Piaci pillanatkép sikeresen elmentve!");
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Hiba történt a mentés során.");
-        });
+    if (btnSaveStatistics) {
 
-    };
+        btnSaveStatistics.onclick = () => {
 
-    document.getElementById("btnStatistics").onclick = () => {
+            if (!confirm("Biztosan szeretnél egy piaci pillanatképet menteni?")) {
+                return;
+            }
 
-        alert("Statisztika gomb");
-
-        PageManager.show("pageStatistics");
-
-        StatisticsManager.loadCurrent();
-
-        setTimeout(() => {
-
-            window.scrollTo({
-                top: document.body.scrollHeight,
-                behavior: "smooth"
+            fetch("/api/statistics/save", {
+                method: "POST"
+            })
+            .then(r => r.json())
+            .then(() => {
+                alert("Piaci pillanatkép sikeresen elmentve!");
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Hiba történt a mentés során.");
             });
 
-        }, 100);
+        };
 
-    };
-   // ===================== SÖTÉT MÓD =====================
-
-const body = document.body;
-const darkBtn = document.getElementById("btnDarkMode");
-
-if (darkBtn) {
-
-    if (localStorage.getItem("theme") === "dark") {
-        body.classList.add("dark-mode");
-        darkBtn.innerHTML = "☀️ Világos mód";
     }
 
-    darkBtn.onclick = () => {
+    // ===================== STATISZTIKA GOMB =====================
 
-        body.classList.toggle("dark-mode");
+    const btnStatistics = document.getElementById("btnStatistics");
 
-        if (body.classList.contains("dark-mode")) {
+    if (btnStatistics) {
 
-            localStorage.setItem("theme", "dark");
+        btnStatistics.onclick = () => {
+
+            PageManager.show("pageStatistics");
+
+            StatisticsManager.loadCurrent();
+
+            setTimeout(() => {
+
+                window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: "smooth"
+                });
+
+            }, 100);
+
+        };
+
+    }
+
+    // ===================== SÖTÉT MÓD =====================
+
+    const body = document.body;
+    const darkBtn = document.getElementById("btnDarkMode");
+
+    if (darkBtn) {
+
+        if (localStorage.getItem("theme") === "dark") {
+
+            body.classList.add("dark-mode");
             darkBtn.innerHTML = "☀️ Világos mód";
-
-        } else {
-
-            localStorage.setItem("theme", "light");
-            darkBtn.innerHTML = "🌙 Sötét mód";
 
         }
 
-    };
+        darkBtn.onclick = () => {
 
-}
+            body.classList.toggle("dark-mode");
+
+            if (body.classList.contains("dark-mode")) {
+
+                localStorage.setItem("theme", "dark");
+                darkBtn.innerHTML = "☀️ Világos mód";
+
+            } else {
+
+                localStorage.setItem("theme", "light");
+                darkBtn.innerHTML = "🌙 Sötét mód";
+
+            }
+
+        };
+
+    }
+
 });
