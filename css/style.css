@@ -826,3 +826,82 @@ body.dark-mode canvas{
     font-weight:800;
 
 }
+/* ==========================================================
+   MODERN SIDEBAR
+========================================================== */
+
+.sidebarMenu{
+
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+
+}
+
+.sidebarBtn{
+
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:14px;
+
+    padding:16px 20px;
+
+    background:white;
+
+    border:1px solid #e5e7eb;
+
+    border-radius:16px;
+
+    font-size:16px;
+    font-weight:600;
+
+    color:#334155;
+
+    transition:.25s;
+
+    box-shadow:0 4px 12px rgba(0,0,0,.05);
+
+}
+
+.sidebarBtn:hover{
+
+    transform:translateX(8px);
+
+    background:#eff6ff;
+
+    border-color:#3b82f6;
+
+    color:#2563eb;
+
+    box-shadow:0 10px 25px rgba(37,99,235,.15);
+
+}
+
+.sidebarBtn.active{
+
+    background:linear-gradient(135deg,#2563eb,#3b82f6);
+
+    color:white;
+
+    border:none;
+
+    box-shadow:0 15px 35px rgba(37,99,235,.35);
+
+}
+
+.sidebarBtn.active:hover{
+
+    transform:translateX(8px);
+
+}
+
+.sidebarIcon{
+
+    font-size:22px;
+
+    width:28px;
+
+    text-align:center;
+
+}

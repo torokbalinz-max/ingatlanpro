@@ -16,44 +16,69 @@ class UIManager {
 
     }
 
+    static setActiveMenu(id){
+
+        document.querySelectorAll(".sidebarBtn").forEach(btn=>{
+
+            btn.classList.remove("active");
+
+        });
+
+        document.getElementById(id).classList.add("active");
+
+    }
+
     static initMenu() {
 
-        // ================= Dashboard =================
+        // Dashboard
 
         document.getElementById("menuDashboard").onclick = () => {
 
+            UIManager.setActiveMenu("menuDashboard");
+
             PageManager.show("pageDashboard");
 
         };
+
+        // Ingatlanok
 
         document.getElementById("menuIngatlanok").onclick = () => {
 
+            UIManager.setActiveMenu("menuIngatlanok");
+
             PageManager.show("pageDashboard");
 
         };
 
-        // ================= Statisztika =================
+        // Statisztikák
 
         document.getElementById("menuStatisztika").onclick = () => {
 
-    PageManager.show("pageStatistics");
+            UIManager.setActiveMenu("menuStatisztika");
 
-    StatisticsManager.loadCurrent();
+            PageManager.show("pageStatistics");
 
-    setTimeout(() => {
+            StatisticsManager.loadCurrent();
 
-        document.getElementById("pageStatistics").scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
+            setTimeout(() => {
 
-    }, 100);
+                document.getElementById("pageStatistics").scrollIntoView({
 
-};
+                    behavior:"smooth",
 
-        // ================= Új ingatlan =================
+                    block:"start"
+
+                });
+
+            },100);
+
+        };
+
+        // Új ingatlan
 
         document.getElementById("menuUj").onclick = () => {
+
+            UIManager.setActiveMenu("menuUj");
 
             PageManager.show("pageNew");
 
@@ -61,7 +86,7 @@ class UIManager {
 
         };
 
-        // ================= Törlés =================
+        // ===== Törlés =====
 
         document.getElementById("btnDelete").onclick = () => {
 
@@ -81,29 +106,21 @@ class UIManager {
 
             fetch("/api/ingatlanok/" + UIManager.selectedIngatlan.id, {
 
-                method: "DELETE"
+                method:"DELETE"
 
             })
 
-            .then(r => r.json())
+            .then(r=>r.json())
 
-            .then(() => {
+            .then(()=>{
 
                 alert("Ingatlan törölve!");
 
                 DataManager.ingatlanok =
-                    DataManager.ingatlanok.filter(
-
-                        x => x.id !== UIManager.selectedIngatlan.id
-
-                    );
+                    DataManager.ingatlanok.filter(x=>x.id!==UIManager.selectedIngatlan.id);
 
                 DataManager.szurtIngatlanok =
-                    DataManager.szurtIngatlanok.filter(
-
-                        x => x.id !== UIManager.selectedIngatlan.id
-
-                    );
+                    DataManager.szurtIngatlanok.filter(x=>x.id!==UIManager.selectedIngatlan.id);
 
                 TableManager.remove(UIManager.selectedIngatlan);
 
@@ -111,13 +128,13 @@ class UIManager {
 
                 MapManager.load(DataManager.szurtIngatlanok);
 
-                UIManager.selectedIngatlan = null;
+                UIManager.selectedIngatlan=null;
 
             });
 
         };
 
-        // ================= Szerkesztés =================
+        // ===== Szerkesztés =====
 
         document.getElementById("btnEdit").onclick = () => {
 
@@ -131,29 +148,31 @@ class UIManager {
 
             const i = UIManager.selectedIngatlan;
 
-            document.getElementById("ujLink").value = i.link;
-            document.getElementById("ujAr").value = i.ar;
-            document.getElementById("ujNm").value = i.nm;
-            document.getElementById("ujSzobak").value = i.szobak;
+            document.getElementById("ujLink").value=i.link;
+            document.getElementById("ujAr").value=i.ar;
+            document.getElementById("ujNm").value=i.nm;
+            document.getElementById("ujSzobak").value=i.szobak;
 
-            const emelet = String(i.emelet || "").split("/");
+            const emelet=String(i.emelet||"").split("/");
 
-            document.getElementById("ujEmelet").value = emelet[0] || "";
-            document.getElementById("ujOsszEmelet").value = emelet[1] || "";
+            document.getElementById("ujEmelet").value=emelet[0]||"";
+            document.getElementById("ujOsszEmelet").value=emelet[1]||"";
 
-            document.getElementById("ujAllapot").value = i.allapot;
-            document.getElementById("ujX").value = i.x;
-            document.getElementById("ujY").value = i.y;
+            document.getElementById("ujAllapot").value=i.allapot;
+            document.getElementById("ujX").value=i.x;
+            document.getElementById("ujY").value=i.y;
 
-            NewPropertyManager.editId = i.id;
+            NewPropertyManager.editId=i.id;
+
+            UIManager.setActiveMenu("menuUj");
 
             PageManager.show("pageNew");
 
-            setTimeout(() => {
+            setTimeout(()=>{
 
                 NewPropertyMap.refresh();
 
-            }, 300);
+            },300);
 
         };
 
