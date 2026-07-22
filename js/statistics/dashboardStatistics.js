@@ -31,59 +31,77 @@ class DashboardStatistics {
 
         return `
 
-            <div class="statisticsGrid">
+<h2 class="mb-4">
+    📈 Jelenlegi piaci áttekintés
+</h2>
 
-                <div class="statCard">
+<div class="row g-3">
 
-                    <h3>🏠 Ingatlanok</h3>
-
-                    <h1>${db}</h1>
-
-                </div>
-
-                <div class="statCard">
-
-                    <h3>💶 Átlag ár</h3>
-
-                    <h1>${Math.round(atlagAr).toLocaleString()} €</h1>
-
-                </div>
-
-                <div class="statCard">
-
-                    <h3>📐 Átlag m²</h3>
-
-                    <h1>${atlagNm.toFixed(1)}</h1>
-
-                </div>
-
-                <div class="statCard">
-
-                    <h3>💰 Átlag €/m²</h3>
-
-                    <h1>${Math.round(atlagArNm)}</h1>
-
-                </div>
-
-                <div class="statCard">
-
-                    <h3>🟢 Minimum €/m²</h3>
-
-                    <h1>${Math.round(minArNm)}</h1>
-
-                </div>
-
-                <div class="statCard">
-
-                    <h3>🔴 Maximum €/m²</h3>
-
-                    <h1>${Math.round(maxArNm)}</h1>
-
-                </div>
-
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">🏠</div>
+                <h6 class="text-muted mt-2">Ingatlanok</h6>
+                <h2>${db}</h2>
             </div>
+        </div>
+    </div>
 
-        `;
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">💶</div>
+                <h6 class="text-muted mt-2">Átlag ár</h6>
+                <h2>${Math.round(atlagAr).toLocaleString()} €</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">📐</div>
+                <h6 class="text-muted mt-2">Átlag m²</h6>
+                <h2>${atlagNm.toFixed(1)}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">💰</div>
+                <h6 class="text-muted mt-2">Átlag €/m²</h6>
+                <h2>${Math.round(atlagArNm)}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">🟢</div>
+                <h6 class="text-muted mt-2">Minimum €/m²</h6>
+                <h2>${Math.round(minArNm)}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">🔴</div>
+                <h6 class="text-muted mt-2">Maximum €/m²</h6>
+                <h2>${Math.round(maxArNm)}</h2>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<hr class="my-4">
+
+`;
 
     }
 

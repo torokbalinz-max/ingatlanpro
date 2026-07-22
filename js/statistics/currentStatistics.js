@@ -19,14 +19,25 @@ class CurrentStatistics {
 
         let html = "";
 
-        // Dashboard
+        // ===== Dashboard =====
+
         html += DashboardStatistics.render(lista);
 
-        // ===== GRAFIKONOK =====
+        // ===== Táblázatok =====
+
+        html += StateStatistics.render(lista);
+
+        html += RoomStatistics.render(lista);
+
+        html += FloorStatistics.render(lista);
+
+        // ===== Diagramok =====
 
         html += `
 
         <br>
+
+        <h2 class="mb-3">📊 Diagramok</h2>
 
         <div class="row">
 
@@ -74,17 +85,9 @@ class CurrentStatistics {
 
         `;
 
-        // ===== Táblázatok =====
-
-        html += StateStatistics.render(lista);
-
-        html += RoomStatistics.render(lista);
-
-        html += FloorStatistics.render(lista);
-
         document.getElementById("statisticsContainer").innerHTML = html;
 
-ChartStatistics.render(lista);
+        ChartStatistics.render(lista);
 
     }
 
