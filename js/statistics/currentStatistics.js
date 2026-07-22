@@ -7,8 +7,10 @@ class CurrentStatistics {
         if (lista.length === 0) {
 
             document.getElementById("statisticsContainer").innerHTML = `
-                <h2>📈 Jelenlegi piac</h2>
-                <p>Nincs találat a jelenlegi szűrésre.</p>
+                <div class="alert alert-warning">
+                    <h3>📈 Jelenlegi piac</h3>
+                    <p>Nincs találat a jelenlegi szűrésre.</p>
+                </div>
             `;
 
             return;
@@ -19,35 +21,73 @@ class CurrentStatistics {
 
         let html = "";
 
-        // ===== Dashboard =====
+        // ================= DASHBOARD =================
 
         html += DashboardStatistics.render(lista);
 
-        // ===== Táblázatok =====
-
-        html += StateStatistics.render(lista);
-
-        html += RoomStatistics.render(lista);
-
-        html += FloorStatistics.render(lista);
-
-        // ===== Diagramok =====
+        // ================= DIAGRAMOK =================
 
         html += `
 
-        <br>
+        <div class="mt-5">
 
-        <h2 class="mb-3">📊 Diagramok</h2>
+            <h2 class="statisticsTitle">
 
-        <div class="row">
+                <i class="fa-solid fa-chart-column"></i>
 
-            <div class="col-lg-6">
+                Piaci diagramok
 
-                <div class="card shadow">
+            </h2>
 
-                    <div class="card-body">
+            <div class="row g-4">
 
-                        <canvas id="stateChart"></canvas>
+                <div class="col-lg-6">
+
+                    <div class="card statisticsChartCard">
+
+                        <div class="card-header">
+
+                            <h4>
+
+                                <i class="fa-solid fa-chart-pie"></i>
+
+                                Állapot szerinti eloszlás
+
+                            </h4>
+
+                        </div>
+
+                        <div class="card-body">
+
+                            <canvas id="stateChart"></canvas>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="col-lg-6">
+
+                    <div class="card statisticsChartCard">
+
+                        <div class="card-header">
+
+                            <h4>
+
+                                <i class="fa-solid fa-bed"></i>
+
+                                Szobaszám szerinti eloszlás
+
+                            </h4>
+
+                        </div>
+
+                        <div class="card-body">
+
+                            <canvas id="roomChart"></canvas>
+
+                        </div>
 
                     </div>
 
@@ -55,35 +95,59 @@ class CurrentStatistics {
 
             </div>
 
-            <div class="col-lg-6">
+            <div class="mt-4">
 
-                <div class="card shadow">
+                <div class="card statisticsChartCard">
+
+                    <div class="card-header">
+
+                        <h4>
+
+                            <i class="fa-solid fa-building"></i>
+
+                            Emeletek megoszlása
+
+                        </h4>
+
+                    </div>
 
                     <div class="card-body">
 
-                        <canvas id="roomChart"></canvas>
+                        <canvas id="floorChart"></canvas>
 
                     </div>
 
                 </div>
-
-            </div>
-
-        </div>
-
-        <br>
-
-        <div class="card shadow">
-
-            <div class="card-body">
-
-                <canvas id="floorChart"></canvas>
 
             </div>
 
         </div>
 
         `;
+
+        // ================= TÁBLÁZATOK =================
+
+        html += `
+
+        <div class="mt-5">
+
+            <h2 class="statisticsTitle">
+
+                <i class="fa-solid fa-table"></i>
+
+                Részletes elemzések
+
+            </h2>
+
+        </div>
+
+        `;
+
+        html += StateStatistics.render(lista);
+
+        html += RoomStatistics.render(lista);
+
+        html += FloorStatistics.render(lista);
 
         document.getElementById("statisticsContainer").innerHTML = html;
 

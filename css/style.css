@@ -634,3 +634,70 @@ body.dark-mode canvas{
     color:#2563eb;
 
 }
+/* ===========================
+   STATISTICS CARDS
+=========================== */
+
+.statisticsChartCard{
+
+    border:none;
+
+    border-radius:22px;
+
+    overflow:hidden;
+
+    box-shadow:0 12px 35px rgba(0,0,0,.08);
+
+    transition:.3s;
+
+    margin-bottom:35px;
+
+}
+
+.statisticsChartCard:hover{
+
+    transform:translateY(-5px);
+
+    box-shadow:0 20px 45px rgba(37,99,235,.18);
+
+}
+
+.statisticsChartCard .card-header{
+
+    background:white;
+
+    padding:22px 28px;
+
+    border-bottom:1px solid #ececec;
+
+}
+
+.statisticsChartCard .card-header h4{
+
+    margin:0;
+
+    font-size:22px;
+
+    font-weight:700;
+
+}
+
+.statisticsChartCard .card-header i{
+
+    color:#2563eb;
+
+    margin-right:12px;
+
+}
+
+.statisticsChartCard .card-body{
+
+    padding:35px;
+
+}
+
+.statisticsChartCard canvas{
+
+    max-height:380px;
+
+}
