@@ -364,3 +364,145 @@ footer {
         padding: 0.75rem 0.85rem;
     }
 }
+/* ==========================================================
+   DARK MODE
+========================================================== */
+
+body.dark-mode{
+
+    --bg-primary:#0f172a;
+    --bg-secondary:#1e293b;
+    --bg-surface:rgba(30,41,59,.92);
+
+    --text-primary:#f8fafc;
+    --text-secondary:#cbd5e1;
+    --text-muted:#94a3b8;
+
+    --border-color:#334155;
+    --border-hover:#475569;
+
+    --accent:#3b82f6;
+    --accent-hover:#60a5fa;
+    --accent-light:rgba(59,130,246,.15);
+
+}
+
+/* Navbar */
+
+body.dark-mode .navbar{
+
+    background:rgba(15,23,42,.95)!important;
+
+}
+
+/* Kártyák */
+
+body.dark-mode .card{
+
+    background:#1e293b;
+    color:white;
+
+}
+
+/* Card header */
+
+body.dark-mode .card-header{
+
+    background:#1e293b!important;
+    color:white;
+    border-color:#334155!important;
+
+}
+
+/* Inputok */
+
+body.dark-mode .form-control,
+body.dark-mode .form-select{
+
+    background:#0f172a;
+    color:white;
+    border-color:#334155;
+
+}
+
+body.dark-mode .form-control::placeholder{
+
+    color:#94a3b8;
+
+}
+
+/* Táblázatok */
+
+body.dark-mode table{
+
+    color:white;
+
+}
+
+body.dark-mode th{
+
+    background:#0f172a;
+
+}
+
+body.dark-mode td{
+
+    border-color:#334155;
+
+}
+
+body.dark-mode tr:hover td{
+
+    background:#23314d;
+
+}
+
+/* Leaflet popup */
+
+body.dark-mode .leaflet-popup-content-wrapper{
+
+    background:#1e293b;
+    color:white;
+
+}
+
+body.dark-mode .leaflet-popup-tip{
+
+    background:#1e293b;
+
+}
+
+/* AG GRID */
+
+body.dark-mode .ag-theme-quartz{
+
+    --ag-background-color:#1e293b;
+    --ag-foreground-color:white;
+    --ag-header-background-color:#0f172a;
+    --ag-header-foreground-color:white;
+    --ag-border-color:#334155;
+    --ag-row-hover-color:#23314d;
+
+}
+
+/* Diagram */
+
+body.dark-mode canvas{
+
+    filter:brightness(.95);
+
+}
+
+/* Gomb animáció */
+
+#btnDarkMode{
+
+    transition:.3s;
+
+}
+
+#btnDarkMode:hover{
+
+    transform:scale(1.05);
+
+}
