@@ -905,3 +905,78 @@ body.dark-mode canvas{
     text-align:center;
 
 }
+/* ==========================================================
+   INGATLAN ADATLAP
+========================================================== */
+
+.infoBox{
+
+    background:#f8fafc;
+
+    border:1px solid #e2e8f0;
+
+    border-radius:18px;
+
+    padding:18px;
+
+    transition:.25s;
+
+    height:100%;
+
+}
+
+.infoBox:hover{
+
+    transform:translateY(-4px);
+
+    border-color:#3b82f6;
+
+    box-shadow:0 10px 25px rgba(59,130,246,.12);
+
+}
+
+.infoBox small{
+
+    display:block;
+
+    color:#64748b;
+
+    font-size:13px;
+
+    margin-bottom:8px;
+
+    font-weight:600;
+
+}
+
+.infoBox h5{
+
+    margin:0;
+
+    font-size:22px;
+
+    font-weight:700;
+
+    color:#0f172a;
+
+}
+
+body.dark-mode .infoBox{
+
+    background:#1e293b;
+
+    border-color:#334155;
+
+}
+
+body.dark-mode .infoBox h5{
+
+    color:white;
+
+}
+
+body.dark-mode .infoBox small{
+
+    color:#cbd5e1;
+
+}

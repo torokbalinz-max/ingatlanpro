@@ -344,87 +344,125 @@ class="btn btn-primary w-100">
 
     </div>
 
-    <div class="col-lg-4">
+<div class="col-lg-4">
 
-        <div class="card shadow">
+    <div class="card shadow border-0 h-100">
 
-            <div class="card-header">
+        <div class="card-header d-flex align-items-center justify-content-between">
 
-                <h4>
+            <h4 class="mb-0">
+                <i class="fa-solid fa-house text-primary"></i>
+                Ingatlan adatai
+            </h4>
 
-                    <i class="fa-solid fa-house"></i>
+            <span class="badge bg-primary">Élő</span>
 
-                    Ingatlan adatai
+        </div>
 
-                </h4>
+        <div class="card-body">
+
+            <div class="text-center mb-4">
+
+                <div style="font-size:60px;">🏠</div>
+
+                <h2 id="detailId" class="fw-bold mt-2">
+                    Nincs kiválasztva
+                </h2>
 
             </div>
 
-            <div class="card-body">
+            <div class="row g-3">
 
-                <h3 id="detailId">
-                    Nincs kiválasztva
-                </h3>
+                <div class="col-6">
 
-                <hr>
+                    <div class="infoBox">
 
-                <p>
-                    <b>💰 Ár:</b>
-                    <span id="detailAr">-</span>
-                </p>
+                        <small>💰 Ár</small>
 
-                <p>
-                    <b>📐 Nm:</b>
-                    <span id="detailNm">-</span>
-                </p>
+                        <h5 id="detailAr">-</h5>
 
-                <p>
-                    <b>🛏 Szobák:</b>
-                    <span id="detailSzoba">-</span>
-                </p>
+                    </div>
 
-                <p>
-                    <b>🏢 Emelet:</b>
-                    <span id="detailEmelet">-</span>
-                </p>
+                </div>
 
-                <p>
-                    <b>🔧 Állapot:</b>
-                    <span id="detailAllapot">-</span>
-                </p>
+                <div class="col-6">
 
-                <hr>
+                    <div class="infoBox">
 
-                <a
-                    id="detailLink"
-                    target="_blank"
-                    class="btn btn-primary w-100">
+                        <small>📐 Alapterület</small>
 
-                    Megnyitás
+                        <h5 id="detailNm">-</h5>
+
+                    </div>
+
+                </div>
+
+                <div class="col-6">
+
+                    <div class="infoBox">
+
+                        <small>🛏 Szobák</small>
+
+                        <h5 id="detailSzoba">-</h5>
+
+                    </div>
+
+                </div>
+
+                <div class="col-6">
+
+                    <div class="infoBox">
+
+                        <small>🏢 Emelet</small>
+
+                        <h5 id="detailEmelet">-</h5>
+
+                    </div>
+
+                </div>
+
+                <div class="col-12">
+
+                    <div class="infoBox">
+
+                        <small>🔧 Állapot</small>
+
+                        <h5 id="detailAllapot">-</h5>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <hr class="my-4">
+
+            <div class="d-grid gap-2">
+
+                <a id="detailLink"
+                   target="_blank"
+                   class="btn btn-primary">
+
+                    🌐 Hirdetés megnyitása
 
                 </a>
 
-                <button
-                    id="btnEdit"
-                    class="btn btn-warning w-100 mt-2">
+                <button id="btnEdit"
+                        class="btn btn-warning">
 
                     ✏️ Ingatlan szerkesztése
 
                 </button>
 
-                <hr>
-
-                <button
-                    id="btnDelete"
-                    class="btn btn-danger w-100">
+                <button id="btnDelete"
+                        class="btn btn-danger">
 
                     🗑️ Ingatlan törlése
 
                 </button>
 
-                <button
-                    id="btnSaveStatistics"
-                    class="btn btn-success w-100 mt-2">
+                <button id="btnSaveStatistics"
+                        class="btn btn-success">
 
                     💾 Piaci állapot mentése
 
