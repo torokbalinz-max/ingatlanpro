@@ -22,61 +22,105 @@ class StatisticsManager {
 
     static load() {
 
-        fetch("/api/statistics")
-            .then(r => r.json())
-            .then(lista => {
+    fetch("/api/statistics")
+        .then(r => r.json())
+        .then(lista => {
 
-                let html = `
+            let html = `
 
-                    <div style="margin-bottom:20px;">
+                <div style="margin-bottom:20px;">
 
-                        <label><b>Piaci mentés:</b></label>
+                    <label><b>Piaci mentés:</b></label>
 
-                        <select id="snapshotSelect">
+                    <div class="d-flex gap-2">
 
-                `;
+                        <select
+                            id="snapshotSelect"
+                            class="form-select">
 
-                lista.forEach(s => {
+            `;
 
-                    html += `
-                        <option value="${s.id}">
-                            ${new Date(s.created_at).toLocaleString()}
-                        </option>
-                    `;
-
-                });
+            lista.forEach(s => {
 
                 html += `
+                    <option value="${s.id}">
+                        ${new Date(s.created_at).toLocaleString()}
+                    </option>
+                `;
+
+            });
+
+            html += `
 
                         </select>
 
-                        <button id="btnLoadSnapshot">
+                        <button
+                            id="btnLoadSnapshot"
+                            class="btn btn-primary">
+
                             Betöltés
+
+                        </button>
+
+                        <button
+                            id="btnDeleteSnapshot"
+                            class="btn btn-danger">
+
+                            🗑️
+
                         </button>
 
                     </div>
 
-                    <div id="snapshotContent"></div>
+                </div>
 
-                `;
+                <div id="snapshotContent"></div>
 
-                document.getElementById("statisticsContainer").innerHTML = html;
+            `;
 
-                document.getElementById("btnLoadSnapshot").onclick = () => {
+            document.getElementById("statisticsContainer").innerHTML = html;
 
-                    StatisticsManager.loadSnapshot(
-                        document.getElementById("snapshotSelect").value
-                    );
+            document.getElementById("btnLoadSnapshot").onclick = () => {
 
-                };
+                StatisticsManager.loadSnapshot(
+                    document.getElementById("snapshotSelect").value
+                );
 
-                if (lista.length > 0) {
-                    StatisticsManager.loadSnapshot(lista[0].id);
-                }
+            };
 
-            });
+            document.getElementById("btnDeleteSnapshot").onclick = () => {
 
-    }
+                const id =
+                    document.getElementById("snapshotSelect").value;
+
+                if (!confirm("Biztosan törölni szeretnéd ezt a mentést?"))
+                    return;
+
+                fetch("/api/statistics/" + id, {
+
+                    method: "DELETE"
+
+                })
+                .then(r => r.json())
+                .then(() => {
+
+                    alert("Mentés törölve.");
+
+                    StatisticsManager.load();
+
+                });
+
+            };
+
+            if (lista.length > 0) {
+
+                StatisticsManager.loadSnapshot(lista[0].id);
+
+            }
+
+        });
+
+}
 
     static loadSnapshot(id) {
 

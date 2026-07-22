@@ -440,6 +440,32 @@ app.get("/api/statistics/:id", async (req, res) => {
     }
 
 });
+app.delete("/api/statistics/:id", async (req, res) => {
+
+    try {
+
+        await db.query(
+            "DELETE FROM market_snapshot_groups WHERE snapshot_id=$1",
+            [req.params.id]
+        );
+
+        await db.query(
+            "DELETE FROM market_snapshots WHERE id=$1",
+            [req.params.id]
+        );
+
+        res.json({
+            success: true
+        });
+
+    } catch(err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
 
 const PORT = process.env.PORT || 3000;
 
