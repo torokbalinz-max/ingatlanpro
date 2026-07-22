@@ -51,5 +51,29 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 100);
 
     };
+    // ===================== SÖTÉT MÓD =====================
 
+const body = document.body;
+
+if (localStorage.getItem("theme") === "dark") {
+
+    body.classList.add("dark-mode");
+
+}
+
+document.getElementById("btnDarkMode").onclick = () => {
+
+    body.classList.toggle("dark-mode");
+
+    if (body.classList.contains("dark-mode")) {
+
+        localStorage.setItem("theme", "dark");
+
+    } else {
+
+        localStorage.setItem("theme", "light");
+
+    }
+
+};
 });
