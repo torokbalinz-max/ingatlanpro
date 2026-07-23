@@ -241,270 +241,270 @@ class="btn btn-primary w-100">
 <!-- ===================== JOBB OLDAL ===================== -->
 
 <div class="col-lg-9">
-           <!-- ===================== DASHBOARD ===================== -->
 
-<div id="pageDashboard">
+    <!-- ===================== DASHBOARD ===================== -->
+    <div id="pageDashboard">
 
-<div class="row">
+        <div class="row">
 
-    <div class="col-md-3">
+            <div class="col-md-3">
+                <div class="card shadow text-center">
+                    <div class="card-body">
+                        <h6>🏠 Összes ingatlan</h6>
+                        <h2 id="dbCount">0</h2>
+                    </div>
+                </div>
+            </div>
 
-        <div class="card shadow text-center">
+            <div class="col-md-3">
+                <div class="card shadow text-center">
+                    <div class="card-body">
+                        <h6>💰 Átlag ár</h6>
+                        <h2 id="dbPrice">0</h2>
+                    </div>
+                </div>
+            </div>
 
-            <div class="card-body">
+            <div class="col-md-3">
+                <div class="card shadow text-center">
+                    <div class="card-body">
+                        <h6>📐 Átlag €/nm</h6>
+                        <h2 id="dbNm">0</h2>
+                    </div>
+                </div>
+            </div>
 
-                <h6>🏠 Összes ingatlan</h6>
-
-                <h2 id="dbCount">0</h2>
-
+            <div class="col-md-3">
+                <div class="card shadow text-center">
+                    <div class="card-body">
+                        <h6>✅ Eladva</h6>
+                        <h2 id="dbSold">0</h2>
+                    </div>
+                </div>
             </div>
 
         </div>
 
-    </div>
+        <!-- ===================== TÁBLÁZAT + ADATLAP ===================== -->
+        <div class="row mt-4" id="mainContent">
 
-    <div class="col-md-3">
-
-        <div class="card shadow text-center">
-
-            <div class="card-body">
-
-                <h6>💰 Átlag ár</h6>
-
-                <h2 id="dbPrice">0</h2>
-
+            <div class="col-lg-8">
+                <div class="card shadow">
+                    <div class="card-header">
+                        <h4>
+                            <i class="fa-solid fa-table"></i>
+                            Ingatlanok
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="ingatlanGrid" class="ag-theme-quartz" style="height:700px;width:100%;">
+                        </div>
+                    </div>
+                </div>
             </div>
 
-        </div>
+            <div class="col-lg-4">
+                <div class="card shadow border-0 h-100">
 
-    </div>
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <h4 class="mb-0">
+                            <i class="fa-solid fa-house text-primary"></i>
+                            Ingatlan adatai
+                        </h4>
+                        <span class="badge bg-primary">Élő</span>
+                    </div>
 
-    <div class="col-md-3">
+                    <div class="card-body">
 
-        <div class="card shadow text-center">
+                        <div class="text-center mb-4">
+                            <div style="font-size:60px;">🏠</div>
+                            <h2 id="detailId" class="fw-bold mt-2">
+                                Nincs kiválasztva
+                            </h2>
+                        </div>
 
-            <div class="card-body">
+                        <div class="row g-3">
 
-                <h6>📐 Átlag €/nm</h6>
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small>💰 Ár</small>
+                                    <h5 id="detailAr">-</h5>
+                                </div>
+                            </div>
 
-                <h2 id="dbNm">0</h2>
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small>📐 Alapterület</small>
+                                    <h5 id="detailNm">-</h5>
+                                </div>
+                            </div>
 
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small>🛏 Szobák</small>
+                                    <h5 id="detailSzoba">-</h5>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small>🏢 Emelet</small>
+                                    <h5 id="detailEmelet">-</h5>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="infoBox">
+                                    <small>🔧 Állapot</small>
+                                    <h5 id="detailAllapot">-</h5>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-grid gap-2">
+
+                            <a id="detailLink" target="_blank" class="btn btn-primary">
+                                🌐 Hirdetés megnyitása
+                            </a>
+
+                            <button id="btnEdit" class="btn btn-warning">
+                                ✏️ Ingatlan szerkesztése
+                            </button>
+
+                            <button id="btnDelete" class="btn btn-danger">
+                                🗑️ Ingatlan törlése
+                            </button>
+
+                            <button id="btnSaveStatistics" class="btn btn-success">
+                                💾 Piaci állapot mentése
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
             </div>
 
-        </div>
-
-    </div>
-
-    <div class="col-md-3">
-
-        <div class="card shadow text-center">
-
-            <div class="card-body">
-
-                <h6>✅ Eladva</h6>
-
-                <h2 id="dbSold">0</h2>
-
+            <!-- ===================== TÉRKÉP ===================== -->
+            <div class="col-12">
+                <div class="card shadow mt-4">
+                    <div class="card-header">
+                        <h4>
+                            <i class="fa-solid fa-map-location-dot"></i>
+                            Térkép
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="map" style="height:600px;"></div>
+                    </div>
+                </div>
             </div>
 
-        </div>
+        </div> <!-- mainContent -->
+        <!-- ===== Dashboard vége ===== -->
 
-    </div>
+    </div> <!-- pageDashboard -->
 
-</div>
-
-<!-- ===================== TÁBLÁZAT + ADATLAP ===================== -->
-
-<div class="row mt-4" id="mainContent">
-
-    <div class="col-lg-8">
+    <!-- ===================== ÚJ INGATLAN ===================== -->
+    <div id="pageNew" style="display:none;">
 
         <div class="card shadow">
 
-            <div class="card-header">
-
-                <h4>
-                    <i class="fa-solid fa-table"></i>
-                    Ingatlanok
-                </h4>
-
+            <div class="card-header bg-success text-white">
+                <h3>➕ Új ingatlan felvétele</h3>
             </div>
 
             <div class="card-body">
 
-                <div
-                    id="ingatlanGrid"
-                    class="ag-theme-quartz"
-                    style="height:700px;width:100%;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Link</label>
+                            <input id="ujLink" type="text" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Ár (€)</label>
+                            <input id="ujAr" type="number" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Nm</label>
+                            <input id="ujNm" type="number" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Szobák</label>
+                            <input id="ujSzobak" type="number" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Emelet</label>
+                            <input id="ujEmelet" type="text" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Összes emelet</label>
+                            <input id="ujOsszEmelet" type="number" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Állapot</label>
+                            <select id="ujAllapot" class="form-select">
+                                <option>újszerű</option>
+                                <option>jó</option>
+                                <option>felújítandó</option>
+                                <option>luxus</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <input id="ujX" type="hidden">
+                <input id="ujY" type="hidden">
+
+                <hr>
+
+                <h5>📍 Hely kiválasztása</h5>
+                <div id="newMap" style="height:400px;border-radius:10px;"></div>
+
+                <hr>
+
+                <div class="d-grid">
+                    <button id="btnSave" class="btn btn-success btn-lg">
+                        💾 Ingatlan mentése
+                    </button>
                 </div>
 
             </div>
 
         </div>
 
-    </div>
+    </div> <!-- pageNew -->
 
-<div class="col-lg-4">
+</div> <!-- col-lg-9 -->
 
-    <div class="card shadow border-0 h-100">
-
-        <div class="card-header d-flex align-items-center justify-content-between">
-
-            <h4 class="mb-0">
-                <i class="fa-solid fa-house text-primary"></i>
-                Ingatlan adatai
-            </h4>
-
-            <span class="badge bg-primary">Élő</span>
-
-        </div>
-
-        <div class="card-body">
-
-            <div class="text-center mb-4">
-
-                <div style="font-size:60px;">🏠</div>
-
-                <h2 id="detailId" class="fw-bold mt-2">
-                    Nincs kiválasztva
-                </h2>
-
-            </div>
-
-            <div class="row g-3">
-
-                <div class="col-6">
-
-                    <div class="infoBox">
-
-                        <small>💰 Ár</small>
-
-                        <h5 id="detailAr">-</h5>
-
-                    </div>
-
-                </div>
-
-                <div class="col-6">
-
-                    <div class="infoBox">
-
-                        <small>📐 Alapterület</small>
-
-                        <h5 id="detailNm">-</h5>
-
-                    </div>
-
-                </div>
-
-                <div class="col-6">
-
-                    <div class="infoBox">
-
-                        <small>🛏 Szobák</small>
-
-                        <h5 id="detailSzoba">-</h5>
-
-                    </div>
-
-                </div>
-
-                <div class="col-6">
-
-                    <div class="infoBox">
-
-                        <small>🏢 Emelet</small>
-
-                        <h5 id="detailEmelet">-</h5>
-
-                    </div>
-
-                </div>
-
-                <div class="col-12">
-
-                    <div class="infoBox">
-
-                        <small>🔧 Állapot</small>
-
-                        <h5 id="detailAllapot">-</h5>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <hr class="my-4">
-
-            <div class="d-grid gap-2">
-
-                <a id="detailLink"
-                   target="_blank"
-                   class="btn btn-primary">
-
-                    🌐 Hirdetés megnyitása
-
-                </a>
-
-                <button id="btnEdit"
-                        class="btn btn-warning">
-
-                    ✏️ Ingatlan szerkesztése
-
-                </button>
-
-                <button id="btnDelete"
-                        class="btn btn-danger">
-
-                    🗑️ Ingatlan törlése
-
-                </button>
-
-                <button id="btnSaveStatistics"
-                        class="btn btn-success">
-
-                    💾 Piaci állapot mentése
-
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-<!-- ===================== TÉRKÉP ===================== -->
-
-</div> <!-- col-lg-4 -->
-
-<div class="col-12">
-
-    <div class="card shadow mt-4">
-
-        <div class="card-header">
-
-            <h4>
-                <i class="fa-solid fa-map-location-dot"></i>
-                Térkép
-            </h4>
-
-        </div>
-
-        <div class="card-body">
-
-            <div id="map" style="height:600px;"></div>
-
-        </div>
-
-    </div>
-
-</div>
-
-</div> <!-- mainContent -->
-<!-- ===== Dashboard vége ===== -->
-</div> <!-- pageDashboard -->
+<!-- ===================== STATISZTIKÁK ===================== -->
 <div id="pageStatistics" class="page" style="display:none;">
 
     <h2 class="statisticsTitle">
@@ -515,35 +515,23 @@ class="btn btn-primary w-100">
     <div class="statisticsMenu">
 
         <button id="btnCurrentStatistics" class="statisticsButton active">
-
             <i class="fa-solid fa-chart-column"></i>
-
             <span>Jelenlegi piac</span>
-
         </button>
 
         <button id="btnHistoryStatistics" class="statisticsButton">
-
             <i class="fa-solid fa-clock-rotate-left"></i>
-
             <span>Piaci előzmények</span>
-
         </button>
 
         <button id="btnCompareStatistics" class="statisticsButton">
-
             <i class="fa-solid fa-scale-balanced"></i>
-
             <span>Piaci összehasonlítás</span>
-
         </button>
 
         <button id="btnTrend" class="statisticsButton">
-
             <i class="fa-solid fa-chart-line"></i>
-
             <span>Ártrend</span>
-
         </button>
 
     </div>
@@ -553,224 +541,6 @@ class="btn btn-primary w-100">
     <div id="statisticsContainer"></div>
 
 </div>
-<!-- ===================== ÚJ INGATLAN ===================== -->
-
-<div id="pageNew" style="display:none;">
-<div class="card shadow">
-
-<div class="card-header bg-success text-white">
-
-<h3>
-
-➕ Új ingatlan felvétele
-
-</h3>
-
-</div>
-
-
-    
-
-<div class="card-body">
-
-<div class="row">
-
-<div class="col-md-6">
-
-<div class="mb-3">
-
-<label class="form-label">
-
-Link
-
-</label>
-
-<input
-id="ujLink"
-type="text"
-class="form-control">
-
-</div>
-
-</div>
-
-<div class="col-md-3">
-
-<div class="mb-3">
-
-<label class="form-label">
-
-Ár (€)
-
-</label>
-
-<input
-id="ujAr"
-type="number"
-class="form-control">
-
-</div>
-
-</div>
-
-<div class="col-md-3">
-
-<div class="mb-3">
-
-<label class="form-label">
-
-Nm
-
-</label>
-
-<input
-id="ujNm"
-type="number"
-class="form-control">
-
-</div>
-
-</div>
-
-</div>
-
-<div class="row">
-
-<div class="col-md-4">
-
-<div class="mb-3">
-
-<label class="form-label">
-
-Szobák
-
-</label>
-
-<input
-id="ujSzobak"
-type="number"
-class="form-control">
-
-</div>
-
-</div>
-
-<div class="col-md-4">
-
-<div class="mb-3">
-
-<label class="form-label">
-
-Emelet
-
-</label>
-
-<input
-id="ujEmelet"
-type="text"
-class="form-control">
-
-</div>
-
-</div>
-<div class="row">
-
-    <div class="col-md-6">
-
-        <label>Összes emelet</label>
-
-        <input
-            id="ujOsszEmelet"
-            type="number"
-            class="form-control">
-
-    </div>
-
-</div>
-
-<br>
-
-<div class="col-md-4">
-
-<div class="mb-3">
-
-<label class="form-label">
-
-Állapot
-
-</label>
-
-<select
-id="ujAllapot"
-class="form-select">
-
-<option>újszerű</option>
-<option>jó</option>
-<option>felújítandó</option>
-<option>luxus</option>
-
-</select>
-
-</div>
-
-</div>
-
-</div>
-
-<hr>
-
-<div class="row">
-
-<div class="col-md-6">
-
-<label>X koordináta</label>
-
-<input
-id="ujX"
-type="hidden">
-
-</div>
-
-<div class="col-md-6">
-
-<label>Y koordináta</label>
-
-<input
-id="ujY"
-type="hidden">
-
-</div>
-
-</div>
-
-<hr>
-
-<h5>📍 Hely kiválasztása</h5>
-
-<div id="newMap" style="height:400px;border-radius:10px;"></div>
-
-<hr>
-
-<div class="d-grid">
-
-<button
-id="btnSave"
-class="btn btn-success btn-lg">
-
-💾 Ingatlan mentése
-
-</button>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-</div> <!-- pageNew -->
-
-</div> <!-- col-lg-9 -->
 
 
 
