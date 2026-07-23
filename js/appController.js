@@ -6,16 +6,24 @@ class AppController {
 
         this.selectedIngatlan = ingatlan;
 
-        // Térkép
-        MapManager.focus(ingatlan);
-
-        // Jobb oldali adatlap
+        // Adatlap
         UIManager.showDetails(ingatlan);
+
+        // Térkép csak akkor, ha van koordináta
+        if (
+            ingatlan &&
+            !isNaN(Number(ingatlan.x)) &&
+            !isNaN(Number(ingatlan.y))
+        ) {
+
+            MapManager.focus(ingatlan);
+
+        }
 
         // Táblázat kijelölése
         if (TableManager.grid) {
 
-           TableManager.selectById(ingatlan.id);
+            TableManager.selectById(ingatlan.id);
 
         }
 
