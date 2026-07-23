@@ -67,15 +67,25 @@ class UIManager {
 
         // Új ingatlan
 
-        document.getElementById("menuUj").onclick = () => {
+      document.getElementById("menuUj").onclick = () => {
 
-            UIManager.setActiveMenu("menuUj");
+    // Ha új ingatlant veszünk fel, ne szerkesztés legyen
+    NewPropertyManager.editId = null;
 
-            PageManager.show("pageNew");
+    // Űrlap törlése
+    NewPropertyManager.clearForm();
 
-            NewPropertyMap.refresh();
+    UIManager.setActiveMenu("menuUj");
 
-        };
+    PageManager.show("pageNew");
+
+    setTimeout(() => {
+
+        NewPropertyMap.refresh();
+
+    }, 200);
+
+};
 
         // ===== Törlés =====
 

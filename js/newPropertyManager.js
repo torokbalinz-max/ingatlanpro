@@ -85,5 +85,18 @@ class NewPropertyManager {
         };
 
     }
+    static clearForm() {
+
+    document.getElementById("ujLink").value = "";
+    document.getElementById("ujAr").value = "";
+    document.getElementById("ujNm").value = "";
+    document.getElementById("ujSzobak").value = "";
+    document.getElementById("ujEmelet").value = "";
+    document.getElementById("ujOsszEmelet").value = "";
+    document.getElementById("ujAllapot").selectedIndex = 0;
+    document.getElementById("ujX").value = "";
+    document.getElementById("ujY").value = "";
+
+}
 
 }
