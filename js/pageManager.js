@@ -22,15 +22,26 @@ class PageManager {
 
         if (page === "pageNew") {
 
-            newPage.style.display = "block";
+    newPage.style.display = "block";
 
-            setTimeout(() => {
+    // Mezők ürítése
+    document.getElementById("ujLink").value = "";
+    document.getElementById("ujAr").value = "";
+    document.getElementById("ujNm").value = "";
+    document.getElementById("ujSzobak").value = "";
+    document.getElementById("ujEmelet").value = "";
+    document.getElementById("ujOsszEmelet").value = "";
+    document.getElementById("ujAllapot").selectedIndex = 0;
+    document.getElementById("ujX").value = "";
+    document.getElementById("ujY").value = "";
 
-                NewPropertyMap.refresh();
+    setTimeout(() => {
 
-            }, 200);
+        NewPropertyMap.refresh();
 
-        }
+    }, 200);
+
+}
 
         if (page === "pageStatistics") {
 
