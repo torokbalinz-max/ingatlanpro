@@ -1,8 +1,9 @@
 /* ==========================================================================
-   2026 DESIGN SYSTEM & REBOOT — INGATLANPRO PREMIUM EDITION
+   2026 DESIGN SYSTEM — INGATLANPRO PREMIUM EDITION (REFACTORED)
    ========================================================================== */
+
 :root {
-    /* Modern Színpaletta */
+    /* Világos téma színpaletta */
     --bg-primary: #f8fafc;
     --bg-secondary: #ffffff;
     --bg-surface: rgba(255, 255, 255, 0.85);
@@ -29,17 +30,36 @@
     --radius-lg: 20px;
     --radius-full: 9999px;
     
-    /* Többrétegű Prémium Árnyékok */
+    /* Árnyékok */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
-    --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+    --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
     
     /* Animációk */
     --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Sötét téma változó felülírások */
+body.dark-mode {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-surface: rgba(30, 41, 59, 0.92);
+
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+
+    --border-color: #334155;
+    --border-hover: #475569;
+
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-light: rgba(59, 130, 246, 0.15);
+    --accent-glow: rgba(59, 130, 246, 0.35);
+}
+
 /* ==========================================================================
-   ALAPBEÁLLÍTÁSOK & ALAP RAJZOLÁS
+   ALAPBEÁLLÍTÁSOK
    ========================================================================== */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -73,7 +93,7 @@ a:hover {
 }
 
 /* ==========================================================================
-   NAVBAR & FEJLÉC (Glassmorphism effekt)
+   NAVBAR & FEJLÉC (Glassmorphism)
    ========================================================================== */
 .navbar {
     background: var(--bg-surface) !important;
@@ -112,8 +132,66 @@ a:hover {
     background-color: var(--accent-light);
 }
 
+#btnDarkMode {
+    transition: var(--transition);
+}
+
+#btnDarkMode:hover {
+    transform: scale(1.08);
+}
+
 /* ==========================================================================
-   BENTO KÁRTYÁK & KONTÉNERI
+   MODERN SIDEBAR
+   ========================================================================== */
+.sidebarMenu {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sidebarBtn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.sidebarBtn:hover {
+    transform: translateX(6px);
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: var(--shadow-md);
+}
+
+.sidebarBtn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 10px 25px var(--accent-glow);
+}
+
+.sidebarBtn.active:hover {
+    transform: translateX(6px);
+}
+
+.sidebarIcon {
+    font-size: 22px;
+    width: 28px;
+    text-align: center;
+}
+
+/* ==========================================================================
+   KÁRTYÁK & DASHBOARD
    ========================================================================== */
 .card {
     background: var(--bg-secondary);
@@ -128,7 +206,7 @@ a:hover {
 .card:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-lg);
-    border-color: rgba(37, 99, 235, 0.3) !important;
+    border-color: var(--border-hover) !important;
 }
 
 .card-header {
@@ -148,8 +226,104 @@ a:hover {
     padding: 1.5rem;
 }
 
+/* Prémium Statisztikai Kártyák (Dashboard) */
+.dashboardCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin-bottom: 45px;
+}
+
+.premiumStatCard {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
+    padding: 28px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+}
+
+.premiumStatCard:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent);
+}
+
+.premiumIcon {
+    width: 70px;
+    height: 70px;
+    border-radius: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 28px;
+    color: #ffffff;
+    flex-shrink: 0;
+}
+
+.premiumIcon.blue   { background: var(--accent); }
+.premiumIcon.green  { background: var(--success); }
+.premiumIcon.orange { background: var(--warning); }
+.premiumIcon.purple { background: #7c3aed; }
+.premiumIcon.emerald{ background: #22c55e; }
+.premiumIcon.red    { background: var(--danger); }
+
+.premiumInfo {
+    flex: 1;
+}
+
+.premiumInfo span {
+    color: var(--text-muted);
+    font-size: 14px;
+    display: block;
+    font-weight: 500;
+}
+
+.premiumInfo h2 {
+    margin-top: 6px;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
 /* ==========================================================================
-   ŰRLAPOK, INPUTOK & SZŰRŐK
+   INGATLAN ADATLAP INFOBOX
+   ========================================================================== */
+.infoBox {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 18px;
+    transition: var(--transition);
+    height: 100%;
+}
+
+.infoBox:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-md);
+}
+
+.infoBox small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.infoBox h5 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* ==========================================================================
+   ŰRLAPOK & INPUTOK
    ========================================================================== */
 .form-control, .form-select {
     background-color: var(--bg-secondary);
@@ -167,6 +341,11 @@ a:hover {
     box-shadow: 0 0 0 4px var(--accent-light);
     outline: none;
     background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.form-control::placeholder {
+    color: var(--text-muted);
 }
 
 .form-label {
@@ -224,12 +403,167 @@ a:hover {
 }
 
 .btn-secondary:hover {
-    background-color: var(--border-color);
+    background-color: var(--border-hover);
     color: var(--text-primary);
 }
 
 /* ==========================================================================
-   TÉRKÉP MODUL (Leaflet / OpenStreetMap)
+   STATISZTIKAI MENÜ & GRAFIKONOK
+   ========================================================================== */
+.statisticsTitle {
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: var(--text-primary);
+}
+
+.statisticsTitle i {
+    color: var(--accent);
+}
+
+.statisticsMenu {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+}
+
+.statisticsButton {
+    flex: 1;
+    min-width: 200px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 20px;
+    padding: 22px;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.statisticsButton i {
+    font-size: 32px;
+    color: var(--accent);
+    transition: var(--transition);
+}
+
+.statisticsButton span {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    transition: var(--transition);
+}
+
+.statisticsButton:hover,
+.statisticsButton.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 25px var(--accent-glow);
+}
+
+.statisticsButton:hover i,
+.statisticsButton.active i,
+.statisticsButton:hover span,
+.statisticsButton.active span {
+    color: #ffffff;
+}
+
+.statisticsDivider {
+    margin: 35px 0;
+    border: none;
+    border-top: 1px solid var(--border-color);
+}
+
+.statisticsChartCard {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+    margin-bottom: 35px;
+}
+
+.statisticsChartCard:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.statisticsChartCard .card-header {
+    background: var(--bg-secondary) !important;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border-color) !important;
+}
+
+.statisticsChartCard .card-header h4 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.statisticsChartCard .card-header i {
+    color: var(--accent);
+    margin-right: 10px;
+}
+
+.statisticsChartCard .card-body {
+    padding: 30px;
+}
+
+.statisticsChartCard canvas {
+    max-height: 380px;
+}
+
+body.dark-mode canvas {
+    filter: brightness(0.95);
+}
+
+/* ==========================================================================
+   AG GRID PREMIUM STÍLUSOK
+   ========================================================================== */
+.ag-theme-quartz {
+    --ag-font-size: 15px;
+    --ag-font-family: inherit;
+    --ag-border-radius: 20px;
+    --ag-header-height: 55px;
+    --ag-row-height: 54px;
+    
+    --ag-background-color: var(--bg-secondary);
+    --ag-foreground-color: var(--text-primary);
+    --ag-header-background-color: var(--bg-primary);
+    --ag-header-foreground-color: var(--text-primary);
+    --ag-border-color: var(--border-color);
+    --ag-row-hover-color: var(--accent-light);
+    --ag-selected-row-background-color: var(--accent-light);
+}
+
+.ag-theme-quartz .ag-root-wrapper {
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+}
+
+.ag-theme-quartz .ag-header {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.ag-theme-quartz .ag-cell {
+    display: flex;
+    align-items: center;
+}
+
+/* ==========================================================================
+   TÉRKÉP MODUL (Leaflet)
    ========================================================================== */
 #map {
     width: 100%;
@@ -241,115 +575,25 @@ a:hover {
     z-index: 1;
 }
 
-#map:hover {
-    box-shadow: var(--shadow-lg);
-}
-
-/* Leaflet felugró ablak (Popup) stílus */
 .leaflet-popup-content-wrapper {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
     border-radius: var(--radius-md) !important;
     padding: 0.5rem !important;
     box-shadow: var(--shadow-lg) !important;
 }
 
+.leaflet-popup-tip {
+    background: var(--bg-secondary) !important;
+}
+
 .leaflet-popup-content {
     font-family: inherit;
     font-size: 0.9rem;
-    color: var(--text-primary);
 }
 
 /* ==========================================================================
-   PRÉMIUM TÁBLÁZAT STRUKTÚRA
-   ========================================================================== */
-.table-responsive {
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-}
-
-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin: 0 !important;
-}
-
-th {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-td {
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--border-color);
-    vertical-align: middle;
-    transition: var(--transition);
-}
-
-tr:last-child td {
-    border-bottom: none;
-}
-
-tr:hover td {
-    background-color: var(--accent-light);
-    color: var(--text-primary);
-}
-
-/* ==========================================================================
-   BADGE-EK (Címkék) & ÁR JELZŐK
-   ========================================================================== */
-.badge {
-    padding: 0.35em 0.75em;
-    font-weight: 600;
-    font-size: 0.75rem;
-    border-radius: var(--radius-full);
-    letter-spacing: 0.02em;
-}
-
-.badge-primary, .bg-primary {
-    background-color: var(--accent-light) !important;
-    color: var(--accent) !important;
-    border: 1px solid rgba(37, 99, 235, 0.2);
-}
-
-.badge-success, .bg-success {
-    background-color: rgba(16, 185, 129, 0.1) !important;
-    color: var(--success) !important;
-    border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.price-tag {
-    font-weight: 800;
-    font-size: 1.2rem;
-    color: var(--accent);
-    letter-spacing: -0.02em;
-}
-
-/* ==========================================================================
-   LÁBLÉC (FOOTER)
-   ========================================================================== */
-footer {
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border-color);
-    padding: 2.5rem 1.5rem;
-    margin-top: 4rem;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    text-align: center;
-}
-
-/* ==========================================================================
-   RESZPONZÍV JAVÍTÁSOK
+   RESZPONZÍV IGAZÍTÁSOK
    ========================================================================== */
 @media (max-width: 768px) {
     .card-body {
@@ -360,696 +604,11 @@ footer {
         height: 400px;
     }
 
-    th, td {
-        padding: 0.75rem 0.85rem;
+    .statisticsMenu {
+        flex-direction: column;
     }
-}
-/* ==========================================================
-   DARK MODE
-========================================================== */
 
-body.dark-mode{
-
-    --bg-primary:#0f172a;
-    --bg-secondary:#1e293b;
-    --bg-surface:rgba(30,41,59,.92);
-
-    --text-primary:#f8fafc;
-    --text-secondary:#cbd5e1;
-    --text-muted:#94a3b8;
-
-    --border-color:#334155;
-    --border-hover:#475569;
-
-    --accent:#3b82f6;
-    --accent-hover:#60a5fa;
-    --accent-light:rgba(59,130,246,.15);
-
-}
-
-/* Navbar */
-
-body.dark-mode .navbar{
-
-    background:rgba(15,23,42,.95)!important;
-
-}
-
-/* Kártyák */
-
-body.dark-mode .card{
-
-    background:#1e293b;
-    color:white;
-
-}
-
-/* Card header */
-
-body.dark-mode .card-header{
-
-    background:#1e293b!important;
-    color:white;
-    border-color:#334155!important;
-
-}
-
-/* Inputok */
-
-body.dark-mode .form-control,
-body.dark-mode .form-select{
-
-    background:#0f172a;
-    color:white;
-    border-color:#334155;
-
-}
-
-body.dark-mode .form-control::placeholder{
-
-    color:#94a3b8;
-
-}
-
-/* Táblázatok */
-
-body.dark-mode table{
-
-    color:white;
-
-}
-
-body.dark-mode th{
-
-    background:#0f172a;
-
-}
-
-body.dark-mode td{
-
-    border-color:#334155;
-
-}
-
-body.dark-mode tr:hover td{
-
-    background:#23314d;
-
-}
-
-/* Leaflet popup */
-
-body.dark-mode .leaflet-popup-content-wrapper{
-
-    background:#1e293b;
-    color:white;
-
-}
-
-body.dark-mode .leaflet-popup-tip{
-
-    background:#1e293b;
-
-}
-
-/* AG GRID */
-
-body.dark-mode .ag-theme-quartz{
-
-    --ag-background-color:#1e293b;
-    --ag-foreground-color:white;
-    --ag-header-background-color:#0f172a;
-    --ag-header-foreground-color:white;
-    --ag-border-color:#334155;
-    --ag-row-hover-color:#23314d;
-
-}
-
-/* Diagram */
-
-body.dark-mode canvas{
-
-    filter:brightness(.95);
-
-}
-
-/* Gomb animáció */
-
-#btnDarkMode{
-
-    transition:.3s;
-
-}
-
-#btnDarkMode:hover{
-
-    transform:scale(1.05);
-
-}
-/* ==========================================================
-   PREMIUM STATISTICS MENU
-========================================================== */
-
-.statisticsMenu{
-
-    display:flex;
-    gap:18px;
-    flex-wrap:wrap;
-    margin-bottom:30px;
-
-}
-
-.statisticsButton{
-
-    flex:1;
-    min-width:220px;
-
-    border:none;
-
-    background:white;
-
-    border-radius:20px;
-
-    padding:22px;
-
-    transition:.25s;
-
-    box-shadow:0 8px 30px rgba(0,0,0,.08);
-
-    display:flex;
-
-    flex-direction:column;
-
-    align-items:center;
-
-    justify-content:center;
-
-    gap:12px;
-
-}
-
-.statisticsButton i{
-
-    font-size:34px;
-
-    color:#2563eb;
-
-}
-
-.statisticsButton span{
-
-    font-size:18px;
-
-    font-weight:700;
-
-}
-
-.statisticsButton:hover{
-
-    transform:translateY(-6px);
-
-    box-shadow:0 18px 40px rgba(37,99,235,.18);
-
-    background:#2563eb;
-
-}
-
-.statisticsButton:hover i{
-
-    color:white;
-
-}
-
-.statisticsButton:hover span{
-
-    color:white;
-
-}
-
-.statisticsButton.active{
-
-    background:#2563eb;
-
-}
-
-.statisticsButton.active i{
-
-    color:white;
-
-}
-
-.statisticsButton.active span{
-
-    color:white;
-
-}
-
-.statisticsDivider{
-
-    margin:35px 0;
-
-    border:none;
-
-    border-top:2px solid #e5e7eb;
-
-}
-.statisticsTitle{
-
-    font-size:34px;
-
-    font-weight:800;
-
-    margin-bottom:30px;
-
-    display:flex;
-
-    align-items:center;
-
-    gap:15px;
-
-}
-
-.statisticsTitle i{
-
-    color:#2563eb;
-
-}
-/* ===========================
-   STATISTICS CARDS
-=========================== */
-
-.statisticsChartCard{
-
-    border:none;
-
-    border-radius:22px;
-
-    overflow:hidden;
-
-    box-shadow:0 12px 35px rgba(0,0,0,.08);
-
-    transition:.3s;
-
-    margin-bottom:35px;
-
-}
-
-.statisticsChartCard:hover{
-
-    transform:translateY(-5px);
-
-    box-shadow:0 20px 45px rgba(37,99,235,.18);
-
-}
-
-.statisticsChartCard .card-header{
-
-    background:white;
-
-    padding:22px 28px;
-
-    border-bottom:1px solid #ececec;
-
-}
-
-.statisticsChartCard .card-header h4{
-
-    margin:0;
-
-    font-size:22px;
-
-    font-weight:700;
-
-}
-
-.statisticsChartCard .card-header i{
-
-    color:#2563eb;
-
-    margin-right:12px;
-
-}
-
-.statisticsChartCard .card-body{
-
-    padding:35px;
-
-}
-
-.statisticsChartCard canvas{
-
-    max-height:380px;
-
-}
-/* ===========================
-   PREMIUM DASHBOARD
-=========================== */
-
-.dashboardCards{
-
-    display:grid;
-
-    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
-
-    gap:24px;
-
-    margin-bottom:45px;
-
-}
-
-.premiumStatCard{
-
-    background:white;
-
-    border-radius:22px;
-
-    padding:28px;
-
-    display:flex;
-
-    align-items:center;
-
-    gap:22px;
-
-    box-shadow:0 12px 35px rgba(0,0,0,.08);
-
-    transition:.3s;
-
-}
-
-.premiumStatCard:hover{
-
-    transform:translateY(-6px);
-
-    box-shadow:0 20px 45px rgba(37,99,235,.18);
-
-}
-
-.premiumIcon{
-
-    width:70px;
-
-    height:70px;
-
-    border-radius:20px;
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-    font-size:28px;
-
-    color:white;
-
-}
-
-.blue{
-
-    background:#2563eb;
-
-}
-
-.green{
-
-    background:#10b981;
-
-}
-
-.orange{
-
-    background:#f59e0b;
-
-}
-
-.purple{
-
-    background:#7c3aed;
-
-}
-
-.emerald{
-
-    background:#22c55e;
-
-}
-
-.red{
-
-    background:#ef4444;
-
-}
-
-.premiumInfo{
-
-    flex:1;
-
-}
-
-.premiumInfo span{
-
-    color:#64748b;
-
-    font-size:15px;
-
-    display:block;
-
-}
-
-.premiumInfo h2{
-
-    margin-top:8px;
-
-    font-size:34px;
-
-    font-weight:800;
-
-}
-/* ==========================================================
-   MODERN SIDEBAR
-========================================================== */
-
-.sidebarMenu{
-
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-
-}
-
-.sidebarBtn{
-
-    width:100%;
-    display:flex;
-    align-items:center;
-    gap:14px;
-
-    padding:16px 20px;
-
-    background:white;
-
-    border:1px solid #e5e7eb;
-
-    border-radius:16px;
-
-    font-size:16px;
-    font-weight:600;
-
-    color:#334155;
-
-    transition:.25s;
-
-    box-shadow:0 4px 12px rgba(0,0,0,.05);
-
-}
-
-.sidebarBtn:hover{
-
-    transform:translateX(8px);
-
-    background:#eff6ff;
-
-    border-color:#3b82f6;
-
-    color:#2563eb;
-
-    box-shadow:0 10px 25px rgba(37,99,235,.15);
-
-}
-
-.sidebarBtn.active{
-
-    background:linear-gradient(135deg,#2563eb,#3b82f6);
-
-    color:white;
-
-    border:none;
-
-    box-shadow:0 15px 35px rgba(37,99,235,.35);
-
-}
-
-.sidebarBtn.active:hover{
-
-    transform:translateX(8px);
-
-}
-
-.sidebarIcon{
-
-    font-size:22px;
-
-    width:28px;
-
-    text-align:center;
-
-}
-/* ==========================================================
-   INGATLAN ADATLAP
-========================================================== */
-
-.infoBox{
-
-    background:#f8fafc;
-
-    border:1px solid #e2e8f0;
-
-    border-radius:18px;
-
-    padding:18px;
-
-    transition:.25s;
-
-    height:100%;
-
-}
-
-.infoBox:hover{
-
-    transform:translateY(-4px);
-
-    border-color:#3b82f6;
-
-    box-shadow:0 10px 25px rgba(59,130,246,.12);
-
-}
-
-.infoBox small{
-
-    display:block;
-
-    color:#64748b;
-
-    font-size:13px;
-
-    margin-bottom:8px;
-
-    font-weight:600;
-
-}
-
-.infoBox h5{
-
-    margin:0;
-
-    font-size:22px;
-
-    font-weight:700;
-
-    color:#0f172a;
-
-}
-
-body.dark-mode .infoBox{
-
-    background:#1e293b;
-
-    border-color:#334155;
-
-}
-
-body.dark-mode .infoBox h5{
-
-    color:white;
-
-}
-
-body.dark-mode .infoBox small{
-
-    color:#cbd5e1;
-
-}
-/* ==========================================================
-   AG GRID PREMIUM
-========================================================== */
-
-.ag-theme-quartz{
-
-    --ag-font-size:15px;
-
-    --ag-font-family:inherit;
-
-    --ag-border-radius:20px;
-
-    --ag-header-height:55px;
-
-    --ag-row-height:54px;
-
-    --ag-header-background-color:#f8fafc;
-
-    --ag-header-foreground-color:#0f172a;
-
-    --ag-border-color:#e2e8f0;
-
-    --ag-row-hover-color:#eff6ff;
-
-    --ag-selected-row-background-color:#dbeafe;
-
-    --ag-odd-row-background-color:#ffffff;
-
-    --ag-background-color:#ffffff;
-
-    --ag-foreground-color:#334155;
-
-}
-
-.ag-theme-quartz .ag-root-wrapper{
-
-    border-radius:20px;
-
-    overflow:hidden;
-
-    border:none;
-
-    box-shadow:0 15px 40px rgba(0,0,0,.08);
-
-}
-
-.ag-theme-quartz .ag-header{
-
-    font-size:15px;
-
-    font-weight:700;
-
-}
-
-.ag-theme-quartz .ag-row{
-
-    transition:.25s;
-
-}
-
-.ag-theme-quartz .ag-row:hover{
-
-    transform:scale(1.003);
-
-}
-
-.ag-theme-quartz .ag-cell{
-
-    display:flex;
-
-    align-items:center;
-
+    .statisticsButton {
+        width: 100%;
+    }
 }
