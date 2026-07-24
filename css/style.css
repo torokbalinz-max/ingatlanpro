@@ -886,11 +886,56 @@ body.dark-mode .ag-theme-quartz .ag-root-wrapper {
     background-color: var(--bg-secondary) !important;
 }
 
-/* --------------------------------------------------------------------------
-   SÖTÉT MÓD EXTRA FELÜLÍRÁSOK (Fejléc, Lapozó, Üres Sorok, Oldalszám Input)
-   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   🔥 INGATLAN TÁBLÁZAT (AG-GRID) TELJES SÖTÉT MÓD BACKEND & HÁTTÉR FIX
+   ========================================================================== */
 
-/* Fejléc háttér és betűszín sötétítés */
+/* 1. VILÁGOS MÓD BEÁLLÍTÁSOK */
+.ag-theme-quartz {
+    --ag-font-size: 15px;
+    --ag-font-family: inherit;
+    --ag-border-radius: 20px;
+    --ag-header-height: 55px;
+    --ag-row-height: 54px;
+    
+    --ag-background-color: #ffffff;
+    --ag-foreground-color: #0f172a;
+    --ag-header-background-color: #f8fafc;
+    --ag-header-foreground-color: #0f172a;
+    --ag-border-color: #e2e8f0;
+    --ag-row-hover-color: rgba(37, 99, 235, 0.08);
+    --ag-selected-row-background-color: rgba(37, 99, 235, 0.12);
+}
+
+/* 2. SÖTÉT MÓD BEÁLLÍTÁSOK VÁLTOZÓI */
+body.dark-mode .ag-theme-quartz {
+    --ag-background-color: #1e293b !important;
+    --ag-foreground-color: #ffffff !important;
+    --ag-header-background-color: #0f172a !important;
+    --ag-header-foreground-color: #ffffff !important;
+    --ag-border-color: #334155 !important;
+    --ag-row-hover-color: rgba(59, 130, 246, 0.2) !important;
+    --ag-selected-row-background-color: rgba(59, 130, 246, 0.3) !important;
+    --ag-secondary-foreground-color: #cbd5e1 !important;
+    --ag-data-color: #ffffff !important;
+}
+
+/* KÜLSŐ KERET, MÁTRIX ÉS A TELJES TÁBLÁZAT HÁTTERÉNEK SÖTÉTÍTÉSE */
+body.dark-mode .ag-theme-quartz,
+body.dark-mode .ag-theme-quartz .ag-root-wrapper,
+body.dark-mode .ag-theme-quartz .ag-root,
+body.dark-mode .ag-theme-quartz .ag-body,
+body.dark-mode .ag-theme-quartz .ag-body-viewport,
+body.dark-mode .ag-theme-quartz .ag-body-horizontal-scroll-viewport,
+body.dark-mode .ag-theme-quartz .ag-center-cols-clipper,
+body.dark-mode .ag-theme-quartz .ag-center-cols-viewport,
+body.dark-mode .ag-theme-quartz .ag-center-cols-container,
+body.dark-mode .ag-theme-quartz .ag-row-empty {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+}
+
+/* Fejléc sötétítés */
 body.dark-mode .ag-theme-quartz .ag-header,
 body.dark-mode .ag-theme-quartz .ag-header-row,
 body.dark-mode .ag-theme-quartz .ag-header-cell,
@@ -905,30 +950,25 @@ body.dark-mode .ag-theme-quartz .ag-header-cell-text {
     font-weight: 700;
 }
 
-/* Tablázat sorok, cellák és a görgethető üres területek sötétítése */
-body.dark-mode .ag-theme-quartz .ag-row,
-body.dark-mode .ag-theme-quartz .ag-row-empty,
-body.dark-mode .ag-theme-quartz .ag-body-viewport,
-body.dark-mode .ag-theme-quartz .ag-center-cols-viewport,
-body.dark-mode .ag-theme-quartz .ag-center-cols-container {
+/* Adatsorok és Cellák */
+body.dark-mode .ag-theme-quartz .ag-row {
     background-color: #1e293b !important;
     color: #ffffff !important;
     border-bottom-color: #334155 !important;
 }
 
-/* Az utolsó oldalon / nem teljes oldalakon lévő üres cellák háttér fixálása */
-body.dark-mode .ag-theme-quartz .ag-cell,
-body.dark-mode .ag-theme-quartz .ag-row-no-focus {
+body.dark-mode .ag-theme-quartz .ag-cell {
     color: #ffffff !important;
-    background-color: transparent !important;
 }
 
-/* Sor lebegetés sötét módban */
 body.dark-mode .ag-theme-quartz .ag-row-hover {
     background-color: rgba(59, 130, 246, 0.18) !important;
 }
 
-/* ALSÓ LAPOZÓ SÁV (Pagination Bar) FIXEK */
+/* --------------------------------------------------------------------------
+   MEGŐRZÖTT ALSÓ LAPOZÓ ÉS INPUT FIXEK (Amikkel elégedett voltál)
+   -------------------------------------------------------------------------- */
+
 body.dark-mode .ag-theme-quartz .ag-paging-panel {
     background-color: #0f172a !important;
     color: #ffffff !important;
@@ -942,7 +982,6 @@ body.dark-mode .ag-theme-quartz .ag-paging-number {
     color: #ffffff !important;
 }
 
-/* JELENLEGI OLDALSZÁM INPUT MEZŐ FIXÁLÁSA (Fehér alapon fehér betű javítás) */
 body.dark-mode .ag-theme-quartz .ag-paging-number,
 body.dark-mode .ag-theme-quartz input[type="text"],
 body.dark-mode .ag-theme-quartz .ag-input-field-input {
@@ -953,7 +992,6 @@ body.dark-mode .ag-theme-quartz .ag-input-field-input {
     text-align: center !important;
 }
 
-/* PAGE SIZE SELECT ÉS LENYÍLÓ MENÜK */
 body.dark-mode .ag-theme-quartz .ag-paging-page-size select,
 body.dark-mode .ag-theme-quartz .ag-picker-field-wrapper {
     background-color: #1e293b !important;
@@ -963,7 +1001,6 @@ body.dark-mode .ag-theme-quartz .ag-picker-field-wrapper {
     padding: 2px 6px !important;
 }
 
-/* Lapozó nyilak és ikonok színe */
 body.dark-mode .ag-theme-quartz .ag-button,
 body.dark-mode .ag-theme-quartz .ag-paging-button,
 body.dark-mode .ag-theme-quartz .ag-icon {
