@@ -664,3 +664,139 @@ a:hover {
         width: 100%;
     }
 }
+/* ==========================================================================
+   🔥 PIACI ÖSSZEHASONLÍTÁS MODUL (ULTRA PREMIUM STÍLUS)
+   ========================================================================== */
+
+/* A teljes összehasonlító konténer */
+.market-comparison, 
+.marketComparison,
+#marketComparison,
+.piaci-osszehasonlitas {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 22px !important;
+    padding: 24px !important;
+    box-shadow: var(--shadow-md) !important;
+    transition: var(--transition) !important;
+    margin-bottom: 30px !important;
+}
+
+.market-comparison:hover, 
+.marketComparison:hover {
+    box-shadow: var(--shadow-lg) !important;
+    border-color: var(--border-hover) !important;
+}
+
+/* Címsor & Ikonok a modulban */
+.market-comparison h3, 
+.market-comparison h4, 
+.market-comparison h5,
+.marketComparison h3,
+.marketComparison h4,
+.marketComparison h5 {
+    color: var(--text-primary) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+/* Kiemelt saját ingatlan vs. Piaci átlag kártyák */
+.market-card,
+.comparison-card,
+.piaci-kartya {
+    background: var(--bg-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 18px !important;
+    padding: 20px !important;
+    transition: var(--transition) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.market-card:hover,
+.comparison-card:hover,
+.piaci-kartya:hover {
+    transform: translateY(-4px) !important;
+    border-color: var(--accent) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+/* Kiemelt saját kártya (pl. "Kiválasztott ingatlan") */
+.market-card.active,
+.market-card.highlight,
+.comparison-card.primary {
+    background: var(--accent-light) !important;
+    border: 2px solid var(--accent) !important;
+}
+
+/* Piaci Ár / Eltérés kijelző jelvények (Badges) */
+.price-badge,
+.market-badge,
+.diff-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 6px 14px !important;
+    border-radius: var(--radius-full) !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+}
+
+/* Ár feletti / Ár alatti indikátorok */
+.price-badge.positive, .diff-badge.above {
+    background: rgba(239, 68, 68, 0.12) !important;
+    color: var(--danger) !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
+.price-badge.negative, .diff-badge.below {
+    background: rgba(16, 185, 129, 0.12) !important;
+    color: var(--success) !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+.price-badge.neutral, .diff-badge.average {
+    background: rgba(37, 99, 235, 0.12) !important;
+    color: var(--accent) !important;
+    border: 1px solid rgba(37, 99, 235, 0.3) !important;
+}
+
+/* Összehasonlító értékek és szövegek színei */
+.market-card span, 
+.comparison-card span,
+.piaci-kartya span,
+.market-comparison label {
+    color: var(--text-muted) !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+}
+
+.market-card strong, 
+.market-card h2, 
+.market-card h3,
+.comparison-card strong,
+.piaci-kartya h3 {
+    color: var(--text-primary) !important;
+    font-size: 1.4rem !important;
+    font-weight: 800 !important;
+}
+
+/* Összehasonlító progress sávok (ha vannak a felületen) */
+.market-progress-bar {
+    width: 100% !important;
+    height: 10px !important;
+    background: var(--border-color) !important;
+    border-radius: 99px !important;
+    overflow: hidden !important;
+    margin: 12px 0 !important;
+}
+
+.market-progress-fill {
+    height: 100% !important;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover)) !important;
+    border-radius: 99px !important;
+    transition: width 0.8s ease-in-out !important;
+}
