@@ -887,7 +887,7 @@ body.dark-mode .ag-theme-quartz .ag-root-wrapper {
 }
 
 /* ==========================================================================
-   🔥 INGATLAN TÁBLÁZAT (AG-GRID) TELJES SÖTÉT MÓD BACKEND & HÁTTÉR FIX
+   🔥 INGATLAN TÁBLÁZAT (AG-GRID) TELJES SÖTÉT MÓD & ÜRES HÁTTÉR FIX
    ========================================================================== */
 
 /* 1. VILÁGOS MÓD BEÁLLÍTÁSOK */
@@ -920,9 +920,10 @@ body.dark-mode .ag-theme-quartz {
     --ag-data-color: #ffffff !important;
 }
 
-/* KÜLSŐ KERET, MÁTRIX ÉS A TELJES TÁBLÁZAT HÁTTERÉNEK SÖTÉTÍTÉSE */
+/* 3. AZ ÜRES MÖGÖTTI MÁTRIX ÉS KERETEK TELJES SÖTÉTÍTÉSE */
 body.dark-mode .ag-theme-quartz,
 body.dark-mode .ag-theme-quartz .ag-root-wrapper,
+body.dark-mode .ag-theme-quartz .ag-root-wrapper-body,
 body.dark-mode .ag-theme-quartz .ag-root,
 body.dark-mode .ag-theme-quartz .ag-body,
 body.dark-mode .ag-theme-quartz .ag-body-viewport,
@@ -930,8 +931,14 @@ body.dark-mode .ag-theme-quartz .ag-body-horizontal-scroll-viewport,
 body.dark-mode .ag-theme-quartz .ag-center-cols-clipper,
 body.dark-mode .ag-theme-quartz .ag-center-cols-viewport,
 body.dark-mode .ag-theme-quartz .ag-center-cols-container,
+body.dark-mode .ag-theme-quartz .ag-pinned-left-cols-container,
+body.dark-mode .ag-theme-quartz .ag-pinned-right-cols-container,
+body.dark-mode .ag-theme-quartz .ag-overlay,
+body.dark-mode .ag-theme-quartz .ag-overlay-panel,
+body.dark-mode .ag-theme-quartz .ag-overlay-wrapper,
 body.dark-mode .ag-theme-quartz .ag-row-empty {
     background-color: #1e293b !important;
+    background: #1e293b !important;
     color: #ffffff !important;
 }
 
@@ -966,7 +973,7 @@ body.dark-mode .ag-theme-quartz .ag-row-hover {
 }
 
 /* --------------------------------------------------------------------------
-   MEGŐRZÖTT ALSÓ LAPOZÓ ÉS INPUT FIXEK (Amikkel elégedett voltál)
+   MEGŐRZÖTT ALSÓ LAPOZÓ ÉS INPUT FIXEK
    -------------------------------------------------------------------------- */
 
 body.dark-mode .ag-theme-quartz .ag-paging-panel {
