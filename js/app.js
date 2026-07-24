@@ -99,3 +99,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 });
+document.getElementById("citySelect").onchange = function () {
+
+    DataManager.currentCity = this.value;
+
+    DataManager.init();
+
+};

@@ -1,5 +1,6 @@
 class DataManager {
 
+    static currentCity = "Sepsiszentgyorgy";
     static ingatlanok = [];
     static szurtIngatlanok = [];
     static filter = {};
@@ -21,7 +22,7 @@ class DataManager {
 
         console.log("DataManager indul...");
 
-        fetch("/api/ingatlanok")
+        fetch("/api/ingatlanok?city=" + DataManager.currentCity)
 
             .then(response => {
 
