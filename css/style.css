@@ -800,3 +800,63 @@ a:hover {
     border-radius: 99px !important;
     transition: width 0.8s ease-in-out !important;
 }
+/* ==========================================================================
+   🔥 INGATLAN TÁBLÁZAT (AG-GRID) TELJES SÖTÉT/VILÁGOS MÓD FIX
+   ========================================================================== */
+
+/* 1. VILÁGOS MÓD BEÁLLÍTÁSOK */
+.ag-theme-quartz {
+    --ag-font-size: 15px;
+    --ag-font-family: inherit;
+    --ag-border-radius: 20px;
+    --ag-header-height: 55px;
+    --ag-row-height: 54px;
+    
+    --ag-background-color: #ffffff;
+    --ag-foreground-color: #0f172a;
+    --ag-header-background-color: #f8fafc;
+    --ag-header-foreground-color: #0f172a;
+    --ag-border-color: #e2e8f0;
+    --ag-row-hover-color: rgba(37, 99, 235, 0.08);
+    --ag-selected-row-background-color: rgba(37, 99, 235, 0.12);
+}
+
+/* 2. SÖTÉT MÓD BEÁLLÍTÁSOK (Sötét háttér + Fehér szöveg) */
+body.dark-mode .ag-theme-quartz {
+    --ag-background-color: #1e293b !important;
+    --ag-foreground-color: #ffffff !important;
+    --ag-header-background-color: #0f172a !important;
+    --ag-header-foreground-color: #ffffff !important;
+    --ag-border-color: #334155 !important;
+    --ag-row-hover-color: rgba(59, 130, 246, 0.2) !important;
+    --ag-selected-row-background-color: rgba(59, 130, 246, 0.3) !important;
+    --ag-secondary-foreground-color: #cbd5e1 !important;
+    --ag-data-color: #ffffff !important;
+}
+
+/* KÜLSŐ KERET ÉS KEREKÍTÉS FIX MINTKÉT MÓDBAN */
+.ag-theme-quartz .ag-root-wrapper {
+    border-radius: 20px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--shadow-md) !important;
+    background-color: var(--bg-secondary) !important;
+}
+
+/* Sötét módban a cellák és gombok szövegeinek kötelező fehérítése */
+body.dark-mode .ag-theme-quartz .ag-cell,
+body.dark-mode .ag-theme-quartz .ag-header-cell-text,
+body.dark-mode .ag-theme-quartz .ag-paging-panel {
+    color: #ffffff !important;
+}
+
+body.dark-mode .ag-theme-quartz .ag-row {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    border-bottom-color: #334155 !important;
+}
+
+/* Sor kijelölés/lebegés sötét módban */
+body.dark-mode .ag-theme-quartz .ag-row-hover {
+    background-color: rgba(59, 130, 246, 0.18) !important;
+}
