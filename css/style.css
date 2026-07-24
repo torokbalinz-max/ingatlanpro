@@ -1,5 +1,5 @@
 /* ==========================================================================
-   2026 DESIGN SYSTEM — INGATLANPRO ULTRA PREMIUM EDITION
+   2026 DESIGN SYSTEM — INGATLANPRO ULTRA PREMIUM EDITION (FULL RESTORED)
    ========================================================================== */
 
 :root {
@@ -24,20 +24,22 @@
     --border-color: #e2e8f0;
     --border-hover: #cbd5e1;
     
-    /* UI Kerekítések & Árnyékok */
+    /* UI Kerekítések & Geometria */
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 20px;
     --radius-full: 9999px;
     
+    /* Árnyékok */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
     --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
     
+    /* Animációk */
     --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sötét téma felülírások */
+/* Sötét téma változó felülírások */
 body.dark-mode {
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
@@ -57,7 +59,7 @@ body.dark-mode {
 }
 
 /* ==========================================================================
-   ALAPBEÁLLÍTÁSOK & Szövegszínek (Sötét/Világos mód javítások)
+   ALAPBEÁLLÍTÁSOK & Szövegszínek (Garantált Olvashatóság)
    ========================================================================== */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -79,7 +81,7 @@ body {
     transition: var(--transition);
 }
 
-/* Garantált szövegszínek mindkét módban */
+/* Szövegek láthatósága mindkét módban */
 h1, h2, h3, h4, h5, h6, p, span, small, label, div {
     color: var(--text-primary);
 }
@@ -89,7 +91,8 @@ body.dark-mode span,
 body.dark-mode small, 
 body.dark-mode label,
 body.dark-mode td,
-body.dark-mode th {
+body.dark-mode th,
+body.dark-mode div {
     color: var(--text-primary) !important;
 }
 
@@ -99,8 +102,12 @@ a {
     transition: var(--transition);
 }
 
+a:hover {
+    color: var(--accent-hover);
+}
+
 /* ==========================================================================
-   NAVBAR & FEJLÉC (Dark mode gomb fix)
+   NAVBAR & FEJLÉC (Glassmorphism & Sötét Mód Gomb Fix)
    ========================================================================== */
 .navbar {
     background: var(--bg-surface) !important;
@@ -139,11 +146,12 @@ a {
     background-color: var(--accent-light);
 }
 
-/* Sötét mód váltó gomb láthatósági javítása Világos módban is */
+/* Sötét mód gomb láthatóságának kijavítása Világos/Sötét módban */
 #btnDarkMode, .btn-outline-secondary {
     color: var(--text-primary) !important;
     border: 1px solid var(--border-color) !important;
     background: var(--bg-secondary) !important;
+    font-weight: 600;
     transition: var(--transition);
 }
 
@@ -151,10 +159,62 @@ a {
     transform: scale(1.05);
     border-color: var(--accent) !important;
     color: var(--accent) !important;
+    box-shadow: var(--shadow-sm);
 }
 
 /* ==========================================================================
-   DASHBOARD KÁRTYÁK (A felső dobozok szövegszín javítása)
+   SIDEBAR MENÜ (Profi Lebegéssel)
+   ========================================================================== */
+.sidebarMenu {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sidebarBtn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-secondary) !important;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+}
+
+.sidebarBtn:hover {
+    transform: translateX(6px);
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent) !important;
+    box-shadow: var(--shadow-md);
+}
+
+.sidebarBtn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-hover)) !important;
+    color: #ffffff !important;
+    border: none;
+    box-shadow: 0 10px 25px var(--accent-glow);
+}
+
+.sidebarBtn.active:hover {
+    transform: translateX(6px);
+}
+
+.sidebarIcon {
+    font-size: 22px;
+    width: 28px;
+    text-align: center;
+}
+
+/* ==========================================================================
+   DASHBOARD & KÁRTYÁK
    ========================================================================== */
 .card {
     background: var(--bg-secondary) !important;
@@ -177,8 +237,16 @@ a {
     border-bottom: 1px solid var(--border-color) !important;
     font-weight: 700;
     font-size: 1.1rem;
+    letter-spacing: -0.02em;
     color: var(--text-primary) !important;
     padding: 1.25rem 1.5rem !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.card-body {
+    padding: 1.5rem;
 }
 
 .card-body h6, .card-body .text-muted {
@@ -191,33 +259,42 @@ a {
     font-weight: 800;
 }
 
-/* Statisztika KPI Dobozok (Felső kártyák) */
+/* ==========================================================================
+   PRÉMIUM DASHBOARD STATISZTIKAI DOBOZOK (A felső kártyák)
+   ========================================================================== */
+.dashboardCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin-bottom: 45px;
+}
+
 .premiumStatCard {
     background: var(--bg-secondary) !important;
     border: 1px solid var(--border-color);
     border-radius: 22px;
-    padding: 24px;
+    padding: 28px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 22px;
     box-shadow: var(--shadow-md);
     transition: var(--transition);
 }
 
 .premiumStatCard:hover {
-    transform: translateY(-4px);
+    transform: translateY(-5px);
     box-shadow: var(--shadow-lg);
     border-color: var(--accent);
 }
 
 .premiumIcon {
-    width: 65px;
-    height: 65px;
-    border-radius: 18px;
+    width: 70px;
+    height: 70px;
+    border-radius: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 26px;
+    font-size: 28px;
     color: #ffffff !important;
     flex-shrink: 0;
 }
@@ -229,6 +306,10 @@ a {
 .premiumIcon.emerald{ background: #22c55e; }
 .premiumIcon.red    { background: var(--danger); }
 
+.premiumInfo {
+    flex: 1;
+}
+
 .premiumInfo span {
     color: var(--text-muted) !important;
     font-size: 14px;
@@ -237,25 +318,32 @@ a {
 }
 
 .premiumInfo h2 {
-    margin-top: 4px;
-    font-size: 30px;
+    margin-top: 6px;
+    font-size: 32px;
     font-weight: 800;
     color: var(--text-primary) !important;
 }
 
 /* ==========================================================================
-   STATISZTIKAI MENÜ & GOMBOK
+   STATISZTIKAI MENÜ & PROFESSZIONÁLIS GOMBORI
    ========================================================================== */
 .statisticsTitle {
     font-size: 32px;
     font-weight: 800;
-    margin-bottom: 25px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
     color: var(--text-primary) !important;
+}
+
+.statisticsTitle i {
+    color: var(--accent);
 }
 
 .statisticsMenu {
     display: flex;
-    gap: 16px;
+    gap: 18px;
     flex-wrap: wrap;
     margin-bottom: 30px;
 }
@@ -265,26 +353,29 @@ a {
     min-width: 200px;
     border: 1px solid var(--border-color);
     background: var(--bg-secondary);
-    border-radius: 18px;
-    padding: 20px;
+    border-radius: 20px;
+    padding: 22px;
     transition: var(--transition);
     box-shadow: var(--shadow-sm);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    gap: 12px;
     cursor: pointer;
 }
 
 .statisticsButton i {
-    font-size: 30px;
+    font-size: 32px;
     color: var(--accent);
+    transition: var(--transition);
 }
 
 .statisticsButton span {
     font-size: 16px;
     font-weight: 700;
     color: var(--text-primary) !important;
+    transition: var(--transition);
 }
 
 .statisticsButton:hover,
@@ -292,7 +383,7 @@ a {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
     transform: translateY(-4px);
-    box-shadow: 0 10px 25px var(--accent-glow);
+    box-shadow: 0 12px 25px var(--accent-glow);
 }
 
 .statisticsButton:hover i,
@@ -302,16 +393,59 @@ a {
     color: #ffffff !important;
 }
 
+.statisticsDivider {
+    margin: 35px 0;
+    border: none;
+    border-top: 1px solid var(--border-color);
+}
+
+.statisticsChartCard {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+    margin-bottom: 35px;
+}
+
+.statisticsChartCard:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.statisticsChartCard .card-header {
+    background: var(--bg-secondary) !important;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border-color) !important;
+}
+
+.statisticsChartCard .card-header h4 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary) !important;
+}
+
+.statisticsChartCard .card-header i {
+    color: var(--accent);
+    margin-right: 10px;
+}
+
+.statisticsChartCard .card-body {
+    padding: 30px;
+}
+
 /* ==========================================================================
-   🔥 AZ ÖSSZES TÁBLÁZAT AUTOMATIKUS MODERNIZÁLÁSA (HTML/JS csere nélkül)
+   PROFI ÁLLAPOT & EMELET STATISZTIKA TÁBLÁZATOK
    ========================================================================== */
 .table-responsive {
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
+    background: var(--bg-secondary) !important;
     box-shadow: var(--shadow-md);
     overflow: hidden;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
 }
 
 .table {
@@ -334,8 +468,8 @@ a {
     font-size: 0.8rem;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 16px 20px;
+    letter-spacing: 0.08em;
+    padding: 18px 24px;
     border-bottom: 2px solid var(--border-color) !important;
 }
 
@@ -348,7 +482,7 @@ a {
 }
 
 .table tbody td {
-    padding: 18px 20px;
+    padding: 18px 24px;
     font-size: 0.95rem;
     font-weight: 600;
     color: var(--text-primary) !important;
@@ -360,7 +494,6 @@ a {
     border-bottom: none;
 }
 
-/* Automatikus kis kártya stílus az első oszlop elemeinek (pl. Újszerű, 1. emelet) */
 .table tbody td:first-child {
     font-weight: 700;
     color: var(--accent) !important;
@@ -381,36 +514,71 @@ a {
 .infoBox:hover {
     transform: translateY(-3px);
     border-color: var(--accent) !important;
+    box-shadow: var(--shadow-md);
 }
 
 .infoBox small {
+    display: block;
     color: var(--text-muted) !important;
     font-size: 13px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     font-weight: 600;
-    display: block;
 }
 
 .infoBox h5 {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: var(--text-primary) !important;
 }
 
 /* ==========================================================================
-   ŰRLAPOK, INPUTOK & GOMBOK
+   ŰRLAPOK & INPUTOK
    ========================================================================== */
 .form-control, .form-select {
     background-color: var(--bg-secondary) !important;
     border: 1px solid var(--border-color) !important;
-    color: var(--text-primary) !important;
     border-radius: var(--radius-md);
+    color: var(--text-primary) !important;
     padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 4px var(--accent-light) !important;
+    outline: none;
 }
 
 .form-control::placeholder {
     color: var(--text-muted) !important;
+}
+
+.form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary) !important;
+    margin-bottom: 0.4rem;
+}
+
+/* ==========================================================================
+   GOMBOK (BUTTONS)
+   ========================================================================== */
+.btn {
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    padding: 0.75rem 1.25rem;
+    transition: var(--transition);
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
 }
 
 .btn-primary {
@@ -419,23 +587,80 @@ a {
     box-shadow: 0 4px 12px var(--accent-glow);
 }
 
+.btn-primary:hover {
+    background-color: var(--accent-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px var(--accent-glow);
+}
+
 /* ==========================================================================
-   AG GRID (ADATTÁBLÁZAT FIXEK)
+   AG GRID (TÁBLÁZAT MODUL)
    ========================================================================== */
 .ag-theme-quartz {
+    --ag-font-size: 15px;
+    --ag-font-family: inherit;
+    --ag-border-radius: 20px;
+    --ag-header-height: 55px;
+    --ag-row-height: 54px;
+    
     --ag-background-color: var(--bg-secondary);
     --ag-foreground-color: var(--text-primary);
     --ag-header-background-color: var(--bg-primary);
     --ag-header-foreground-color: var(--text-primary);
     --ag-border-color: var(--border-color);
     --ag-row-hover-color: var(--accent-light);
+    --ag-selected-row-background-color: var(--accent-light);
+}
+
+.ag-theme-quartz .ag-root-wrapper {
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
 }
 
 /* ==========================================================================
-   RESZPONZIVÁSÁG
+   TÉRKÉP MODUL (Leaflet)
+   ========================================================================== */
+#map {
+    width: 100%;
+    height: 580px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+    z-index: 1;
+}
+
+.leaflet-popup-content-wrapper {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.5rem !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+.leaflet-popup-tip {
+    background: var(--bg-secondary) !important;
+}
+
+/* ==========================================================================
+   RESZPONZÍV IGAZÍTÁSOK
    ========================================================================== */
 @media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+
+    #map {
+        height: 400px;
+    }
+
     .statisticsMenu {
         flex-direction: column;
+    }
+
+    .statisticsButton {
+        width: 100%;
     }
 }
