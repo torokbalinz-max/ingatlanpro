@@ -834,7 +834,7 @@ body.dark-mode .ag-theme-quartz {
     --ag-data-color: #ffffff !important;
 }
 
-/* KÜLSŐ KERET ÉS KEREKÍTÉS FIX MINTKÉT MÓDBAN */
+/* KÜLSŐ KERET ÉS KEREKÍTÉS FIX MINDKÉT MÓDBAN */
 .ag-theme-quartz .ag-root-wrapper {
     border-radius: 20px !important;
     overflow: hidden !important;
@@ -843,20 +843,69 @@ body.dark-mode .ag-theme-quartz {
     background-color: var(--bg-secondary) !important;
 }
 
-/* Sötét módban a cellák és gombok szövegeinek kötelező fehérítése */
-body.dark-mode .ag-theme-quartz .ag-cell,
-body.dark-mode .ag-theme-quartz .ag-header-cell-text,
-body.dark-mode .ag-theme-quartz .ag-paging-panel {
+/* --------------------------------------------------------------------------
+   SÖTÉT MÓD EXTRA FELÜLÍRÁSOK (Fejléc, Lapozó, Page Size & Oldalszámok)
+   -------------------------------------------------------------------------- */
+
+/* Fejléc háttér és betűszín sötétítés */
+body.dark-mode .ag-theme-quartz .ag-header,
+body.dark-mode .ag-theme-quartz .ag-header-row,
+body.dark-mode .ag-theme-quartz .ag-header-cell {
+    background-color: #0f172a !important;
     color: #ffffff !important;
+    border-bottom-color: #334155 !important;
 }
 
+body.dark-mode .ag-theme-quartz .ag-header-cell-text {
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
+/* Tablázat sorok sötétítése */
 body.dark-mode .ag-theme-quartz .ag-row {
     background-color: #1e293b !important;
     color: #ffffff !important;
     border-bottom-color: #334155 !important;
 }
 
-/* Sor kijelölés/lebegés sötét módban */
+body.dark-mode .ag-theme-quartz .ag-cell {
+    color: #ffffff !important;
+}
+
+/* Sor lebegetés sötét módban */
 body.dark-mode .ag-theme-quartz .ag-row-hover {
     background-color: rgba(59, 130, 246, 0.18) !important;
+}
+
+/* ALSÓ LAPOZÓ SÁV (Pagination Bar) FEHÉR HÁTTÉR MEGSZŰNTETÉSE */
+body.dark-mode .ag-theme-quartz .ag-paging-panel {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    border-top: 1px solid #334155 !important;
+}
+
+body.dark-mode .ag-theme-quartz .ag-paging-page-summary-panel,
+body.dark-mode .ag-theme-quartz .ag-paging-row-summary-panel,
+body.dark-mode .ag-theme-quartz .ag-paging-description {
+    color: #ffffff !important;
+}
+
+/* PAGE SIZE SELECT & MENÜ GOMBOK SÖTÉTÍTÉSE */
+body.dark-mode .ag-theme-quartz .ag-paging-page-size select,
+body.dark-mode .ag-theme-quartz .ag-picker-field-wrapper {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    border: 1px solid #334155 !important;
+    border-radius: 8px !important;
+    padding: 2px 6px !important;
+}
+
+/* Lapozó nyilak / gombok színe */
+body.dark-mode .ag-theme-quartz .ag-button,
+body.dark-mode .ag-theme-quartz .ag-paging-button {
+    color: #ffffff !important;
+}
+
+body.dark-mode .ag-theme-quartz .ag-icon {
+    color: #ffffff !important;
 }
