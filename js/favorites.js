@@ -82,7 +82,14 @@ class FavoritesManager {
 
             {
                 headerName: "⭐",
-                width: 90,
+                width: 100,
+                sortable: false,
+                filter: false,
+                cellStyle: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                },
                 cellRenderer: () => `<button class="btn btn-sm btn-outline-danger favRemoveBtn">Törlés</button>`,
                 onCellClicked: params => {
 
@@ -128,6 +135,7 @@ class FavoritesManager {
             pagination: true,
             paginationPageSize: 25,
             rowSelection: "single",
+            rowHeight: 54,
 
             defaultColDef: {
                 sortable: true,
@@ -147,8 +155,17 @@ class FavoritesManager {
 
                 if (event.colDef && event.colDef.headerName === "⭐") return;
 
-                AppController.select(event.data);
                 PageManager.show("pageDashboard");
+
+                setTimeout(() => {
+
+                    if (MapManager.map) {
+                        MapManager.map.invalidateSize(true);
+                    }
+
+                    AppController.select(event.data);
+
+                }, 250);
 
             }
 
