@@ -4,6 +4,7 @@ class DataManager {
     static ingatlanok = [];
     static szurtIngatlanok = [];
     static filter = {};
+    static favoriteIds = new Set();
 
     static toNumber(value) {
 
@@ -22,7 +23,9 @@ class DataManager {
 
         console.log("DataManager indul...");
 
-        fetch("/api/ingatlanok?city=" + DataManager.currentCity)
+        DataManager.loadFavoriteIds();
+
+        fetch("/api/ingatlanok?city=" + encodeURIComponent(DataManager.currentCity))
 
             .then(response => {
 
@@ -57,6 +60,72 @@ class DataManager {
 
                 console.error("DataManager hiba:", err);
                 alert(err);
+
+            });
+
+    }
+
+    static loadFavoriteIds() {
+
+        return fetch("/api/favorites/ids")
+
+            .then(r => r.json())
+
+            .then(ids => {
+
+                DataManager.favoriteIds = new Set(ids);
+
+                if (TableManager.grid) {
+                    TableManager.grid.redrawRows();
+                }
+
+            })
+
+            .catch(err => {
+
+                console.error("Kedvencek betöltése sikertelen:", err);
+
+            });
+
+    }
+
+    static isFavorite(id) {
+
+        return DataManager.favoriteIds.has(id);
+
+    }
+
+    static toggleFavorite(id) {
+
+        const isFav = DataManager.isFavorite(id);
+
+        const request = isFav
+            ? fetch("/api/favorites/" + id, { method: "DELETE" })
+            : fetch("/api/favorites/" + id, { method: "POST" });
+
+        return request
+
+            .then(r => r.json())
+
+            .then(() => {
+
+                if (isFav) {
+                    DataManager.favoriteIds.delete(id);
+                } else {
+                    DataManager.favoriteIds.add(id);
+                }
+
+                if (TableManager.grid) {
+                    TableManager.grid.redrawRows();
+                }
+
+                return !isFav;
+
+            })
+
+            .catch(err => {
+
+                console.error("Kedvenc módosítása sikertelen:", err);
 
             });
 

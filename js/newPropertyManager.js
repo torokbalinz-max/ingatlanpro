@@ -8,6 +8,9 @@ class NewPropertyManager {
 
             console.log("Mentés gomb megnyomva");
 
+            const ujVarosEl = document.getElementById("ujVaros");
+            const ujKeruletEl = document.getElementById("ujKerulet");
+
             const adat = {
 
                 link: document.getElementById("ujLink").value,
@@ -33,9 +36,20 @@ class NewPropertyManager {
 
                 x: Number(document.getElementById("ujX").value),
 
-                y: Number(document.getElementById("ujY").value)
+                y: Number(document.getElementById("ujY").value),
+
+                varos: ujVarosEl ? ujVarosEl.value : DataManager.currentCity,
+
+                kerulet: ujKeruletEl ? ujKeruletEl.value : ""
 
             };
+
+            if (!adat.varos) {
+
+                alert("Kérlek válassz várost!");
+                return;
+
+            }
 
             const url =
                 NewPropertyManager.editId == null
@@ -96,6 +110,20 @@ class NewPropertyManager {
     document.getElementById("ujAllapot").selectedIndex = 0;
     document.getElementById("ujX").value = "";
     document.getElementById("ujY").value = "";
+
+    const ujVaros = document.getElementById("ujVaros");
+    const ujKerulet = document.getElementById("ujKerulet");
+
+    if (ujVaros) {
+
+        ujVaros.value = DataManager.currentCity;
+        CityManager.loadKeruletek(ujVaros.value);
+
+    }
+
+    if (ujKerulet) {
+        ujKerulet.value = "";
+    }
 
 }
 

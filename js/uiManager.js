@@ -14,6 +14,28 @@ class UIManager {
         document.getElementById("detailAllapot").innerText = ingatlan.allapot;
         document.getElementById("detailLink").href = ingatlan.link;
 
+        const varosEl = document.getElementById("detailVaros");
+        const keruletEl = document.getElementById("detailKerulet");
+
+        if (varosEl) varosEl.innerText = ingatlan.varos || "-";
+        if (keruletEl) keruletEl.innerText = ingatlan.kerulet || "-";
+
+        UIManager.updateFavoriteButton(ingatlan.id);
+
+    }
+
+    static updateFavoriteButton(id) {
+
+        const btn = document.getElementById("btnFavoriteToggle");
+
+        if (!btn) return;
+
+        const isFav = DataManager.isFavorite(id);
+
+        btn.innerHTML = isFav ? "⭐ Kedvenc eltávolítása" : "☆ Kedvencekhez adás";
+        btn.classList.toggle("btn-warning", isFav);
+        btn.classList.toggle("btn-outline-warning", !isFav);
+
     }
 
     static setActiveMenu(id){
@@ -64,6 +86,50 @@ class UIManager {
             },100);
 
         };
+
+        // Kedvencek
+
+        const menuKedvencek = document.getElementById("menuKedvencek");
+
+        if (menuKedvencek) {
+
+            menuKedvencek.onclick = () => {
+
+                UIManager.setActiveMenu("menuKedvencek");
+
+                PageManager.show("pageFavorites");
+
+                FavoritesManager.load();
+
+            };
+
+        }
+
+        // Kedvenc gomb az adatlapon
+
+        const btnFavoriteToggle = document.getElementById("btnFavoriteToggle");
+
+        if (btnFavoriteToggle) {
+
+            btnFavoriteToggle.onclick = () => {
+
+                if (!UIManager.selectedIngatlan) {
+
+                    alert("Nincs kiválasztott ingatlan!");
+                    return;
+
+                }
+
+                DataManager.toggleFavorite(UIManager.selectedIngatlan.id)
+                    .then(() => {
+
+                        UIManager.updateFavoriteButton(UIManager.selectedIngatlan.id);
+
+                    });
+
+            };
+
+        }
 
         // Új ingatlan
 
@@ -162,6 +228,16 @@ class UIManager {
             document.getElementById("ujAllapot").value=i.allapot;
             document.getElementById("ujX").value=i.x;
             document.getElementById("ujY").value=i.y;
+
+            const ujVaros = document.getElementById("ujVaros");
+
+            if (ujVaros) {
+
+                ujVaros.value = i.varos || DataManager.currentCity;
+
+                CityManager.loadKeruletek(ujVaros.value, i.kerulet || "");
+
+            }
 
             NewPropertyManager.editId=i.id;
 

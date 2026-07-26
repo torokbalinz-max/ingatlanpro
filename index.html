@@ -335,6 +335,9 @@ class="btn btn-primary w-100">
                             <h2 id="detailId" class="fw-bold mt-2">
                                 Nincs kiválasztva
                             </h2>
+                            <button id="btnFavoriteToggle" class="btn btn-outline-warning btn-sm mt-2">
+                                ☆ Kedvencekhez adás
+                            </button>
                         </div>
 
                         <div class="row g-3">
@@ -364,6 +367,20 @@ class="btn btn-primary w-100">
                                 <div class="infoBox">
                                     <small>🏢 Emelet</small>
                                     <h5 id="detailEmelet">-</h5>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small>🏙 Város</small>
+                                    <h5 id="detailVaros">-</h5>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small>📍 Kerület</small>
+                                    <h5 id="detailKerulet">-</h5>
                                 </div>
                             </div>
 
@@ -483,6 +500,28 @@ class="btn btn-primary w-100">
                 <div class="row">
                     <div class="col-md-4">
                         <div class="mb-3">
+                            <label class="form-label">Város</label>
+                            <div class="d-flex gap-2">
+                                <select id="ujVaros" class="form-select"></select>
+                                <button type="button" id="btnUjVaros" class="btn btn-outline-secondary" title="Új város hozzáadása">➕</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Kerület / városrész</label>
+                            <div class="d-flex gap-2">
+                                <select id="ujKerulet" class="form-select">
+                                    <option value="">— nincs megadva —</option>
+                                </select>
+                                <button type="button" id="btnUjKerulet" class="btn btn-outline-secondary" title="Új kerület hozzáadása">➕</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mb-3">
                             <label class="form-label">Állapot</label>
                             <select id="ujAllapot" class="form-select">
                                 <option>újszerű</option>
@@ -556,6 +595,21 @@ class="btn btn-primary w-100">
 
 </div>
 
+<!-- ===================== KEDVENCEK ===================== -->
+<div id="pageFavorites" class="page" style="display:none;">
+
+    <h2 class="statisticsTitle">
+        <i class="fa-solid fa-star"></i>
+        Kedvencek
+    </h2>
+
+    <hr class="statisticsDivider">
+
+    <div id="favoritesGrid" class="ag-theme-quartz" style="height:700px;width:100%;">
+    </div>
+
+</div>
+
 
 
    
@@ -578,6 +632,8 @@ class="btn btn-primary w-100">
 <script src="js/appController.js"></script>
 <script src="js/scoreManager.js"></script>
 <script src="js/newPropertyMap.js"></script>
+<script src="js/cityManager.js"></script>
+<script src="js/favorites.js"></script>
 
 <!-- Statistics -->
 <script src="js/statistics/dashboardStatistics.js"></script>

@@ -1013,3 +1013,26 @@ body.dark-mode .ag-theme-quartz .ag-paging-button,
 body.dark-mode .ag-theme-quartz .ag-icon {
     color: #ffffff !important;
 }
+
+/* ===================== KEDVENCEK / VAROS-KERULET (uj funkciok) ===================== */
+
+#btnFavoriteToggle {
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.favRemoveBtn {
+    border-radius: 6px;
+}
+
+body.dark-mode #favoritesGrid {
+    color-scheme: dark;
+}
+
+#ujVaros, #ujKerulet {
+    min-width: 0;
+}
+
+#btnUjVaros, #btnUjKerulet {
+    flex-shrink: 0;
+}

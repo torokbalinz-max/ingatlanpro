@@ -10,6 +10,20 @@ class TableManager {
         const columnDefs = [
 
             {
+                headerName: "⭐",
+                width: 60,
+                sortable: false,
+                filter: false,
+                cellRenderer: params =>
+                    DataManager.isFavorite(params.data.id) ? "⭐" : "☆",
+                onCellClicked: params => {
+
+                    DataManager.toggleFavorite(params.data.id);
+
+                }
+            },
+
+            {
                 field: "id",
                 headerName: "#",
                 width: 80,
@@ -79,6 +93,12 @@ class TableManager {
             },
 
             {
+                field:"kerulet",
+                headerName:"📍 Kerület",
+                width:150
+            },
+
+            {
                 field:"allapot",
                 headerName:"🔧 Állapot",
                 flex:1
@@ -139,6 +159,8 @@ class TableManager {
                 },
 
                 onRowClicked(event){
+
+                    if (event.colDef && event.colDef.headerName === "⭐") return;
 
                     AppController.select(event.data);
 

@@ -23,24 +23,56 @@ app.get("/api/ingatlanok", async (req, res) => {
 
     try {
 
-    console.log("GET /api/ingatlanok");
+    console.log("GET /api/ingatlanok", req.query);
 
-    const result = await db.query(`
-        SELECT
-            id,
-            link,
-            ar,
-            nm,
-            arnm AS "arNm",
-            szobak,
-            emelet,
-            allapot,
-            eladva,
-            x,
-            y
-        FROM ingatlanok
-        ORDER BY id
-    `);
+    const city = req.query.city;
+
+    let result;
+
+    if (city) {
+
+        result = await db.query(`
+            SELECT
+                id,
+                link,
+                ar,
+                nm,
+                arnm AS "arNm",
+                szobak,
+                emelet,
+                allapot,
+                eladva,
+                x,
+                y,
+                varos,
+                kerulet
+            FROM ingatlanok
+            WHERE varos = $1
+            ORDER BY id
+        `, [city]);
+
+    } else {
+
+        result = await db.query(`
+            SELECT
+                id,
+                link,
+                ar,
+                nm,
+                arnm AS "arNm",
+                szobak,
+                emelet,
+                allapot,
+                eladva,
+                x,
+                y,
+                varos,
+                kerulet
+            FROM ingatlanok
+            ORDER BY id
+        `);
+
+    }
 
     res.json(result.rows);
 
@@ -64,8 +96,8 @@ app.post("/api/ingatlanok", async (req, res) => {
         const result = await db.query(
 
             `INSERT INTO ingatlanok
-            (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
             RETURNING id`,
 
             [
@@ -79,7 +111,9 @@ app.post("/api/ingatlanok", async (req, res) => {
                 adat.allapot,
                 adat.eladva,
                 adat.x,
-                adat.y
+                adat.y,
+                adat.varos || null,
+                adat.kerulet || null
 
             ]
 
@@ -121,8 +155,10 @@ app.put("/api/ingatlanok/:id", async (req, res) => {
                 allapot=$7,
                 eladva=$8,
                 x=$9,
-                y=$10
-            WHERE id=$11`,
+                y=$10,
+                varos=$11,
+                kerulet=$12
+            WHERE id=$13`,
 
             [
 
@@ -136,6 +172,8 @@ app.put("/api/ingatlanok/:id", async (req, res) => {
                 adat.eladva,
                 adat.x,
                 adat.y,
+                adat.varos || null,
+                adat.kerulet || null,
                 req.params.id
 
             ]
@@ -182,6 +220,211 @@ app.delete("/api/ingatlanok/:id", async (req, res) => {
     }
 
 });
+
+// ===================== VÁROSOK =====================
+
+app.get("/api/varosok", async (req, res) => {
+
+    try {
+
+        const result = await db.query(
+            "SELECT id, nev FROM varosok ORDER BY nev"
+        );
+
+        res.json(result.rows);
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
+app.post("/api/varosok", async (req, res) => {
+
+    try {
+
+        const nev = (req.body.nev || "").trim();
+
+        if (!nev) {
+            return res.status(400).json({ error: "Hiányzó városnév" });
+        }
+
+        const result = await db.query(
+            `INSERT INTO varosok (nev)
+             VALUES ($1)
+             ON CONFLICT (nev) DO UPDATE SET nev=EXCLUDED.nev
+             RETURNING id, nev`,
+            [nev]
+        );
+
+        res.json(result.rows[0]);
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
+// ===================== KERÜLETEK / VÁROSRÉSZEK =====================
+
+app.get("/api/keruletek", async (req, res) => {
+
+    try {
+
+        const varos = req.query.varos;
+
+        const result = varos
+            ? await db.query(
+                "SELECT id, varos, nev FROM keruletek WHERE varos=$1 ORDER BY nev",
+                [varos]
+              )
+            : await db.query(
+                "SELECT id, varos, nev FROM keruletek ORDER BY varos, nev"
+              );
+
+        res.json(result.rows);
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
+app.post("/api/keruletek", async (req, res) => {
+
+    try {
+
+        const varos = (req.body.varos || "").trim();
+        const nev = (req.body.nev || "").trim();
+
+        if (!varos || !nev) {
+            return res.status(400).json({ error: "Hiányzó város vagy kerület név" });
+        }
+
+        const result = await db.query(
+            `INSERT INTO keruletek (varos, nev)
+             VALUES ($1,$2)
+             ON CONFLICT (varos, nev) DO UPDATE SET nev=EXCLUDED.nev
+             RETURNING id, varos, nev`,
+            [varos, nev]
+        );
+
+        res.json(result.rows[0]);
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
+// ===================== KEDVENCEK =====================
+
+app.get("/api/favorites", async (req, res) => {
+
+    try {
+
+        const result = await db.query(`
+            SELECT
+                i.id,
+                i.link,
+                i.ar,
+                i.nm,
+                i.arnm AS "arNm",
+                i.szobak,
+                i.emelet,
+                i.allapot,
+                i.eladva,
+                i.x,
+                i.y,
+                i.varos,
+                i.kerulet
+            FROM favorites f
+            JOIN ingatlanok i ON i.id = f.property_id
+            ORDER BY i.id
+        `);
+
+        res.json(result.rows);
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
+app.get("/api/favorites/ids", async (req, res) => {
+
+    try {
+
+        const result = await db.query("SELECT property_id FROM favorites");
+
+        res.json(result.rows.map(r => r.property_id));
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
+app.post("/api/favorites/:id", async (req, res) => {
+
+    try {
+
+        await db.query(
+            `INSERT INTO favorites (property_id)
+             VALUES ($1)
+             ON CONFLICT (property_id) DO NOTHING`,
+            [req.params.id]
+        );
+
+        res.json({ siker: true });
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
+app.delete("/api/favorites/:id", async (req, res) => {
+
+    try {
+
+        await db.query(
+            "DELETE FROM favorites WHERE property_id=$1",
+            [req.params.id]
+        );
+
+        res.json({ siker: true });
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
 app.post("/api/statistics/save", async (req, res) => {
 
     try {

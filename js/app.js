@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
     UIManager.initMenu();
     StatisticsManager.init();
 
+    CityManager.init();
+
     DataManager.init();
     FilterManager.init();
 

@@ -5,6 +5,7 @@ class PageManager {
         const dashboard = document.getElementById("pageDashboard");
         const newPage = document.getElementById("pageNew");
         const statistics = document.getElementById("pageStatistics");
+        const favorites = document.getElementById("pageFavorites");
 
         // Alapból minden elrejtése
         dashboard.style.display = "none";
@@ -13,6 +14,10 @@ class PageManager {
         // A statisztika most már a dashboard része,
         // ezért csak ezt rejtsük el külön.
         statistics.style.display = "none";
+
+        if (favorites) {
+            favorites.style.display = "none";
+        }
 
         if (page === "pageDashboard") {
 
@@ -42,6 +47,12 @@ class PageManager {
 
             StatisticsManager.init();
             StatisticsManager.loadCurrent();
+
+        }
+
+        if (page === "pageFavorites" && favorites) {
+
+            favorites.style.display = "block";
 
         }
 
