@@ -74,6 +74,16 @@ async function initDatabase() {
             ON CONFLICT (nev) DO NOTHING
         `);
 
+        // A varos oszlop bevezetése előtt felvitt ingatlanok
+        // ("varos" mező üres/NULL) automatikusan Sepsiszentgyörgyhöz
+        // kerülnek, hogy ne tűnjenek el a szűrésnél.
+
+        await pool.query(`
+            UPDATE ingatlanok
+            SET varos = 'Sepsiszentgyorgy'
+            WHERE varos IS NULL OR varos = ''
+        `);
+
         // Kerületek / városrészek (városhoz kötve)
 
         await pool.query(`
