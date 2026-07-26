@@ -1023,6 +1023,9 @@ body.dark-mode .ag-theme-quartz .ag-icon {
 
 .favRemoveBtn {
     border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 13px;
+    line-height: 1.4;
 }
 
 body.dark-mode #favoritesGrid {

@@ -81,8 +81,8 @@ class FavoritesManager {
             },
 
             {
-                headerName: "⭐",
-                width: 100,
+                headerName: "🗑️",
+                width: 70,
                 sortable: false,
                 filter: false,
                 cellStyle: {
@@ -90,7 +90,7 @@ class FavoritesManager {
                     alignItems: "center",
                     justifyContent: "center"
                 },
-                cellRenderer: () => `<button class="btn btn-sm btn-outline-danger favRemoveBtn">Törlés</button>`,
+                cellRenderer: () => `<button class="btn btn-sm btn-outline-danger favRemoveBtn" title="Törlés a kedvencek közül">🗑️</button>`,
                 onCellClicked: params => {
 
                     if (!confirm("Törlöd a kedvencek közül?")) return;
@@ -153,7 +153,7 @@ class FavoritesManager {
 
             onRowClicked(event) {
 
-                if (event.colDef && event.colDef.headerName === "⭐") return;
+                if (event.colDef && event.colDef.headerName === "🗑️") return;
 
                 PageManager.show("pageDashboard");
 
