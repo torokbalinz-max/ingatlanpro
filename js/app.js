@@ -107,4 +107,6 @@ document.getElementById("citySelect").onchange = function () {
 
     DataManager.init();
 
+    CityManager.loadSearchKeruletek(this.value);
+
 };

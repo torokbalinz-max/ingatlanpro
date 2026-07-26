@@ -10,6 +10,9 @@ class CityManager {
 
             CityManager.fillCitySelect(document.getElementById("citySelect"));
 
+            // Kereső oldali kerület-szűrő feltöltése az aktuális városhoz
+            CityManager.loadSearchKeruletek(DataManager.currentCity);
+
             // Új ingatlan űrlap városválasztója
             const ujVaros = document.getElementById("ujVaros");
 
@@ -151,6 +154,34 @@ class CityManager {
             }
 
         });
+
+    }
+
+    static loadSearchKeruletek(varos) {
+
+        const select = document.getElementById("keresoKerulet");
+
+        if (!select) return Promise.resolve();
+
+        return fetch("/api/keruletek?varos=" + encodeURIComponent(varos))
+            .then(r => r.json())
+            .then(lista => {
+
+                select.innerHTML = `<option value="">Mindegy</option>`;
+
+                lista.forEach(k => {
+
+                    const opt = document.createElement("option");
+
+                    opt.value = k.nev;
+                    opt.innerText = k.nev;
+
+                    select.appendChild(opt);
+
+                });
+
+            })
+            .catch(err => console.error("Kerületek betöltése sikertelen:", err));
 
     }
 

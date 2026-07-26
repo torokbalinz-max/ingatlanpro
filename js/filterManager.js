@@ -25,6 +25,9 @@ class FilterManager {
 
         const allapot = document.getElementById("allapot").value;
 
+        const keruletEl = document.getElementById("keresoKerulet");
+        const kerulet = keruletEl ? keruletEl.value : "";
+
         // A jelenlegi keresési feltételek eltárolása
         DataManager.filter = {
 
@@ -38,7 +41,9 @@ class FilterManager {
 
             minEmelet,
 
-            allapot
+            allapot,
+
+            kerulet
 
             };
 
@@ -57,6 +62,8 @@ class FilterManager {
             return false;
 
             if (allapot !== "" && i.allapot !== allapot) return false;
+
+            if (kerulet !== "" && (i.kerulet || "") !== kerulet) return false;
 
             return true;
 
