@@ -13,6 +13,32 @@ document.addEventListener("DOMContentLoaded", () => {
     NewPropertyMap.init();
     NewPropertyManager.init();
 
+    UIManager.showNoSelection();
+
+    // ===================== NYELV VÁLTOZÁS KEZELÉSE =====================
+
+    I18n.onChange(() => {
+
+        TableManager.refreshColumns();
+
+        if (typeof FavoritesManager !== "undefined") {
+            FavoritesManager.refreshColumns();
+        }
+
+        if (!UIManager.selectedIngatlan) {
+            UIManager.showNoSelection();
+        } else {
+            UIManager.updateFavoriteButton(UIManager.selectedIngatlan.id);
+        }
+
+        if (MapManager.map && DataManager.szurtIngatlanok) {
+            MapManager.load(DataManager.szurtIngatlanok);
+        }
+
+        updateDarkModeButtonText();
+
+    });
+
     // ===================== PIACI MENTÉS =====================
 
     const btnSaveStatistics = document.getElementById("btnSaveStatistics");
@@ -21,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         btnSaveStatistics.onclick = () => {
 
-            if (!confirm("Biztosan szeretnél egy piaci pillanatképet menteni?")) {
+            if (!confirm(I18n.t("alertConfirmSaveStats"))) {
                 return;
             }
 
@@ -30,11 +56,11 @@ document.addEventListener("DOMContentLoaded", () => {
             })
             .then(r => r.json())
             .then(() => {
-                alert("Piaci pillanatkép sikeresen elmentve!");
+                alert(I18n.t("alertStatsSaved"));
             })
             .catch(err => {
                 console.error(err);
-                alert("Hiba történt a mentés során.");
+                alert(I18n.t("alertStatsSaveError"));
             });
 
         };
@@ -71,30 +97,36 @@ document.addEventListener("DOMContentLoaded", () => {
     const body = document.body;
     const darkBtn = document.getElementById("btnDarkMode");
 
+    function updateDarkModeButtonText() {
+
+        if (!darkBtn) return;
+
+        darkBtn.innerHTML = body.classList.contains("dark-mode")
+            ? I18n.t("darkModeOff")
+            : I18n.t("darkModeOn");
+
+    }
+
     if (darkBtn) {
 
         if (localStorage.getItem("theme") === "dark") {
 
             body.classList.add("dark-mode");
-            darkBtn.innerHTML = "☀️ Világos mód";
 
         }
+
+        updateDarkModeButtonText();
 
         darkBtn.onclick = () => {
 
             body.classList.toggle("dark-mode");
 
-            if (body.classList.contains("dark-mode")) {
+            localStorage.setItem(
+                "theme",
+                body.classList.contains("dark-mode") ? "dark" : "light"
+            );
 
-                localStorage.setItem("theme", "dark");
-                darkBtn.innerHTML = "☀️ Világos mód";
-
-            } else {
-
-                localStorage.setItem("theme", "light");
-                darkBtn.innerHTML = "🌙 Sötét mód";
-
-            }
+            updateDarkModeButtonText();
 
         };
 

@@ -1,6 +1,7 @@
 class FavoritesManager {
 
     static grid = null;
+    static lastData = [];
 
     static load() {
 
@@ -22,12 +23,12 @@ class FavoritesManager {
 
     }
 
-    static render(lista) {
+    static buildColumnDefs() {
 
         const euro = value =>
             Number(value).toLocaleString("hu-HU") + " €";
 
-        const columnDefs = [
+        return [
 
             {
                 field: "id",
@@ -37,46 +38,46 @@ class FavoritesManager {
 
             {
                 field: "ar",
-                headerName: "💶 Ár",
+                headerName: I18n.t("colAr"),
                 flex: 1.2,
                 valueFormatter: p => euro(p.value)
             },
 
             {
                 field: "nm",
-                headerName: "📐 m²",
+                headerName: I18n.t("colNm"),
                 width: 100,
                 valueFormatter: p => p.value + " m²"
             },
 
             {
                 field: "arNm",
-                headerName: "💰 €/m²",
+                headerName: I18n.t("colArNm"),
                 width: 120,
                 valueFormatter: p => Math.round(p.value)
             },
 
             {
                 field: "szobak",
-                headerName: "🛏",
+                headerName: I18n.t("colSzoba"),
                 width: 90
             },
 
             {
                 field: "varos",
-                headerName: "🏙 Város",
+                headerName: I18n.t("detailVaros"),
                 width: 150
             },
 
             {
                 field: "kerulet",
-                headerName: "📍 Kerület",
+                headerName: I18n.t("colKerulet"),
                 width: 150
             },
 
             {
                 field: "allapot",
-                headerName: "🔧 Állapot",
+                headerName: I18n.t("colAllapot"),
                 flex: 1
             },
 
@@ -90,10 +91,10 @@ class FavoritesManager {
                     alignItems: "center",
                     justifyContent: "center"
                 },
-                cellRenderer: () => `<button class="btn btn-sm btn-outline-danger favRemoveBtn" title="Törlés a kedvencek közül">🗑️</button>`,
+                cellRenderer: () => `<button class="btn btn-sm btn-outline-danger favRemoveBtn" title="${I18n.t("favDeleteTitle")}">🗑️</button>`,
                 onCellClicked: params => {
 
-                    if (!confirm("Törlöd a kedvencek közül?")) return;
+                    if (!confirm(I18n.t("favDeleteConfirm"))) return;
 
                     fetch("/api/favorites/" + params.data.id, {
                         method: "DELETE"
@@ -116,6 +117,14 @@ class FavoritesManager {
 
         ];
 
+    }
+
+    static render(lista) {
+
+        FavoritesManager.lastData = lista;
+
+        const columnDefs = FavoritesManager.buildColumnDefs();
+
         const el = document.querySelector("#favoritesGrid");
 
         if (!el) return;
@@ -123,6 +132,7 @@ class FavoritesManager {
         if (this.grid) {
 
             this.grid.setGridOption("rowData", lista);
+            this.grid.setGridOption("columnDefs", columnDefs);
             return;
 
         }
@@ -170,6 +180,16 @@ class FavoritesManager {
             }
 
         });
+
+    }
+
+    static refreshColumns() {
+
+        if (this.grid) {
+
+            this.grid.setGridOption("columnDefs", FavoritesManager.buildColumnDefs());
+
+        }
 
     }
 

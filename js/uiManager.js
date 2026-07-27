@@ -24,6 +24,20 @@ class UIManager {
 
     }
 
+    static showNoSelection() {
+
+        UIManager.selectedIngatlan = null;
+
+        const detailId = document.getElementById("detailId");
+
+        if (detailId) detailId.innerText = I18n.t("detailNincsKivalasztva");
+
+        const btn = document.getElementById("btnFavoriteToggle");
+
+        if (btn) btn.innerHTML = I18n.t("favAdd");
+
+    }
+
     static updateFavoriteButton(id) {
 
         const btn = document.getElementById("btnFavoriteToggle");
@@ -32,7 +46,7 @@ class UIManager {
 
         const isFav = DataManager.isFavorite(id);
 
-        btn.innerHTML = isFav ? "⭐ Kedvenc eltávolítása" : "☆ Kedvencekhez adás";
+        btn.innerHTML = isFav ? I18n.t("favRemove") : I18n.t("favAdd");
         btn.classList.toggle("btn-warning", isFav);
         btn.classList.toggle("btn-outline-warning", !isFav);
 
@@ -115,7 +129,7 @@ class UIManager {
 
                 if (!UIManager.selectedIngatlan) {
 
-                    alert("Nincs kiválasztott ingatlan!");
+                    alert(I18n.t("alertNincsKivalasztva"));
                     return;
 
                 }
@@ -159,13 +173,13 @@ class UIManager {
 
             if (!UIManager.selectedIngatlan) {
 
-                alert("Nincs kiválasztott ingatlan!");
+                alert(I18n.t("alertNincsKivalasztva"));
 
                 return;
 
             }
 
-            if (!confirm("Biztosan törölni szeretnéd ezt az ingatlant?")) {
+            if (!confirm(I18n.t("alertConfirmDelete"))) {
 
                 return;
 
@@ -181,7 +195,7 @@ class UIManager {
 
             .then(()=>{
 
-                alert("Ingatlan törölve!");
+                alert(I18n.t("alertDeleted"));
 
                 DataManager.ingatlanok =
                     DataManager.ingatlanok.filter(x=>x.id!==UIManager.selectedIngatlan.id);
@@ -195,7 +209,7 @@ class UIManager {
 
                 MapManager.load(DataManager.szurtIngatlanok);
 
-                UIManager.selectedIngatlan=null;
+                UIManager.showNoSelection();
 
             });
 
@@ -207,7 +221,7 @@ class UIManager {
 
             if (!UIManager.selectedIngatlan) {
 
-                alert("Nincs kiválasztott ingatlan!");
+                alert(I18n.t("alertNincsKivalasztva"));
 
                 return;
 

@@ -46,7 +46,7 @@ class NewPropertyManager {
 
             if (!adat.varos) {
 
-                alert("Kérlek válassz várost!");
+                alert(I18n.t("alertNoVaros"));
                 return;
 
             }
@@ -78,7 +78,7 @@ class NewPropertyManager {
 
                 console.log(valasz);
 
-                alert("Mentés sikeres!");
+                alert(I18n.t("alertSaveSuccess"));
 
                 NewPropertyManager.editId = null;
 
@@ -92,7 +92,7 @@ class NewPropertyManager {
 
                 console.error(err);
 
-                alert("Hiba történt a mentés során!");
+                alert(I18n.t("alertSaveError"));
 
             });
 

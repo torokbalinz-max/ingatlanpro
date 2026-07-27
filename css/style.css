@@ -1048,3 +1048,13 @@ body.dark-mode #favoritesGrid {
     background-color: #1e293b !important;
     border-radius: 20px;
 }
+
+.langSwitcher .langBtn {
+    font-weight: 600;
+}
+
+.langSwitcher .langBtn.active {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+    border-color: #ffffff !important;
+}

@@ -52,7 +52,7 @@ class StatisticsManager {
 
                 <div style="margin-bottom:20px;">
 
-                    <label><b>Piaci mentés:</b></label>
+                    <label><b>${I18n.t("statsSnapshotLabel")}</b></label>
 
                     <div class="d-flex gap-2">
 
@@ -80,7 +80,7 @@ class StatisticsManager {
                             id="btnLoadSnapshot"
                             class="btn btn-primary">
 
-                            Betöltés
+                            ${I18n.t("statsLoadBtn")}
 
                         </button>
 
@@ -115,7 +115,7 @@ class StatisticsManager {
                 const id =
                     document.getElementById("snapshotSelect").value;
 
-                if (!confirm("Biztosan törölni szeretnéd ezt a mentést?"))
+                if (!confirm(I18n.t("alertConfirmDeleteSnapshot")))
                     return;
 
                 fetch("/api/statistics/" + id, {
@@ -126,7 +126,7 @@ class StatisticsManager {
                 .then(r => r.json())
                 .then(() => {
 
-                    alert("Mentés törölve.");
+                    alert(I18n.t("alertSnapshotDeleted"));
 
                     StatisticsManager.load();
 
@@ -161,17 +161,17 @@ class StatisticsManager {
                     <div class="statisticsGrid">
 
                         <div class="statCard">
-                            <h3>🏠 Ingatlanok</h3>
+                            <h3>${I18n.t("statsPropertyCount")}</h3>
                             <h1>${s.property_count}</h1>
                         </div>
 
                         <div class="statCard">
-                            <h3>💶 Átlag ár</h3>
+                            <h3>${I18n.t("statsAvgPrice")}</h3>
                             <h1>${Math.round(s.avg_price).toLocaleString()} €</h1>
                         </div>
 
                         <div class="statCard">
-                            <h3>💰 Átlag €/m²</h3>
+                            <h3>${I18n.t("statsAvgPriceNm")}</h3>
                             <h1>${Math.round(s.avg_price_nm)}</h1>
                         </div>
 
@@ -179,15 +179,15 @@ class StatisticsManager {
 
                     <br><br>
 
-                    <h2>🔧 Állapot szerinti elemzés</h2>
+                    <h2>${I18n.t("statsByAllapot")}</h2>
 
                     <table class="statTable">
 
                         <tr>
-                            <th>Állapot</th>
-                            <th>Darab</th>
-                            <th>Átlag ár</th>
-                            <th>Átlag €/m²</th>
+                            <th>${I18n.t("statsColAllapot")}</th>
+                            <th>${I18n.t("statsColCount")}</th>
+                            <th>${I18n.t("statsColAvgPrice")}</th>
+                            <th>${I18n.t("statsColAvgPriceNm")}</th>
                         </tr>
 
                 `;
@@ -211,15 +211,15 @@ class StatisticsManager {
 
                     <br><br>
 
-                    <h2>🛏 Szobaszám szerinti elemzés</h2>
+                    <h2>${I18n.t("statsByRooms")}</h2>
 
                     <table class="statTable">
 
                         <tr>
-                            <th>Szobák</th>
-                            <th>Darab</th>
-                            <th>Átlag ár</th>
-                            <th>Átlag €/m²</th>
+                            <th>${I18n.t("statsColSzobak")}</th>
+                            <th>${I18n.t("statsColCount")}</th>
+                            <th>${I18n.t("statsColAvgPrice")}</th>
+                            <th>${I18n.t("statsColAvgPriceNm")}</th>
                         </tr>
 
                 `;
@@ -243,15 +243,15 @@ class StatisticsManager {
 
                     <br><br>
 
-                    <h2>🏢 Emelet szerinti elemzés</h2>
+                    <h2>${I18n.t("statsByFloor")}</h2>
 
                     <table class="statTable">
 
                         <tr>
-                            <th>Emelet</th>
-                            <th>Darab</th>
-                            <th>Átlag ár</th>
-                            <th>Átlag €/m²</th>
+                            <th>${I18n.t("statsColEmelet")}</th>
+                            <th>${I18n.t("statsColCount")}</th>
+                            <th>${I18n.t("statsColAvgPrice")}</th>
+                            <th>${I18n.t("statsColAvgPriceNm")}</th>
                         </tr>
 
                 `;

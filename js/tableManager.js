@@ -1,13 +1,14 @@
 class TableManager {
 
     static grid = null;
+    static lastData = [];
 
-    static load(lista) {
+    static buildColumnDefs() {
 
         const euro = value =>
             Number(value).toLocaleString("hu-HU") + " €";
 
-        const columnDefs = [
+        return [
 
             {
                 headerName: "⭐",
@@ -35,7 +36,7 @@ class TableManager {
 
             {
                 field: "ar",
-                headerName: "💶 Ár",
+                headerName: I18n.t("colAr"),
                 flex: 1.3,
                 valueFormatter: p => euro(p.value),
                 cellStyle: {
@@ -47,7 +48,7 @@ class TableManager {
 
             {
                 field: "nm",
-                headerName: "📐 m²",
+                headerName: I18n.t("colNm"),
                 width: 110,
                 valueFormatter: p => p.value + " m²",
                 cellStyle: {
@@ -57,7 +58,7 @@ class TableManager {
 
             {
                 field: "arNm",
-                headerName: "💰 €/m²",
+                headerName: I18n.t("colArNm"),
                 width: 130,
                 valueFormatter: p => Math.round(p.value),
                 cellStyle: params => {
@@ -82,33 +83,42 @@ class TableManager {
 
             {
                 field:"szobak",
-                headerName:"🛏",
+                headerName: I18n.t("colSzoba"),
                 width:100
             },
 
             {
                 field:"emelet",
-                headerName:"🏢",
+                headerName: I18n.t("colEmelet"),
                 width:120
             },
 
             {
                 field:"kerulet",
-                headerName:"📍 Kerület",
+                headerName: I18n.t("colKerulet"),
                 width:150
             },
 
             {
                 field:"allapot",
-                headerName:"🔧 Állapot",
+                headerName: I18n.t("colAllapot"),
                 flex:1
             }
 
         ];
 
+    }
+
+    static load(lista) {
+
+        TableManager.lastData = lista;
+
+        const columnDefs = TableManager.buildColumnDefs();
+
         if(this.grid){
 
             this.grid.setGridOption("rowData",lista);
+            this.grid.setGridOption("columnDefs",columnDefs);
 
             return;
 
@@ -174,9 +184,21 @@ class TableManager {
 
     static update(lista){
 
+        TableManager.lastData = lista;
+
         if(this.grid){
 
             this.grid.setGridOption("rowData",lista);
+
+        }
+
+    }
+
+    static refreshColumns(){
+
+        if(this.grid){
+
+            this.grid.setGridOption("columnDefs", TableManager.buildColumnDefs());
 
         }
 

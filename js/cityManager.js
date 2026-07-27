@@ -41,7 +41,7 @@ class CityManager {
 
             btnUjVaros.onclick = () => {
 
-                const nev = prompt("Új város neve:");
+                const nev = prompt(I18n.t("alertNewCityPrompt"));
 
                 if (!nev || !nev.trim()) return;
 
@@ -71,7 +71,7 @@ class CityManager {
                 .catch(err => {
 
                     console.error(err);
-                    alert("Hiba történt a város hozzáadása közben.");
+                    alert(I18n.t("alertNewCityError"));
 
                 });
 
@@ -89,11 +89,11 @@ class CityManager {
                 const varos = document.getElementById("ujVaros").value;
 
                 if (!varos) {
-                    alert("Először válassz várost!");
+                    alert(I18n.t("alertChooseCityFirst"));
                     return;
                 }
 
-                const nev = prompt("Új kerület / városrész neve:");
+                const nev = prompt(I18n.t("alertNewDistrictPrompt"));
 
                 if (!nev || !nev.trim()) return;
 
@@ -109,7 +109,7 @@ class CityManager {
                 .catch(err => {
 
                     console.error(err);
-                    alert("Hiba történt a kerület hozzáadása közben.");
+                    alert(I18n.t("alertNewDistrictError"));
 
                 });
 
@@ -167,7 +167,7 @@ class CityManager {
             .then(r => r.json())
             .then(lista => {
 
-                select.innerHTML = `<option value="">Mindegy</option>`;
+                select.innerHTML = `<option value="">${I18n.t("allapotMindegy")}</option>`;
 
                 lista.forEach(k => {
 
@@ -195,7 +195,7 @@ class CityManager {
             .then(r => r.json())
             .then(lista => {
 
-                select.innerHTML = `<option value="">— nincs megadva —</option>`;
+                select.innerHTML = `<option value="">${I18n.t("newKeruletNincs")}</option>`;
 
                 lista.forEach(k => {
 

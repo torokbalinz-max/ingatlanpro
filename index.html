@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -56,7 +56,15 @@
 
     </select>
 
-    <button class="btn btn-outline-light" id="btnDarkMode">
+    <div class="langSwitcher btn-group" role="group">
+
+        <button type="button" class="langBtn btn btn-outline-light btn-sm" data-lang="en">🇬🇧 EN</button>
+        <button type="button" class="langBtn btn btn-outline-light btn-sm" data-lang="hu">🇭🇺 HU</button>
+        <button type="button" class="langBtn btn btn-outline-light btn-sm" data-lang="ro">🇷🇴 RO</button>
+
+    </div>
+
+    <button class="btn btn-outline-light" id="btnDarkMode" data-i18n="darkModeOn">
         🌙 Sötét mód
     </button>
 
@@ -84,7 +92,7 @@
 
 <i class="fa-solid fa-bars"></i>
 
-Menü
+<span data-i18n="menuTitle">Menü</span>
 
 </h4>
 
@@ -96,28 +104,28 @@ Menü
 
     <button id="menuIngatlanok" class="sidebarBtn active">
         <span class="sidebarIcon">🏠</span>
-        <span>Ingatlanok</span>
+        <span data-i18n="menuIngatlanok">Ingatlanok</span>
     </button>
 
     <button id="menuUj" class="sidebarBtn">
         <span class="sidebarIcon">➕</span>
-        <span>Új ingatlan</span>
+        <span data-i18n="menuUj">Új ingatlan</span>
     </button>
 
     <button id="menuStatisztika" class="sidebarBtn">
         <span class="sidebarIcon">📊</span>
-        <span>Piaci statisztikák</span>
+        <span data-i18n="menuStatisztika">Piaci statisztikák</span>
     </button>
 
     <button id="menuKedvencek" class="sidebarBtn">
         <span class="sidebarIcon">⭐</span>
-        <span>Kedvencek</span>
+        <span data-i18n="menuKedvencek">Kedvencek</span>
     </button>
 
 </div>
 <hr>
 
-<h5>
+<h5 data-i18n="searchTitle">
 
 🔍 Keresés
 
@@ -125,7 +133,7 @@ Menü
 
 <div class="mb-3">
 
-<label class="form-label">
+<label class="form-label" data-i18n="minAr">
 
 Minimum ár
 
@@ -140,7 +148,7 @@ type="number">
 
 <div class="mb-3">
 
-<label class="form-label">
+<label class="form-label" data-i18n="maxAr">
 
 Maximum ár
 
@@ -155,7 +163,7 @@ type="number">
 
 <div class="mb-3">
 
-<label class="form-label">
+<label class="form-label" data-i18n="minNm">
 
 Minimum nm
 
@@ -170,7 +178,7 @@ type="number">
 
 <div class="mb-3">
 
-<label class="form-label">
+<label class="form-label" data-i18n="maxNm">
 
 Maximum nm
 
@@ -185,7 +193,7 @@ type="number">
 
 <div class="mb-3">
 
-<label class="form-label">
+<label class="form-label" data-i18n="minSzoba">
 
 Minimum szobák
 
@@ -199,7 +207,7 @@ type="number">
 </div>
 <div class="mb-3">
 
-    <label class="form-label">
+    <label class="form-label" data-i18n="minEmelet">
 
         Minimum emelet
 
@@ -214,7 +222,7 @@ type="number">
 
 <div class="mb-3">
 
-<label class="form-label">
+<label class="form-label" data-i18n="allapot">
 
 Állapot
 
@@ -224,15 +232,15 @@ type="number">
 id="allapot"
 class="form-select">
 
-<option value="">Mindegy</option>
+<option value="" data-i18n="allapotMindegy">Mindegy</option>
 
-<option>felújítandó</option>
+<option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
 
-<option>jó</option>
+<option value="jó" data-i18n="allapotJo">jó</option>
 
-<option>újszerű</option>
+<option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
 
-<option>luxus</option>
+<option value="luxus" data-i18n="allapotLuxus">luxus</option>
 
 </select>
 
@@ -240,7 +248,7 @@ class="form-select">
 
 <div class="mb-3">
 
-<label class="form-label">
+<label class="form-label" data-i18n="kerulet">
 
 Kerület
 
@@ -250,7 +258,7 @@ Kerület
 id="keresoKerulet"
 class="form-select">
 
-<option value="">Mindegy</option>
+<option value="" data-i18n="allapotMindegy">Mindegy</option>
 
 </select>
 
@@ -258,7 +266,8 @@ class="form-select">
 
 <button
 id="keresesBtn"
-class="btn btn-primary w-100">
+class="btn btn-primary w-100"
+data-i18n="keresesBtn">
 
 🔍 Keresés
 
@@ -291,7 +300,7 @@ class="btn btn-primary w-100">
             <div class="col-md-3">
                 <div class="card shadow text-center">
                     <div class="card-body">
-                        <h6>💰 Átlag ár</h6>
+                        <h6 data-i18n="dbAtlagAr">💰 Átlag ár</h6>
                         <h2 id="dbPrice">0</h2>
                     </div>
                 </div>
@@ -300,7 +309,7 @@ class="btn btn-primary w-100">
             <div class="col-md-3">
                 <div class="card shadow text-center">
                     <div class="card-body">
-                        <h6>📐 Átlag €/nm</h6>
+                        <h6 data-i18n="dbAtlagNm">📐 Átlag €/nm</h6>
                         <h2 id="dbNm">0</h2>
                     </div>
                 </div>
@@ -309,7 +318,7 @@ class="btn btn-primary w-100">
             <div class="col-md-3">
                 <div class="card shadow text-center">
                     <div class="card-body">
-                        <h6>✅ Eladva</h6>
+                        <h6 data-i18n="dbEladva">✅ Eladva</h6>
                         <h2 id="dbSold">0</h2>
                     </div>
                 </div>
@@ -325,7 +334,7 @@ class="btn btn-primary w-100">
                     <div class="card-header">
                         <h4>
                             <i class="fa-solid fa-table"></i>
-                            Ingatlanok
+                            <span data-i18n="tableTitle">Ingatlanok</span>
                         </h4>
                     </div>
                     <div class="card-body">
@@ -341,9 +350,9 @@ class="btn btn-primary w-100">
                     <div class="card-header d-flex align-items-center justify-content-between">
                         <h4 class="mb-0">
                             <i class="fa-solid fa-house text-primary"></i>
-                            Ingatlan adatai
+                            <span data-i18n="detailPanelTitle">Ingatlan adatai</span>
                         </h4>
-                        <span class="badge bg-primary">Élő</span>
+                        <span class="badge bg-primary" data-i18n="liveBadge">Élő</span>
                     </div>
 
                     <div class="card-body">
@@ -351,10 +360,10 @@ class="btn btn-primary w-100">
                         <div class="text-center mb-4">
                             <div style="font-size:60px;">🏠</div>
                             <h2 id="detailId" class="fw-bold mt-2">
-                                Nincs kiválasztva
+                                Nothing selected
                             </h2>
                             <button id="btnFavoriteToggle" class="btn btn-outline-warning btn-sm mt-2">
-                                ☆ Kedvencekhez adás
+                                ☆ Add to favorites
                             </button>
                         </div>
 
@@ -362,49 +371,49 @@ class="btn btn-primary w-100">
 
                             <div class="col-6">
                                 <div class="infoBox">
-                                    <small>💰 Ár</small>
+                                    <small data-i18n="detailAr">💰 Ár</small>
                                     <h5 id="detailAr">-</h5>
                                 </div>
                             </div>
 
                             <div class="col-6">
                                 <div class="infoBox">
-                                    <small>📐 Alapterület</small>
+                                    <small data-i18n="detailNm">📐 Alapterület</small>
                                     <h5 id="detailNm">-</h5>
                                 </div>
                             </div>
 
                             <div class="col-6">
                                 <div class="infoBox">
-                                    <small>🛏 Szobák</small>
+                                    <small data-i18n="detailSzoba">🛏 Szobák</small>
                                     <h5 id="detailSzoba">-</h5>
                                 </div>
                             </div>
 
                             <div class="col-6">
                                 <div class="infoBox">
-                                    <small>🏢 Emelet</small>
+                                    <small data-i18n="detailEmelet">🏢 Emelet</small>
                                     <h5 id="detailEmelet">-</h5>
                                 </div>
                             </div>
 
                             <div class="col-6">
                                 <div class="infoBox">
-                                    <small>🏙 Város</small>
+                                    <small data-i18n="detailVaros">🏙 Város</small>
                                     <h5 id="detailVaros">-</h5>
                                 </div>
                             </div>
 
                             <div class="col-6">
                                 <div class="infoBox">
-                                    <small>📍 Kerület</small>
+                                    <small data-i18n="detailKerulet">📍 Kerület</small>
                                     <h5 id="detailKerulet">-</h5>
                                 </div>
                             </div>
 
                             <div class="col-12">
                                 <div class="infoBox">
-                                    <small>🔧 Állapot</small>
+                                    <small data-i18n="detailAllapot">🔧 Állapot</small>
                                     <h5 id="detailAllapot">-</h5>
                                 </div>
                             </div>
@@ -415,19 +424,19 @@ class="btn btn-primary w-100">
 
                         <div class="d-grid gap-2">
 
-                            <a id="detailLink" target="_blank" class="btn btn-primary">
+                            <a id="detailLink" target="_blank" class="btn btn-primary" data-i18n="detailLink">
                                 🌐 Hirdetés megnyitása
                             </a>
 
-                            <button id="btnEdit" class="btn btn-warning">
+                            <button id="btnEdit" class="btn btn-warning" data-i18n="detailEdit">
                                 ✏️ Ingatlan szerkesztése
                             </button>
 
-                            <button id="btnDelete" class="btn btn-danger">
+                            <button id="btnDelete" class="btn btn-danger" data-i18n="detailDelete">
                                 🗑️ Ingatlan törlése
                             </button>
 
-                            <button id="btnSaveStatistics" class="btn btn-success">
+                            <button id="btnSaveStatistics" class="btn btn-success" data-i18n="detailSaveStats">
                                 💾 Piaci állapot mentése
                             </button>
 
@@ -444,7 +453,7 @@ class="btn btn-primary w-100">
                     <div class="card-header">
                         <h4>
                             <i class="fa-solid fa-map-location-dot"></i>
-                            Térkép
+                            <span data-i18n="mapTitle">Térkép</span>
                         </h4>
                     </div>
                     <div class="card-body">
@@ -464,7 +473,7 @@ class="btn btn-primary w-100">
         <div class="card shadow">
 
             <div class="card-header bg-success text-white">
-                <h3>➕ Új ingatlan felvétele</h3>
+                <h3 data-i18n="newTitle">➕ Új ingatlan felvétele</h3>
             </div>
 
             <div class="card-body">
@@ -472,21 +481,21 @@ class="btn btn-primary w-100">
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <label class="form-label">Link</label>
+                            <label class="form-label" data-i18n="newLink">Link</label>
                             <input id="ujLink" type="text" class="form-control">
                         </div>
                     </div>
 
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Ár (€)</label>
+                            <label class="form-label" data-i18n="newAr">Ár (€)</label>
                             <input id="ujAr" type="number" class="form-control">
                         </div>
                     </div>
 
                     <div class="col-md-3">
                         <div class="mb-3">
-                            <label class="form-label">Nm</label>
+                            <label class="form-label" data-i18n="newNm">Nm</label>
                             <input id="ujNm" type="number" class="form-control">
                         </div>
                     </div>
@@ -495,21 +504,21 @@ class="btn btn-primary w-100">
                 <div class="row">
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label">Szobák</label>
+                            <label class="form-label" data-i18n="newSzobak">Szobák</label>
                             <input id="ujSzobak" type="number" class="form-control">
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label">Emelet</label>
+                            <label class="form-label" data-i18n="newEmelet">Emelet</label>
                             <input id="ujEmelet" type="text" class="form-control">
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label">Összes emelet</label>
+                            <label class="form-label" data-i18n="newOsszEmelet">Összes emelet</label>
                             <input id="ujOsszEmelet" type="number" class="form-control">
                         </div>
                     </div>
@@ -518,34 +527,34 @@ class="btn btn-primary w-100">
                 <div class="row">
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label">Város</label>
+                            <label class="form-label" data-i18n="newVaros">Város</label>
                             <div class="d-flex gap-2">
                                 <select id="ujVaros" class="form-select"></select>
-                                <button type="button" id="btnUjVaros" class="btn btn-outline-secondary" title="Új város hozzáadása">➕</button>
+                                <button type="button" id="btnUjVaros" class="btn btn-outline-secondary" data-i18n-title="newAddVaros" title="Új város hozzáadása">➕</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label">Kerület / városrész</label>
+                            <label class="form-label" data-i18n="newKerulet">Kerület / városrész</label>
                             <div class="d-flex gap-2">
                                 <select id="ujKerulet" class="form-select">
-                                    <option value="">— nincs megadva —</option>
+                                    <option value="" data-i18n="newKeruletNincs">— nincs megadva —</option>
                                 </select>
-                                <button type="button" id="btnUjKerulet" class="btn btn-outline-secondary" title="Új kerület hozzáadása">➕</button>
+                                <button type="button" id="btnUjKerulet" class="btn btn-outline-secondary" data-i18n-title="newAddKerulet" title="Új kerület hozzáadása">➕</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <label class="form-label">Állapot</label>
+                            <label class="form-label" data-i18n="newAllapot">Állapot</label>
                             <select id="ujAllapot" class="form-select">
-                                <option>újszerű</option>
-                                <option>jó</option>
-                                <option>felújítandó</option>
-                                <option>luxus</option>
+                                <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
+                                <option value="jó" data-i18n="allapotJo">jó</option>
+                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
+                                <option value="luxus" data-i18n="allapotLuxus">luxus</option>
                             </select>
                         </div>
                     </div>
@@ -556,13 +565,13 @@ class="btn btn-primary w-100">
 
                 <hr>
 
-                <h5>📍 Hely kiválasztása</h5>
+                <h5 data-i18n="newHely">📍 Hely kiválasztása</h5>
                 <div id="newMap" style="height:400px;border-radius:10px;"></div>
 
                 <hr>
 
                 <div class="d-grid">
-                    <button id="btnSave" class="btn btn-success btn-lg">
+                    <button id="btnSave" class="btn btn-success btn-lg" data-i18n="newSaveBtn">
                         💾 Ingatlan mentése
                     </button>
                 </div>
@@ -579,7 +588,7 @@ class="btn btn-primary w-100">
         <div class="card shadow">
 
             <div class="card-header bg-warning">
-                <h4 class="mb-0">⭐ Kedvencek</h4>
+                <h4 class="mb-0" data-i18n="favTitle">⭐ Kedvencek</h4>
             </div>
 
             <div class="card-body">
@@ -602,29 +611,29 @@ class="btn btn-primary w-100">
 
     <h2 class="statisticsTitle">
         <i class="fa-solid fa-chart-simple"></i>
-        Piaci statisztikák
+        <span data-i18n="statsTitle">Piaci statisztikák</span>
     </h2>
 
     <div class="statisticsMenu">
 
         <button id="btnCurrentStatistics" class="statisticsButton active">
             <i class="fa-solid fa-chart-column"></i>
-            <span>Jelenlegi piac</span>
+            <span data-i18n="statsCurrent">Jelenlegi piac</span>
         </button>
 
         <button id="btnHistoryStatistics" class="statisticsButton">
             <i class="fa-solid fa-clock-rotate-left"></i>
-            <span>Piaci előzmények</span>
+            <span data-i18n="statsHistory">Piaci előzmények</span>
         </button>
 
         <button id="btnCompareStatistics" class="statisticsButton">
             <i class="fa-solid fa-scale-balanced"></i>
-            <span>Piaci összehasonlítás</span>
+            <span data-i18n="statsCompare">Piaci összehasonlítás</span>
         </button>
 
         <button id="btnTrend" class="statisticsButton">
             <i class="fa-solid fa-chart-line"></i>
-            <span>Ártrend</span>
+            <span data-i18n="statsTrend">Ártrend</span>
         </button>
 
     </div>
@@ -649,6 +658,7 @@ class="btn btn-primary w-100">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- Saját modulok -->
+<script src="js/i18n.js"></script>
 <script src="js/dataManager.js"></script>
 <script src="js/tableManager.js"></script>
 <script src="js/mapManager.js"></script>

@@ -94,19 +94,19 @@ class MapManager {
                 <div style="min-width:220px">
 
                     <h5 style="margin-bottom:10px;">
-                        🏠 Ingatlan #${ingatlan.id}
+                        ${I18n.t("popupProperty")}${ingatlan.id}
                     </h5>
 
-                    <b>💶 Ár:</b>
+                    <b>${I18n.t("popupAr")}</b>
                     ${ingatlan.ar.toLocaleString()} €<br>
 
-                    <b>📐 Alapterület:</b>
+                    <b>${I18n.t("popupNm")}</b>
                     ${ingatlan.nm} m²<br>
 
-                    <b>💰 €/m²:</b>
+                    <b>${I18n.t("popupArNm")}</b>
                     ${Math.round(ingatlan.arNm)}<br>
 
-                    <b>🔧 Állapot:</b>
+                    <b>${I18n.t("popupAllapot")}</b>
                     ${ingatlan.allapot}
 
                     <hr>
@@ -116,7 +116,7 @@ class MapManager {
                         target="_blank"
                         class="btn btn-primary btn-sm w-100">
 
-                        🌐 Hirdetés megnyitása
+                        ${I18n.t("popupLink")}
 
                     </a>
 

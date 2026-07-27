@@ -10,7 +10,7 @@ class CompareStatistics {
 
             let html = `
 
-                <h2>📊 Piaci összehasonlítás</h2>
+                <h2>${I18n.t("compareTitle")}</h2>
 
                 <br>
 
@@ -18,7 +18,7 @@ class CompareStatistics {
 
                     <div class="col-md-5">
 
-                        <label>Első mentés</label>
+                        <label>${I18n.t("compareFrom")}</label>
 
                         <select id="compareFrom" class="form-select">
 
@@ -46,7 +46,7 @@ class CompareStatistics {
 
                     <div class="col-md-5">
 
-                        <label>Második mentés</label>
+                        <label>${I18n.t("compareTo")}</label>
 
                         <select id="compareTo" class="form-select">
 
@@ -80,7 +80,7 @@ class CompareStatistics {
                             id="btnCompare"
                             class="btn btn-success w-100">
 
-                            Összehasonlítás
+                            ${I18n.t("compareBtn")}
 
                         </button>
 
@@ -141,7 +141,7 @@ class CompareStatistics {
 
                 <div class="statCard">
 
-                    <h3>Átlag ár</h3>
+                    <h3>${I18n.t("compareAvgPrice")}</h3>
 
                     <h2>
                         ${Math.round(oldStat.avg_price).toLocaleString()} €
@@ -169,7 +169,7 @@ class CompareStatistics {
 
                 <div class="statCard">
 
-                    <h3>Átlag €/m²</h3>
+                    <h3>${I18n.t("compareAvgPriceNm")}</h3>
 
                     <h2>
                         ${Math.round(oldStat.avg_price_nm)}
@@ -206,19 +206,19 @@ html += `
 
 <br><br>
 
-<h2>🔧 Állapot szerinti változás</h2>
+<h2>${I18n.t("compareByAllapot")}</h2>
 
 <table class="statTable">
 
 <tr>
 
-    <th>Állapot</th>
+    <th>${I18n.t("statsColAllapot")}</th>
 
-    <th>Régi €/m²</th>
+    <th>${I18n.t("compareOldNm")}</th>
 
-    <th>Új €/m²</th>
+    <th>${I18n.t("compareNewNm")}</th>
 
-    <th>Változás</th>
+    <th>${I18n.t("compareChange")}</th>
 
 </tr>
 
@@ -269,19 +269,19 @@ html += `
 
 <br><br>
 
-<h2>🛏 Szobaszám szerinti változás</h2>
+<h2>${I18n.t("compareByRooms")}</h2>
 
 <table class="statTable">
 
 <tr>
 
-    <th>Szobák</th>
+    <th>${I18n.t("statsColSzobak")}</th>
 
-    <th>Régi €/m²</th>
+    <th>${I18n.t("compareOldNm")}</th>
 
-    <th>Új €/m²</th>
+    <th>${I18n.t("compareNewNm")}</th>
 
-    <th>Változás</th>
+    <th>${I18n.t("compareChange")}</th>
 
 </tr>
 
@@ -325,19 +325,19 @@ html += `
 
 <br><br>
 
-<h2>🏢 Emelet szerinti változás</h2>
+<h2>${I18n.t("compareByFloor")}</h2>
 
 <table class="statTable">
 
 <tr>
 
-    <th>Emelet</th>
+    <th>${I18n.t("statsColEmelet")}</th>
 
-    <th>Régi €/m²</th>
+    <th>${I18n.t("compareOldNm")}</th>
 
-    <th>Új €/m²</th>
+    <th>${I18n.t("compareNewNm")}</th>
 
-    <th>Változás</th>
+    <th>${I18n.t("compareChange")}</th>
 
 </tr>
 
