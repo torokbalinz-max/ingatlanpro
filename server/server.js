@@ -595,6 +595,41 @@ for (const g of floors.rows) {
 
 }
 
+const keruletek = await db.query(`
+    SELECT
+        COALESCE(NULLIF(kerulet,''), 'Nincs megadva') AS kerulet,
+        COUNT(*) AS property_count,
+        AVG(ar) AS avg_price,
+        AVG(arnm) AS avg_price_nm
+    FROM ingatlanok
+    GROUP BY COALESCE(NULLIF(kerulet,''), 'Nincs megadva')
+`);
+
+for (const g of keruletek.rows) {
+
+    await db.query(`
+        INSERT INTO market_snapshot_groups
+        (
+            snapshot_id,
+            category,
+            value,
+            property_count,
+            avg_price,
+            avg_price_nm
+        )
+        VALUES ($1,$2,$3,$4,$5,$6)
+    `,
+    [
+        snapshotId,
+        "kerulet",
+        g.kerulet,
+        g.property_count,
+        g.avg_price,
+        g.avg_price_nm
+    ]);
+
+}
+
         res.json({
             success: true
         });

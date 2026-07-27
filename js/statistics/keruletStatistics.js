@@ -1,27 +1,18 @@
-class FloorStatistics {
+class KeruletStatistics {
 
     static render(lista) {
 
-        const emeletek = {};
+        const keruletek = {};
 
         lista.forEach(i => {
 
-            let kulcs;
+            const kulcs = i.kerulet && i.kerulet.trim() !== ""
+                ? i.kerulet
+                : I18n.t("keruletNincsMegadva");
 
-            const e = parseInt(i.emelet);
+            if (!keruletek[kulcs]) {
 
-            if (isNaN(e))
-                kulcs = I18n.t("unknownLabel");
-            else if (e <= 0)
-                kulcs = I18n.t("groundFloorLabel");
-            else if (e >= 4)
-                kulcs = I18n.t("floorPlusLabel");
-            else
-                kulcs = `${e}. ${I18n.t("floorWord")}`;
-
-            if (!emeletek[kulcs]) {
-
-                emeletek[kulcs] = {
+                keruletek[kulcs] = {
 
                     db: 0,
                     ar: 0,
@@ -31,9 +22,9 @@ class FloorStatistics {
 
             }
 
-            emeletek[kulcs].db++;
-            emeletek[kulcs].ar += i.ar;
-            emeletek[kulcs].arNm += i.arNm;
+            keruletek[kulcs].db++;
+            keruletek[kulcs].ar += i.ar;
+            keruletek[kulcs].arNm += i.arNm;
 
         });
 
@@ -41,13 +32,13 @@ class FloorStatistics {
 
             <br><br>
 
-            <h2>${I18n.t("statsByFloor")}</h2>
+            <h2>${I18n.t("statsByKerulet")}</h2>
 
             <table class="statTable">
 
                 <tr>
 
-                    <th>${I18n.t("statsColEmelet")}</th>
+                    <th>${I18n.t("colKerulet")}</th>
                     <th>${I18n.t("statsColCount")}</th>
                     <th>${I18n.t("statsColAvgPrice")}</th>
                     <th>${I18n.t("statsColAvgPriceNm")}</th>
@@ -56,9 +47,9 @@ class FloorStatistics {
 
         `;
 
-        Object.keys(emeletek).forEach(k => {
+        Object.keys(keruletek).forEach(k => {
 
-            const e = emeletek[k];
+            const e = keruletek[k];
 
             html += `
 

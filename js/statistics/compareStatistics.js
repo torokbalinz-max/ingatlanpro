@@ -245,7 +245,7 @@ oldAllapot.forEach(oldGroup => {
 
         <tr>
 
-            <td>${oldGroup.value}</td>
+            <td>${I18n.translateStatValue(oldGroup.value)}</td>
 
             <td>${Math.round(oldGroup.avg_price_nm)}</td>
 
@@ -360,7 +360,61 @@ oldFloors.forEach(oldGroup => {
 
         <tr>
 
-            <td>${oldGroup.value}</td>
+            <td>${I18n.translateStatValue(oldGroup.value)}</td>
+
+            <td>${Math.round(oldGroup.avg_price_nm)}</td>
+
+            <td>${Math.round(uj.avg_price_nm)}</td>
+
+            <td>${diff >= 0 ? "🟢" : "🔴"} ${diff.toFixed(1)} %</td>
+
+        </tr>
+
+    `;
+
+});
+
+html += "</table>";
+html += `
+
+<br><br>
+
+<h2>${I18n.t("compareByKerulet")}</h2>
+
+<table class="statTable">
+
+<tr>
+
+    <th>${I18n.t("colKerulet")}</th>
+
+    <th>${I18n.t("compareOldNm")}</th>
+
+    <th>${I18n.t("compareNewNm")}</th>
+
+    <th>${I18n.t("compareChange")}</th>
+
+</tr>
+
+`;
+
+const oldKeruletek = oldData.groups.filter(g => g.category === "kerulet");
+const newKeruletek = newData.groups.filter(g => g.category === "kerulet");
+
+oldKeruletek.forEach(oldGroup => {
+
+    const uj = newKeruletek.find(g => g.value === oldGroup.value);
+
+    if (!uj) return;
+
+    const diff =
+        ((uj.avg_price_nm - oldGroup.avg_price_nm)
+        / oldGroup.avg_price_nm * 100);
+
+    html += `
+
+        <tr>
+
+            <td>${I18n.translateStatValue(oldGroup.value)}</td>
 
             <td>${Math.round(oldGroup.avg_price_nm)}</td>
 

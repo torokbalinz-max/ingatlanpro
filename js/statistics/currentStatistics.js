@@ -8,8 +8,8 @@ class CurrentStatistics {
 
             document.getElementById("statisticsContainer").innerHTML = `
                 <div class="alert alert-warning">
-                    <h3>📈 Jelenlegi piac</h3>
-                    <p>Nincs találat a jelenlegi szűrésre.</p>
+                    <h3>${I18n.t("currentMarketTitle")}</h3>
+                    <p>${I18n.t("currentNoResults")}</p>
                 </div>
             `;
 
@@ -35,7 +35,7 @@ class CurrentStatistics {
 
                 <i class="fa-solid fa-chart-column"></i>
 
-                Piaci diagramok
+                ${I18n.t("chartsTitle")}
 
             </h2>
 
@@ -51,7 +51,7 @@ class CurrentStatistics {
 
                                 <i class="fa-solid fa-chart-pie"></i>
 
-                                Állapot szerinti eloszlás
+                                ${I18n.t("chartAllapotTitle")}
 
                             </h4>
 
@@ -77,7 +77,7 @@ class CurrentStatistics {
 
                                 <i class="fa-solid fa-bed"></i>
 
-                                Szobaszám szerinti eloszlás
+                                ${I18n.t("chartRoomsTitle")}
 
                             </h4>
 
@@ -95,25 +95,55 @@ class CurrentStatistics {
 
             </div>
 
-            <div class="mt-4">
+            <div class="row g-4 mt-1">
 
-                <div class="card statisticsChartCard">
+                <div class="col-lg-6">
 
-                    <div class="card-header">
+                    <div class="card statisticsChartCard">
 
-                        <h4>
+                        <div class="card-header">
 
-                            <i class="fa-solid fa-building"></i>
+                            <h4>
 
-                            Emeletek megoszlása
+                                <i class="fa-solid fa-building"></i>
 
-                        </h4>
+                                ${I18n.t("chartFloorsTitle")}
+
+                            </h4>
+
+                        </div>
+
+                        <div class="card-body">
+
+                            <canvas id="floorChart"></canvas>
+
+                        </div>
 
                     </div>
 
-                    <div class="card-body">
+                </div>
 
-                        <canvas id="floorChart"></canvas>
+                <div class="col-lg-6">
+
+                    <div class="card statisticsChartCard">
+
+                        <div class="card-header">
+
+                            <h4>
+
+                                <i class="fa-solid fa-map-location-dot"></i>
+
+                                ${I18n.t("chartKeruletTitle")}
+
+                            </h4>
+
+                        </div>
+
+                        <div class="card-body">
+
+                            <canvas id="keruletChart"></canvas>
+
+                        </div>
 
                     </div>
 
@@ -135,7 +165,7 @@ class CurrentStatistics {
 
                 <i class="fa-solid fa-table"></i>
 
-                Részletes elemzések
+                ${I18n.t("detailedAnalysisTitle")}
 
             </h2>
 
@@ -148,6 +178,8 @@ class CurrentStatistics {
         html += RoomStatistics.render(lista);
 
         html += FloorStatistics.render(lista);
+
+        html += KeruletStatistics.render(lista);
 
         document.getElementById("statisticsContainer").innerHTML = html;
 

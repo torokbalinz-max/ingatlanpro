@@ -155,6 +155,7 @@ class StatisticsManager {
                 const allapotok = data.groups.filter(g => g.category === "allapot");
                 const szobak = data.groups.filter(g => g.category === "szobak");
                 const emeletek = data.groups.filter(g => g.category === "emelet");
+                const keruletek = data.groups.filter(g => g.category === "kerulet");
 
                 let html = `
 
@@ -196,7 +197,7 @@ class StatisticsManager {
 
                     html += `
                         <tr>
-                            <td>${g.value}</td>
+                            <td>${I18n.translateStatValue(g.value)}</td>
                             <td>${g.property_count}</td>
                             <td>${Math.round(g.avg_price).toLocaleString()} €</td>
                             <td>${Math.round(g.avg_price_nm)} €/m²</td>
@@ -260,7 +261,39 @@ class StatisticsManager {
 
                     html += `
                         <tr>
-                            <td>${g.value}</td>
+                            <td>${I18n.translateStatValue(g.value)}</td>
+                            <td>${g.property_count}</td>
+                            <td>${Math.round(g.avg_price).toLocaleString()} €</td>
+                            <td>${Math.round(g.avg_price_nm)} €/m²</td>
+                        </tr>
+                    `;
+
+                });
+
+                html += `
+
+                    </table>
+
+                    <br><br>
+
+                    <h2>${I18n.t("statsByKerulet")}</h2>
+
+                    <table class="statTable">
+
+                        <tr>
+                            <th>${I18n.t("colKerulet")}</th>
+                            <th>${I18n.t("statsColCount")}</th>
+                            <th>${I18n.t("statsColAvgPrice")}</th>
+                            <th>${I18n.t("statsColAvgPriceNm")}</th>
+                        </tr>
+
+                `;
+
+                keruletek.forEach(g => {
+
+                    html += `
+                        <tr>
+                            <td>${I18n.translateStatValue(g.value)}</td>
                             <td>${g.property_count}</td>
                             <td>${Math.round(g.avg_price).toLocaleString()} €</td>
                             <td>${Math.round(g.avg_price_nm)} €/m²</td>

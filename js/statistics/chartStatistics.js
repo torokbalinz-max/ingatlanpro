@@ -3,12 +3,14 @@ class ChartStatistics {
     static chart1 = null;
     static chart2 = null;
     static chart3 = null;
+    static chart4 = null;
 
     static destroy() {
 
         if (ChartStatistics.chart1) ChartStatistics.chart1.destroy();
         if (ChartStatistics.chart2) ChartStatistics.chart2.destroy();
         if (ChartStatistics.chart3) ChartStatistics.chart3.destroy();
+        if (ChartStatistics.chart4) ChartStatistics.chart4.destroy();
 
     }
 
@@ -22,7 +24,7 @@ class ChartStatistics {
 
         lista.forEach(i => {
 
-            const nev = i.allapot || "Ismeretlen";
+            const nev = i.allapot ? I18n.translateStatValue(i.allapot) : I18n.t("unknownLabel");
             allapotok[nev] = (allapotok[nev] || 0) + 1;
 
         });
@@ -45,7 +47,7 @@ class ChartStatistics {
                         },
                         title: {
                             display: true,
-                            text: "Állapot szerinti megoszlás"
+                            text: I18n.t("chartAllapotTitle")
                         }
                     }
                 }
@@ -58,7 +60,7 @@ class ChartStatistics {
 
         lista.forEach(i => {
 
-            const nev = i.szobak + " szoba";
+            const nev = `${i.szobak} ${I18n.t("roomWord")}`;
             szobak[nev] = (szobak[nev] || 0) + 1;
 
         });
@@ -70,7 +72,7 @@ class ChartStatistics {
                 data: {
                     labels: Object.keys(szobak),
                     datasets: [{
-                        label: "Ingatlanok",
+                        label: I18n.t("chartLegendProperties"),
                         data: Object.values(szobak)
                     }]
                 },
@@ -82,7 +84,7 @@ class ChartStatistics {
                         },
                         title: {
                             display: true,
-                            text: "Szobaszám szerinti megoszlás"
+                            text: I18n.t("chartRoomsTitle")
                         }
                     }
                 }
@@ -100,13 +102,13 @@ class ChartStatistics {
             const e = parseInt(i.emelet);
 
             if (isNaN(e))
-                nev = "Ismeretlen";
+                nev = I18n.t("unknownLabel");
             else if (e <= 0)
-                nev = "Földszint";
+                nev = I18n.t("groundFloorLabel");
             else if (e >= 4)
-                nev = "4+";
+                nev = I18n.t("floorPlusLabel");
             else
-                nev = e + ".";
+                nev = `${e}. ${I18n.t("floorWord")}`;
 
             emeletek[nev] = (emeletek[nev] || 0) + 1;
 
@@ -119,7 +121,7 @@ class ChartStatistics {
                 data: {
                     labels: Object.keys(emeletek),
                     datasets: [{
-                        label: "Ingatlanok",
+                        label: I18n.t("chartLegendProperties"),
                         data: Object.values(emeletek)
                     }]
                 },
@@ -131,12 +133,57 @@ class ChartStatistics {
                         },
                         title: {
                             display: true,
-                            text: "Emelet szerinti megoszlás"
+                            text: I18n.t("chartFloorsTitle")
                         }
                     }
                 }
             }
         );
+
+        // ================= KERÜLET =================
+
+        const keruletChartEl = document.getElementById("keruletChart");
+
+        if (keruletChartEl) {
+
+            const keruletek = {};
+
+            lista.forEach(i => {
+
+                const nev = i.kerulet && i.kerulet.trim() !== ""
+                    ? i.kerulet
+                    : I18n.t("keruletNincsMegadva");
+
+                keruletek[nev] = (keruletek[nev] || 0) + 1;
+
+            });
+
+            ChartStatistics.chart4 = new Chart(
+                keruletChartEl,
+                {
+                    type: "doughnut",
+                    data: {
+                        labels: Object.keys(keruletek),
+                        datasets: [{
+                            data: Object.values(keruletek)
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: "bottom"
+                            },
+                            title: {
+                                display: true,
+                                text: I18n.t("chartKeruletTitle")
+                            }
+                        }
+                    }
+                }
+            );
+
+        }
 
     }
 

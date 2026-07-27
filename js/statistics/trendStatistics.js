@@ -4,30 +4,30 @@ class TrendStatistics {
 
         document.getElementById("statisticsContainer").innerHTML = `
 
-            <h2>📈 Piaci ártrend</h2>
+            <h2>${I18n.t("trendTitle")}</h2>
 
             <br>
 
             <div class="row mb-3">
 
                 <div class="col-md-3">
-                    <label>Dátumtól</label>
+                    <label>${I18n.t("trendFrom")}</label>
                     <input type="date" id="trendFrom" class="form-control">
                 </div>
 
                 <div class="col-md-3">
-                    <label>Dátumig</label>
+                    <label>${I18n.t("trendTo")}</label>
                     <input type="date" id="trendTo" class="form-control">
                 </div>
 
                 <div class="col-md-3">
-                    <label>Mutató</label>
+                    <label>${I18n.t("trendIndicator")}</label>
 
                     <select id="trendType" class="form-select">
 
-                        <option value="avg_price_nm">Átlag €/m²</option>
-                        <option value="avg_price">Átlag ár</option>
-                        <option value="property_count">Ingatlanok száma</option>
+                        <option value="avg_price_nm">${I18n.t("trendOptAvgPriceNm")}</option>
+                        <option value="avg_price">${I18n.t("trendOptAvgPrice")}</option>
+                        <option value="property_count">${I18n.t("trendOptCount")}</option>
 
                     </select>
 
@@ -86,15 +86,15 @@ class TrendStatistics {
             switch(type){
 
                 case "avg_price_nm":
-                    chartLabel = "Átlag €/m²";
+                    chartLabel = I18n.t("trendOptAvgPriceNm");
                     break;
 
                 case "avg_price":
-                    chartLabel = "Átlag ár (€)";
+                    chartLabel = I18n.t("trendOptAvgPrice") + " (€)";
                     break;
 
                 case "property_count":
-                    chartLabel = "Ingatlanok száma";
+                    chartLabel = I18n.t("trendOptCount");
                     break;
 
             }

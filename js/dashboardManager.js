@@ -1,38 +1,102 @@
-class DashboardManager {
+class DashboardStatistics {
 
-    static load(lista){
+    static render(lista) {
 
-        document.getElementById("dbCount").innerHTML = lista.length;
+        const db = lista.length;
 
-        if(lista.length === 0){
+        const atlagAr = db > 0
+            ? lista.reduce((s, i) => s + i.ar, 0) / db
+            : 0;
 
-            document.getElementById("dbPrice").innerHTML = "-";
-            document.getElementById("dbNm").innerHTML = "-";
-            document.getElementById("dbSold").innerHTML = "0";
+        const atlagNm = db > 0
+            ? lista.reduce((s, i) => s + i.nm, 0) / db
+            : 0;
 
-            return;
-        }
+        const atlagArNm = db > 0
+            ? lista.reduce((s, i) => s + i.arNm, 0) / db
+            : 0;
 
-        // Átlag ár
-        const atlagAr =
-            lista.reduce((sum,i)=>sum+i.ar,0) / lista.length;
+        const minArNm = db > 0
+            ? Math.min(...lista.map(i => i.arNm))
+            : 0;
 
-        // Átlag €/nm
-        const atlagNm =
-            lista.reduce((sum,i)=>sum+i.arNm,0) / lista.length;
+        const maxArNm = db > 0
+            ? Math.max(...lista.map(i => i.arNm))
+            : 0;
 
-        // Eladottak
-        const eladott =
-            lista.filter(i=>i.eladva).length;
+        return `
 
-        document.getElementById("dbPrice").innerHTML =
-            Math.round(atlagAr).toLocaleString()+" €";
+<h2 class="mb-4">
+    ${I18n.t("dashOverviewTitle")}
+</h2>
 
-        document.getElementById("dbNm").innerHTML =
-            Math.round(atlagNm).toLocaleString()+" €/nm";
+<div class="row g-3">
 
-        document.getElementById("dbSold").innerHTML =
-            eladott;
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">🏠</div>
+                <h6 class="text-muted mt-2">${I18n.t("dashLabelCount")}</h6>
+                <h2>${db}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">💶</div>
+                <h6 class="text-muted mt-2">${I18n.t("dashLabelAvgPrice")}</h6>
+                <h2>${Math.round(atlagAr).toLocaleString()} €</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">📐</div>
+                <h6 class="text-muted mt-2">${I18n.t("dashLabelAvgNm")}</h6>
+                <h2>${atlagNm.toFixed(1)}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">💰</div>
+                <h6 class="text-muted mt-2">${I18n.t("dashLabelAvgPriceNm")}</h6>
+                <h2>${Math.round(atlagArNm)}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">🟢</div>
+                <h6 class="text-muted mt-2">${I18n.t("dashLabelMinPriceNm")}</h6>
+                <h2>${Math.round(minArNm)}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card shadow border-0 h-100">
+            <div class="card-body text-center">
+                <div style="font-size:40px;">🔴</div>
+                <h6 class="text-muted mt-2">${I18n.t("dashLabelMaxPriceNm")}</h6>
+                <h2>${Math.round(maxArNm)}</h2>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<hr class="my-4">
+
+`;
 
     }
 

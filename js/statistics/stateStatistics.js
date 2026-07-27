@@ -6,7 +6,7 @@ class StateStatistics {
 
         lista.forEach(i => {
 
-            const nev = i.allapot || "Ismeretlen";
+            const nev = i.allapot || I18n.t("unknownLabel");
 
             if (!allapotok[nev]) {
 
@@ -30,19 +30,19 @@ class StateStatistics {
 
             <br><br>
 
-            <h2>🔧 Állapot szerinti elemzés</h2>
+            <h2>${I18n.t("statsByAllapot")}</h2>
 
             <table class="statTable">
 
                 <tr>
 
-                    <th>Állapot</th>
+                    <th>${I18n.t("statsColAllapot")}</th>
 
-                    <th>Darab</th>
+                    <th>${I18n.t("statsColCount")}</th>
 
-                    <th>Átlag ár</th>
+                    <th>${I18n.t("statsColAvgPrice")}</th>
 
-                    <th>Átlag €/m²</th>
+                    <th>${I18n.t("statsColAvgPriceNm")}</th>
 
                 </tr>
 
@@ -56,7 +56,7 @@ class StateStatistics {
 
                 <tr>
 
-                    <td>${a}</td>
+                    <td>${I18n.translateStatValue(a)}</td>
 
                     <td>${x.db}</td>
 

@@ -15,9 +15,9 @@ class RoomStatistics {
             let kulcs;
 
             if (i.szobak >= 4)
-                kulcs = "4+ szoba";
+                kulcs = `4+ ${I18n.t("roomWord")}`;
             else
-                kulcs = i.szobak + " szoba";
+                kulcs = `${i.szobak} ${I18n.t("roomWord")}`;
 
             if (!szobak[kulcs]) {
 
@@ -39,15 +39,15 @@ class RoomStatistics {
 
             <br><br>
 
-            <h2>🛏 Szobaszám szerinti elemzés</h2>
+            <h2>${I18n.t("statsByRooms")}</h2>
 
             <table class="statTable">
 
                 <tr>
 
-                    <th>Szobák</th>
-                    <th>Darab</th>
-                    <th>Átlag €/m²</th>
+                    <th>${I18n.t("statsColSzobak")}</th>
+                    <th>${I18n.t("statsColCount")}</th>
+                    <th>${I18n.t("statsColAvgPriceNm")}</th>
 
                 </tr>
 

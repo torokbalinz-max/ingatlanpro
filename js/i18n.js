@@ -145,7 +145,45 @@ const I18N_STRINGS = {
         alertNewDistrictError: "Something went wrong while adding the district.",
         alertChooseCityFirst: "Please choose a city first!",
         alertConfirmDeleteSnapshot: "Are you sure you want to delete this snapshot?",
-        alertSnapshotDeleted: "Snapshot deleted."
+        alertSnapshotDeleted: "Snapshot deleted.",
+
+        // Statistics sub-pages (current / charts / trend)
+        currentNoResults: "No results for the current filter.",
+        currentMarketTitle: "📈 Current market",
+        chartsTitle: "Market charts",
+        chartAllapotTitle: "Distribution by condition",
+        chartRoomsTitle: "Distribution by room count",
+        chartFloorsTitle: "Distribution by floor",
+        chartKeruletTitle: "Distribution by district",
+        detailedAnalysisTitle: "Detailed analysis",
+        chartLegendProperties: "Properties",
+
+        dashOverviewTitle: "📈 Current market overview",
+        dashLabelCount: "Properties",
+        dashLabelAvgPrice: "Average price",
+        dashLabelAvgNm: "Average m²",
+        dashLabelAvgPriceNm: "Average €/m²",
+        dashLabelMinPriceNm: "Minimum €/m²",
+        dashLabelMaxPriceNm: "Maximum €/m²",
+
+        statsByKerulet: "📍 Breakdown by district",
+        compareByKerulet: "📍 Change by district",
+
+        unknownLabel: "Unknown",
+        groundFloorLabel: "Ground floor",
+        floorWord: "floor",
+        floorPlusLabel: "4+ floors",
+        roomWord: "rooms",
+        roomsPlusLabel: "4+ rooms",
+        keruletNincsMegadva: "Not specified",
+
+        trendTitle: "📈 Price trend",
+        trendFrom: "From date",
+        trendTo: "To date",
+        trendIndicator: "Indicator",
+        trendOptAvgPriceNm: "Average €/m²",
+        trendOptAvgPrice: "Average price",
+        trendOptCount: "Number of properties"
 
     },
 
@@ -283,7 +321,44 @@ const I18N_STRINGS = {
         alertNewDistrictError: "Hiba történt a kerület hozzáadása közben.",
         alertChooseCityFirst: "Először válassz várost!",
         alertConfirmDeleteSnapshot: "Biztosan törölni szeretnéd ezt a mentést?",
-        alertSnapshotDeleted: "Mentés törölve."
+        alertSnapshotDeleted: "Mentés törölve.",
+
+        currentNoResults: "Nincs találat a jelenlegi szűrésre.",
+        currentMarketTitle: "📈 Jelenlegi piac",
+        chartsTitle: "Piaci diagramok",
+        chartAllapotTitle: "Állapot szerinti eloszlás",
+        chartRoomsTitle: "Szobaszám szerinti eloszlás",
+        chartFloorsTitle: "Emeletek megoszlása",
+        chartKeruletTitle: "Kerület szerinti eloszlás",
+        detailedAnalysisTitle: "Részletes elemzések",
+        chartLegendProperties: "Ingatlanok",
+
+        dashOverviewTitle: "📈 Jelenlegi piaci áttekintés",
+        dashLabelCount: "Ingatlanok",
+        dashLabelAvgPrice: "Átlag ár",
+        dashLabelAvgNm: "Átlag m²",
+        dashLabelAvgPriceNm: "Átlag €/m²",
+        dashLabelMinPriceNm: "Minimum €/m²",
+        dashLabelMaxPriceNm: "Maximum €/m²",
+
+        statsByKerulet: "📍 Kerület szerinti elemzés",
+        compareByKerulet: "📍 Kerület szerinti változás",
+
+        unknownLabel: "Ismeretlen",
+        groundFloorLabel: "Földszint",
+        floorWord: "emelet",
+        floorPlusLabel: "4+ emelet",
+        roomWord: "szoba",
+        roomsPlusLabel: "4+ szoba",
+        keruletNincsMegadva: "Nincs megadva",
+
+        trendTitle: "📈 Piaci ártrend",
+        trendFrom: "Dátumtól",
+        trendTo: "Dátumig",
+        trendIndicator: "Mutató",
+        trendOptAvgPriceNm: "Átlag €/m²",
+        trendOptAvgPrice: "Átlag ár",
+        trendOptCount: "Ingatlanok száma"
 
     },
 
@@ -421,7 +496,44 @@ const I18N_STRINGS = {
         alertNewDistrictError: "A apărut o eroare la adăugarea cartierului.",
         alertChooseCityFirst: "Mai întâi alege un oraș!",
         alertConfirmDeleteSnapshot: "Sigur vrei să ștergi acest instantaneu?",
-        alertSnapshotDeleted: "Instantaneu șters."
+        alertSnapshotDeleted: "Instantaneu șters.",
+
+        currentNoResults: "Niciun rezultat pentru filtrul curent.",
+        currentMarketTitle: "📈 Piața curentă",
+        chartsTitle: "Grafice de piață",
+        chartAllapotTitle: "Distribuție după stare",
+        chartRoomsTitle: "Distribuție după număr de camere",
+        chartFloorsTitle: "Distribuție după etaj",
+        chartKeruletTitle: "Distribuție după cartier",
+        detailedAnalysisTitle: "Analize detaliate",
+        chartLegendProperties: "Proprietăți",
+
+        dashOverviewTitle: "📈 Prezentare generală a pieței curente",
+        dashLabelCount: "Proprietăți",
+        dashLabelAvgPrice: "Preț mediu",
+        dashLabelAvgNm: "Suprafață medie m²",
+        dashLabelAvgPriceNm: "Medie €/m²",
+        dashLabelMinPriceNm: "Minim €/m²",
+        dashLabelMaxPriceNm: "Maxim €/m²",
+
+        statsByKerulet: "📍 Analiză după cartier",
+        compareByKerulet: "📍 Schimbare după cartier",
+
+        unknownLabel: "Necunoscut",
+        groundFloorLabel: "Parter",
+        floorWord: "etaj",
+        floorPlusLabel: "4+ etaje",
+        roomWord: "camere",
+        roomsPlusLabel: "4+ camere",
+        keruletNincsMegadva: "Nespecificat",
+
+        trendTitle: "📈 Tendința prețurilor",
+        trendFrom: "De la data",
+        trendTo: "Până la data",
+        trendIndicator: "Indicator",
+        trendOptAvgPriceNm: "Medie €/m²",
+        trendOptAvgPrice: "Preț mediu",
+        trendOptCount: "Număr de proprietăți"
 
     }
 
@@ -499,6 +611,41 @@ class I18n {
             el.title = I18n.t(el.getAttribute("data-i18n-title"));
 
         });
+
+    }
+
+    static translateStatValue(value) {
+
+        if (value === null || value === undefined || value === "") {
+            return I18n.t("unknownLabel");
+        }
+
+        const v = String(value).trim();
+
+        const allapotMap = {
+            "jó": "allapotJo",
+            "újszerű": "allapotUjszeru",
+            "felújítandó": "allapotFelujitando",
+            "luxus": "allapotLuxus"
+        };
+
+        if (allapotMap[v]) return I18n.t(allapotMap[v]);
+
+        if (v === "Földszint") return I18n.t("groundFloorLabel");
+        if (v === "4+ emelet" || v === "4+") return I18n.t("floorPlusLabel");
+
+        let m = v.match(/^(\d+)\.?\s*emelet$/);
+        if (m) return `${m[1]}. ${I18n.t("floorWord")}`;
+
+        if (v === "4+ szoba") return I18n.t("roomsPlusLabel");
+
+        m = v.match(/^(\d+)\s*szoba$/);
+        if (m) return `${m[1]} ${I18n.t("roomWord")}`;
+
+        if (v === "Ismeretlen") return I18n.t("unknownLabel");
+        if (v === "Nincs megadva") return I18n.t("keruletNincsMegadva");
+
+        return v;
 
     }
 
