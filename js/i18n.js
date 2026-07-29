@@ -183,7 +183,17 @@ const I18N_STRINGS = {
         trendIndicator: "Indicator",
         trendOptAvgPriceNm: "Average €/m²",
         trendOptAvgPrice: "Average price",
-        trendOptCount: "Number of properties"
+        trendOptCount: "Number of properties",
+
+        bulkSelectedSuffix: "properties selected",
+        bulkKeruletLabel: "District:",
+        bulkKeruletChoose: "— choose a district —",
+        bulkApplyBtn: "Apply district",
+        bulkCancelBtn: "Clear selection",
+        bulkAlertConfirm: "Set the district for the selected properties?",
+        bulkAlertNoKerulet: "Please choose a district first!",
+        bulkAlertSuccess: "District updated for the selected properties!",
+        bulkAlertError: "Something went wrong while updating."
 
     },
 
@@ -358,7 +368,17 @@ const I18N_STRINGS = {
         trendIndicator: "Mutató",
         trendOptAvgPriceNm: "Átlag €/m²",
         trendOptAvgPrice: "Átlag ár",
-        trendOptCount: "Ingatlanok száma"
+        trendOptCount: "Ingatlanok száma",
+
+        bulkSelectedSuffix: "ingatlan kiválasztva",
+        bulkKeruletLabel: "Kerület:",
+        bulkKeruletChoose: "— válassz kerületet —",
+        bulkApplyBtn: "Kerület alkalmazása",
+        bulkCancelBtn: "Kijelölés törlése",
+        bulkAlertConfirm: "Beállítod a kerületet a kijelölt ingatlanoknál?",
+        bulkAlertNoKerulet: "Kérlek válassz kerületet!",
+        bulkAlertSuccess: "A kijelölt ingatlanok kerülete frissítve!",
+        bulkAlertError: "Hiba történt a frissítés során."
 
     },
 
@@ -533,7 +553,17 @@ const I18N_STRINGS = {
         trendIndicator: "Indicator",
         trendOptAvgPriceNm: "Medie €/m²",
         trendOptAvgPrice: "Preț mediu",
-        trendOptCount: "Număr de proprietăți"
+        trendOptCount: "Număr de proprietăți",
+
+        bulkSelectedSuffix: "proprietăți selectate",
+        bulkKeruletLabel: "Cartier:",
+        bulkKeruletChoose: "— alege un cartier —",
+        bulkApplyBtn: "Aplică cartierul",
+        bulkCancelBtn: "Șterge selecția",
+        bulkAlertConfirm: "Setezi cartierul pentru proprietățile selectate?",
+        bulkAlertNoKerulet: "Te rugăm alege mai întâi un cartier!",
+        bulkAlertSuccess: "Cartierul a fost actualizat pentru proprietățile selectate!",
+        bulkAlertError: "A apărut o eroare la actualizare."
 
     }
 

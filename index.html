@@ -338,6 +338,32 @@ data-i18n="keresesBtn">
                         </h4>
                     </div>
                     <div class="card-body">
+
+                        <div id="bulkEditBar" class="alert alert-primary align-items-center gap-2 flex-wrap mb-3" style="display:none;">
+
+                            <i class="fa-solid fa-layer-group"></i>
+
+                            <strong id="bulkEditCount">0</strong>
+                            <span data-i18n="bulkSelectedSuffix">ingatlan kiválasztva</span>
+
+                            <span class="ms-2 me-1" data-i18n="bulkKeruletLabel">Kerület:</span>
+
+                            <select id="bulkKerulet" class="form-select form-select-sm" style="max-width:200px;">
+                                <option value="" data-i18n="bulkKeruletChoose">— válassz kerületet —</option>
+                            </select>
+
+                            <button id="btnBulkAddKerulet" class="btn btn-outline-secondary btn-sm" type="button" data-i18n-title="newAddKerulet" title="Új kerület hozzáadása">➕</button>
+
+                            <button id="btnBulkApply" class="btn btn-primary btn-sm" data-i18n="bulkApplyBtn">
+                                Kerület alkalmazása
+                            </button>
+
+                            <button id="btnBulkCancel" class="btn btn-outline-secondary btn-sm ms-auto" data-i18n="bulkCancelBtn">
+                                Kijelölés törlése
+                            </button>
+
+                        </div>
+
                         <div id="ingatlanGrid" class="ag-theme-quartz" style="height:700px;width:100%;">
                         </div>
                     </div>
@@ -670,6 +696,7 @@ data-i18n="keresesBtn">
 <script src="js/scoreManager.js"></script>
 <script src="js/newPropertyMap.js"></script>
 <script src="js/cityManager.js"></script>
+<script src="js/bulkEditManager.js"></script>
 <script src="js/favorites.js"></script>
 
 <!-- Statistics -->

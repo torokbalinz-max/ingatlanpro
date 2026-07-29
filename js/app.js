@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     CityManager.init();
 
+    BulkEditManager.init();
+
     DataManager.init();
     FilterManager.init();
 
@@ -33,6 +35,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (MapManager.map && DataManager.szurtIngatlanok) {
             MapManager.load(DataManager.szurtIngatlanok);
+        }
+
+        if (typeof BulkEditManager !== "undefined") {
+            BulkEditManager.loadKeruletOptions();
         }
 
         updateDarkModeButtonText();
@@ -140,5 +146,17 @@ document.getElementById("citySelect").onchange = function () {
     DataManager.init();
 
     CityManager.loadSearchKeruletek(this.value);
+
+    if (typeof BulkEditManager !== "undefined") {
+
+        BulkEditManager.loadKeruletOptions();
+
+        if (TableManager.grid) {
+            TableManager.grid.deselectAll();
+        }
+
+        BulkEditManager.updateBar([]);
+
+    }
 
 };

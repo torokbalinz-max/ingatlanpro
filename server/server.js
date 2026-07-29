@@ -221,6 +221,38 @@ app.delete("/api/ingatlanok/:id", async (req, res) => {
 
 });
 
+// Tömeges kerület-beállítás egyszerre több ingatlanra
+app.patch("/api/ingatlanok/bulk-kerulet", async (req, res) => {
+
+    try {
+
+        const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(n => !isNaN(n)) : [];
+        const kerulet = (req.body.kerulet || "").trim();
+
+        if (ids.length === 0) {
+            return res.status(400).json({ error: "Hiányzó ingatlan azonosítók" });
+        }
+
+        if (!kerulet) {
+            return res.status(400).json({ error: "Hiányzó kerület" });
+        }
+
+        await db.query(
+            "UPDATE ingatlanok SET kerulet=$1 WHERE id = ANY($2::int[])",
+            [kerulet, ids]
+        );
+
+        res.json({ siker: true, updated: ids.length });
+
+    } catch (err) {
+
+        console.error(err);
+        res.status(500).json(err);
+
+    }
+
+});
+
 // ===================== VÁROSOK =====================
 
 app.get("/api/varosok", async (req, res) => {

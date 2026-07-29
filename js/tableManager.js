@@ -27,7 +27,9 @@ class TableManager {
             {
                 field: "id",
                 headerName: "#",
-                width: 80,
+                width: 90,
+                checkboxSelection: true,
+                headerCheckboxSelection: true,
                 cellStyle: {
                     fontWeight: "700",
                     color: "#3b82f6"
@@ -142,9 +144,9 @@ class TableManager {
 
                 paginationPageSizeSelector:[25,50,100,250],
 
-                rowSelection:"single",
+                rowSelection:"multiple",
 
-                suppressRowClickSelection:false,
+                suppressRowClickSelection:true,
 
                 defaultColDef:{
 
@@ -168,9 +170,19 @@ class TableManager {
 
                 },
 
+                onSelectionChanged(params){
+
+                    if (typeof BulkEditManager !== "undefined") {
+                        BulkEditManager.updateBar(params.api.getSelectedRows());
+                    }
+
+                },
+
                 onRowClicked(event){
 
                     if (event.colDef && event.colDef.headerName === "⭐") return;
+
+                    if (event.colDef && event.colDef.field === "id") return;
 
                     AppController.select(event.data);
 
