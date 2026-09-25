@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>IngatlanPro</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%232563eb%22/%3E%3Cpath d=%22M10 24V9h12v15h-4v-4h-4v4z%22 fill=%22white%22/%3E%3C/svg%3E">
+
+    <!-- Sötét mód azonnal (villanás nélkül) -->
+    <script>
+        try {
+            if (localStorage.getItem("theme") === "dark") {
+                document.documentElement.setAttribute("data-bs-theme", "dark");
+            }
+        } catch (e) { }
+    </script>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+
+    <!-- Saját CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<!-- ===================== FEJLÉC ===================== -->
+
+<nav class="appNav">
+
+    <div class="appNavInner">
+
+        <a class="appBrand" href="#properties">
+            <span class="appBrandIcon"><i class="fa-solid fa-building"></i></span>
+            <span>Ingatlan<b>Pro</b></span>
+        </a>
+
+        <!-- Főmenü (nagy képernyőn látható linkek) -->
+        <div class="navLinks">
+            <a class="navLink" href="#properties" data-page="properties"><i class="fa-solid fa-house"></i><span data-i18n="menuIngatlanok">Ingatlanok</span></a>
+            <a class="navLink" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span data-i18n="menuStatisztika">Piaci elemzés</span></a>
+            <a class="navLink" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span data-i18n="menuErtekbecslo">Értékbecslő</span></a>
+            <a class="navLink" href="#favorites" data-page="favorites"><i class="fa-solid fa-star"></i><span data-i18n="menuKedvencek">Kedvencek</span></a>
+        </div>
+
+        <!-- Főmenü (kis képernyőn lenyíló) -->
+        <div class="dropdown navDropdown">
+
+            <button class="btn navMenuBtn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i id="navMenuIcon" class="fa-solid fa-house"></i>
+                <span id="navMenuLabel" data-i18n="menuIngatlanok">Ingatlanok</span>
+            </button>
+
+            <ul class="dropdown-menu navMenu shadow">
+                <li><a class="dropdown-item" href="#properties" data-page="properties"><i class="fa-solid fa-house"></i><span><b data-i18n="menuIngatlanok">Ingatlanok</b><small data-i18n="menuIngatlanokDesc">Keresés, táblázat, térkép</small></span></a></li>
+                <li><a class="dropdown-item" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a></li>
+                <li><a class="dropdown-item" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a></li>
+                <li><a class="dropdown-item" href="#favorites" data-page="favorites"><i class="fa-solid fa-star"></i><span><b data-i18n="menuKedvencek">Kedvencek</b><small data-i18n="menuKedvencekDesc">Elmentett ingatlanok</small></span></a></li>
+                <li><a class="dropdown-item" href="#new" data-page="new"><i class="fa-solid fa-circle-plus"></i><span><b data-i18n="menuUj">Új ingatlan</b><small data-i18n="menuUjDesc">Hirdetés feltöltése</small></span></a></li>
+                <li class="admin-only" hidden><hr class="dropdown-divider"></li>
+                <li class="admin-only" hidden><a class="dropdown-item" href="#admin" data-page="admin"><i class="fa-solid fa-user-shield"></i><span><b data-i18n="menuAdmin">Admin</b><small data-i18n="menuAdminDesc">Import, jóváhagyás, duplikátumok</small></span></a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#user" data-page="user"><i class="fa-solid fa-user"></i><span><b data-i18n="menuFelhasznalo">Felhasználó</b><small data-i18n="menuFelhasznaloDesc">Bejelentkezés, profil</small></span></a></li>
+            </ul>
+
+        </div>
+
+        <div class="navRight">
+
+            <a class="btn btn-primary btn-sm navPostBtn" href="#new" data-page="new">
+                <i class="fa-solid fa-plus"></i><span data-i18n="navPost">Hirdetés feladása</span>
+            </a>
+
+            <a class="navIconBtn navAdminBtn admin-only" hidden href="#admin" data-page="admin" data-i18n-title="menuAdmin" title="Admin">
+                <i class="fa-solid fa-user-shield"></i>
+                <span class="navAdminCount" id="navAdminCount" hidden></span>
+            </a>
+
+            <span class="navSep"></span>
+
+            <div class="btn-group btn-group-sm langSwitcher" role="group">
+                <button type="button" class="btn langBtn" data-lang="en">EN</button>
+                <button type="button" class="btn langBtn" data-lang="hu">HU</button>
+                <button type="button" class="btn langBtn" data-lang="ro">RO</button>
+            </div>
+
+            <button class="navIconBtn" id="btnDarkMode" type="button" data-i18n-title="darkModeToggle" title="Sötét mód">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+
+            <a class="navIconBtn" href="#user" data-page="user" data-i18n-title="menuFelhasznalo" title="Felhasználó">
+                <i class="fa-solid fa-circle-user"></i>
+            </a>
+
+        </div>
+
+    </div>
+
+</nav>
+
+<main class="appMain">
+
+<div class="row g-4 g-xl-5" id="layoutRow">
+
+<!-- =====================================================================
+     KERESŐ (az Ingatlanok és a Piaci elemzés oldalon is látszik)
+     ===================================================================== -->
+
+<aside class="col-xl-3 col-lg-4" id="searchAside">
+
+    <!-- Kis képernyőn a keresés összecsukható -->
+    <button class="btn searchToggle d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#searchCollapse" aria-expanded="false">
+        <span><i class="fa-solid fa-sliders"></i> <span data-i18n="navFilters">Szűrők</span></span>
+        <span class="badge rounded-pill text-bg-primary" id="searchResultCountMobile">0</span>
+    </button>
+
+    <div class="collapse d-lg-block" id="searchCollapse">
+
+    <div class="card searchCard">
+
+        <div class="searchHead">
+            <h5 class="mb-0">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span data-i18n="searchTitle">Keresés</span>
+            </h5>
+            <span class="badge rounded-pill text-bg-primary" id="searchResultCount">0</span>
+        </div>
+
+        <div class="searchBody">
+
+            <!-- Mit? -->
+            <div class="searchSection">
+                <div class="searchSectionTitle" data-i18n="searchSecWhat">Mit keresel?</div>
+
+                <div class="btn-group w-100 mb-3 ugyletSwitch" role="group">
+                    <input type="radio" class="btn-check" name="searchUgylet" id="ugyletElado" value="elado" checked>
+                    <label class="btn btn-outline-primary" for="ugyletElado" data-i18n="ugyletElado">Eladó</label>
+                    <input type="radio" class="btn-check" name="searchUgylet" id="ugyletKiado" value="kiado">
+                    <label class="btn btn-outline-primary" for="ugyletKiado" data-i18n="ugyletKiado">Kiadó</label>
+                </div>
+
+                <div class="typeGrid" id="searchTypeGrid"></div>
+            </div>
+
+            <!-- Hol? -->
+            <div class="searchSection">
+                <div class="searchSectionTitle" data-i18n="searchSecWhere">Hol?</div>
+
+                <label class="form-label" for="citySelect" data-i18n="searchVaros">Város</label>
+                <select id="citySelect" class="form-select mb-3"></select>
+
+                <label class="form-label" for="keresoKerulet" data-i18n="kerulet">Kerület</label>
+                <select id="keresoKerulet" class="form-select">
+                    <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                </select>
+            </div>
+
+            <!-- Részletek / hirdetési oldal -->
+            <div class="searchSection">
+
+                <ul class="nav nav-pills nav-fill searchTabs mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#searchTabParams" type="button" role="tab">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span data-i18n="searchTabParams">Paraméterek</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#searchTabSources" type="button" role="tab">
+                            <i class="fa-solid fa-globe"></i>
+                            <span data-i18n="searchTabSources">Hirdetési oldal</span>
+                            <span class="badge text-bg-warning ms-1" id="sourceFilterBadge" style="display:none;">!</span>
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+
+                    <!-- Paraméterek -->
+                    <div class="tab-pane fade show active" id="searchTabParams" role="tabpanel">
+
+                        <label class="form-label" id="searchArLabel" data-i18n="searchAr">Ár (€)</label>
+                        <div class="input-group mb-3">
+                            <input id="minAr" class="form-control" type="number" min="0" data-i18n-placeholder="phMin" placeholder="min">
+                            <span class="input-group-text">–</span>
+                            <input id="maxAr" class="form-control" type="number" min="0" data-i18n-placeholder="phMax" placeholder="max">
+                        </div>
+
+                        <label class="form-label" id="searchNmLabel" data-i18n="searchNm">Alapterület (m²)</label>
+                        <div class="input-group mb-3">
+                            <input id="minNm" class="form-control" type="number" min="0" data-i18n-placeholder="phMin" placeholder="min">
+                            <span class="input-group-text">–</span>
+                            <input id="maxNm" class="form-control" type="number" min="0" data-i18n-placeholder="phMax" placeholder="max">
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-6" data-field="szobak">
+                                <label class="form-label" for="minSzoba" data-i18n="minSzoba">Min. szobák</label>
+                                <input id="minSzoba" class="form-control" type="number" min="0">
+                            </div>
+                            <div class="col-6" data-field="emelet">
+                                <label class="form-label" for="minEmelet" data-i18n="minEmelet">Min. emelet</label>
+                                <input id="minEmelet" class="form-control" type="number" min="0">
+                            </div>
+                        </div>
+
+                        <div data-field="allapot">
+                            <label class="form-label" for="allapot" data-i18n="allapot">Állapot</label>
+                            <select id="allapot" class="form-select mb-3">
+                                <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
+                                <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
+                                <option value="jó" data-i18n="allapotJo">jó</option>
+                                <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
+                                <option value="luxus" data-i18n="allapotLuxus">luxus</option>
+                            </select>
+                        </div>
+
+                        <div class="switchList">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="hideDuplicates" checked>
+                                <label class="form-check-label" for="hideDuplicates" data-i18n="hideDuplicates">Duplikált hirdetések elrejtése</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="onlyWithPhotos">
+                                <label class="form-check-label" for="onlyWithPhotos" data-i18n="onlyWithPhotos">Csak fényképes hirdetések</label>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Hirdetési oldal -->
+                    <div class="tab-pane fade" id="searchTabSources" role="tabpanel">
+
+                        <p class="small text-body-secondary mb-3" data-i18n="sourcesHelp">
+                            Válaszd ki, melyik hirdetési oldalon fent lévő ingatlanokat szeretnéd látni.
+                        </p>
+
+                        <div id="sourceList" class="sourceList mb-3"></div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnSourcesAll" data-i18n="sourcesAll">Mind</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="btnSourcesNone" data-i18n="sourcesNone">Egyik sem</button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="searchActions">
+                <button id="keresesBtn" class="btn btn-primary">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span data-i18n="keresesBtn">Keresés</span>
+                </button>
+                <button id="resetFiltersBtn" class="btn btn-link btn-sm">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span data-i18n="resetFiltersBtn">Szűrők törlése</span>
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+
+    </div>
+
+</aside>
+
+<div class="col-xl-9 col-lg-8" id="mainCol">
+
+<!-- =====================================================================
+     INGATLANOK
+     ===================================================================== -->
+
+<section id="page-properties" class="page">
+
+    <!-- KPI kártyák -->
+    <div class="row g-3 g-xxl-4 mb-4 kpiRow">
+
+        <div class="col-6 col-xxl-3">
+            <div class="kpiCard">
+                <span class="kpiIcon blue"><i class="fa-solid fa-house"></i></span>
+                <div>
+                    <small data-i18n="dbOsszes">Találatok</small>
+                    <h3 id="dbCount">0</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-xxl-3">
+            <div class="kpiCard">
+                <span class="kpiIcon green"><i class="fa-solid fa-euro-sign"></i></span>
+                <div>
+                    <small data-i18n="dbAtlagAr">Átlag ár</small>
+                    <h3 id="dbPrice">-</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-xxl-3">
+            <div class="kpiCard">
+                <span class="kpiIcon purple"><i class="fa-solid fa-ruler-combined"></i></span>
+                <div>
+                    <small data-i18n="dbAtlagNm">Átlag €/m²</small>
+                    <h3 id="dbNm">-</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-xxl-3">
+            <div class="kpiCard">
+                <span class="kpiIcon orange"><i class="fa-solid fa-camera"></i></span>
+                <div>
+                    <small data-i18n="dbFotos">Fényképes</small>
+                    <h3 id="dbPhotos">0</h3>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Nézet váltó -->
+    <div class="viewBar mb-3">
+
+        <div class="btn-group" role="group">
+            <input type="radio" class="btn-check" name="viewMode" id="viewCards" value="cards" checked>
+            <label class="btn btn-outline-secondary btn-sm" for="viewCards"><i class="fa-solid fa-grip"></i> <span data-i18n="viewCards">Hirdetések</span></label>
+            <input type="radio" class="btn-check" name="viewMode" id="viewTable" value="table">
+            <label class="btn btn-outline-secondary btn-sm" for="viewTable"><i class="fa-solid fa-table-list"></i> <span data-i18n="viewTable">Táblázat</span></label>
+        </div>
+
+        <div class="d-flex align-items-center gap-2" id="cardSortBox">
+            <label class="small text-body-secondary" for="cardSort" data-i18n="sortLabel">Rendezés</label>
+            <select id="cardSort" class="form-select form-select-sm" style="width:auto;">
+                <option value="newest" data-i18n="sortNewest">Legújabb</option>
+                <option value="priceAsc" data-i18n="sortPriceAsc">Ár szerint növekvő</option>
+                <option value="priceDesc" data-i18n="sortPriceDesc">Ár szerint csökkenő</option>
+                <option value="nmAsc" data-i18n="sortNmAsc">€/m² szerint növekvő</option>
+                <option value="areaDesc" data-i18n="sortAreaDesc">Legnagyobb alapterület</option>
+            </select>
+        </div>
+
+    </div>
+
+    <!-- Kártyák -->
+    <div id="cardsView">
+        <div class="row g-4" id="cardsGrid"></div>
+        <nav class="d-flex justify-content-center mt-4" id="cardsPager"></nav>
+    </div>
+
+    <!-- Táblázat + adatlap -->
+    <div id="tableView" style="display:none;">
+
+        <div class="row g-4">
+
+            <div class="col-xxl-9">
+                <div class="card h-100">
+
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fa-solid fa-table"></i>
+                            <span data-i18n="tableTitle">Ingatlanok</span>
+                        </h5>
+                    </div>
+
+                    <div class="card-body">
+
+                        <div id="bulkEditBar" class="alert alert-primary align-items-center gap-2 flex-wrap mb-3" style="display:none;">
+
+                            <i class="fa-solid fa-layer-group"></i>
+                            <strong id="bulkEditCount">0</strong>
+                            <span data-i18n="bulkSelectedSuffix">ingatlan kiválasztva</span>
+
+                            <span class="ms-2 me-1" data-i18n="bulkKeruletLabel">Kerület:</span>
+
+                            <select id="bulkKerulet" class="form-select form-select-sm" style="max-width:200px;">
+                                <option value="" data-i18n="bulkKeruletChoose">— válassz kerületet —</option>
+                            </select>
+
+                            <button id="btnBulkAddKerulet" class="btn btn-outline-secondary btn-sm" type="button" data-i18n-title="newAddKerulet" title="Új kerület hozzáadása">➕</button>
+
+                            <button id="btnBulkApply" class="btn btn-primary btn-sm" data-i18n="bulkApplyBtn">Kerület alkalmazása</button>
+
+                            <button id="btnBulkCancel" class="btn btn-outline-secondary btn-sm ms-auto" data-i18n="bulkCancelBtn">Kijelölés törlése</button>
+
+                        </div>
+
+                        <div id="ingatlanGrid" class="gridBox"></div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Adatlap -->
+            <div class="col-xxl-3">
+                <div class="card h-100 detailCard">
+
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span data-i18n="detailPanelTitle">Ingatlan adatai</span>
+                        </h5>
+                    </div>
+
+                    <div class="card-body">
+
+                        <div id="detailPhoto" class="detailPhoto" style="display:none;"></div>
+
+                        <div class="detailHead">
+                            <div>
+                                <small class="text-body-secondary" id="detailIdLabel"></small>
+                                <h2 id="detailId" class="mb-1">Nothing selected</h2>
+                                <span id="detailSource" class="sourceBadge" style="display:none;"></span>
+                            </div>
+                            <button id="btnFavoriteToggle" class="btn btn-outline-warning btn-sm">☆</button>
+                        </div>
+
+                        <div class="row g-2 mt-2">
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small data-i18n="detailAr">Ár</small>
+                                    <b id="detailAr">-</b>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small data-i18n="detailArNm">€/m²</small>
+                                    <b id="detailArNm">-</b>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small data-i18n="detailNm">Alapterület</small>
+                                    <b id="detailNm">-</b>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small data-i18n="detailSzoba">Szobák</small>
+                                    <b id="detailSzoba">-</b>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small data-i18n="detailEmelet">Emelet</small>
+                                    <b id="detailEmelet">-</b>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="infoBox">
+                                    <small data-i18n="detailAllapot">Állapot</small>
+                                    <b id="detailAllapot">-</b>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="infoBox">
+                                    <small data-i18n="detailHely">Város, kerület</small>
+                                    <b id="detailHely">-</b>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="d-grid gap-2 mt-3">
+
+                            <button id="btnOpenListing" class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-rectangle-list"></i>
+                                <span data-i18n="detailOpenListing">Hirdetés megnyitása</span>
+                            </button>
+
+                            <button id="btnValuateThis" class="btn btn-outline-primary btn-sm">
+                                <i class="fa-solid fa-calculator"></i>
+                                <span data-i18n="detailValuate">Értékbecslés erre</span>
+                            </button>
+
+                            <div class="d-flex gap-2 admin-only" hidden>
+                                <button id="btnEdit" class="btn btn-outline-secondary btn-sm flex-fill">
+                                    <i class="fa-solid fa-pen"></i>
+                                    <span data-i18n="detailEdit">Szerkesztés</span>
+                                </button>
+                                <button id="btnDelete" class="btn btn-outline-danger btn-sm flex-fill">
+                                    <i class="fa-solid fa-trash"></i>
+                                    <span data-i18n="detailDelete">Törlés</span>
+                                </button>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Térkép -->
+    <div class="card mt-5">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span data-i18n="mapTitle">Térkép</span>
+            </h5>
+        </div>
+        <div class="card-body p-2">
+            <div id="map"></div>
+        </div>
+    </div>
+
+</section>
+
+<!-- =====================================================================
+     HIRDETÉS (egy ingatlan teljes oldala)
+     ===================================================================== -->
+
+<section id="page-listing" class="page" style="display:none;">
+    <div id="listingContent"></div>
+</section>
+
+<!-- =====================================================================
+     ÚJ INGATLAN / SZERKESZTÉS
+     ===================================================================== -->
+
+<section id="page-new" class="page" style="display:none;">
+
+    <div class="pageHeader">
+        <h2 id="newPageTitle" data-i18n="newTitle">Új hirdetés feladása</h2>
+        <p class="text-body-secondary" data-i18n="newSubtitle">Minden csillaggal jelölt mezőt ki kell tölteni.</p>
+    </div>
+
+    <div id="newMissingAlert" class="alert alert-danger" style="display:none;"></div>
+    <div id="newPendingInfo" class="alert alert-warning" style="display:none;"></div>
+
+    <div class="row g-4">
+
+        <div class="col-xl-7">
+
+            <!-- 1. Alapok -->
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><span class="stepNo">1</span> <span data-i18n="newStepBasics">Mit hirdetsz?</span></h5></div>
+                <div class="card-body">
+
+                    <div class="btn-group w-100 mb-3 ugyletSwitch" role="group">
+                        <input type="radio" class="btn-check" name="ujUgylet" id="ujUgyletElado" value="elado" checked>
+                        <label class="btn btn-outline-primary" for="ujUgyletElado" data-i18n="ugyletElado">Eladó</label>
+                        <input type="radio" class="btn-check" name="ujUgylet" id="ujUgyletKiado" value="kiado">
+                        <label class="btn btn-outline-primary" for="ujUgyletKiado" data-i18n="ugyletKiado">Kiadó</label>
+                    </div>
+
+                    <div class="typeGrid mb-3" id="newTypeGrid"></div>
+
+                    <label class="form-label" for="ujLink" data-i18n="newLink">Link egy másik hirdetési oldalról (nem kötelező)</label>
+                    <div class="input-group">
+                        <input id="ujLink" type="url" class="form-control" placeholder="https://www.imobiliare.ro/oferta/...">
+                        <button class="btn btn-outline-primary" type="button" id="btnScrape">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="newScrapeBtn">Adatok betöltése</span>
+                        </button>
+                    </div>
+                    <div class="form-text mb-3">
+                        <span data-i18n="newLinkHelp">Ha megadod, megpróbáljuk kitölteni az adatokat a linkről. Ellenőrizd őket!</span>
+                        <span id="ujSourcePreview" class="ms-1"></span>
+                    </div>
+                    <div id="scrapeResult"></div>
+
+                    <label class="form-label req" for="ujCim" data-i18n="newCim">Hirdetés címe</label>
+                    <input id="ujCim" type="text" maxlength="200" class="form-control mb-3" data-i18n-placeholder="newCimPh" placeholder="pl. Felújított 3 szobás lakás a központban">
+
+                </div>
+            </div>
+
+            <!-- 2. Adatok -->
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><span class="stepNo">2</span> <span data-i18n="newStepDetails">Adatok</span></h5></div>
+                <div class="card-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-6">
+                            <label class="form-label req" for="ujAr" id="ujArLabel" data-i18n="newAr">Ár (€)</label>
+                            <input id="ujAr" type="number" min="0" class="form-control">
+                        </div>
+
+                        <div class="col-6">
+                            <label class="form-label req" for="ujNm" id="ujNmLabel" data-i18n="newNm">Alapterület (m²)</label>
+                            <input id="ujNm" type="number" min="0" class="form-control">
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-text" id="ujArNmPreview"></div>
+                        </div>
+
+                        <div class="col-6" data-field="telek">
+                            <label class="form-label req" for="ujTelekNm" data-i18n="newTelekNm">Telek mérete (m²)</label>
+                            <input id="ujTelekNm" type="number" min="0" class="form-control">
+                        </div>
+
+                        <div class="col-4" data-field="szobak">
+                            <label class="form-label req" for="ujSzobak" data-i18n="newSzobak">Szobák</label>
+                            <input id="ujSzobak" type="number" min="0" class="form-control">
+                        </div>
+
+                        <div class="col-4" data-field="emelet">
+                            <label class="form-label req" for="ujEmelet" data-i18n="newEmelet">Emelet</label>
+                            <input id="ujEmelet" type="text" class="form-control" placeholder="0 = földszint">
+                        </div>
+
+                        <div class="col-4" data-field="emelet">
+                            <label class="form-label" for="ujOsszEmelet" data-i18n="newOsszEmelet">Összes emelet</label>
+                            <input id="ujOsszEmelet" type="number" min="0" class="form-control">
+                        </div>
+
+                        <div class="col-12" data-field="allapot">
+                            <label class="form-label req" for="ujAllapot" data-i18n="newAllapot">Állapot</label>
+                            <select id="ujAllapot" class="form-select">
+                                <option value="" data-i18n="chooseOne">— válassz —</option>
+                                <option value="jó" data-i18n="allapotJo">jó</option>
+                                <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
+                                <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
+                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
+                                <option value="luxus" data-i18n="allapotLuxus">luxus</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label req" for="ujVaros" data-i18n="newVaros">Város</label>
+                            <div class="input-group">
+                                <select id="ujVaros" class="form-select"></select>
+                                <button type="button" id="btnUjVaros" class="btn btn-outline-secondary admin-only" hidden data-i18n-title="newAddVaros" title="Új város hozzáadása">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label req" for="ujKerulet" data-i18n="newKerulet">Kerület / városrész</label>
+                            <div class="input-group">
+                                <select id="ujKerulet" class="form-select">
+                                    <option value="" data-i18n="newKeruletNincs">— nincs megadva —</option>
+                                </select>
+                                <button type="button" id="btnUjKerulet" class="btn btn-outline-secondary admin-only" hidden data-i18n-title="newAddKerulet" title="Új kerület hozzáadása">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label req" for="ujLeiras" data-i18n="newLeiras">Leírás</label>
+                            <textarea id="ujLeiras" class="form-control" rows="6" maxlength="5000" data-i18n-placeholder="newLeirasPh" placeholder="Írd le az ingatlant: elrendezés, fűtés, parkolás, környék..."></textarea>
+                            <div class="form-text"><span id="ujLeirasCount">0</span> / 5000</div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 3. Fényképek -->
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><span class="stepNo">3</span> <span data-i18n="newStepPhotos">Fényképek</span></h5></div>
+                <div class="card-body">
+
+                    <p class="small text-body-secondary" id="photoHelp" data-i18n="newPhotosHelp">Legalább 1 fénykép kötelező, ha a hirdetés csak itt jelenik meg. Legfeljebb 15 kép.</p>
+
+                    <label class="photoDrop" id="photoDrop">
+                        <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span data-i18n="newPhotosDrop">Kattints vagy húzd ide a képeket</span>
+                    </label>
+
+                    <div class="photoGrid mt-3" id="photoGrid"></div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 4. Hely -->
+        <div class="col-xl-5">
+            <div class="card newMapCard">
+                <div class="card-header"><h5 class="mb-0"><span class="stepNo">4</span> <span data-i18n="newHely">Elhelyezkedés</span> <span class="text-danger">*</span></h5></div>
+                <div class="card-body p-2">
+                    <p class="small text-body-secondary px-2 mb-2" data-i18n="newHelyHelp">Kattints a térképre az ingatlan helyén.</p>
+                    <div id="newMap"></div>
+                    <div class="small px-2 mt-2" id="newLocationInfo"></div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+                <button id="btnSave" class="btn btn-success btn-lg">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span data-i18n="newSaveBtn">Hirdetés mentése</span>
+                </button>
+                <button id="btnApprove" class="btn btn-warning admin-only" hidden style="display:none;">
+                    <i class="fa-solid fa-check"></i>
+                    <span data-i18n="newApproveBtn">Mentés és jóváhagyás</span>
+                </button>
+                <button id="btnCancelNew" class="btn btn-outline-secondary" data-i18n="newCancelBtn">Mégse</button>
+            </div>
+
+            <input id="ujX" type="hidden">
+            <input id="ujY" type="hidden">
+        </div>
+
+    </div>
+
+</section>
+
+<section id="page-market" class="page" style="display:none;">
+
+    <div class="pageHeader d-flex flex-wrap align-items-end justify-content-between gap-3">
+        <div>
+            <h2 data-i18n="statsTitle">Piaci elemzés</h2>
+            <p class="text-body-secondary mb-0" data-i18n="statsSubtitle">A számok a bal oldali keresésben beállított szűrésre vonatkoznak.</p>
+        </div>
+
+        <ul class="nav nav-pills marketTabs">
+            <li class="nav-item">
+                <button class="nav-link active" id="btnCurrentStatistics" type="button">
+                    <i class="fa-solid fa-chart-column"></i>
+                    <span data-i18n="statsCurrent">Jelenlegi piac</span>
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="btnHistoryStatistics" type="button">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span data-i18n="statsHistory">Előzmények</span>
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="btnCompareStatistics" type="button">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                    <span data-i18n="statsCompare">Összehasonlítás</span>
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="btnTrend" type="button">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span data-i18n="statsTrend">Ártrend</span>
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <div id="statisticsContainer"></div>
+
+</section>
+
+<section id="page-favorites" class="page" style="display:none;">
+
+    <div class="pageHeader">
+        <h2 data-i18n="favTitle">Kedvencek</h2>
+        <p class="text-body-secondary" data-i18n="favSubtitle">Kattints egy sorra, és megnyílik a hirdetés.</p>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div id="favoritesGrid" class="gridBox"></div>
+        </div>
+    </div>
+
+</section>
+
+<!-- =====================================================================
+     ÉRTÉKBECSLŐ
+     ===================================================================== -->
+
+<section id="page-valuation" class="page" style="display:none;">
+
+    <div class="pageHeader">
+        <h2 data-i18n="valTitle">Ingatlan értékbecslő</h2>
+        <p class="text-body-secondary" data-i18n="valSubtitle">Add meg a lakás adatait, és a hasonló ingatlanok alapján megbecsüljük az árát.</p>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-body">
+
+                    <div class="btn-group w-100 mb-3 ugyletSwitch" role="group">
+                        <input type="radio" class="btn-check" name="valUgylet" id="valUgyletElado" value="elado" checked>
+                        <label class="btn btn-outline-primary btn-sm" for="valUgyletElado" data-i18n="ugyletElado">Eladó</label>
+                        <input type="radio" class="btn-check" name="valUgylet" id="valUgyletKiado" value="kiado">
+                        <label class="btn btn-outline-primary btn-sm" for="valUgyletKiado" data-i18n="ugyletKiado">Kiadó</label>
+                    </div>
+
+                    <label class="form-label" for="valTipus" data-i18n="typeLabel">Típus</label>
+                    <select id="valTipus" class="form-select mb-3"></select>
+
+                    <label class="form-label" for="valVaros" data-i18n="newVaros">Város</label>
+                    <select id="valVaros" class="form-select mb-3"></select>
+
+                    <label class="form-label" for="valKerulet" data-i18n="newKerulet">Kerület / városrész</label>
+                    <select id="valKerulet" class="form-select mb-3">
+                        <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                    </select>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label" for="valNm" data-i18n="newNm">Alapterület (m²)</label>
+                            <input id="valNm" type="number" min="1" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="valSzobak" data-i18n="newSzobak">Szobák</label>
+                            <input id="valSzobak" type="number" min="0" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="valEmelet" data-i18n="newEmelet">Emelet</label>
+                            <input id="valEmelet" type="number" min="0" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="valAllapot" data-i18n="newAllapot">Állapot</label>
+                            <select id="valAllapot" class="form-select">
+                                <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
+                                <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
+                                <option value="jó" data-i18n="allapotJo">jó</option>
+                                <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
+                                <option value="luxus" data-i18n="allapotLuxus">luxus</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <label class="form-label" for="valAskingPrice" data-i18n="valAskingPrice">Kért ár (nem kötelező)</label>
+                    <input id="valAskingPrice" type="number" min="0" class="form-control mb-1">
+                    <div class="form-text mb-3" data-i18n="valAskingPriceHelp">Ha megadod, megmutatjuk, drága-e vagy olcsó a becsléshez képest.</div>
+
+                    <div class="d-grid">
+                        <button id="btnValuate" class="btn btn-primary">
+                            <i class="fa-solid fa-calculator"></i>
+                            <span data-i18n="valBtn">Becslés</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div id="valResult"></div>
+        </div>
+
+    </div>
+
+</section>
+
+<!-- =====================================================================
+     ADMIN
+     ===================================================================== -->
+
+<section id="page-admin" class="page" style="display:none;">
+
+    <div class="adminShell">
+
+        <!-- Admin menü -->
+        <aside class="adminNav admin-only" hidden>
+
+            <div class="adminNavHead">
+                <span class="adminNavIcon"><i class="fa-solid fa-user-shield"></i></span>
+                <div>
+                    <b data-i18n="adminTitle">Admin</b>
+                    <small data-i18n="adminOnlyYou">Csak az adminisztrátorok látják</small>
+                </div>
+            </div>
+
+            <nav id="adminTabs" class="adminNavList">
+
+                <button class="adminNavItem" data-tab="overview" type="button"><i class="fa-solid fa-gauge-high"></i><span data-i18n="adminTabOverview">Áttekintés</span></button>
+
+                <div class="adminNavGroup" data-i18n="adminGroupListings">Hirdetések</div>
+                <button class="adminNavItem" data-tab="review" type="button"><i class="fa-solid fa-list-check"></i><span data-i18n="adminTabReview">Ellenőrzésre vár</span><span class="navCount warn" id="pendingCount" hidden></span></button>
+                <button class="adminNavItem" data-tab="unavailable" type="button"><i class="fa-solid fa-ban"></i><span data-i18n="adminTabUnavailable">Nem elérhető</span><span class="navCount" id="unavailableCount" hidden></span></button>
+                <button class="adminNavItem" data-tab="dups" type="button"><i class="fa-solid fa-clone"></i><span data-i18n="adminTabDups">Duplikátumok</span></button>
+
+                <div class="adminNavGroup" data-i18n="adminGroupImport">Beolvasás</div>
+                <button class="adminNavItem" data-tab="import" type="button"><i class="fa-solid fa-file-import"></i><span data-i18n="adminTabImport">Beolvasás</span></button>
+                <button class="adminNavItem" data-tab="watch" type="button"><i class="fa-solid fa-binoculars"></i><span data-i18n="adminTabWatch">Figyelt oldalak</span></button>
+
+                <div class="adminNavGroup" data-i18n="adminGroupSettings">Beállítások</div>
+                <button class="adminNavItem" data-tab="places" type="button"><i class="fa-solid fa-city"></i><span data-i18n="adminTabPlaces">Városok, kerületek</span></button>
+
+            </nav>
+
+        </aside>
+
+        <!-- Admin tartalom -->
+        <div class="adminMain">
+
+            <header class="adminHeader">
+                <div>
+                    <h2 id="adminPageTitle"></h2>
+                    <p id="adminPageDesc" class="text-body-secondary mb-0"></p>
+                </div>
+            </header>
+
+            <div id="adminContent"></div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<section id="page-user" class="page" style="display:none;">
+
+    <div class="pageHeader">
+        <h2 data-i18n="userTitle">Felhasználó</h2>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-body text-center py-5 px-4">
+
+                    <div class="userAvatar"><i class="fa-solid fa-user"></i></div>
+
+                    <h4 class="mt-3" data-i18n="userLoginTitle">Bejelentkezés</h4>
+
+                    <p class="text-body-secondary" data-i18n="userComingSoon">A felhasználói fiókok hamarosan érkeznek.</p>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button class="btn btn-outline-secondary" disabled>
+                            <i class="fa-brands fa-google"></i>
+                            <span data-i18n="userGoogleBtn">Belépés Google fiókkal</span>
+                        </button>
+                        <button class="btn btn-outline-secondary" disabled>
+                            <i class="fa-solid fa-envelope"></i>
+                            <span data-i18n="userEmailBtn">Belépés e-mail címmel</span>
+                        </button>
+                    </div>
+
+                    <span class="badge text-bg-warning mt-3" data-i18n="userSoonBadge">Hamarosan</span>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0" data-i18n="userWhatTitle">Mit tudsz majd bejelentkezve?</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="featureList">
+                        <li><i class="fa-solid fa-upload"></i><span data-i18n="userFeat1">Saját ingatlanhirdetéseket tölthetsz fel.</span></li>
+                        <li><i class="fa-solid fa-lock"></i><span data-i18n="userFeat2">A saját hirdetéseidet csak te szerkesztheted és törölheted.</span></li>
+                        <li><i class="fa-solid fa-star"></i><span data-i18n="userFeat3">Saját kedvenclistád lesz, bármelyik eszközről eléred.</span></li>
+                        <li><i class="fa-solid fa-chart-line"></i><span data-i18n="userFeat4">Mentett keresések és piaci elemzések.</span></li>
+                    </ul>
+                    <div class="alert alert-info small mb-0 mt-3" data-i18n="userCurrentAccess">
+                        Addig az oldal egy közös jelszóval védett.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+</div> <!-- mainCol -->
+
+</div> <!-- layoutRow -->
+
+</main>
+
+<!-- Képnagyító -->
+<div class="modal fade" id="photoModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-black border-0">
+            <div class="modal-body p-0 position-relative">
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" style="z-index:5"></button>
+                <div id="photoModalBody"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Könyvtárak (rögzített verziók, hogy egy frissítés ne törje el az oldalt) -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@36.2.0/dist/ag-grid-community.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+
+<!-- Alap -->
+<script src="js/core/i18n.js"></script>
+<script src="js/core/utils.js"></script>
+<script src="js/core/types.js"></script>
+<script src="js/core/sources.js"></script>
+<script src="js/core/authManager.js"></script>
+<script src="js/core/imageTools.js"></script>
+
+<!-- Ingatlanok: adatok, kereső, kártyák, táblázat, térkép, hirdetés oldal -->
+<script src="js/listings/dataManager.js"></script>
+<script src="js/listings/tableManager.js"></script>
+<script src="js/listings/cardsView.js"></script>
+<script src="js/listings/mapManager.js"></script>
+<script src="js/listings/dashboardManager.js"></script>
+<script src="js/listings/filterManager.js"></script>
+<script src="js/listings/cityManager.js"></script>
+<script src="js/listings/bulkEditManager.js"></script>
+<script src="js/listings/uiManager.js"></script>
+<script src="js/listings/appController.js"></script>
+<script src="js/listings/listingPage.js"></script>
+
+<!-- Hirdetésfeladás -->
+<script src="js/new-listing/newPropertyMap.js"></script>
+<script src="js/new-listing/newPropertyManager.js"></script>
+
+<!-- Kedvencek -->
+<script src="js/favorites/favorites.js"></script>
+
+<!-- Piaci elemzés -->
+<script src="js/market/statistics/chartStatistics.js"></script>
+<script src="js/market/statistics/currentStatistics.js"></script>
+<script src="js/market/statistics/historyStatistics.js"></script>
+<script src="js/market/statistics/compareStatistics.js"></script>
+<script src="js/market/statistics/trendStatistics.js"></script>
+<script src="js/market/statisticsManager.js"></script>
+
+<!-- Értékbecslő -->
+<script src="js/valuation/valuationManager.js"></script>
+
+<!-- Admin -->
+<script src="js/admin/adminManager.js"></script>
+<script src="js/admin/overview.js"></script>
+<script src="js/admin/review.js"></script>
+<script src="js/admin/unavailable.js"></script>
+<script src="js/admin/import.js"></script>
+<script src="js/admin/duplicates.js"></script>
+<script src="js/admin/places.js"></script>
+
+<!-- Oldalak, indítás -->
+<script src="js/core/pageManager.js"></script>
+<script src="js/core/app.js"></script>
+
+</body>
+</html>

@@ -1,12 +1,13 @@
 {
-  "name": "ingatanpro",
+  "name": "ingatlanpro",
   "version": "1.0.0",
-  "description": "",
+  "description": "IngatlanPro – romániai ingatlanhirdetések gyűjtése, elemzése és értékbecslés",
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "migrate": "node migrate.js",
-    "import-backup": "node import-backup.js"
+    "migrate": "node scripts/migrate.js",
+    "import-backup": "node scripts/import-backup.js",
+    "takaritas": "node scripts/takaritas.js"
   },
   "keywords": [],
   "author": "",
@@ -17,8 +18,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "pg": "^8.22.0",
-    "xlsx": "^0.18.5"
+    "pg": "^8.22.0"
   },
   "engines": {
     "node": ">=18"
