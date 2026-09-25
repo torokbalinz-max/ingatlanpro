@@ -103,8 +103,12 @@ class CurrentStatistics {
         ChartStatistics.destroy();
 
         const osszes = DataManager.szurtIngatlanok;
-        const lista = Utils.valid(osszes);
-        const kimaradt = osszes.length - lista.length;
+        const ervenyes = Utils.valid(osszes);
+
+        // Az ellenőrzésre váró (hiányos / gyanús) hirdetések kimaradnak
+        const lista = ervenyes.filter(Utils.verified);
+        const kimaradt = osszes.length - ervenyes.length;
+        CurrentStatistics.ellenorizetlen = ervenyes.length - lista.length;
 
         let html = CurrentStatistics.renderFilterSummary(osszes.length, lista.length);
 
@@ -319,6 +323,10 @@ class CurrentStatistics {
         // 7) Kimaradt, hiányos adatok
         if (kimaradt > 0) {
             pontok.push(I18n.f("insightMissing", { db: kimaradt }));
+        }
+
+        if (CurrentStatistics.ellenorizetlen > 0) {
+            pontok.push(I18n.f("insightUnverified", { db: CurrentStatistics.ellenorizetlen }));
         }
 
         return `

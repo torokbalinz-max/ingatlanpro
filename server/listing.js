@@ -55,7 +55,7 @@ function normalize(b) {
         y: szam(b.y),
         varos: szoveg(b.varos, 100),
         kerulet: szoveg(b.kerulet, 100),
-        hely_pontossag: b.hely_pontossag === "kozelito" ? "kozelito" : (szam(b.x) && szam(b.y) ? "pontos" : null),
+        hely_pontossag: ["kozelito", "utca"].includes(b.hely_pontossag) ? b.hely_pontossag : (szam(b.x) && szam(b.y) ? "pontos" : null),
         kulso_kepek: Array.isArray(b.kulso_kepek) ? b.kulso_kepek.filter(u => /^https?:\/\//.test(u)).slice(0, 20) : null,
         tovabbi_linkek: Array.isArray(b.tovabbi_linkek) ? b.tovabbi_linkek.filter(u => /^https?:\/\//.test(u)).slice(0, 20) : null
     };

@@ -1412,3 +1412,80 @@ label[for="ujLink"].req::after {
     }
 
 }
+
+/* ==========================================================================
+   GYORS ELLENŐRZÉS (admin)
+   ========================================================================== */
+
+.revIssues {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.revIssues .badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.revMissing .form-control,
+.revMissing .form-select,
+.revMissing #reviewMap {
+    border: 2px solid #f59e0b !important;
+}
+
+.revMissing .form-label {
+    color: #b45309;
+}
+
+#reviewMap {
+    height: 260px;
+    border-radius: 10px;
+    border: 1px solid var(--ip-border);
+}
+
+.revPhotos {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.revPhotos img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 8px;
+    background: var(--bs-tertiary-bg);
+}
+
+.revPhotos img:first-child {
+    grid-column: span 3;
+    aspect-ratio: 16 / 9;
+}
+
+.revSource {
+    white-space: pre-wrap;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    max-height: 520px;
+    overflow-y: auto;
+}
+
+.revSource mark {
+    background: rgba(250, 204, 21, 0.35);
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 3px;
+}
+
+kbd {
+    font-size: 0.7rem;
+    padding: 1px 5px;
+    margin-left: 4px;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+/* A galéria képe: a nagy felbontású képek kitöltik a keretet */
+.galleryMain {
+    background: #111827;
+}

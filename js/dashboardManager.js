@@ -4,7 +4,8 @@ class DashboardManager {
 
     static load(lista) {
 
-        const ervenyes = Utils.valid(lista);
+        // Az átlagokba csak az ellenőrzött hirdetések számítanak
+        const ervenyes = Utils.valid(lista).filter(Utils.verified);
 
         document.getElementById("dbCount").innerText = Utils.num(lista.length);
         document.getElementById("dbPhotos").innerText = Utils.num(lista.filter(Utils.hasPhoto).length);

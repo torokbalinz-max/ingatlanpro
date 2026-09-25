@@ -43,6 +43,13 @@ async function createSchema(db) {
         "kulso_kepek JSONB",                     // más oldalról beolvasott képek címei
         "tovabbi_linkek JSONB",                  // ugyanez a hirdetés más oldalakon
         "hianyzo JSONB",                         // hiányzó kötelező mezők listája
+        "problemak JSONB",                       // gyanús adatok (pl. irreális €/m²)
+        "ellenorzott BOOLEAN DEFAULT true",      // beleszámít-e a statisztikába / becslésbe
+        "jovahagyva BOOLEAN DEFAULT false",      // az admin kézzel jóváhagyta
+        "forras_szoveg TEXT",                    // a forrásoldal lényeges szövege (ellenőrzéshez)
+        "forras_kerulet TEXT",                   // a forrásoldal szerinti környék neve
+        "utolso_ellenorzes TIMESTAMP",           // mikor néztük meg utoljára a forrásoldalt
+        "evszam INTEGER",                        // építés éve
         "updated_at TIMESTAMP DEFAULT NOW()"
     ];
 
@@ -125,6 +132,9 @@ async function createSchema(db) {
             UNIQUE(varos, nev)
         )
     `);
+
+    // Más oldalak környék-nevei, amelyek ehhez a kerülethez tartoznak (vesszővel)
+    await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS aliasok TEXT`);
 
     // Piaci snapshotok (korábban a külön create_statistics_tables.js hozta létre)
     await db.query(`

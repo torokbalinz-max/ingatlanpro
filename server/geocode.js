@@ -41,8 +41,14 @@ async function geocode(szoveg, varos) {
 
         const lista = await res.json();
 
-        const eredmeny = lista.length
-            ? { x: Number(lista[0].lon), y: Number(lista[0].lat) }
+        // Utca / épület szintű találat pontosabb, mint egy városrész vagy a város közepe
+        const t = lista[0];
+        const eredmeny = t
+            ? {
+                x: Number(t.lon),
+                y: Number(t.lat),
+                szint: (t.class === "highway" || t.class === "building" || t.type === "house") ? "utca" : "kozelito"
+            }
             : null;
 
         cache.set(q, eredmeny);

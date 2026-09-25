@@ -34,11 +34,22 @@ class Utils {
         return i.ugylet === "kiado" && v !== "-" ? v + I18n.t("perMonth") : v;
     }
 
+    // Más oldal képe a saját szerverünkön keresztül (így nem tiltható le)
+    static imgUrl(u) {
+        if (!u) return null;
+        return /^https?:\/\//i.test(u) ? "/api/img?u=" + encodeURIComponent(u) : u;
+    }
+
     // Az ingatlan fő képe: saját feltöltött, vagy más oldalról beolvasott
     static photoUrl(i) {
         if (i.kep_id) return "/api/kepek/" + i.kep_id;
-        if (Array.isArray(i.kulso_kepek) && i.kulso_kepek.length) return i.kulso_kepek[0];
+        if (Array.isArray(i.kulso_kepek) && i.kulso_kepek.length) return Utils.imgUrl(i.kulso_kepek[0]);
         return null;
+    }
+
+    // Beleszámít-e a statisztikába / becslésbe (az admin ellenőrizte, vagy hibátlan)
+    static verified(i) {
+        return i.ellenorzott !== false;
     }
 
     static hasPhoto(i) {

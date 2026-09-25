@@ -12,6 +12,8 @@ const { scrape } = require("./scraper");
 const { geocode } = require("./geocode");
 const duplikatumok = require("./duplicates");
 const importer = require("./importer");
+const quality = require("./quality");
+const ai = require("./ai");
 
 const app = express();
 
@@ -66,7 +68,10 @@ app.post("/api/cron/run", async (req, res) => {
     // Azonnal válaszolunk, a munka a háttérben fut
     res.json({ elindult: true });
 
-    importer.figyeltFuttat().catch(err => console.error("Cron hiba:", err));
+    // 1) figyelt találati listák (új hirdetések), 2) meglévők elérhetősége
+    importer.figyeltFuttat()
+        .then(() => importer.figyelesIndit({ limit: 150 }).promise)
+        .catch(err => console.error("Cron hiba:", err));
 
 });
 
@@ -151,6 +156,7 @@ const LISTA_MEZOK = `
     i.id, i.link, i.ar, i.nm, i.arnm AS "arNm", i.szobak, i.emelet, i.allapot, i.eladva,
     i.x, i.y, i.varos, i.kerulet, i.tipus, i.ugylet, i.cim, i.telek_nm, i.statusz,
     i.forras_tipus, i.hely_pontossag, i.kulso_kepek, i.tovabbi_linkek, i.hianyzo,
+    i.problemak, i.ellenorzott, i.jovahagyva, i.forras_kerulet, i.evszam, i.utolso_ellenorzes,
     i.created_at, i.updated_at,
     (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id,
     (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db
@@ -178,7 +184,7 @@ app.get("/api/ingatlanok/:id", async (req, res) => {
 
     try {
 
-        const r = await db.query(`SELECT ${LISTA_MEZOK}, i.leiras FROM ingatlanok i WHERE i.id = $1`, [req.params.id]);
+        const r = await db.query(`SELECT ${LISTA_MEZOK}, i.leiras, i.forras_szoveg FROM ingatlanok i WHERE i.id = $1`, [req.params.id]);
 
         if (!r.rowCount) return res.status(404).json({ error: "not_found" });
 
@@ -236,19 +242,23 @@ app.post("/api/ingatlanok", async (req, res) => {
             return res.status(400).json({ error: "missing_fields", hianyzo });
         }
 
+        // Gyanús adatok (pl. irreális €/m²) – a hirdetés megjelenik, de az admin ellenőrzi
+        const q = await quality.ertekel(d, { mod: d.link ? "link" : "kezi", kepDb: kepek.length });
+
         await client.query("BEGIN");
 
         const r = await client.query(`
             INSERT INTO ingatlanok
             (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
              tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
-             kulso_kepek, hianyzo)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb)
+             kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22)
             RETURNING id
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva, d.x, d.y,
             d.varos, d.kerulet, d.tipus, d.ugylet, d.cim, d.leiras, d.telek_nm, d.hely_pontossag,
-            JSON.stringify(d.kulso_kepek || [])
+            JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.problemak), q.ellenorzott,
+            req.body.forras_szoveg ? String(req.body.forras_szoveg).slice(0, 5000) : null
         ]);
 
         const id = r.rows[0].id;
@@ -286,9 +296,11 @@ app.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
 
         const id = Number(req.params.id);
 
-        const regi = await client.query("SELECT statusz, forras_tipus FROM ingatlanok WHERE id = $1", [id]);
+        const regi = await client.query("SELECT statusz, forras_tipus, jovahagyva, forras_kerulet, kerulet FROM ingatlanok WHERE id = $1", [id]);
 
         if (!regi.rowCount) return res.status(404).json({ error: "not_found" });
+
+        const elozo = regi.rows[0];
 
         const d = normalize(req.body);
         const ujKepek = parseKepek(req.body.kepek);
@@ -299,18 +311,13 @@ app.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
             [id, torlendo]
         );
 
-        const kepDb = maradoKep.rows[0].n + ujKepek.length + (d.kulso_kepek || []).length;
-        const importalt = regi.rows[0].forras_tipus === "import";
+        const kepDb = maradoKep.rows[0].n + ujKepek.length;
+        const importalt = elozo.forras_tipus === "import";
 
-        const hianyzo = hianyzoMezok(d, {
-            mod: importalt ? "import" : (d.link ? "link" : "kezi"),
-            kepDb,
-            vannakKeruletek: await vannakKeruletek(d.varos)
-        });
+        let statusz = elozo.statusz;
+        let jovahagyva = !!elozo.jovahagyva;
 
-        // Élesítéshez az alapadatok mindenképp kellenek
-        let statusz = regi.rows[0].statusz;
-
+        // Jóváhagyás: az alapadatok mindenképp kellenek
         if (req.body.jovahagy) {
 
             const alap = hianyzoMezok(d, { mod: "import" }).filter(m => ["ar", "nm", "varos", "hely"].includes(m));
@@ -320,11 +327,25 @@ app.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
             }
 
             statusz = "aktiv";
+            jovahagyva = true;
 
         }
 
-        // Az admin hiányos adatokkal is menthet – a hiányzó mezőket eltároljuk
-        // és a felületen jelöljük.
+        d.forras_kerulet = elozo.forras_kerulet;
+
+        const q = await quality.ertekel(d, {
+            mod: importalt ? "import" : (d.link ? "link" : "kezi"),
+            kepDb,
+            jovahagyva
+        });
+
+        const hianyzo = q.hianyzo;
+
+        // Ha az admin kerületet rendelt egy ismeretlen forrás-környékhez,
+        // megjegyezzük, hogy legközelebb magától menjen
+        if (d.kerulet && elozo.forras_kerulet && d.kerulet !== elozo.kerulet) {
+            await quality.aliasHozzaad(d.varos, d.kerulet, elozo.forras_kerulet);
+        }
 
         await client.query("BEGIN");
 
@@ -333,13 +354,15 @@ app.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
                 link=$1, ar=$2, nm=$3, arnm=$4, szobak=$5, emelet=$6, allapot=$7, eladva=$8,
                 x=$9, y=$10, varos=$11, kerulet=$12, tipus=$13, ugylet=$14, cim=$15, leiras=$16,
                 telek_nm=$17, hely_pontossag=$18, kulso_kepek=$19::jsonb, statusz=$20,
-                hianyzo=$21::jsonb, tovabbi_linkek=COALESCE($22::jsonb, tovabbi_linkek), updated_at=NOW()
-            WHERE id=$23
+                hianyzo=$21::jsonb, tovabbi_linkek=COALESCE($22::jsonb, tovabbi_linkek),
+                problemak=$23::jsonb, ellenorzott=$24, jovahagyva=$25, updated_at=NOW()
+            WHERE id=$26
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva,
             d.x, d.y, d.varos, d.kerulet, d.tipus, d.ugylet, d.cim, d.leiras,
             d.telek_nm, d.hely_pontossag, JSON.stringify(d.kulso_kepek || []), statusz,
-            JSON.stringify(hianyzo), d.tovabbi_linkek ? JSON.stringify(d.tovabbi_linkek) : null, id
+            JSON.stringify(hianyzo), d.tovabbi_linkek ? JSON.stringify(d.tovabbi_linkek) : null,
+            JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id
         ]);
 
         if (torlendo.length) {
@@ -352,7 +375,7 @@ app.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
 
         await client.query("COMMIT");
 
-        res.json({ siker: true, hianyzo, statusz });
+        res.json({ siker: true, hianyzo, problemak: q.problemak, ellenorzott: q.ellenorzott, statusz });
 
     } catch (err) {
 
@@ -423,6 +446,71 @@ app.get("/api/kepek/:id", async (req, res) => {
 
 });
 
+// Más oldalak képeinek továbbítása (így a forrásoldal nem tilthatja le,
+// és nem kell a böngészőnek közvetlenül oda fordulnia). Kis memóriás
+// gyorstárral, hogy ugyanazt a képet ne kérjük le újra és újra.
+const kepCache = new Map();
+let kepCacheMeret = 0;
+const KEP_CACHE_MAX = 60 * 1024 * 1024;
+
+app.get("/api/img", async (req, res) => {
+
+    try {
+
+        const u = String(req.query.u || "");
+
+        if (!/^https:\/\//i.test(u) || u.length > 2000) return res.status(400).end();
+
+        const host = new URL(u).hostname;
+
+        if (/^(localhost|127\.|10\.|192\.168\.|169\.254\.)/.test(host)) return res.status(400).end();
+
+        const cached = kepCache.get(u);
+
+        if (cached) {
+            res.set("Content-Type", cached.type);
+            res.set("Cache-Control", "private, max-age=604800");
+            return res.send(cached.buf);
+        }
+
+        const valasz = await fetch(u, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
+                "Referer": "https://" + host.split(".").slice(-2).join(".") + "/",
+                "Accept": "image/avif,image/webp,image/*,*/*;q=0.8"
+            },
+            signal: AbortSignal.timeout(15000)
+        });
+
+        const type = valasz.headers.get("content-type") || "";
+
+        if (!valasz.ok || !type.startsWith("image/")) return res.status(404).end();
+
+        const buf = Buffer.from(await valasz.arrayBuffer());
+
+        if (buf.length > 8 * 1024 * 1024) return res.status(413).end();
+
+        kepCache.set(u, { type, buf });
+        kepCacheMeret += buf.length;
+
+        while (kepCacheMeret > KEP_CACHE_MAX && kepCache.size) {
+            const [k, v] = kepCache.entries().next().value;
+            kepCache.delete(k);
+            kepCacheMeret -= v.buf.length;
+        }
+
+        res.set("Content-Type", type);
+        res.set("Cache-Control", "private, max-age=604800");
+        res.send(buf);
+
+    } catch (err) {
+
+        res.status(502).end();
+
+    }
+
+});
+
 // ===================== LINK BEOLVASÁSA =====================
 // Bárki használhatja az "Új ingatlan" űrlapon az adatok előtöltésére.
 
@@ -438,13 +526,18 @@ app.post("/api/scrape", async (req, res) => {
 
         const d = await scrape(url);
 
+        // A forrásoldal környék-nevéből a mi kerületünk (ha ismert)
+        if (req.body.varos) {
+            d.keruletNev = await quality.keruletKeres(req.body.varos, d.kerulet, d.utca, d.cim);
+        }
+
         // Ha nincs koordináta, közelítő hely a címből
         if (!(d.x && d.y) && d.cimSzoveg) {
             const hely = await geocode(d.cimSzoveg, req.body.varos);
             if (hely) {
                 d.x = hely.x;
                 d.y = hely.y;
-                d.hely_pontossag = "kozelito";
+                d.hely_pontossag = hely.szint;
             }
         }
 
@@ -502,8 +595,8 @@ app.get("/api/keruletek", async (req, res) => {
         const varos = req.query.varos;
 
         const result = varos
-            ? await db.query("SELECT id, varos, nev FROM keruletek WHERE varos=$1 ORDER BY nev", [varos])
-            : await db.query("SELECT id, varos, nev FROM keruletek ORDER BY varos, nev");
+            ? await db.query("SELECT id, varos, nev, aliasok FROM keruletek WHERE varos=$1 ORDER BY nev", [varos])
+            : await db.query("SELECT id, varos, nev, aliasok FROM keruletek ORDER BY varos, nev");
 
         res.json(result.rows);
 
@@ -530,6 +623,22 @@ app.post("/api/keruletek", csakAdmin, async (req, res) => {
         );
 
         res.json(result.rows[0]);
+
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+app.put("/api/keruletek/:id", csakAdmin, async (req, res) => {
+
+    try {
+
+        const aliasok = String(req.body.aliasok || "").split(",").map(x => x.trim()).filter(Boolean).join(", ");
+
+        await db.query("UPDATE keruletek SET aliasok = $1 WHERE id = $2", [aliasok || null, req.params.id]);
+
+        res.json({ siker: true });
 
     } catch (err) {
         hiba(res, err);
@@ -605,7 +714,7 @@ app.post("/api/statistics/save", csakAdmin, async (req, res) => {
         const tipus = req.body && req.body.tipus ? String(req.body.tipus) : "lakas";
         const ugylet = req.body && req.body.ugylet ? String(req.body.ugylet) : "elado";
 
-        const felt = ["ar > 0", "nm > 0", "statusz = 'aktiv'", "tipus = $1", "ugylet = $2"];
+        const felt = ["ar > 0", "nm > 0", "statusz = 'aktiv'", "ellenorzott", "tipus = $1", "ugylet = $2"];
         const params = [tipus, ugylet];
 
         if (varos) {
@@ -761,12 +870,135 @@ app.get("/api/valuation", async (req, res) => {
 
 // ===================== ADMIN =====================
 
-// Jóváhagyásra váró (importált) hirdetések
-app.get("/api/admin/pending", csakAdmin, async (req, res) => {
+// Ellenőrizendő hirdetések: hiányos / gyanús adatok (és a régi "függő" importok)
+app.get("/api/admin/review", csakAdmin, async (req, res) => {
 
     try {
-        const r = await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.statusz = 'fuggo' ORDER BY i.id DESC`);
+        const r = await db.query(`
+            SELECT ${LISTA_MEZOK}, i.forras_szoveg, i.leiras
+            FROM ingatlanok i
+            WHERE (i.statusz = 'aktiv' AND NOT i.ellenorzott) OR i.statusz = 'fuggo'
+            ORDER BY i.id DESC
+        `);
         res.json(r.rows);
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+// Régi név megtartása
+app.get("/api/admin/pending", csakAdmin, (req, res) => res.redirect(307, "/api/admin/review"));
+
+// Már nem elérhető (eladott / törölt) hirdetések
+app.get("/api/admin/unavailable", csakAdmin, async (req, res) => {
+
+    try {
+        const r = await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.statusz = 'nem_elerheto' ORDER BY i.utolso_ellenorzes DESC NULLS LAST`);
+        res.json(r.rows);
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+app.get("/api/admin/counts", csakAdmin, async (req, res) => {
+
+    try {
+        const r = await db.query(`
+            SELECT
+                COUNT(*) FILTER (WHERE (statusz = 'aktiv' AND NOT ellenorzott) OR statusz = 'fuggo')::int AS review,
+                COUNT(*) FILTER (WHERE statusz = 'nem_elerheto')::int AS unavailable
+            FROM ingatlanok
+        `);
+        res.json({ ...r.rows[0], ai: ai.elerheto() });
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+// Gyors jóváhagyás (az adatok rendben vannak)
+app.post("/api/admin/review/:id/approve", csakAdmin, async (req, res) => {
+
+    try {
+
+        const r = await db.query(
+            `UPDATE ingatlanok SET jovahagyva = true, ellenorzott = true, statusz = 'aktiv', updated_at = NOW()
+             WHERE id = $1 AND ar > 0 AND nm > 0 AND x IS NOT NULL AND y IS NOT NULL
+             RETURNING id`,
+            [req.params.id]
+        );
+
+        if (!r.rowCount) return res.status(400).json({ error: "missing_fields", hianyzo: ["ar", "nm", "hely"] });
+
+        res.json({ siker: true });
+
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+// Nem elérhető hirdetés visszaállítása (ha tévedés volt)
+app.post("/api/admin/unavailable/:id/restore", csakAdmin, async (req, res) => {
+
+    try {
+        await db.query("UPDATE ingatlanok SET statusz = 'aktiv', updated_at = NOW() WHERE id = $1", [req.params.id]);
+        res.json({ siker: true });
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+// Egy hirdetés azonnali újraolvasása a forrásoldalról
+app.post("/api/admin/listing/:id/refresh", csakAdmin, async (req, res) => {
+
+    try {
+
+        const r = await db.query("SELECT * FROM ingatlanok WHERE id = $1", [req.params.id]);
+
+        if (!r.rowCount) return res.status(404).json({ error: "not_found" });
+
+        if (!r.rows[0].link) return res.status(400).json({ error: "no_link" });
+
+        const job = importer.ujJob("egy");
+        await importer.frissitForrasbol(r.rows[0], job);
+
+        res.json({ siker: true, naplo: job.naplo });
+
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+// Meglévő hirdetések ellenőrzése a forrásoldalon (háttérben)
+app.post("/api/admin/recheck", csakAdmin, (req, res) => {
+
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : null;
+    const limit = Math.min(Number(req.body.limit) || 100, 500);
+
+    const job = importer.figyelesIndit({ ids, limit });
+
+    res.json({ jobId: job.id });
+
+});
+
+// AI-ellenőrzés (ha be van állítva az ANTHROPIC_API_KEY)
+app.post("/api/admin/ai-check/:id", csakAdmin, async (req, res) => {
+
+    try {
+
+        if (!ai.elerheto()) return res.status(400).json({ error: "no_api_key" });
+
+        const r = await db.query("SELECT * FROM ingatlanok WHERE id = $1", [req.params.id]);
+
+        if (!r.rowCount) return res.status(404).json({ error: "not_found" });
+
+        res.json(await ai.ellenoriz(r.rows[0]));
+
     } catch (err) {
         hiba(res, err);
     }

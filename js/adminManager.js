@@ -1,13 +1,23 @@
 // ============================================================
-//  Admin oldal: jóváhagyás, beolvasás, figyelt oldalak,
-//  duplikátumok, városok/kerületek
+//  Admin oldal: ellenőrzés, nem elérhető hirdetések, beolvasás,
+//  figyelt oldalak, duplikátumok, városok/kerületek
 // ============================================================
 
 class AdminManager {
 
-    static tab = "pending";
+    static tab = "review";
     static pollTimer = null;
     static ignoredDupGroups = new Set();
+    static aiElerheto = false;
+
+    // Ellenőrző felület állapota
+    static reviewList = [];
+    static reviewIdx = 0;
+    static reviewFilter = "all";
+    static reviewFocusId = null;
+    static reviewMap = null;
+    static reviewMarker = null;
+    static reviewKeyHandler = null;
 
     static init() {
 
@@ -25,6 +35,7 @@ class AdminManager {
             return;
         }
 
+        AdminManager.refreshPendingCount();
         AdminManager.open(AdminManager.tab);
 
     }
@@ -42,8 +53,11 @@ class AdminManager {
             AdminManager.pollTimer = null;
         }
 
+        AdminManager.unbindKeys();
+
         ({
-            pending: AdminManager.renderPending,
+            review: AdminManager.renderReview,
+            unavailable: AdminManager.renderUnavailable,
             import: AdminManager.renderImport,
             watch: AdminManager.renderWatch,
             dups: AdminManager.renderDups,
@@ -60,14 +74,17 @@ class AdminManager {
         AdminManager.box().innerHTML = `<div class="emptyState"><div class="spinner-border text-primary"></div></div>`;
     }
 
+    // A fülek melletti számlálók
     static refreshPendingCount() {
 
         if (!AuthManager.isAdmin()) return;
 
-        fetch("/api/admin/pending")
+        fetch("/api/admin/counts")
             .then(r => r.json())
-            .then(lista => {
-                document.getElementById("pendingCount").innerText = lista.length || "";
+            .then(c => {
+                AdminManager.aiElerheto = !!c.ai;
+                document.getElementById("pendingCount").innerText = c.review || "";
+                document.getElementById("unavailableCount").innerText = c.unavailable || "";
             })
             .catch(() => { });
 
@@ -85,98 +102,556 @@ class AdminManager {
             .join("");
     }
 
-    // ================= JÓVÁHAGYÁSRA VÁR =================
+    static unbindKeys() {
+        if (AdminManager.reviewKeyHandler) {
+            document.removeEventListener("keydown", AdminManager.reviewKeyHandler);
+            AdminManager.reviewKeyHandler = null;
+        }
+    }
 
-    static renderPending() {
+    // ================= GYORS ELLENŐRZÉS =================
+    //  Egyszerre egy hirdetés: bal oldalon a mi adataink (azonnal
+    //  javíthatók), jobb oldalon a forrásoldal szövege és képei –
+    //  nem kell a hirdetési oldalak között ugrálni.
+
+    static renderReview() {
 
         AdminManager.loading();
 
-        fetch("/api/admin/pending")
+        fetch("/api/admin/review")
             .then(r => r.json())
             .then(lista => {
 
                 DataManager.prepare(lista);
 
-                document.getElementById("pendingCount").innerText = lista.length || "";
+                AdminManager.reviewList = lista;
 
-                if (!lista.length) {
-                    AdminManager.box().innerHTML = `
-                        <div class="emptyState">
-                            <i class="fa-solid fa-inbox"></i>
-                            <h5>${I18n.t("pendingEmpty")}</h5>
-                            <p>${I18n.t("pendingEmptyHint")}</p>
-                        </div>`;
-                    return;
+                if (AdminManager.reviewFocusId) {
+                    const idx = lista.findIndex(i => i.id === AdminManager.reviewFocusId);
+                    AdminManager.reviewIdx = idx >= 0 ? idx : 0;
+                    AdminManager.reviewFocusId = null;
+                } else {
+                    AdminManager.reviewIdx = Math.min(AdminManager.reviewIdx, Math.max(lista.length - 1, 0));
                 }
 
-                AdminManager.box().innerHTML = `
-                    <p class="sectionNote">${I18n.t("pendingNote")}</p>
-                    <div class="d-flex flex-column gap-2">
-                        ${lista.map(i => {
-                            const foto = Utils.photoUrl(i);
-                            const hianyzo = i.hianyzo || [];
-                            return `
-                                <div class="pendingRow card">
-                                    <div class="card-body d-flex flex-wrap gap-3 align-items-center">
-                                        <div class="pendingThumb">${foto ? `<img src="${Utils.escape(foto)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">` : `<i class="${Types.get(i.tipus).icon}"></i>`}</div>
-                                        <div class="flex-fill" style="min-width:220px;">
-                                            <div class="fw-bold">${Utils.escape(i.cim || Types.label(i.tipus))} <span class="text-body-secondary small">#${i.id}</span></div>
-                                            <div class="small">${Utils.price(i)} · ${i.nm ? Utils.num(i.nm) + " m²" : "?"} · ${Utils.escape(CityManager.displayName(i.varos))}${i.kerulet ? " · " + Utils.escape(i.kerulet) : ""}</div>
-                                            <div class="small mt-1">${Sources.badge(i.forras)}
-                                                ${i.hely_pontossag === "kozelito" ? `<span class="badge text-bg-info">${I18n.t("approxShort")}</span>` : ""}
-                                                ${hianyzo.map(m => `<span class="badge text-bg-warning">${I18n.t("field_" + m)}</span>`).join(" ")}
-                                            </div>
-                                        </div>
-                                        <div class="d-flex gap-2 flex-wrap">
-                                            ${i.link ? `<a class="btn btn-sm btn-outline-secondary" href="${Utils.escape(i.link)}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : ""}
-                                            <button class="btn btn-sm btn-primary" data-edit="${i.id}"><i class="fa-solid fa-pen"></i> ${I18n.t("pendingEdit")}</button>
-                                            <button class="btn btn-sm btn-success" data-approve="${i.id}" ${["ar", "nm", "hely"].some(m => hianyzo.includes(m)) ? "disabled" : ""}><i class="fa-solid fa-check"></i> ${I18n.t("pendingApprove")}</button>
-                                            <button class="btn btn-sm btn-outline-danger" data-reject="${i.id}"><i class="fa-solid fa-trash"></i></button>
-                                        </div>
-                                    </div>
-                                </div>`;
-                        }).join("")}
-                    </div>`;
+                document.getElementById("pendingCount").innerText = lista.length || "";
 
-                const box = AdminManager.box();
-
-                box.querySelectorAll("[data-edit]").forEach(b => {
-                    b.onclick = () => NewPropertyManager.startEdit({ id: Number(b.dataset.edit) });
-                });
-
-                box.querySelectorAll("[data-approve]").forEach(b => {
-                    b.onclick = () => AdminManager.approve(Number(b.dataset.approve));
-                });
-
-                box.querySelectorAll("[data-reject]").forEach(b => {
-                    b.onclick = () => {
-                        if (!confirm(I18n.t("pendingRejectConfirm"))) return;
-                        fetch("/api/ingatlanok/" + b.dataset.reject, { method: "DELETE" })
-                            .then(() => AdminManager.renderPending());
-                    };
-                });
+                AdminManager.renderReviewItem();
 
             });
 
     }
 
-    static approve(id) {
+    static reviewFiltered() {
 
-        fetch("/api/ingatlanok/" + id)
-            .then(r => r.json())
-            .then(i => fetch("/api/ingatlanok/" + id, {
+        const f = AdminManager.reviewFilter;
+
+        return AdminManager.reviewList.filter(i => {
+            const h = (i.hianyzo || []).length;
+            const p = (i.problemak || []).length;
+            if (f === "missing") return h > 0;
+            if (f === "suspicious") return p > 0;
+            return true;
+        });
+
+    }
+
+    static renderReviewItem() {
+
+        const lista = AdminManager.reviewFiltered();
+        const box = AdminManager.box();
+
+        if (!lista.length) {
+            box.innerHTML = AdminManager.reviewToolbar(0) + `
+                <div class="emptyState">
+                    <i class="fa-solid fa-circle-check text-success"></i>
+                    <h5>${I18n.t("reviewEmpty")}</h5>
+                    <p>${I18n.t("reviewEmptyHint")}</p>
+                </div>`;
+            AdminManager.bindReviewToolbar();
+            return;
+        }
+
+        AdminManager.reviewIdx = Math.max(0, Math.min(AdminManager.reviewIdx, lista.length - 1));
+
+        const i = lista[AdminManager.reviewIdx];
+        const t = Types.get(i.tipus);
+        const hianyzo = i.hianyzo || [];
+        const prob = i.problemak || [];
+        const emelet = String(i.emelet ?? "").split("/");
+
+        const kepek = [
+            ...(i.kep_id ? ["/api/kepek/" + i.kep_id] : []),
+            ...(i.kulso_kepek || []).map(Utils.imgUrl)
+        ].slice(0, 6);
+
+        const mezo = (key, label, input) => `
+            <div class="col-6 col-md-4 ${hianyzo.includes(key) ? "revMissing" : ""}" data-field="${key}">
+                <label class="form-label">${label}</label>
+                ${input}
+            </div>`;
+
+        const num = (id, v) => `<input type="number" class="form-control form-control-sm" id="${id}" value="${v ?? ""}">`;
+
+        const forrasSzoveg = Utils.escape(i.forras_szoveg || i.leiras || I18n.t("reviewNoSource"))
+            .replace(/(\d[\d.,\s]*\s*(?:€|EUR|lei|mp|m²|camere|cam\.?))/gi, "<mark>$1</mark>")
+            .replace(/(Etaj[^.\n]{0,12}|Nr\.? ?cam[^:]*:|Sup[^:]{0,25}:|An constr[^:]*:)/gi, "<b>$1</b>");
+
+        box.innerHTML = AdminManager.reviewToolbar(lista.length) + `
+
+            <div class="row g-4">
+
+                <div class="col-xl-7">
+
+                    <div class="card mb-3">
+                        <div class="card-body">
+
+                            <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                                <div>
+                                    <h5 class="mb-1">${Utils.escape(i.cim || Types.label(i.tipus))}</h5>
+                                    <div class="small text-body-secondary">#${i.id} · ${Utils.escape(CityManager.displayName(i.varos))} · ${(i.forrasok || [i.forras]).map(Sources.badge).join(" ")}</div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold fs-5 text-success">${Utils.price(i)}</div>
+                                    <div class="small text-body-secondary">${Utils.arNm(i) ? Utils.eurNm(Utils.arNm(i)) : ""}</div>
+                                </div>
+                            </div>
+
+                            ${hianyzo.length || prob.length ? `
+                                <div class="revIssues mb-3">
+                                    ${hianyzo.map(m => `<span class="badge text-bg-warning"><i class="fa-solid fa-circle-question"></i> ${I18n.t("missingFields")}: ${I18n.t("field_" + m)}</span>`).join(" ")}
+                                    ${prob.map(m => `<span class="badge text-bg-danger"><i class="fa-solid fa-triangle-exclamation"></i> ${I18n.t("prob_" + m)}</span>`).join(" ")}
+                                </div>` : ""}
+
+                            <div class="row g-2">
+                                <div class="col-6 col-md-4">
+                                    <label class="form-label">${I18n.t("typeLabel")}</label>
+                                    <select class="form-select form-select-sm" id="rvTipus">${AdminManager.typeOptions(i.tipus)}</select>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <label class="form-label">${I18n.t("ugyletLabel")}</label>
+                                    <select class="form-select form-select-sm" id="rvUgylet">
+                                        <option value="elado">${I18n.t("ugyletElado")}</option>
+                                        <option value="kiado" ${i.ugylet === "kiado" ? "selected" : ""}>${I18n.t("ugyletKiado")}</option>
+                                    </select>
+                                </div>
+                                ${mezo("ar", I18n.t(i.ugylet === "kiado" ? "newArRent" : "newAr"), num("rvAr", i.ar))}
+                                ${mezo("nm", I18n.t("newNm"), num("rvNm", i.nm))}
+                                ${t.fields.szobak ? mezo("szobak", I18n.t("newSzobak"), num("rvSzobak", i.szobak)) : ""}
+                                ${t.fields.emelet ? mezo("emelet", I18n.t("newEmelet") + " / " + I18n.t("newOsszEmelet").toLowerCase(), `
+                                    <div class="input-group input-group-sm">
+                                        <input class="form-control" id="rvEmelet" value="${Utils.escape(emelet[0] || "")}">
+                                        <span class="input-group-text">/</span>
+                                        <input class="form-control" id="rvOssz" value="${Utils.escape(emelet[1] || "")}">
+                                    </div>`) : ""}
+                                ${t.fields.telek ? mezo("telek_nm", I18n.t("newTelekNm"), num("rvTelek", i.telek_nm)) : ""}
+                                ${t.fields.allapot ? mezo("allapot", I18n.t("newAllapot"), `
+                                    <select class="form-select form-select-sm" id="rvAllapot">
+                                        <option value="">${I18n.t("chooseOne")}</option>
+                                        ${["felújítandó", "részbenfel", "jó", "újszerű", "luxus"].map(a => `<option value="${a}" ${Utils.normAllapot(i.allapot) === a ? "selected" : ""}>${Utils.allapotLabel(a)}</option>`).join("")}
+                                    </select>`) : ""}
+                                ${mezo("kerulet", I18n.t("newKerulet"), `
+                                    <select class="form-select form-select-sm" id="rvKerulet"><option value="">${I18n.t("newKeruletNincs")}</option></select>
+                                    ${i.forras_kerulet ? `<div class="form-text">${I18n.f("reviewSourceDistrict", { nev: Utils.escape(i.forras_kerulet) })}</div>` : ""}`)}
+                                <div class="col-12">
+                                    <label class="form-label">${I18n.t("newCim")}</label>
+                                    <input class="form-control form-control-sm" id="rvCim" value="${Utils.escape(i.cim || "")}">
+                                </div>
+                            </div>
+
+                            <div class="mt-3 ${hianyzo.includes("hely") ? "revMissing" : ""}" data-field="hely">
+                                <label class="form-label">${I18n.t("newHely")} ${i.hely_pontossag === "kozelito" ? `<span class="badge text-bg-info">${I18n.t("approxShort")}</span>` : ""} <span class="text-body-secondary fw-normal">– ${I18n.t("reviewDragHint")}</span></label>
+                                <div id="reviewMap"></div>
+                            </div>
+
+                            <div id="aiResult" class="mt-3"></div>
+
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                <button class="btn btn-success" id="rvApprove"><i class="fa-solid fa-check"></i> ${I18n.t("reviewApprove")} <kbd>Enter</kbd></button>
+                                <button class="btn btn-outline-secondary" id="rvRefresh"><i class="fa-solid fa-rotate"></i> ${I18n.t("reviewRefresh")}</button>
+                                ${AdminManager.aiElerheto ? `<button class="btn btn-outline-primary" id="rvAi"><i class="fa-solid fa-robot"></i> ${I18n.t("reviewAi")}</button>` : ""}
+                                <button class="btn btn-outline-secondary" id="rvFull"><i class="fa-solid fa-pen-to-square"></i> ${I18n.t("reviewFullEdit")}</button>
+                                <button class="btn btn-outline-danger ms-auto" id="rvDelete"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="col-xl-5">
+
+                    ${kepek.length ? `
+                        <div class="revPhotos mb-3">
+                            ${kepek.map(k => `<img src="${Utils.escape(k)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">`).join("")}
+                        </div>` : `<div class="alert alert-light small">${I18n.t("noPhotos")}</div>`}
+
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="fa-solid fa-file-lines"></i> ${I18n.t("reviewSourceText")}</h6>
+                            ${i.link ? `<a class="btn btn-sm btn-outline-primary" href="${Utils.escape(i.link)}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${I18n.t("reviewOpenSource")}</a>` : ""}
+                        </div>
+                        <div class="card-body">
+                            <div class="revSource">${forrasSzoveg}</div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>`;
+
+        AdminManager.bindReviewToolbar();
+        AdminManager.bindReviewItem(i);
+
+    }
+
+    static reviewToolbar(db) {
+
+        return `
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <select class="form-select form-select-sm" style="width:auto;" id="rvFilter">
+                    <option value="all" ${AdminManager.reviewFilter === "all" ? "selected" : ""}>${I18n.t("reviewFilterAll")}</option>
+                    <option value="missing" ${AdminManager.reviewFilter === "missing" ? "selected" : ""}>${I18n.t("reviewFilterMissing")}</option>
+                    <option value="suspicious" ${AdminManager.reviewFilter === "suspicious" ? "selected" : ""}>${I18n.t("reviewFilterSuspicious")}</option>
+                </select>
+                <span class="text-body-secondary small">${I18n.f("reviewCount", { n: db })}</span>
+                ${db ? `
+                    <div class="btn-group btn-group-sm ms-auto">
+                        <button class="btn btn-outline-secondary" id="rvPrev"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span class="btn btn-outline-secondary disabled">${AdminManager.reviewIdx + 1} / ${db}</span>
+                        <button class="btn btn-outline-secondary" id="rvNext"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>` : ""}
+            </div>
+            <p class="sectionNote">${I18n.t("reviewNote")}</p>`;
+
+    }
+
+    static bindReviewToolbar() {
+
+        const f = document.getElementById("rvFilter");
+
+        f.onchange = () => {
+            AdminManager.reviewFilter = f.value;
+            AdminManager.reviewIdx = 0;
+            AdminManager.renderReviewItem();
+        };
+
+        const prev = document.getElementById("rvPrev");
+        const next = document.getElementById("rvNext");
+
+        if (prev) prev.onclick = () => AdminManager.reviewStep(-1);
+        if (next) next.onclick = () => AdminManager.reviewStep(1);
+
+    }
+
+    static reviewStep(d) {
+        const n = AdminManager.reviewFiltered().length;
+        if (!n) return;
+        AdminManager.reviewIdx = (AdminManager.reviewIdx + d + n) % n;
+        AdminManager.renderReviewItem();
+    }
+
+    // Az űrlap adatai a mentéshez (a teljes hirdetés + a javított mezők)
+    static reviewCollect(i) {
+
+        const v = id => {
+            const el = document.getElementById(id);
+            return el ? el.value.trim() : null;
+        };
+
+        const tipus = v("rvTipus");
+        const emelet = v("rvEmelet");
+        const ossz = v("rvOssz");
+
+        const marker = AdminManager.reviewMarker ? AdminManager.reviewMarker.getLatLng() : null;
+
+        return {
+            ...i,
+            kepek: [],
+            tipus,
+            ugylet: v("rvUgylet"),
+            cim: v("rvCim"),
+            ar: Number(v("rvAr")) || null,
+            nm: Number(v("rvNm")) || null,
+            szobak: v("rvSzobak") !== null ? (Number(v("rvSzobak")) || null) : i.szobak,
+            emelet: emelet !== null ? (ossz ? `${emelet}/${ossz}` : emelet) : i.emelet,
+            telek_nm: v("rvTelek") !== null ? (Number(v("rvTelek")) || null) : i.telek_nm,
+            allapot: v("rvAllapot") !== null ? v("rvAllapot") : i.allapot,
+            kerulet: v("rvKerulet"),
+            x: marker ? marker.lng : i.x,
+            y: marker ? marker.lat : i.y,
+            hely_pontossag: AdminManager.reviewMoved ? "pontos" : i.hely_pontossag
+        };
+
+    }
+
+    static bindReviewItem(i) {
+
+        // Kerületek
+        CityManager.loadKeruletekInto("rvKerulet", i.varos, i.kerulet || "", "newKeruletNincs");
+
+        // Térkép, húzható jelölővel
+        if (AdminManager.reviewMap) {
+            AdminManager.reviewMap.remove();
+            AdminManager.reviewMap = null;
+        }
+
+        AdminManager.reviewMoved = false;
+
+        const kozep = i.x && i.y ? [i.y, i.x] : [45.8590, 25.7900];
+
+        AdminManager.reviewMap = L.map("reviewMap", { scrollWheelZoom: false }).setView(kozep, i.x && i.y ? 16 : 13);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(AdminManager.reviewMap);
+
+        const tesz = latlng => {
+            if (AdminManager.reviewMarker) AdminManager.reviewMap.removeLayer(AdminManager.reviewMarker);
+            AdminManager.reviewMarker = L.marker(latlng, { draggable: true }).addTo(AdminManager.reviewMap);
+            AdminManager.reviewMarker.on("dragend", () => { AdminManager.reviewMoved = true; });
+        };
+
+        AdminManager.reviewMarker = null;
+
+        if (i.x && i.y) tesz(kozep);
+
+        AdminManager.reviewMap.on("click", e => {
+            tesz(e.latlng);
+            AdminManager.reviewMoved = true;
+        });
+
+        setTimeout(() => AdminManager.reviewMap && AdminManager.reviewMap.invalidateSize(), 100);
+
+        // Gombok
+        const ment = () => {
+
+            const d = AdminManager.reviewCollect(i);
+            d.jovahagy = true;
+
+            return fetch("/api/ingatlanok/" + i.id, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...i, kepek: [], jovahagy: true })
-            }))
+                body: JSON.stringify(d)
+            })
             .then(r => r.json().then(v => ({ ok: r.ok, v })))
             .then(({ ok, v }) => {
+
                 if (!ok) {
                     alert(I18n.t("newMissingTitle") + " " + (v.hianyzo || []).map(m => I18n.t("field_" + m)).join(", "));
                     return;
                 }
+
+                // Kész: kivesszük a listából, jön a következő
+                AdminManager.reviewList = AdminManager.reviewList.filter(x => x.id !== i.id);
+                document.getElementById("pendingCount").innerText = AdminManager.reviewList.length || "";
+                AdminManager.renderReviewItem();
                 DataManager.init();
-                AdminManager.renderPending();
+
+            });
+
+        };
+
+        document.getElementById("rvApprove").onclick = ment;
+
+        document.getElementById("rvFull").onclick = () => NewPropertyManager.startEdit(i);
+
+        document.getElementById("rvDelete").onclick = () => {
+            if (!confirm(I18n.t("alertConfirmDelete"))) return;
+            fetch("/api/ingatlanok/" + i.id, { method: "DELETE" }).then(() => {
+                AdminManager.reviewList = AdminManager.reviewList.filter(x => x.id !== i.id);
+                AdminManager.renderReviewItem();
+                DataManager.init();
+            });
+        };
+
+        document.getElementById("rvRefresh").onclick = () => {
+
+            const btn = document.getElementById("rvRefresh");
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> ${I18n.t("reviewRefreshing")}`;
+
+            fetch(`/api/admin/listing/${i.id}/refresh`, { method: "POST" })
+                .then(r => r.json())
+                .then(v => {
+                    const n = (v.naplo || [])[0];
+                    if (n && n.eredmeny === "nem_elerheto") alert(I18n.t("reviewNowUnavailable"));
+                    return fetch("/api/ingatlanok/" + i.id).then(r => r.json());
+                })
+                .then(uj => {
+                    DataManager.prepare([uj]);
+                    const idx = AdminManager.reviewList.findIndex(x => x.id === i.id);
+                    if (uj.statusz === "nem_elerheto" || uj.ellenorzott) {
+                        AdminManager.reviewList.splice(idx, 1);
+                    } else if (idx >= 0) {
+                        AdminManager.reviewList[idx] = { ...AdminManager.reviewList[idx], ...uj };
+                    }
+                    AdminManager.renderReviewItem();
+                })
+                .catch(err => {
+                    alert(I18n.t("scrapeFailed") + " " + err.message);
+                    btn.disabled = false;
+                });
+
+        };
+
+        const aiBtn = document.getElementById("rvAi");
+
+        if (aiBtn) aiBtn.onclick = () => {
+
+            aiBtn.disabled = true;
+            const box = document.getElementById("aiResult");
+            box.innerHTML = `<div class="alert alert-info small py-2"><span class="spinner-border spinner-border-sm"></span> ${I18n.t("reviewAiRunning")}</div>`;
+
+            fetch(`/api/admin/ai-check/${i.id}`, { method: "POST" })
+                .then(r => r.json().then(v => ({ ok: r.ok, v })))
+                .then(({ ok, v }) => {
+
+                    aiBtn.disabled = false;
+
+                    if (!ok) throw new Error(v.message || v.error);
+
+                    const mezoId = { ar: "rvAr", nm: "rvNm", szobak: "rvSzobak", telek_nm: "rvTelek", allapot: "rvAllapot", tipus: "rvTipus", ugylet: "rvUgylet" };
+
+                    box.innerHTML = `
+                        <div class="alert ${v.rendben && !(v.javaslatok || []).length ? "alert-success" : "alert-warning"} small py-2">
+                            <b><i class="fa-solid fa-robot"></i> ${Utils.escape(v.megjegyzes || "")}</b>
+                            ${(v.javaslatok || []).map((j, idx) => `
+                                <div class="d-flex align-items-center gap-2 mt-2">
+                                    <span class="flex-fill">${I18n.t("field_" + j.mezo)}: <b>${Utils.escape(j.ertek)}</b> – ${Utils.escape(j.indok || "")}</span>
+                                    ${mezoId[j.mezo] || j.mezo === "emelet" ? `<button class="btn btn-sm btn-outline-primary" data-ai="${idx}">${I18n.t("reviewAiApply")}</button>` : ""}
+                                </div>`).join("")}
+                        </div>`;
+
+                    box.querySelectorAll("[data-ai]").forEach(b => {
+                        b.onclick = () => {
+                            const j = v.javaslatok[Number(b.dataset.ai)];
+                            if (j.mezo === "emelet") {
+                                const [e, o] = String(j.ertek).split("/");
+                                document.getElementById("rvEmelet").value = e || "";
+                                if (o) document.getElementById("rvOssz").value = o;
+                            } else {
+                                const el = document.getElementById(mezoId[j.mezo]);
+                                if (el) el.value = j.ertek;
+                            }
+                            b.disabled = true;
+                            b.innerHTML = '<i class="fa-solid fa-check"></i>';
+                        };
+                    });
+
+                })
+                .catch(err => {
+                    aiBtn.disabled = false;
+                    box.innerHTML = `<div class="alert alert-danger small py-2">${Utils.escape(err.message)}</div>`;
+                });
+
+        };
+
+        // Billentyűk: Enter = jóváhagyás, ← → = lapozás
+        AdminManager.unbindKeys();
+
+        AdminManager.reviewKeyHandler = e => {
+            if (PageManager.current !== "admin" || AdminManager.tab !== "review") return;
+            const tag = (e.target.tagName || "").toLowerCase();
+            if (e.key === "Enter" && tag !== "textarea" && tag !== "select" && tag !== "button") { e.preventDefault(); ment(); }
+            if (tag === "input" || tag === "textarea" || tag === "select") return;
+            if (e.key === "ArrowRight") AdminManager.reviewStep(1);
+            if (e.key === "ArrowLeft") AdminManager.reviewStep(-1);
+        };
+
+        document.addEventListener("keydown", AdminManager.reviewKeyHandler);
+
+    }
+
+    // ================= NEM ELÉRHETŐ (ELADOTT / TÖRÖLT) =================
+
+    static renderUnavailable() {
+
+        AdminManager.loading();
+
+        fetch("/api/admin/unavailable")
+            .then(r => r.json())
+            .then(lista => {
+
+                DataManager.prepare(lista);
+
+                document.getElementById("unavailableCount").innerText = lista.length || "";
+
+                AdminManager.box().innerHTML = `
+
+                    <div class="card mb-4">
+                        <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                            <div class="flex-fill">
+                                <h5 class="mb-1"><i class="fa-solid fa-satellite-dish"></i> ${I18n.t("recheckTitle")}</h5>
+                                <p class="sectionNote mb-0">${I18n.t("recheckNote")}</p>
+                            </div>
+                            <button class="btn btn-primary" id="recheckStart"><i class="fa-solid fa-play"></i> ${I18n.t("recheckBtn")}</button>
+                        </div>
+                        <div class="px-3 pb-3" id="recheckStatus"></div>
+                    </div>
+
+                    <h5 class="sectionTitle"><i class="fa-solid fa-ban"></i> ${I18n.t("unavailableTitle")} <span class="badge text-bg-secondary">${lista.length}</span></h5>
+                    <p class="sectionNote">${I18n.t("unavailableNote")}</p>
+
+                    ${lista.length ? `
+                        <div class="d-flex justify-content-end mb-2">
+                            <button class="btn btn-sm btn-outline-danger" id="unavDeleteAll"><i class="fa-solid fa-trash"></i> ${I18n.f("invalidDeleteBtn", { n: lista.length })}</button>
+                        </div>
+                        <div class="d-flex flex-column gap-2">
+                            ${lista.map(i => {
+                                const foto = Utils.photoUrl(i);
+                                return `
+                                    <div class="pendingRow card">
+                                        <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+                                            <div class="pendingThumb">${foto ? `<img src="${Utils.escape(foto)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">` : `<i class="${Types.get(i.tipus).icon}"></i>`}</div>
+                                            <div class="flex-fill" style="min-width:220px;">
+                                                <div class="fw-bold">${Utils.escape(i.cim || Types.label(i.tipus))} <span class="text-body-secondary small">#${i.id}</span></div>
+                                                <div class="small">${Utils.price(i)} · ${i.nm ? Utils.num(i.nm) + " m²" : "?"} · ${Utils.escape(CityManager.displayName(i.varos))}</div>
+                                                <div class="small text-body-secondary">${I18n.t("lastChecked")}: ${Utils.ago(i.utolso_ellenorzes)} · ${Sources.badge(i.forras)}</div>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                ${i.link ? `<a class="btn btn-sm btn-outline-secondary" href="${Utils.escape(i.link)}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : ""}
+                                                <button class="btn btn-sm btn-outline-success" data-restore="${i.id}"><i class="fa-solid fa-rotate-left"></i> ${I18n.t("unavailableRestore")}</button>
+                                                <button class="btn btn-sm btn-outline-danger" data-del="${i.id}"><i class="fa-solid fa-trash"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>`;
+                            }).join("")}
+                        </div>` : `<div class="emptyState"><i class="fa-solid fa-check"></i><h5>${I18n.t("unavailableEmpty")}</h5></div>`}`;
+
+                document.getElementById("recheckStart").onclick = () => {
+                    fetch("/api/admin/recheck", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ limit: 500 })
+                    })
+                    .then(r => r.json())
+                    .then(v => AdminManager.pollJob(v.jobId, "recheckStatus"));
+                };
+
+                const box = AdminManager.box();
+
+                box.querySelectorAll("[data-restore]").forEach(b => {
+                    b.onclick = () => fetch(`/api/admin/unavailable/${b.dataset.restore}/restore`, { method: "POST" })
+                        .then(() => { DataManager.init(); AdminManager.renderUnavailable(); });
+                });
+
+                box.querySelectorAll("[data-del]").forEach(b => {
+                    b.onclick = () => {
+                        if (!confirm(I18n.t("alertConfirmDelete"))) return;
+                        fetch("/api/ingatlanok/" + b.dataset.del, { method: "DELETE" }).then(() => AdminManager.renderUnavailable());
+                    };
+                });
+
+                const all = document.getElementById("unavDeleteAll");
+
+                if (all) all.onclick = () => {
+                    if (!confirm(I18n.f("dupCleanConfirm", { n: lista.length }))) return;
+                    fetch("/api/admin/invalid/delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ ids: lista.map(i => i.id) })
+                    }).then(() => AdminManager.renderUnavailable());
+                };
+
             });
 
     }
@@ -275,7 +750,9 @@ class AdminManager {
                 ar_frissitve: I18n.t("importResPrice"),
                 mar_megvan: I18n.t("importResExists"),
                 lista: I18n.t("importResList"),
-                hiba: I18n.t("importResError")
+                hiba: I18n.t("importResError"),
+                nem_elerheto: I18n.t("importResUnavailable"),
+                rendben: I18n.t("importResOk")
             };
 
             box.innerHTML = `
@@ -290,6 +767,7 @@ class AdminManager {
                             <span class="badge text-bg-success">${job.uj} ${I18n.t("importResNew")}</span>
                             <span class="badge text-bg-info">${job.frissitett} ${I18n.t("importResPrice")}</span>
                             <span class="badge text-bg-secondary">${job.kihagyott} ${I18n.t("importResExists")}</span>
+                            ${job.nemElerheto ? `<span class="badge text-bg-dark">${job.nemElerheto} ${I18n.t("importResUnavailable")}</span>` : ""}
                             <span class="badge text-bg-danger">${job.hibak} ${I18n.t("importResError")}</span>
                         </div>
                         <div class="importLog">
@@ -301,6 +779,7 @@ class AdminManager {
                                     ${n.uzenet ? `<span class="text-danger">${Utils.escape(n.uzenet)}</span>` : ""}
                                     ${n.regi ? `${Utils.eur(n.regi)} → ${Utils.eur(n.uj)}` : ""}
                                     ${n.hianyzo && n.hianyzo.length ? n.hianyzo.map(m => `<span class="badge text-bg-warning">${I18n.t("field_" + m)}</span>`).join(" ") : ""}
+                                    ${n.problemak && n.problemak.length ? n.problemak.map(m => `<span class="badge text-bg-danger">${I18n.t("prob_" + m)}</span>`).join(" ") : ""}
                                 </div>`).join("")}
                         </div>
                         ${job.allapot === "kesz" && job.uj ? `<button class="btn btn-sm btn-primary mt-3" id="goPending"><i class="fa-solid fa-inbox"></i> ${I18n.t("importGoPending")}</button>` : ""}
@@ -308,7 +787,7 @@ class AdminManager {
                 </div>`;
 
             const go = document.getElementById("goPending");
-            if (go) go.onclick = () => AdminManager.open("pending");
+            if (go) go.onclick = () => AdminManager.open("review");
 
         };
 
@@ -609,7 +1088,10 @@ class AdminManager {
                                     <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-city"></i> ${Utils.escape(CityManager.displayName(v.nev))} <span class="badge text-bg-light">${k.length}</span></h6></div>
                                     <div class="card-body">
                                         <div class="d-flex flex-wrap gap-1 mb-3">
-                                            ${k.length ? k.map(x => `<span class="filterChip">${Utils.escape(x.nev)}</span>`).join("") : `<span class="text-body-secondary small">${I18n.t("placesNoDistricts")}</span>`}
+                                            ${k.length ? k.map(x => `
+                                                <button type="button" class="filterChip border-0" data-kid="${x.id}" data-aliasok="${Utils.escape(x.aliasok || "")}" data-nev="${Utils.escape(x.nev)}" title="${I18n.t("placesAliasHint")}">
+                                                    ${Utils.escape(x.nev)}${x.aliasok ? ` <small class="opacity-75">(${Utils.escape(x.aliasok)})</small>` : ""}
+                                                </button>`).join("") : `<span class="text-body-secondary small">${I18n.t("placesNoDistricts")}</span>`}
                                         </div>
                                         <div class="input-group input-group-sm">
                                             <input class="form-control" data-district-input="${Utils.escape(v.nev)}" placeholder="${I18n.t("alertNewDistrictPrompt")}">
@@ -630,6 +1112,19 @@ class AdminManager {
                     body: JSON.stringify({ nev })
                 }).then(() => CityManager.init()).then(() => AdminManager.renderPlaces());
             };
+
+            // Kerület más oldalakon használt nevei (pl. "Ciucului" = "Csíki negyed")
+            AdminManager.box().querySelectorAll("[data-kid]").forEach(b => {
+                b.onclick = () => {
+                    const uj = prompt(I18n.f("placesAliasPrompt", { nev: b.dataset.nev }), b.dataset.aliasok || "");
+                    if (uj === null) return;
+                    fetch("/api/keruletek/" + b.dataset.kid, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ aliasok: uj })
+                    }).then(() => AdminManager.renderPlaces());
+                };
+            });
 
             AdminManager.box().querySelectorAll("[data-district-add]").forEach(b => {
                 b.onclick = () => {

@@ -170,7 +170,7 @@ class NewPropertyManager {
     static photoSrc(p) {
         if (p.kind === "new") return p.data;
         if (p.kind === "saved") return "/api/kepek/" + p.id;
-        return p.url;
+        return Utils.imgUrl(p.url);
     }
 
     static renderPhotos() {
@@ -280,10 +280,14 @@ class NewPropertyManager {
 
         if (d.allapot) tolt("ujAllapot", d.allapot, "allapot");
 
+        if (d.keruletNev) tolt("ujKerulet", d.keruletNev, "kerulet");
+
+        NewPropertyManager.forrasSzoveg = d.forrasSzoveg || null;
+
         document.getElementById("ujLeirasCount").innerText = document.getElementById("ujLeiras").value.length;
 
         if (d.x && d.y) {
-            NewPropertyMap.setPoint(d.x, d.y, d.hely_pontossag || "pontos");
+            NewPropertyMap.setPoint(d.x, d.y, d.hely_pontossag === "kozelito" ? "kozelito" : "pontos");
             talalt.push("hely");
         }
 
@@ -342,7 +346,8 @@ class NewPropertyManager {
             eladva: false,
             kulso_kepek: NewPropertyManager.photos.filter(p => p.kind === "ext").map(p => p.url),
             kepek: NewPropertyManager.photos.filter(p => p.kind === "new").map(p => p.data),
-            torlendoKepek: NewPropertyManager.removedPhotoIds
+            torlendoKepek: NewPropertyManager.removedPhotoIds,
+            forras_szoveg: NewPropertyManager.forrasSzoveg || null
         };
 
     }
@@ -509,6 +514,7 @@ class NewPropertyManager {
         document.getElementById("newMissingAlert").style.display = "none";
 
         NewPropertyManager.editStatusz = null;
+        NewPropertyManager.forrasSzoveg = null;
         NewPropertyManager.photos = [];
         NewPropertyManager.removedPhotoIds = [];
         NewPropertyManager.renderPhotos();

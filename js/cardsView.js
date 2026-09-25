@@ -99,7 +99,7 @@ class CardsView {
                         <h6 class="listingTitle">${Utils.escape(cim)}</h6>
                         <div class="listingFacts">${CardsView.facts(i)}</div>
                         <div class="listingPlace"><i class="fa-solid fa-location-dot"></i> ${Utils.escape(hely)}</div>
-                        <div class="listingBadges">${badges}${hianyos ? ` <span class="badge text-bg-warning" title="${I18n.t("incompleteHint")}"><i class="fa-solid fa-triangle-exclamation"></i> ${I18n.t("incomplete")}</span>` : ""}</div>
+                        <div class="listingBadges">${badges}${i.ellenorzott === false ? ` <span class="badge text-bg-light" title="${I18n.t("unverifiedHint")}"><i class="fa-solid fa-hourglass-half"></i> ${I18n.t("unverified")}</span>` : ""}${hianyos && AuthManager.isAdmin() ? ` <span class="badge text-bg-warning" title="${I18n.t("incompleteHint")}"><i class="fa-solid fa-triangle-exclamation"></i> ${I18n.t("incomplete")}</span>` : ""}</div>
                     </div>
                 </article>
             </div>`;

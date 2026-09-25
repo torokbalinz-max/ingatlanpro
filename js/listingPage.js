@@ -65,7 +65,7 @@ class ListingPage {
         // Képek: saját feltöltöttek, vagy a forrásoldalról beolvasottak
         ListingPage.kepek = (i.kepek && i.kepek.length)
             ? i.kepek.map(k => "/api/kepek/" + k)
-            : (i.kulso_kepek || []);
+            : (i.kulso_kepek || []).map(Utils.imgUrl);
 
         ListingPage.kepIdx = 0;
 
@@ -108,6 +108,9 @@ class ListingPage {
                     <h6 class="mb-2"><i class="fa-solid fa-user-shield"></i> Admin</h6>
                     ${i.statusz === "fuggo" ? `<div class="alert alert-warning small py-2">${I18n.t("listingPending")}</div>` : ""}
                     ${hianyzo.length ? `<div class="small mb-2">${I18n.t("missingFields")}: ${hianyzo.map(m => `<span class="badge text-bg-warning">${I18n.t("field_" + m)}</span>`).join(" ")}</div>` : ""}
+                    ${(i.problemak || []).length ? `<div class="small mb-2">${I18n.t("problemsLabel")}: ${(i.problemak || []).map(m => `<span class="badge text-bg-danger">${I18n.t("prob_" + m)}</span>`).join(" ")}</div>` : ""}
+                    ${i.statusz === "nem_elerheto" ? `<div class="alert alert-secondary small py-2">${I18n.t("listingUnavailable")}</div>` : ""}
+                    ${i.ellenorzott === false ? `<button class="btn btn-warning btn-sm w-100 mb-2" id="lpReview"><i class="fa-solid fa-list-check"></i> ${I18n.t("openInReview")}</button>` : ""}
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-secondary btn-sm flex-fill" id="lpEdit"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
                         <button class="btn btn-outline-danger btn-sm flex-fill" id="lpDelete"><i class="fa-solid fa-trash"></i> ${I18n.t("detailDelete")}</button>
@@ -133,6 +136,7 @@ class ListingPage {
                             <span class="badge text-bg-primary"><i class="${t.icon}"></i> ${Types.label(i.tipus)}</span>
                             <span class="badge text-bg-secondary">${Types.ugyletLabel(i.ugylet)}</span>
                             ${i.eladva ? `<span class="badge text-bg-danger">${I18n.t("dbEladva")}</span>` : ""}
+                            ${i.ellenorzott === false ? `<span class="badge text-bg-light" title="${I18n.t("unverifiedHint")}"><i class="fa-solid fa-hourglass-half"></i> ${I18n.t("unverified")}</span>` : ""}
                         </div>
                         <h2 class="listingPageTitle">${Utils.escape(cim)}</h2>
                         <div class="text-body-secondary"><i class="fa-solid fa-location-dot"></i> ${Utils.escape(hely)}</div>
@@ -160,6 +164,7 @@ class ListingPage {
                         <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-map-location-dot"></i> ${I18n.t("newHely")}</h5></div>
                         <div class="card-body p-2">
                             ${i.hely_pontossag === "kozelito" ? `<div class="alert alert-info small py-2 m-2">${I18n.t("approxLocation")}</div>` : ""}
+                            ${i.hely_pontossag === "utca" ? `<div class="alert alert-light small py-2 m-2">${I18n.t("streetLocation")}</div>` : ""}
                             ${i.x && i.y ? `<div id="listingMap"></div>` : `<p class="text-body-secondary m-2">${I18n.t("noLocation")}</p>`}
                         </div>
                     </div>
@@ -274,6 +279,9 @@ class ListingPage {
             PageManager.show("valuation");
             ValuationManager.prefill(i).then(() => ValuationManager.run());
         };
+
+        const rev = document.getElementById("lpReview");
+        if (rev) rev.onclick = () => { AdminManager.reviewFocusId = i.id; AdminManager.tab = "review"; PageManager.show("admin"); };
 
         const edit = document.getElementById("lpEdit");
         if (edit) edit.onclick = () => NewPropertyManager.startEdit(i);
