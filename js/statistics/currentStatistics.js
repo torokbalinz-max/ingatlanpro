@@ -12,6 +12,7 @@ class CurrentStatistics {
 
         {
             id: "allapot",
+            field: "allapot",
             icon: "fa-solid fa-screwdriver-wrench",
             title: "statsByAllapot",
             note: "noteAllapot",
@@ -22,6 +23,7 @@ class CurrentStatistics {
 
         {
             id: "szobak",
+            field: "szobak",
             icon: "fa-solid fa-bed",
             title: "statsByRooms",
             note: "noteRooms",
@@ -35,6 +37,7 @@ class CurrentStatistics {
 
         {
             id: "emelet",
+            field: "emelet",
             icon: "fa-solid fa-building",
             title: "statsByFloor",
             note: "noteFloor",
@@ -124,7 +127,11 @@ class CurrentStatistics {
 
         const csoportok = {};
 
-        CurrentStatistics.CATEGORIES.forEach(cat => {
+        // Csak a típusnál értelmes bontások (pl. telekhez nincs szobaszám)
+        const mezok = Types.get(FilterManager.tipus).fields;
+        const kategoriak = CurrentStatistics.CATEGORIES.filter(c => !c.field || mezok[c.field] !== false);
+
+        kategoriak.forEach(cat => {
             csoportok[cat.id] = CurrentStatistics.group(lista, cat);
             html += CurrentStatistics.renderCategory(cat, csoportok[cat.id], lista);
         });
@@ -134,7 +141,7 @@ class CurrentStatistics {
         // Grafikonok a HTML beillesztése után
         CurrentStatistics.drawDistribution(lista);
 
-        CurrentStatistics.CATEGORIES.forEach(cat => {
+        kategoriak.forEach(cat => {
             const rows = csoportok[cat.id];
             if (rows.length > 1) {
                 ChartStatistics.bar("chart_" + cat.id, rows.slice(0, 12));
@@ -202,7 +209,7 @@ class CurrentStatistics {
                     I18n.f("kpiNoteCount", { sold: Utils.num(eladva) }))}
 
                 ${CurrentStatistics.kpi("fa-solid fa-euro-sign", "green", I18n.t("dashLabelAvgPrice"),
-                    Utils.eur(Utils.avg(arak)),
+                    Utils.price({ ar: Utils.avg(arak), ugylet: FilterManager.ugylet }),
                     I18n.f("kpiNoteMedian", { median: Utils.eur(Utils.median(arak)) }))}
 
                 ${CurrentStatistics.kpi("fa-solid fa-ruler-combined", "purple", I18n.t("dashLabelAvgPriceNm"),

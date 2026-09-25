@@ -6,19 +6,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     UIManager.init();
     FilterManager.init();
+    CardsView.init();
     StatisticsManager.init();
     BulkEditManager.init();
     NewPropertyMap.init();
     NewPropertyManager.init();
     ValuationManager.init();
+    AdminManager.init();
 
     UIManager.showNoSelection();
 
-    // Városok, majd az ingatlanok betöltése
-    CityManager.init().then(() => DataManager.init());
-
-    // Oldal a címsor alapján (#properties, #market ...)
-    PageManager.init();
+    // Először kiderítjük, admin-e a belépett felhasználó,
+    // utána töltjük a városokat és az ingatlanokat.
+    AuthManager.load()
+        .then(() => CityManager.init())
+        .then(() => {
+            DataManager.init();
+            PageManager.init();
+            AdminManager.refreshPendingCount();
+        });
 
     // ===================== SÖTÉT MÓD =====================
 
@@ -59,6 +65,12 @@ document.addEventListener("DOMContentLoaded", () => {
         TableManager.refreshColumns();
         FavoritesManager.refreshColumns();
 
+        FilterManager.renderTypes();
+        FilterManager.onTypeChange();
+        NewPropertyManager.renderTypes();
+        NewPropertyManager.applyType();
+        ValuationManager.renderTypeOptions();
+
         CityManager.refreshLabels();
         FilterManager.renderSources();
 
@@ -69,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         DashboardManager.load(DataManager.szurtIngatlanok);
+        CardsView.render(DataManager.szurtIngatlanok);
 
         if (PageManager.current === "properties") {
             MapManager.load(DataManager.szurtIngatlanok);
@@ -78,11 +91,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         NewPropertyManager.updateTitle();
         NewPropertyManager.updatePreview();
+        NewPropertyManager.renderPhotos();
 
         BulkEditManager.loadKeruletOptions();
 
         StatisticsManager.rerender();
         ValuationManager.rerender();
+        ListingPage.rerender();
+
+        if (PageManager.current === "admin") AdminManager.show();
 
         darkBtn.title = I18n.t(document.documentElement.getAttribute("data-bs-theme") === "dark" ? "darkModeOff" : "darkModeOn");
 

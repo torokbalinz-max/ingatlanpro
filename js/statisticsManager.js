@@ -44,6 +44,10 @@ class StatisticsManager {
     static refreshCurrent() {
         if (StatisticsManager.tab === "current") {
             CurrentStatistics.load();
+        } else if (StatisticsManager.tab === "trend" && document.getElementById("trendChart")) {
+            TrendStatistics.draw();
+        } else if (StatisticsManager.tab === "history" && document.getElementById("btnSaveSnapshot")) {
+            HistoryStatistics.load();
         }
     }
 

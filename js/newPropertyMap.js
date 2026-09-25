@@ -9,67 +9,65 @@ class NewPropertyMap {
 
         if (!mapDiv) return;
 
-        this.map = L.map("newMap").setView([45.8590, 25.7900], 13);
+        NewPropertyMap.map = L.map("newMap").setView([45.8590, 25.7900], 13);
 
-        this.map.getContainer().style.cursor = "crosshair";
+        NewPropertyMap.map.getContainer().style.cursor = "crosshair";
 
-        L.tileLayer(
-            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            {
-                attribution: "© OpenStreetMap"
-            }
-        ).addTo(this.map);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "© OpenStreetMap"
+        }).addTo(NewPropertyMap.map);
 
-        this.map.on("click", (e) => {
-
-            if (this.marker) {
-                this.map.removeLayer(this.marker);
-            }
-
-            this.marker = L.marker(e.latlng).addTo(this.map);
-
-            document.getElementById("ujX").value = e.latlng.lng.toFixed(7);
-            document.getElementById("ujY").value = e.latlng.lat.toFixed(7);
-
+        NewPropertyMap.map.on("click", e => {
+            NewPropertyMap.setPoint(e.latlng.lng, e.latlng.lat, "pontos", false);
         });
+
+    }
+
+    static setPoint(x, y, pontossag, center = true) {
+
+        if (!NewPropertyMap.map) return;
+
+        if (NewPropertyMap.marker) {
+            NewPropertyMap.map.removeLayer(NewPropertyMap.marker);
+            NewPropertyMap.marker = null;
+        }
+
+        if (!x || !y) {
+            document.getElementById("ujX").value = "";
+            document.getElementById("ujY").value = "";
+            NewPropertyManager.setLocationInfo(null);
+            return;
+        }
+
+        document.getElementById("ujX").value = Number(x).toFixed(7);
+        document.getElementById("ujY").value = Number(y).toFixed(7);
+
+        NewPropertyMap.marker = L.marker([y, x]).addTo(NewPropertyMap.map);
+
+        if (center) NewPropertyMap.map.setView([y, x], 16);
+
+        NewPropertyManager.setLocationInfo(pontossag || "pontos");
 
     }
 
     static refresh() {
 
-        if (!this.map) return;
+        if (!NewPropertyMap.map) return;
 
         setTimeout(() => {
 
-            this.map.invalidateSize(true);
+            NewPropertyMap.map.invalidateSize(true);
 
             const x = Number(document.getElementById("ujX").value);
             const y = Number(document.getElementById("ujY").value);
 
-            if (!isNaN(x) && !isNaN(y) && x !== 0 && y !== 0) {
-
-                const latlng = [y, x];
-
-                this.map.setView(latlng, 16);
-
-                if (this.marker) {
-                    this.map.removeLayer(this.marker);
-                }
-
-                this.marker = L.marker(latlng).addTo(this.map);
-
+            if (x && y) {
+                NewPropertyMap.map.setView([y, x], 16);
             } else {
-
-                if (this.marker) {
-                    this.map.removeLayer(this.marker);
-                    this.marker = null;
-                }
-
-                this.map.setView([45.8590, 25.7900], 13);
-
+                NewPropertyMap.map.setView([45.8590, 25.7900], 13);
             }
 
-        }, 300);
+        }, 250);
 
     }
 

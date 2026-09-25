@@ -6,25 +6,27 @@ class UIManager {
 
         UIManager.selectedIngatlan = i;
 
-        document.getElementById("detailIdLabel").innerText = I18n.t("popupProperty").replace("#", "").trim();
+        const t = Types.get(i.tipus);
+
+        document.getElementById("detailIdLabel").innerText = `${Types.label(i.tipus)} · ${Types.ugyletLabel(i.ugylet)}`;
         document.getElementById("detailId").innerText = "#" + i.id;
 
-        document.getElementById("detailAr").innerText = Utils.eur(i.ar);
+        document.getElementById("detailAr").innerText = Utils.price(i);
         document.getElementById("detailArNm").innerText = Utils.eurNm(Utils.arNm(i));
-        document.getElementById("detailNm").innerText = Utils.num(i.nm) + " m²";
-        document.getElementById("detailSzoba").innerText = i.szobak ?? "-";
-        document.getElementById("detailEmelet").innerText = i.emelet || "-";
-        document.getElementById("detailAllapot").innerText = Utils.allapotLabel(i.allapot);
+        document.getElementById("detailNm").innerText = i.nm ? Utils.num(i.nm) + " m²" : "-";
+        document.getElementById("detailSzoba").innerText = t.fields.szobak ? (i.szobak ?? "-") : "–";
+        document.getElementById("detailEmelet").innerText = t.fields.emelet ? (i.emelet || "-") : "–";
+        document.getElementById("detailAllapot").innerText = t.fields.allapot ? Utils.allapotLabel(i.allapot) : "–";
         document.getElementById("detailHely").innerText =
             [CityManager.displayName(i.varos), i.kerulet].filter(Boolean).join(" · ") || "-";
 
         const src = document.getElementById("detailSource");
-        src.outerHTML = Sources.badge(i.forras).replace("<span ", '<span id="detailSource" ');
+        src.outerHTML = (i.forrasok || [i.forras]).map(Sources.badge).join(" ").replace("<span ", '<span id="detailSource" ');
 
-        const link = document.getElementById("detailLink");
-        const hasLink = i.link && i.forras !== "local" && i.forras !== "other";
-        link.href = hasLink ? i.link : "#";
-        link.classList.toggle("disabled", !hasLink);
+        const foto = Utils.photoUrl(i);
+        const photo = document.getElementById("detailPhoto");
+        photo.style.display = foto ? "" : "none";
+        photo.innerHTML = foto ? `<img src="${Utils.escape(foto)}" referrerpolicy="no-referrer" alt="" onerror="this.parentElement.style.display='none'">` : "";
 
         UIManager.updateFavoriteButton(i.id);
 
@@ -43,9 +45,9 @@ class UIManager {
         const src = document.getElementById("detailSource");
         if (src) src.style.display = "none";
 
-        const link = document.getElementById("detailLink");
-        link.href = "#";
-        link.classList.add("disabled");
+        const photo = document.getElementById("detailPhoto");
+        photo.style.display = "none";
+        photo.innerHTML = "";
 
         const btn = document.getElementById("btnFavoriteToggle");
         btn.innerHTML = I18n.t("favAdd");
@@ -79,58 +81,66 @@ class UIManager {
 
     }
 
+    // Törlés megerősítéssel – igaz, ha sikerült
+    static deleteProperty(i) {
+
+        if (!confirm(I18n.t("alertConfirmDelete"))) return Promise.resolve(false);
+
+        return fetch("/api/ingatlanok/" + i.id, { method: "DELETE" })
+            .then(r => {
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                return r.json();
+            })
+            .then(() => {
+
+                DataManager.ingatlanok = DataManager.ingatlanok.filter(x => x.id !== i.id);
+
+                if (UIManager.selectedIngatlan && UIManager.selectedIngatlan.id === i.id) {
+                    UIManager.showNoSelection();
+                }
+
+                FilterManager.renderSources();
+                FilterManager.apply();
+
+                alert(I18n.t("alertDeleted"));
+
+                return true;
+
+            })
+            .catch(err => {
+                console.error(err);
+                alert(I18n.t("alertSaveError"));
+                return false;
+            });
+
+    }
+
     static init() {
 
-        // Kedvenc gomb
         document.getElementById("btnFavoriteToggle").onclick = () => {
             if (!UIManager.requireSelection()) return;
             DataManager.toggleFavorite(UIManager.selectedIngatlan.id);
         };
 
-        // Értékbecslés erre az ingatlanra
+        document.getElementById("btnOpenListing").onclick = () => {
+            if (!UIManager.requireSelection()) return;
+            ListingPage.open(UIManager.selectedIngatlan.id);
+        };
+
         document.getElementById("btnValuateThis").onclick = () => {
             if (!UIManager.requireSelection()) return;
             PageManager.show("valuation");
             ValuationManager.prefill(UIManager.selectedIngatlan).then(() => ValuationManager.run());
         };
 
-        // Törlés
         document.getElementById("btnDelete").onclick = () => {
-
             if (!UIManager.requireSelection()) return;
-
-            if (!confirm(I18n.t("alertConfirmDelete"))) return;
-
-            const torolt = UIManager.selectedIngatlan;
-
-            fetch("/api/ingatlanok/" + torolt.id, { method: "DELETE" })
-                .then(r => r.json())
-                .then(() => {
-
-                    DataManager.ingatlanok = DataManager.ingatlanok.filter(x => x.id !== torolt.id);
-
-                    UIManager.showNoSelection();
-
-                    FilterManager.renderSources();
-                    FilterManager.apply();
-
-                    alert(I18n.t("alertDeleted"));
-
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert(I18n.t("alertSaveError"));
-                });
-
+            UIManager.deleteProperty(UIManager.selectedIngatlan);
         };
 
-        // Szerkesztés
         document.getElementById("btnEdit").onclick = () => {
-
             if (!UIManager.requireSelection()) return;
-
             NewPropertyManager.startEdit(UIManager.selectedIngatlan);
-
         };
 
     }

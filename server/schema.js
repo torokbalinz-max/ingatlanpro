@@ -30,7 +30,62 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
     await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS owner_id INTEGER`);
 
+    // Hirdetés jellegű adatok
+    const ujOszlopok = [
+        "tipus TEXT DEFAULT 'lakas'",           // lakas | haz | telek | kereskedelmi | iroda
+        "ugylet TEXT DEFAULT 'elado'",          // elado | kiado
+        "cim TEXT",                              // hirdetés címe
+        "leiras TEXT",                           // hirdetés szövege
+        "telek_nm DOUBLE PRECISION",             // háznál a telek mérete
+        "statusz TEXT DEFAULT 'aktiv'",          // aktiv | fuggo (importált, jóváhagyásra vár)
+        "forras_tipus TEXT DEFAULT 'kezi'",      // kezi | import
+        "hely_pontossag TEXT",                   // pontos | kozelito | NULL
+        "kulso_kepek JSONB",                     // más oldalról beolvasott képek címei
+        "tovabbi_linkek JSONB",                  // ugyanez a hirdetés más oldalakon
+        "hianyzo JSONB",                         // hiányzó kötelező mezők listája
+        "updated_at TIMESTAMP DEFAULT NOW()"
+    ];
+
+    for (const o of ujOszlopok) {
+        await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS ${o}`);
+    }
+
+    await db.query(`UPDATE ingatlanok SET tipus = 'lakas' WHERE tipus IS NULL`);
+    await db.query(`UPDATE ingatlanok SET ugylet = 'elado' WHERE ugylet IS NULL`);
+    await db.query(`UPDATE ingatlanok SET statusz = 'aktiv' WHERE statusz IS NULL`);
+
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_varos ON ingatlanok (varos)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_statusz ON ingatlanok (statusz)`);
+
+    // Feltöltött képek (az adatbázisban, mert a Render ingyenes szerverén
+    // a fájlok újraindításkor elvesznének)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS ingatlan_kepek (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            sorrend INTEGER DEFAULT 0,
+            mime TEXT,
+            adat BYTEA,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_kepek_ingatlan ON ingatlan_kepek (ingatlan_id)`);
+
+    // Figyelt keresések más hirdetési oldalakon (az admin menti el)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS figyelt_oldalak (
+            id SERIAL PRIMARY KEY,
+            url TEXT NOT NULL,
+            nev TEXT,
+            varos TEXT,
+            tipus TEXT DEFAULT 'lakas',
+            ugylet TEXT DEFAULT 'elado',
+            utolso_futas TIMESTAMP,
+            utolso_eredmeny TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
 
     // Felhasználók – egyelőre üres, a bejelentkezés a 2. verzióban jön
     // (e-mail vagy Google fiók). Az ingatlanok owner_id mezője ide mutat.
@@ -89,6 +144,8 @@ async function createSchema(db) {
 
     // Melyik városra készült a snapshot (NULL = régi, az összes város)
     await db.query(`ALTER TABLE market_snapshots ADD COLUMN IF NOT EXISTS varos TEXT`);
+    await db.query(`ALTER TABLE market_snapshots ADD COLUMN IF NOT EXISTS tipus TEXT`);
+    await db.query(`ALTER TABLE market_snapshots ADD COLUMN IF NOT EXISTS ugylet TEXT`);
 
     await db.query(`
         CREATE TABLE IF NOT EXISTS market_snapshot_groups (
@@ -133,6 +190,8 @@ const TABLES = [
     "varosok",
     "keruletek",
     "ingatlanok",
+    "ingatlan_kepek",
+    "figyelt_oldalak",
     "favorites",
     "market_snapshots",
     "market_snapshot_groups"

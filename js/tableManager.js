@@ -49,6 +49,15 @@ class TableManager {
             },
 
             {
+                colId: "foto",
+                headerName: "📷",
+                width: 60,
+                sortable: false,
+                filter: false,
+                cellRenderer: p => Utils.hasPhoto(p.data) ? '<i class="fa-solid fa-camera text-primary"></i>' : ""
+            },
+
+            {
                 field: "id",
                 headerName: "#",
                 width: 80,
@@ -60,7 +69,7 @@ class TableManager {
                 headerName: I18n.t("colAr"),
                 minWidth: 115,
                 flex: 1,
-                valueFormatter: p => Utils.eur(p.value),
+                valueFormatter: p => Utils.price(p.data),
                 cellStyle: { fontWeight: "700", color: "#16a34a" }
             },
 
@@ -153,12 +162,13 @@ class TableManager {
                 pagination: true,
                 paginationPageSize: 25,
                 paginationPageSizeSelector: [25, 50, 100, 250],
-                rowSelection: {
+                // Tömeges szerkesztéshez kijelölés – csak adminnak
+                rowSelection: AuthManager.isAdmin() ? {
                     mode: "multiRow",
                     checkboxes: true,
                     headerCheckbox: true,
                     enableClickSelection: false
-                },
+                } : undefined,
                 selectionColumnDef: { width: 48, pinned: "left" },
 
                 defaultColDef: {

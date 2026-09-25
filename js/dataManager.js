@@ -47,10 +47,7 @@ class DataManager {
 
             .then(rows => {
 
-                // Forrás (hirdetési oldal) előre kiszámolva
-                rows.forEach(i => {
-                    i.forras = Sources.fromLink(i.link);
-                });
+                DataManager.prepare(rows);
 
                 DataManager.ingatlanok = rows;
 
@@ -65,6 +62,29 @@ class DataManager {
                 alert(I18n.t("alertLoadError") + "\n" + err.message);
 
             });
+
+    }
+
+    // Forrás(ok) előre kiszámolva + a duplikált hirdetések megjelölése
+    // (ugyanaz a link többször: csak az első számít "eredetinek")
+    static prepare(rows) {
+
+        const latott = new Set();
+
+        rows.forEach(i => {
+
+            i.forras = Sources.fromLink(i.link);
+            i.forrasok = Sources.allOf(i);
+
+            const k = Utils.normLink(i.link);
+
+            i.dup = !!k && latott.has(k);
+
+            if (k) latott.add(k);
+
+        });
+
+        return rows;
 
     }
 
@@ -121,6 +141,10 @@ class DataManager {
                 if (TableManager.grid) {
                     TableManager.grid.refreshCells({ force: true });
                 }
+
+                CardsView.refreshFavorites();
+
+                if (typeof ListingPage !== "undefined") ListingPage.updateFavorite(id);
 
                 if (UIManager.selectedIngatlan && UIManager.selectedIngatlan.id === id) {
                     UIManager.updateFavoriteButton(id);

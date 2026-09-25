@@ -107,7 +107,7 @@ class BulkEditManager {
 
         if (!bar) return;
 
-        if (BulkEditManager.selectedRows.length > 0) {
+        if (BulkEditManager.selectedRows.length > 0 && AuthManager.isAdmin()) {
 
             bar.style.display = "flex";
 

@@ -1,18 +1,23 @@
 // ============================================================
 //  Oldalak (a lenyíló menü pontjai) + címsor (#hash) kezelés
+//  #properties, #market, #new, #favorites, #valuation, #admin,
+//  #user, #listing/123
 // ============================================================
 
 class PageManager {
 
     static current = null;
+    static lastListPage = "properties";
 
     static PAGES = {
-        properties: { icon: "fa-solid fa-house", label: "menuIngatlanok" },
+        properties: { icon: "fa-solid fa-house", label: "menuIngatlanok", search: true },
+        market: { icon: "fa-solid fa-chart-line", label: "menuStatisztika", search: true },
         new: { icon: "fa-solid fa-circle-plus", label: "menuUj" },
-        market: { icon: "fa-solid fa-chart-line", label: "menuStatisztika" },
         favorites: { icon: "fa-solid fa-star", label: "menuKedvencek" },
         valuation: { icon: "fa-solid fa-calculator", label: "menuErtekbecslo" },
-        user: { icon: "fa-solid fa-user", label: "menuFelhasznalo" }
+        admin: { icon: "fa-solid fa-user-shield", label: "menuAdmin" },
+        user: { icon: "fa-solid fa-user", label: "menuFelhasznalo" },
+        listing: { icon: "fa-solid fa-rectangle-list", label: "menuHirdetes" }
     };
 
     // Régi nevek (más modulok még ezeket hívhatják)
@@ -26,40 +31,54 @@ class PageManager {
     static init() {
 
         window.addEventListener("hashchange", () => {
-            PageManager.show(PageManager.fromHash(), { fromHash: true });
+            PageManager.show(location.hash.replace("#", ""), { fromHash: true });
         });
 
-        PageManager.show(PageManager.fromHash(), { fromHash: true });
+        PageManager.show(location.hash.replace("#", ""), { fromHash: true });
 
     }
 
-    static fromHash() {
-        const h = location.hash.replace("#", "");
-        return PageManager.PAGES[h] ? h : "properties";
+    static parse(target) {
+
+        target = PageManager.ALIASES[target] || target || "properties";
+
+        const [page, param] = String(target).split("/");
+
+        if (!PageManager.PAGES[page]) return { page: "properties", param: null };
+
+        return { page, param: param || null };
+
     }
 
-    static show(page, opts = {}) {
+    static show(target, opts = {}) {
 
-        page = PageManager.ALIASES[page] || page;
+        const { page, param } = PageManager.parse(target);
+        const hash = param ? `${page}/${param}` : page;
 
-        if (!PageManager.PAGES[page]) page = "properties";
-
-        if (!opts.fromHash && location.hash !== "#" + page) {
+        if (!opts.fromHash && location.hash !== "#" + hash) {
             // A hashchange esemény újra meghívja a show-t
-            location.hash = page;
+            location.hash = hash;
             return;
         }
 
         const elozo = PageManager.current;
         PageManager.current = page;
 
+        if (page === "properties" || page === "market") {
+            PageManager.lastListPage = page;
+        }
+
+        // Kereső csak az Ingatlanok és a Piaci elemzés oldalon
+        const info = PageManager.PAGES[page];
+
+        document.getElementById("searchAside").style.display = info.search ? "" : "none";
+        document.getElementById("mainCol").className = info.search ? "col-xl-9 col-lg-8" : "col-12";
+
         document.querySelectorAll(".page").forEach(el => {
             el.style.display = el.id === "page-" + page ? "block" : "none";
         });
 
         // Menü gomb felirata + aktív pont
-        const info = PageManager.PAGES[page];
-
         document.getElementById("navMenuIcon").className = info.icon;
 
         const label = document.getElementById("navMenuLabel");
@@ -78,14 +97,13 @@ class PageManager {
         }
 
         if (page === "new") {
-            // Ha nem szerkesztésből jöttünk, üres űrlap
             if (NewPropertyManager.editId === null && elozo !== "new") {
                 NewPropertyManager.clearForm();
             }
             NewPropertyMap.refresh();
         } else if (elozo === "new" && NewPropertyManager.editId !== null) {
-            // Szerkesztésből kiléptünk mentés nélkül
             NewPropertyManager.editId = null;
+            NewPropertyManager.editStatusz = null;
             NewPropertyManager.updateTitle();
         }
 
@@ -99,6 +117,14 @@ class PageManager {
 
         if (page === "valuation") {
             ValuationManager.showIntroIfEmpty();
+        }
+
+        if (page === "admin") {
+            AdminManager.show();
+        }
+
+        if (page === "listing" && param) {
+            ListingPage.show(Number(param));
         }
 
     }

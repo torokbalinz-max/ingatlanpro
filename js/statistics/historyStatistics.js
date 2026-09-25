@@ -12,7 +12,8 @@ class HistoryStatistics {
             year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
         });
         const varos = s.varos ? CityManager.displayName(s.varos) : I18n.t("allCities");
-        return `${datum} · ${varos} · ${s.property_count} ${I18n.t("pcsWord")}`;
+        const tipus = s.tipus ? ` · ${Types.label(s.tipus)} (${Types.ugyletLabel(s.ugylet)})` : "";
+        return `${datum} · ${varos}${tipus} · ${s.property_count} ${I18n.t("pcsWord")}`;
     }
 
     static fetchList() {
@@ -92,8 +93,8 @@ class HistoryStatistics {
                             <h5 class="mb-1"><i class="fa-solid fa-camera"></i> ${I18n.t("historySaveTitle")}</h5>
                             <p class="sectionNote mb-0">${I18n.t("historySaveNote")}</p>
                         </div>
-                        <button id="btnSaveSnapshot" class="btn btn-success">
-                            <i class="fa-solid fa-floppy-disk"></i> ${I18n.f("historySaveBtn", { city: Utils.escape(varosNev) })}
+                        <button id="btnSaveSnapshot" class="btn btn-success admin-only" ${AuthManager.isAdmin() ? "" : "hidden"}>
+                            <i class="fa-solid fa-floppy-disk"></i> ${I18n.f("historySaveBtn", { city: Utils.escape(varosNev + " · " + Types.label(FilterManager.tipus)) })}
                         </button>
                     </div>
                 </div>`;
@@ -117,7 +118,7 @@ class HistoryStatistics {
                     <select id="snapshotSelect" class="form-select" style="max-width:480px;">
                         ${lista.map(s => `<option value="${s.id}">${Utils.escape(HistoryStatistics.label(s))}</option>`).join("")}
                     </select>
-                    <button id="btnDeleteSnapshot" class="btn btn-outline-danger" title="${I18n.t("historyDelete")}">
+                    <button id="btnDeleteSnapshot" class="btn btn-outline-danger" ${AuthManager.isAdmin() ? "" : "hidden"} title="${I18n.t("historyDelete")}">
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </div>
@@ -156,7 +157,7 @@ class HistoryStatistics {
             fetch("/api/statistics/save", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ varos: DataManager.currentCity })
+                body: JSON.stringify({ varos: DataManager.currentCity, tipus: FilterManager.tipus, ugylet: FilterManager.ugylet })
             })
             .then(r => {
                 if (!r.ok) throw new Error("HTTP " + r.status);

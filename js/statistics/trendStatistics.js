@@ -77,7 +77,11 @@ class TrendStatistics {
         const to = document.getElementById("trendTo").value;
         const type = document.getElementById("trendType").value;
 
-        let adatok = TrendStatistics.data.filter(x => (x.varos || "") === varos);
+        // Csak a keresésben kiválasztott típusú mentések (a régiek lakás/eladó)
+        let adatok = TrendStatistics.data.filter(x =>
+            (x.varos || "") === varos &&
+            (x.tipus || "lakas") === FilterManager.tipus &&
+            (x.ugylet || "elado") === FilterManager.ugylet);
 
         if (from) adatok = adatok.filter(x => x.created_at >= from);
         if (to) adatok = adatok.filter(x => x.created_at <= to + "T23:59:59");

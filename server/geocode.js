@@ -1,0 +1,60 @@
+// ============================================================
+//  Közelítő hely meghatározása szövegből (OpenStreetMap Nominatim)
+//  Szabály: legfeljebb 1 kérés másodpercenként, saját User-Agent.
+// ============================================================
+
+let utolsoKeres = 0;
+const cache = new Map();
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Az adatbázisban ékezet nélkül tárolt városnevek román megfelelője
+const VAROS_RO = {
+    Sepsiszentgyorgy: "Sfântu Gheorghe",
+    Kezdivasarhely: "Târgu Secuiesc",
+    Csikszereda: "Miercurea Ciuc",
+    Brasso: "Brașov",
+    Marosvasarhely: "Târgu Mureș"
+};
+
+async function geocode(szoveg, varos) {
+
+    const varosRo = VAROS_RO[varos] || varos || "";
+    const q = [szoveg, varosRo, "Romania"].filter(Boolean).join(", ");
+
+    if (cache.has(q)) return cache.get(q);
+
+    const varj = 1100 - (Date.now() - utolsoKeres);
+    if (varj > 0) await sleep(varj);
+    utolsoKeres = Date.now();
+
+    try {
+
+        const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ro&q=" + encodeURIComponent(q);
+
+        const res = await fetch(url, {
+            headers: { "User-Agent": "IngatlanPro/1.0 (real estate listing organizer)" },
+            signal: AbortSignal.timeout(10000)
+        });
+
+        if (!res.ok) return null;
+
+        const lista = await res.json();
+
+        const eredmeny = lista.length
+            ? { x: Number(lista[0].lon), y: Number(lista[0].lat) }
+            : null;
+
+        cache.set(q, eredmeny);
+
+        return eredmeny;
+
+    } catch (e) {
+
+        return null;
+
+    }
+
+}
+
+module.exports = { geocode, VAROS_RO };

@@ -7,7 +7,22 @@ class ValuationManager {
     static last = null;
     static excludeId = null;
 
+    static renderTypeOptions() {
+
+        const sel = document.getElementById("valTipus");
+        const v = sel.value || "lakas";
+
+        sel.innerHTML = Types.LIST
+            .filter(t => t.key !== "telek")
+            .map(t => `<option value="${t.key}">${I18n.t(t.label)}</option>`).join("");
+
+        sel.value = v;
+
+    }
+
     static init() {
+
+        ValuationManager.renderTypeOptions();
 
         document.getElementById("btnValuate").onclick = () => ValuationManager.run();
 
@@ -58,6 +73,9 @@ class ValuationManager {
         const valVaros = document.getElementById("valVaros");
         CityManager.fillCitySelect(valVaros, i.varos || DataManager.currentCity);
 
+        document.getElementById("valTipus").value = i.tipus && i.tipus !== "telek" ? i.tipus : "lakas";
+        document.getElementById(i.ugylet === "kiado" ? "valUgyletKiado" : "valUgyletElado").checked = true;
+
         document.getElementById("valNm").value = i.nm || "";
         document.getElementById("valSzobak").value = i.szobak || "";
 
@@ -76,6 +94,8 @@ class ValuationManager {
     static run() {
 
         const params = {
+            tipus: document.getElementById("valTipus").value,
+            ugylet: document.querySelector('input[name="valUgylet"]:checked').value,
             varos: document.getElementById("valVaros").value,
             kerulet: document.getElementById("valKerulet").value,
             nm: document.getElementById("valNm").value,
@@ -210,7 +230,7 @@ class ValuationManager {
                     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                         <div>
                             <small class="text-body-secondary">${I18n.t("valEstimate")}</small>
-                            <div class="valEstimate">${Utils.eur(d.estimate)}</div>
+                            <div class="valEstimate">${Utils.price({ ar: d.estimate, ugylet: params.ugylet })}</div>
                             <div class="text-body-secondary">≈ ${Utils.eurNm(d.arNm)} · ${Utils.num(params.nm)} m²</div>
                         </div>
                         <span class="badge text-bg-${conf[0]} fs-6">${I18n.t(conf[1])}</span>

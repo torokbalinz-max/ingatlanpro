@@ -7,7 +7,7 @@ class DashboardManager {
         const ervenyes = Utils.valid(lista);
 
         document.getElementById("dbCount").innerText = Utils.num(lista.length);
-        document.getElementById("dbSold").innerText = Utils.num(lista.filter(i => i.eladva).length);
+        document.getElementById("dbPhotos").innerText = Utils.num(lista.filter(Utils.hasPhoto).length);
 
         if (ervenyes.length === 0) {
 
@@ -23,7 +23,7 @@ class DashboardManager {
 
         DashboardManager.lastAvgArNm = atlagArNm;
 
-        document.getElementById("dbPrice").innerText = Utils.eur(atlagAr);
+        document.getElementById("dbPrice").innerText = Utils.price({ ar: atlagAr, ugylet: FilterManager.ugylet });
         document.getElementById("dbNm").innerText = Utils.eurNm(atlagArNm);
 
     }

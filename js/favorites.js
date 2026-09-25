@@ -22,11 +22,18 @@ class FavoritesManager {
             { field: "id", headerName: "#", width: 80 },
 
             {
+                colId: "tipus",
+                headerName: I18n.t("typeLabel"),
+                width: 130,
+                valueGetter: p => Types.label(p.data.tipus)
+            },
+
+            {
                 field: "ar",
                 headerName: I18n.t("colAr"),
                 flex: 1.2,
                 minWidth: 120,
-                valueFormatter: p => Utils.eur(p.value),
+                valueFormatter: p => Utils.price(p.data),
                 cellStyle: { fontWeight: "700", color: "#16a34a" }
             },
 
@@ -139,29 +146,7 @@ class FavoritesManager {
 
                 if (event.column.getColId() === "remove") return;
 
-                const i = event.data;
-
-                // Ha más városban van, átváltunk arra
-                const kivalaszt = () => {
-                    const helyi = DataManager.ingatlanok.find(x => x.id === i.id) || i;
-                    AppController.select(helyi);
-                };
-
-                PageManager.show("properties");
-
-                if (i.varos && i.varos !== DataManager.currentCity) {
-
-                    DataManager.setCity(i.varos);
-                    CityManager.fillCitySelect(document.getElementById("citySelect"), i.varos);
-                    CityManager.loadSearchKeruletek(i.varos);
-                    FilterManager.selectedSources = null;
-                    DataManager.init().then(() => setTimeout(kivalaszt, 300));
-
-                } else {
-
-                    setTimeout(kivalaszt, 300);
-
-                }
+                ListingPage.open(event.data.id);
 
             }
 

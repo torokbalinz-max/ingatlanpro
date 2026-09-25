@@ -6,8 +6,49 @@ class FilterManager {
 
     // null = minden forrás; különben a kiválasztott forrás-kulcsok
     static selectedSources = null;
+    static tipus = "lakas";
+    static ugylet = "elado";
+
+    static renderTypes() {
+
+        Types.renderGrid("searchTypeGrid", FilterManager.tipus, t => {
+            FilterManager.tipus = t;
+            FilterManager.onTypeChange();
+            FilterManager.apply();
+        });
+
+    }
+
+    // Típus/ügylet váltáskor a nem értelmes mezők eltűnnek
+    static onTypeChange() {
+
+        Types.applyFields("#searchAside", FilterManager.tipus);
+
+        document.getElementById("searchArLabel").innerText =
+            I18n.t(FilterManager.ugylet === "kiado" ? "searchArRent" : "searchAr");
+
+        document.getElementById("searchNmLabel").innerText =
+            I18n.t(FilterManager.tipus === "telek" ? "searchTelekNm" : "searchNm");
+
+    }
 
     static init() {
+
+        FilterManager.renderTypes();
+
+        document.querySelectorAll('input[name="searchUgylet"]').forEach(r => {
+            r.addEventListener("change", () => {
+                FilterManager.ugylet = r.value;
+                FilterManager.onTypeChange();
+                FilterManager.apply();
+            });
+        });
+
+        ["hideDuplicates", "onlyWithPhotos"].forEach(id => {
+            document.getElementById(id).addEventListener("change", () => FilterManager.apply());
+        });
+
+        FilterManager.onTypeChange();
 
         document.getElementById("keresesBtn").addEventListener("click", () => FilterManager.apply());
 
@@ -131,6 +172,10 @@ class FilterManager {
 
         return {
             varos: DataManager.currentCity,
+            tipus: FilterManager.tipus,
+            ugylet: FilterManager.ugylet,
+            hideDup: document.getElementById("hideDuplicates").checked,
+            onlyPhotos: document.getElementById("onlyWithPhotos").checked,
             minAr: n("minAr"),
             maxAr: n("maxAr"),
             minNm: n("minNm"),
@@ -145,6 +190,12 @@ class FilterManager {
     }
 
     static matches(i, f) {
+
+        if ((i.tipus || "lakas") !== f.tipus) return false;
+        if ((i.ugylet || "elado") !== f.ugylet) return false;
+
+        if (f.hideDup && i.dup) return false;
+        if (f.onlyPhotos && !Utils.hasPhoto(i)) return false;
 
         if (f.minAr !== null && i.ar < f.minAr) return false;
         if (f.maxAr !== null && i.ar > f.maxAr) return false;
@@ -163,7 +214,7 @@ class FilterManager {
 
         if (f.kerulet && (i.kerulet || "") !== f.kerulet) return false;
 
-        if (f.sources !== null && !f.sources.has(i.forras)) return false;
+        if (f.sources !== null && !(i.forrasok || [i.forras]).some(k => f.sources.has(k))) return false;
 
         return true;
 
@@ -185,6 +236,7 @@ class FilterManager {
 
         DashboardManager.load(lista);
         TableManager.load(lista);
+        CardsView.render(lista, true);
 
         // A térképet csak akkor rajzoljuk, ha látszik (rejtett elemen a Leaflet rosszul méretez)
         if (PageManager.current === "properties") {
@@ -207,6 +259,8 @@ class FilterManager {
 
         document.getElementById("allapot").value = "";
         document.getElementById("keresoKerulet").value = "";
+        document.getElementById("hideDuplicates").checked = true;
+        document.getElementById("onlyWithPhotos").checked = false;
 
         FilterManager.selectedSources = null;
         FilterManager.renderSources();
@@ -222,6 +276,7 @@ class FilterManager {
         const chips = [];
 
         const varosNev = CityManager.displayName(f.varos || DataManager.currentCity);
+        chips.push(`<i class="${Types.get(f.tipus).icon}"></i> ${Types.label(f.tipus)} · ${Types.ugyletLabel(f.ugylet)}`);
         chips.push(`<i class="fa-solid fa-city"></i> ${Utils.escape(varosNev)}`);
 
         if (f.minAr !== null || f.maxAr !== null) {
@@ -247,7 +302,7 @@ class FilterManager {
     }
 
     static isFiltered() {
-        return FilterManager.describe().length > 1;
+        return FilterManager.describe().length > 2;
     }
 
 }

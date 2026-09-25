@@ -94,7 +94,10 @@ async function becsles(params) {
         SELECT id, link, ar, nm, szobak, emelet, allapot, kerulet, eladva
         FROM ingatlanok
         WHERE varos = $1 AND ar > 0 AND nm > 0
-    `, [varos]);
+          AND statusz = 'aktiv'
+          AND COALESCE(tipus, 'lakas') = $2
+          AND COALESCE(ugylet, 'elado') = $3
+    `, [varos, params.tipus || "lakas", params.ugylet || "elado"]);
 
     // Duplikált hirdetések (ugyanaz a link többször) csak egyszer számítanak
     const lattLinkek = new Set();

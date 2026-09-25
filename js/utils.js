@@ -28,6 +28,41 @@ class Utils {
         return Utils.num(Math.round(value)) + " €/m²";
     }
 
+    // Ár a hirdetés ügylete szerint (kiadónál havidíj)
+    static price(i) {
+        const v = Utils.eur(i.ar);
+        return i.ugylet === "kiado" && v !== "-" ? v + I18n.t("perMonth") : v;
+    }
+
+    // Az ingatlan fő képe: saját feltöltött, vagy más oldalról beolvasott
+    static photoUrl(i) {
+        if (i.kep_id) return "/api/kepek/" + i.kep_id;
+        if (Array.isArray(i.kulso_kepek) && i.kulso_kepek.length) return i.kulso_kepek[0];
+        return null;
+    }
+
+    static hasPhoto(i) {
+        return !!Utils.photoUrl(i);
+    }
+
+    // Link egységesítése (duplikátum-szűréshez)
+    static normLink(l) {
+        const s = String(l || "").trim();
+        if (!s) return "";
+        try {
+            const u = new URL(s);
+            return (u.hostname.toLowerCase().replace(/^www\./, "").replace(/^m\./, "") + u.pathname.replace(/\/+$/, "")).toLowerCase();
+        } catch (e) {
+            return "";
+        }
+    }
+
+    static ago(date) {
+        if (!date) return "";
+        const d = new Date(date);
+        return d.toLocaleDateString(Utils.locale(), { year: "numeric", month: "short", day: "numeric" });
+    }
+
     static pct(value, digits = 1) {
         if (value === null || value === undefined || isNaN(value)) return "-";
         const sign = value > 0 ? "+" : "";

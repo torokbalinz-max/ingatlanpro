@@ -52,12 +52,20 @@ class Sources {
                 </span>`;
     }
 
+    // Egy ingatlan összes forrása (fő link + ugyanez más oldalakon)
+    static allOf(i) {
+        const lista = [Sources.fromLink(i.link)];
+        (i.tovabbi_linkek || []).forEach(l => lista.push(Sources.fromLink(l)));
+        return [...new Set(lista)];
+    }
+
     // Egy listában előforduló források darabszámmal, nagyság szerint
     static count(lista) {
         const m = {};
         lista.forEach(i => {
-            const k = Sources.fromLink(i.link);
-            m[k] = (m[k] || 0) + 1;
+            (i.forrasok || Sources.allOf(i)).forEach(k => {
+                m[k] = (m[k] || 0) + 1;
+            });
         });
         return Object.entries(m)
             .sort((a, b) => b[1] - a[1])

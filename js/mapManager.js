@@ -57,16 +57,17 @@ class MapManager {
 
     static popupHtml(i) {
 
+        const foto = Utils.photoUrl(i);
+
         return `
             <div class="mapPopup">
-                <h6>${I18n.t("popupProperty")}${i.id}</h6>
-                <div class="mapPopupPrice">${Utils.eur(i.ar)}</div>
-                <div>${Utils.num(i.nm)} m² · ${Utils.eurNm(Utils.arNm(i))}</div>
-                <div>${I18n.f("roomsLabel", { n: i.szobak || "-" })} · ${Utils.allapotLabel(i.allapot)}</div>
-                <div class="mt-1">${Sources.badge(i.forras)}</div>
-                ${i.link && i.forras !== "other"
-                    ? `<a href="${Utils.escape(i.link)}" target="_blank" rel="noopener" class="btn btn-primary btn-sm w-100 mt-2">${I18n.t("popupLink")}</a>`
-                    : ""}
+                ${foto ? `<img class="mapPopupImg" src="${Utils.escape(foto)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">` : ""}
+                <h6>${Utils.escape(i.cim || I18n.t("popupProperty") + i.id)}</h6>
+                <div class="mapPopupPrice">${Utils.price(i)}</div>
+                <div>${i.nm ? Utils.num(i.nm) + " m² · " : ""}${Utils.eurNm(Utils.arNm(i))}</div>
+                <div>${i.szobak ? I18n.f("roomsLabel", { n: i.szobak }) + " · " : ""}${i.allapot ? Utils.allapotLabel(i.allapot) : ""}</div>
+                <div class="mt-1">${(i.forrasok || [i.forras]).map(Sources.badge).join(" ")}</div>
+                <button class="btn btn-primary btn-sm w-100 mt-2" onclick="ListingPage.open(${Number(i.id)})">${I18n.t("detailOpenListing")}</button>
             </div>`;
 
     }
