@@ -4,7 +4,8 @@
   "description": "",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "migrate": "node migrate.js"
   },
   "keywords": [],
   "author": "",
@@ -15,7 +16,9 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "pg": "^8.22.0",
-    "sqlite3": "^6.0.1",
     "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

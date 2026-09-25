@@ -1,66 +1,169 @@
-require("dotenv").config();
+// ============================================================
+//  Render PostgreSQL  ->  Neon PostgreSQL  migráció
+//
+//  Használat (a projekt gyökeréből):
+//      npm run migrate
+//
+//  A .env-ben kell:
+//      SOURCE_DATABASE_URL = a Render adatbázis EXTERNAL URL-je
+//      TARGET_DATABASE_URL = a Neon connection string
+//
+//  Ha a Neon adatbázisban már van ingatlan, a script leáll.
+//  Felülíráshoz:  npm run migrate -- --force
+// ============================================================
 
-const sqlite3 = require("sqlite3").verbose();
+require("dotenv").config({ quiet: true });
+
 const { Pool } = require("pg");
-const path = require("path");
+const { createSchema, TABLES } = require("./server/schema");
 
-const sqlite = new sqlite3.Database(
-    path.join(__dirname, "data", "ingatlan.db")
-);
+const FORCE = process.argv.includes("--force");
 
-const pg = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
+const sourceUrl = process.env.SOURCE_DATABASE_URL;
+const targetUrl = process.env.TARGET_DATABASE_URL;
 
-sqlite.all("SELECT * FROM ingatlanok", async (err, rows) => {
+if (!sourceUrl || !targetUrl) {
+    console.error("❌ Hiányzik a SOURCE_DATABASE_URL vagy a TARGET_DATABASE_URL a .env fájlból.");
+    process.exit(1);
+}
 
-    if (err) {
-        console.error(err);
+if (sourceUrl === targetUrl) {
+    console.error("❌ A forrás és a cél adatbázis ugyanaz!");
+    process.exit(1);
+}
+
+const source = new Pool({ connectionString: sourceUrl, ssl: { rejectUnauthorized: false } });
+const target = new Pool({ connectionString: targetUrl, ssl: { rejectUnauthorized: false } });
+
+async function tableExists(db, table) {
+    const r = await db.query("SELECT to_regclass($1) AS t", ["public." + table]);
+    return r.rows[0].t !== null;
+}
+
+async function columnsOf(db, table) {
+    const r = await db.query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = $1`,
+        [table]
+    );
+    return r.rows.map(x => x.column_name);
+}
+
+async function count(db, table) {
+    const r = await db.query(`SELECT COUNT(*)::int AS n FROM ${table}`);
+    return r.rows[0].n;
+}
+
+async function main() {
+
+    console.log("🔌 Kapcsolódás...");
+    await source.query("SELECT 1");
+    await target.query("SELECT 1");
+    console.log("✅ Mindkét adatbázis elérhető.\n");
+
+    // 1) Séma létrehozása a célban
+    await createSchema(target);
+    console.log("✅ Táblák létrehozva a Neon adatbázisban.");
+
+    // 2) Biztonsági ellenőrzés
+    const existing = await count(target, "ingatlanok");
+
+    if (existing > 0 && !FORCE) {
+        console.error(`\n❌ A Neon adatbázisban már van ${existing} ingatlan.`);
+        console.error("   Ha felül akarod írni:  npm run migrate -- --force");
         process.exit(1);
     }
 
-    console.log(`${rows.length} ingatlan található.`);
+    const client = await target.connect();
+    const summary = [];
 
     try {
 
-        for (const i of rows) {
+        await client.query("BEGIN");
 
-            await pg.query(
-                `INSERT INTO ingatlanok
-                (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-                [
-                    i.link,
-                    i.ar,
-                    i.nm,
-                    i.arnm ?? i.arNm,
-                    i.szobak,
-                    i.emelet,
-                    i.allapot,
-                    i.eladva,
-                    i.x,
-                    i.y
-                ]
-            );
+        // 3) Cél táblák kiürítése (fordított sorrendben a kulcsok miatt)
+        await client.query(
+            `TRUNCATE ${[...TABLES].reverse().join(", ")} RESTART IDENTITY CASCADE`
+        );
 
-            console.log("Átmásolva:", i.id);
+        // 4) Adatok másolása táblánként
+        for (const table of TABLES) {
+
+            if (!(await tableExists(source, table))) {
+                console.log(`⏭  ${table}: nincs a forrásban, kihagyva.`);
+                summary.push({ table, source: 0 });
+                continue;
+            }
+
+            const sourceCols = await columnsOf(source, table);
+            const targetCols = await columnsOf(target, table);
+            const cols = sourceCols.filter(c => targetCols.includes(c));
+
+            const rows = (await source.query(
+                `SELECT ${cols.map(c => `"${c}"`).join(", ")} FROM ${table} ORDER BY id`
+            )).rows;
+
+            const colList = cols.map(c => `"${c}"`).join(", ");
+            const params = cols.map((_, i) => `$${i + 1}`).join(", ");
+
+            for (const row of rows) {
+                await client.query(
+                    `INSERT INTO ${table} (${colList}) VALUES (${params})`,
+                    cols.map(c => row[c])
+                );
+            }
+
+            // Az id számláló folytatása a legnagyobb id-tól
+            await client.query(`
+                SELECT setval(
+                    pg_get_serial_sequence('${table}', 'id'),
+                    COALESCE((SELECT MAX(id) FROM ${table}), 1),
+                    (SELECT MAX(id) FROM ${table}) IS NOT NULL
+                )
+            `);
+
+            console.log(`✅ ${table}: ${rows.length} sor átmásolva.`);
+            summary.push({ table, source: rows.length });
 
         }
 
-        console.log("Kész!");
+        await client.query("COMMIT");
 
-    } catch (e) {
+    } catch (err) {
 
-        console.error(e);
+        await client.query("ROLLBACK");
+        throw err;
 
     } finally {
 
-        sqlite.close();
-        await pg.end();
+        client.release();
 
     }
 
-});
+    // 5) Ellenőrzés
+    console.log("\n📋 Ellenőrzés (forrás → cél):");
+
+    let ok = true;
+
+    for (const s of summary) {
+        const n = await count(target, s.table);
+        const match = n === s.source;
+        if (!match) ok = false;
+        console.log(`   ${match ? "✅" : "❌"} ${s.table.padEnd(24)} ${s.source} → ${n}`);
+    }
+
+    console.log(ok
+        ? "\n🎉 Migráció kész, minden egyezik!"
+        : "\n⚠️  Eltérés van – nézd meg a fenti sorokat!");
+
+}
+
+main()
+    .catch(err => {
+        console.error("\n❌ Migrációs hiba, a Neon adatbázis nem változott:\n", err);
+        process.exitCode = 1;
+    })
+    .finally(async () => {
+        await source.end();
+        await target.end();
+    });

@@ -1,111 +1,47 @@
+require("dotenv").config({ quiet: true });
+
 const { Pool } = require("pg");
+const { createSchema, seedDefaults } = require("./schema");
+
+if (!process.env.DATABASE_URL) {
+    console.error("❌ Hiányzik a DATABASE_URL környezeti változó!");
+}
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    // Neon ingyenes szinten a szerver alvó módba megy,
+    // ezért a tétlen kapcsolatokat hamar lezárjuk.
+    max: 5,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 15000
+});
+
+// FONTOS: ha a Neon lezár egy tétlen kapcsolatot, e nélkül
+// az egész Node szerver leállna ("Unhandled 'error' event").
+pool.on("error", err => {
+    console.error("PostgreSQL tétlen kapcsolat hiba (nem kritikus):", err.message);
 });
 
 async function initDatabase() {
 
     try {
 
-        // Ingatlanok
+        await createSchema(pool);
+        await seedDefaults(pool);
 
-        await pool.query(`
-        CREATE TABLE IF NOT EXISTS ingatlanok (
-            id SERIAL PRIMARY KEY,
-            link TEXT,
-            ar DOUBLE PRECISION,
-            nm DOUBLE PRECISION,
-            arnm DOUBLE PRECISION,
-            szobak INTEGER,
-            emelet TEXT,
-            allapot TEXT,
-            eladva BOOLEAN,
-            x DOUBLE PRECISION,
-            y DOUBLE PRECISION
-        )
-        `);
+        console.log("PostgreSQL adatbázis csatlakoztatva, táblák rendben.");
 
-        // Meglévő táblához hozzáadjuk a város / kerület mezőket,
-        // ha még nem léteznének (régi adatbázisoknál).
+    } catch (err) {
 
-        await pool.query(`
-            ALTER TABLE ingatlanok
-            ADD COLUMN IF NOT EXISTS varos TEXT
-        `);
-
-        await pool.query(`
-            ALTER TABLE ingatlanok
-            ADD COLUMN IF NOT EXISTS kerulet TEXT
-        `);
-
-        // Kedvencek
-
-        await pool.query(`
-        CREATE TABLE IF NOT EXISTS favorites (
-            id SERIAL PRIMARY KEY,
-            property_id INTEGER UNIQUE
-        )
-        `);
-
-        // Városok (kódolás nélkül bővíthető lista)
-
-        await pool.query(`
-        CREATE TABLE IF NOT EXISTS varosok (
-            id SERIAL PRIMARY KEY,
-            nev TEXT UNIQUE
-        )
-        `);
-
-        // Alap városok feltöltése, ha még üres a tábla
-        // (ugyanazok, amik eddig a navigációs sávban voltak).
-
-        await pool.query(`
-            INSERT INTO varosok (nev)
-            VALUES
-                ('Sepsiszentgyorgy'),
-                ('Kezdivasarhely'),
-                ('Csikszereda'),
-                ('Brasso'),
-                ('Marosvasarhely')
-            ON CONFLICT (nev) DO NOTHING
-        `);
-
-        // A varos oszlop bevezetése előtt felvitt ingatlanok
-        // ("varos" mező üres/NULL) automatikusan Sepsiszentgyörgyhöz
-        // kerülnek, hogy ne tűnjenek el a szűrésnél.
-
-        await pool.query(`
-            UPDATE ingatlanok
-            SET varos = 'Sepsiszentgyorgy'
-            WHERE varos IS NULL OR varos = ''
-        `);
-
-        // Kerületek / városrészek (városhoz kötve)
-
-        await pool.query(`
-        CREATE TABLE IF NOT EXISTS keruletek (
-            id SERIAL PRIMARY KEY,
-            varos TEXT,
-            nev TEXT,
-            UNIQUE(varos, nev)
-        )
-        `);
-
-        console.log("PostgreSQL adatbázis csatlakoztatva.");
-
-    }
-    catch (err) {
-
-        console.error(err);
+        console.error("Adatbázis inicializálási hiba:", err);
 
     }
 
 }
 
-initDatabase();
+pool.ready = initDatabase();
 
 module.exports = pool;

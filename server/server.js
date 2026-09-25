@@ -1,21 +1,88 @@
+require("dotenv").config({ quiet: true });
+
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const crypto = require("crypto");
 const db = require("./database");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-
-// A teljes weboldal (index.html, js, css, képek) kiszolgálása
-app.use(express.static(path.join(__dirname, "../")));
+const ROOT = path.join(__dirname, "../");
 
 console.log("Server indul...");
 
+// ===================== ÉLETJEL (jelszó nélkül) =====================
+// Render health check / ébresztés ezt hívhatja.
+
+app.get("/healthz", (req, res) => {
+    res.json({ ok: true });
+});
+
+// ===================== JELSZAVAS VÉDELEM =====================
+// Ha az APP_PASSWORD környezeti változó be van állítva, az egész
+// oldal és az API csak felhasználónév + jelszó után érhető el.
+// A böngésző a saját bejelentkező ablakát dobja fel, és utána
+// a fetch() hívásokhoz is automatikusan elküldi.
+
+const APP_USER = process.env.APP_USER || "admin";
+const APP_PASSWORD = process.env.APP_PASSWORD || "";
+
+function safeEqual(a, b) {
+    const ha = crypto.createHash("sha256").update(String(a)).digest();
+    const hb = crypto.createHash("sha256").update(String(b)).digest();
+    return crypto.timingSafeEqual(ha, hb);
+}
+
+if (APP_PASSWORD) {
+
+    app.use((req, res, next) => {
+
+        const header = req.headers.authorization || "";
+        const [scheme, encoded] = header.split(" ");
+
+        if (scheme === "Basic" && encoded) {
+
+            const decoded = Buffer.from(encoded, "base64").toString("utf8");
+            const sep = decoded.indexOf(":");
+            const user = decoded.slice(0, sep);
+            const pass = decoded.slice(sep + 1);
+
+            if (sep > -1 && safeEqual(user, APP_USER) && safeEqual(pass, APP_PASSWORD)) {
+                return next();
+            }
+
+        }
+
+        res.set("WWW-Authenticate", 'Basic realm="IngatlanPro", charset="UTF-8"');
+        res.status(401).send("Bejelentkezés szükséges.");
+
+    });
+
+    console.log("🔒 Jelszavas védelem BEKAPCSOLVA.");
+
+} else {
+
+    console.warn("⚠️  APP_PASSWORD nincs beállítva – az oldal jelszó nélkül elérhető!");
+
+}
+
+app.use(cors());
+app.use(express.json());
+
+// ===================== STATIKUS FÁJLOK =====================
+// Csak a frontendhez szükséges mappák érhetők el.
+// (Korábban a TELJES projektmappa ki volt szolgálva, így pl. a
+// /data/ingatlanok.xlsx vagy a /server/server.js is letölthető volt.)
+
+app.use("/js", express.static(path.join(ROOT, "js")));
+app.use("/css", express.static(path.join(ROOT, "css")));
+app.use("/assets", express.static(path.join(ROOT, "assets")));
+app.use("/libs", express.static(path.join(ROOT, "libs")));
+
 // Főoldal
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "../index.html"));
+    res.sendFile(path.join(ROOT, "index.html"));
 });
 
 // API
