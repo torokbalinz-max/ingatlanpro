@@ -9,9 +9,8 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    },
+    // Helyi fejlesztéshez SSL nélküli adatbázis: PGSSL=off a .env-ben
+    ssl: process.env.PGSSL === "off" ? false : { rejectUnauthorized: false },
     // Neon ingyenes szinten a szerver alvó módba megy,
     // ezért a tétlen kapcsolatokat hamar lezárjuk.
     max: 5,

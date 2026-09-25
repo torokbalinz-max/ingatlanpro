@@ -35,6 +35,36 @@ if (sourceUrl === targetUrl) {
 const source = new Pool({ connectionString: sourceUrl, ssl: { rejectUnauthorized: false } });
 const target = new Pool({ connectionString: targetUrl, ssl: { rejectUnauthorized: false } });
 
+function hostOf(url) {
+    try { return new URL(url).host; } catch { return "(hibás URL formátum!)"; }
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// A Neon ingyenes szinten alszik – az első kapcsolódás
+// néha megszakad, amíg felébred, ezért többször próbáljuk.
+async function connectWithRetry(db, label, url) {
+
+    console.log(`🔌 ${label}: ${hostOf(url)}`);
+
+    for (let attempt = 1; attempt <= 4; attempt++) {
+
+        try {
+            await db.query("SELECT 1");
+            console.log(`   ✅ ${label} kapcsolódva.`);
+            return;
+        } catch (err) {
+            console.log(`   ⚠️  ${attempt}. próbálkozás sikertelen: ${err.message}`);
+            if (attempt === 4) {
+                throw new Error(`${label} adatbázishoz nem sikerült kapcsolódni.`);
+            }
+            await sleep(5000);
+        }
+
+    }
+
+}
+
 async function tableExists(db, table) {
     const r = await db.query("SELECT to_regclass($1) AS t", ["public." + table]);
     return r.rows[0].t !== null;
@@ -56,9 +86,8 @@ async function count(db, table) {
 
 async function main() {
 
-    console.log("🔌 Kapcsolódás...");
-    await source.query("SELECT 1");
-    await target.query("SELECT 1");
+    await connectWithRetry(source, "FORRÁS (Render)", sourceUrl);
+    await connectWithRetry(target, "CÉL (Neon)", targetUrl);
     console.log("✅ Mindkét adatbázis elérhető.\n");
 
     // 1) Séma létrehozása a célban

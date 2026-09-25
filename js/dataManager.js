@@ -1,6 +1,6 @@
 class DataManager {
 
-    static currentCity = "Sepsiszentgyorgy";
+    static currentCity = localStorage.getItem("city") || "Sepsiszentgyorgy";
     static ingatlanok = [];
     static szurtIngatlanok = [];
     static filter = {};
@@ -19,17 +19,23 @@ class DataManager {
 
     }
 
-    static init() {
+    static setCity(city) {
 
-        console.log("DataManager indul...");
+        DataManager.currentCity = city;
+
+        try { localStorage.setItem("city", city); } catch (e) { /* nem kritikus */ }
+
+    }
+
+    // Az aktuális város ingatlanjainak betöltése, majd a
+    // keresési szűrők újraalkalmazása.
+    static init() {
 
         DataManager.loadFavoriteIds();
 
-        fetch("/api/ingatlanok?city=" + encodeURIComponent(DataManager.currentCity))
+        return fetch("/api/ingatlanok?city=" + encodeURIComponent(DataManager.currentCity))
 
             .then(response => {
-
-                console.log("HTTP státusz:", response.status);
 
                 if (!response.ok) {
                     throw new Error("Szerver hiba: " + response.status);
@@ -41,25 +47,22 @@ class DataManager {
 
             .then(rows => {
 
-                console.log("Beolvasott ingatlanok:", rows);
+                // Forrás (hirdetési oldal) előre kiszámolva
+                rows.forEach(i => {
+                    i.forras = Sources.fromLink(i.link);
+                });
 
                 DataManager.ingatlanok = rows;
 
-                // Induláskor a szűrt lista is az összes ingatlan
-                DataManager.szurtIngatlanok = [...rows];
-
-                DashboardManager.load(DataManager.ingatlanok);
-
-                TableManager.load(DataManager.ingatlanok);
-
-                MapManager.load(DataManager.ingatlanok);
+                FilterManager.renderSources();
+                FilterManager.apply();
 
             })
 
             .catch(err => {
 
                 console.error("DataManager hiba:", err);
-                alert(err);
+                alert(I18n.t("alertLoadError") + "\n" + err.message);
 
             });
 
@@ -76,7 +79,7 @@ class DataManager {
                 DataManager.favoriteIds = new Set(ids);
 
                 if (TableManager.grid) {
-                    TableManager.grid.redrawRows();
+                    TableManager.grid.refreshCells({ force: true });
                 }
 
             })
@@ -116,7 +119,11 @@ class DataManager {
                 }
 
                 if (TableManager.grid) {
-                    TableManager.grid.redrawRows();
+                    TableManager.grid.refreshCells({ force: true });
+                }
+
+                if (UIManager.selectedIngatlan && UIManager.selectedIngatlan.id === id) {
+                    UIManager.updateFavoriteButton(id);
                 }
 
                 return !isFav;

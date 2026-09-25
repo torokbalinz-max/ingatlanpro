@@ -5,7 +5,8 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "migrate": "node migrate.js"
+    "migrate": "node migrate.js",
+    "import-backup": "node import-backup.js"
   },
   "keywords": [],
   "author": "",

@@ -1,38 +1,30 @@
 class DashboardManager {
 
-    static load(lista){
+    static lastAvgArNm = null;
 
-        document.getElementById("dbCount").innerHTML = lista.length;
+    static load(lista) {
 
-        if(lista.length === 0){
+        const ervenyes = Utils.valid(lista);
 
-            document.getElementById("dbPrice").innerHTML = "-";
-            document.getElementById("dbNm").innerHTML = "-";
-            document.getElementById("dbSold").innerHTML = "0";
+        document.getElementById("dbCount").innerText = Utils.num(lista.length);
+        document.getElementById("dbSold").innerText = Utils.num(lista.filter(i => i.eladva).length);
 
+        if (ervenyes.length === 0) {
+
+            DashboardManager.lastAvgArNm = null;
+            document.getElementById("dbPrice").innerText = "-";
+            document.getElementById("dbNm").innerText = "-";
             return;
+
         }
 
-        // Átlag ár
-        const atlagAr =
-            lista.reduce((sum,i)=>sum+i.ar,0) / lista.length;
+        const atlagAr = Utils.avg(ervenyes.map(i => i.ar));
+        const atlagArNm = Utils.avg(ervenyes.map(Utils.arNm));
 
-        // Átlag €/nm
-        const atlagNm =
-            lista.reduce((sum,i)=>sum+i.arNm,0) / lista.length;
+        DashboardManager.lastAvgArNm = atlagArNm;
 
-        // Eladottak
-        const eladott =
-            lista.filter(i=>i.eladva).length;
-
-        document.getElementById("dbPrice").innerHTML =
-            Math.round(atlagAr).toLocaleString()+" €";
-
-        document.getElementById("dbNm").innerHTML =
-            Math.round(atlagNm).toLocaleString()+" €/nm";
-
-        document.getElementById("dbSold").innerHTML =
-            eladott;
+        document.getElementById("dbPrice").innerText = Utils.eur(atlagAr);
+        document.getElementById("dbNm").innerText = Utils.eurNm(atlagArNm);
 
     }
 

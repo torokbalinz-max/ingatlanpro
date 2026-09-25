@@ -2,30 +2,19 @@ class AppController {
 
     static selectedIngatlan = null;
 
-    static select(ingatlan) {
+    static select(ingatlan, opts = {}) {
 
-        this.selectedIngatlan = ingatlan;
+        if (!ingatlan) return;
 
-        // Adatlap
+        AppController.selectedIngatlan = ingatlan;
+
         UIManager.showDetails(ingatlan);
 
-        // Térkép csak akkor, ha van koordináta
-        if (
-            ingatlan &&
-            !isNaN(Number(ingatlan.x)) &&
-            !isNaN(Number(ingatlan.y))
-        ) {
-
+        if (!opts.fromMap) {
             MapManager.focus(ingatlan);
-
         }
 
-        // Táblázat kijelölése
-        if (TableManager.grid) {
-
-            TableManager.selectById(ingatlan.id);
-
-        }
+        TableManager.selectById(ingatlan.id);
 
     }
 

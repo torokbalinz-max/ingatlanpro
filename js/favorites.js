@@ -6,111 +6,97 @@ class FavoritesManager {
     static load() {
 
         fetch("/api/favorites")
-
             .then(r => r.json())
-
             .then(lista => {
-
+                lista.forEach(i => { i.forras = Sources.fromLink(i.link); });
                 FavoritesManager.render(lista);
-
             })
-
-            .catch(err => {
-
-                console.error("Kedvencek betöltése sikertelen:", err);
-
-            });
+            .catch(err => console.error("Kedvencek betöltése sikertelen:", err));
 
     }
 
     static buildColumnDefs() {
 
-        const euro = value =>
-            Number(value).toLocaleString("hu-HU") + " €";
-
         return [
 
-            {
-                field: "id",
-                headerName: "#",
-                width: 80
-            },
+            { field: "id", headerName: "#", width: 80 },
 
             {
                 field: "ar",
                 headerName: I18n.t("colAr"),
                 flex: 1.2,
-                valueFormatter: p => euro(p.value)
+                minWidth: 120,
+                valueFormatter: p => Utils.eur(p.value),
+                cellStyle: { fontWeight: "700", color: "#16a34a" }
             },
 
             {
                 field: "nm",
                 headerName: I18n.t("colNm"),
-                width: 100,
-                valueFormatter: p => p.value + " m²"
+                width: 95,
+                valueFormatter: p => Utils.num(p.value) + " m²"
             },
 
             {
-                field: "arNm",
+                colId: "arNm",
                 headerName: I18n.t("colArNm"),
-                width: 120,
-                valueFormatter: p => Math.round(p.value)
+                width: 110,
+                valueGetter: p => Math.round(Utils.arNm(p.data)),
+                valueFormatter: p => Utils.num(p.value)
             },
 
-            {
-                field: "szobak",
-                headerName: I18n.t("colSzoba"),
-                width: 90
-            },
+            { field: "szobak", headerName: I18n.t("colSzoba"), width: 80 },
 
             {
-                field: "varos",
+                colId: "varos",
                 headerName: I18n.t("detailVaros"),
-                width: 150
+                minWidth: 130,
+                flex: 1,
+                valueGetter: p => CityManager.displayName(p.data.varos)
             },
 
-            {
-                field: "kerulet",
-                headerName: I18n.t("colKerulet"),
-                width: 150
-            },
+            { field: "kerulet", headerName: I18n.t("colKerulet"), minWidth: 120, flex: 1 },
 
             {
-                field: "allapot",
+                colId: "allapot",
                 headerName: I18n.t("colAllapot"),
-                flex: 1
+                minWidth: 120,
+                flex: 1,
+                valueGetter: p => Utils.allapotLabel(p.data.allapot)
             },
 
             {
-                headerName: "🗑️",
+                colId: "forras",
+                headerName: I18n.t("colForras"),
+                minWidth: 120,
+                flex: 1,
+                valueGetter: p => Sources.label(p.data.forras)
+            },
+
+            {
+                colId: "remove",
+                headerName: "",
                 width: 70,
                 sortable: false,
                 filter: false,
-                cellStyle: {
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                },
-                cellRenderer: () => `<button class="btn btn-sm btn-outline-danger favRemoveBtn" title="${I18n.t("favDeleteTitle")}">🗑️</button>`,
+                cellRenderer: () => `<button class="btn btn-sm btn-outline-danger favRemoveBtn" title="${I18n.t("favDeleteTitle")}"><i class="fa-solid fa-trash"></i></button>`,
                 onCellClicked: params => {
 
                     if (!confirm(I18n.t("favDeleteConfirm"))) return;
 
-                    fetch("/api/favorites/" + params.data.id, {
-                        method: "DELETE"
-                    })
-                    .then(r => r.json())
-                    .then(() => {
+                    fetch("/api/favorites/" + params.data.id, { method: "DELETE" })
+                        .then(r => r.json())
+                        .then(() => {
 
-                        DataManager.favoriteIds.delete(params.data.id);
+                            DataManager.favoriteIds.delete(params.data.id);
 
-                        FavoritesManager.load();
+                            FavoritesManager.load();
 
-                        if (TableManager.grid) {
-                            TableManager.grid.redrawRows();
-                        }
+                            if (TableManager.grid) {
+                                TableManager.grid.refreshCells({ force: true });
+                            }
 
-                    });
+                        });
 
                 }
             }
@@ -123,29 +109,25 @@ class FavoritesManager {
 
         FavoritesManager.lastData = lista;
 
-        const columnDefs = FavoritesManager.buildColumnDefs();
-
         const el = document.querySelector("#favoritesGrid");
 
         if (!el) return;
 
-        if (this.grid) {
-
-            this.grid.setGridOption("rowData", lista);
-            this.grid.setGridOption("columnDefs", columnDefs);
+        if (FavoritesManager.grid) {
+            FavoritesManager.grid.setGridOption("rowData", lista);
             return;
-
         }
 
-        this.grid = agGrid.createGrid(el, {
+        FavoritesManager.grid = agGrid.createGrid(el, {
 
+            theme: TableManager.theme(),
             rowData: lista,
-            columnDefs,
+            columnDefs: FavoritesManager.buildColumnDefs(),
             animateRows: true,
             pagination: true,
             paginationPageSize: 25,
-            rowSelection: "single",
-            rowHeight: 54,
+            paginationPageSizeSelector: [25, 50, 100],
+            overlayNoRowsTemplate: `<span class="p-3">${I18n.t("favEmpty")}</span>`,
 
             defaultColDef: {
                 sortable: true,
@@ -153,29 +135,33 @@ class FavoritesManager {
                 resizable: true
             },
 
-            onGridReady(params) {
-                params.api.sizeColumnsToFit();
-            },
+            onCellClicked(event) {
 
-            onGridSizeChanged(params) {
-                params.api.sizeColumnsToFit();
-            },
+                if (event.column.getColId() === "remove") return;
 
-            onRowClicked(event) {
+                const i = event.data;
 
-                if (event.colDef && event.colDef.headerName === "🗑️") return;
+                // Ha más városban van, átváltunk arra
+                const kivalaszt = () => {
+                    const helyi = DataManager.ingatlanok.find(x => x.id === i.id) || i;
+                    AppController.select(helyi);
+                };
 
-                PageManager.show("pageDashboard");
+                PageManager.show("properties");
 
-                setTimeout(() => {
+                if (i.varos && i.varos !== DataManager.currentCity) {
 
-                    if (MapManager.map) {
-                        MapManager.map.invalidateSize(true);
-                    }
+                    DataManager.setCity(i.varos);
+                    CityManager.fillCitySelect(document.getElementById("citySelect"), i.varos);
+                    CityManager.loadSearchKeruletek(i.varos);
+                    FilterManager.selectedSources = null;
+                    DataManager.init().then(() => setTimeout(kivalaszt, 300));
 
-                    AppController.select(event.data);
+                } else {
 
-                }, 250);
+                    setTimeout(kivalaszt, 300);
+
+                }
 
             }
 
@@ -184,13 +170,16 @@ class FavoritesManager {
     }
 
     static refreshColumns() {
-
-        if (this.grid) {
-
-            this.grid.setGridOption("columnDefs", FavoritesManager.buildColumnDefs());
-
+        if (FavoritesManager.grid) {
+            FavoritesManager.grid.setGridOption("columnDefs", FavoritesManager.buildColumnDefs());
+            FavoritesManager.grid.setGridOption("overlayNoRowsTemplate", `<span class="p-3">${I18n.t("favEmpty")}</span>`);
         }
+    }
 
+    static refreshTheme() {
+        if (FavoritesManager.grid) {
+            FavoritesManager.grid.setGridOption("theme", TableManager.theme());
+        }
     }
 
 }

@@ -1,93 +1,253 @@
+// ============================================================
+//  Kereső: város, paraméterek, hirdetési oldal (forrás)
+// ============================================================
+
 class FilterManager {
+
+    // null = minden forrás; különben a kiválasztott forrás-kulcsok
+    static selectedSources = null;
 
     static init() {
 
-        document
-            .getElementById("keresesBtn")
-            .addEventListener("click", () => {
+        document.getElementById("keresesBtn").addEventListener("click", () => FilterManager.apply());
 
-                this.filter();
+        document.getElementById("resetFiltersBtn").addEventListener("click", () => FilterManager.reset());
 
+        // Enter a mezőkben = keresés
+        document.querySelectorAll("#searchTabParams input").forEach(input => {
+            input.addEventListener("keydown", e => {
+                if (e.key === "Enter") FilterManager.apply();
             });
+        });
 
-    }
+        // Legördülők azonnal szűrnek
+        ["allapot", "keresoKerulet"].forEach(id => {
+            document.getElementById(id).addEventListener("change", () => FilterManager.apply());
+        });
 
-    static filter() {
+        document.getElementById("btnSourcesAll").onclick = () => {
+            FilterManager.selectedSources = null;
+            FilterManager.renderSources();
+            FilterManager.apply();
+        };
 
-        const minAr = Number(document.getElementById("minAr").value) || 0;
-        const maxAr = Number(document.getElementById("maxAr").value) || Infinity;
+        document.getElementById("btnSourcesNone").onclick = () => {
+            FilterManager.selectedSources = new Set();
+            FilterManager.renderSources();
+            FilterManager.apply();
+        };
 
-        const minNm = Number(document.getElementById("minNm").value) || 0;
-        const maxNm = Number(document.getElementById("maxNm").value) || Infinity;
+        // Város váltás
+        document.getElementById("citySelect").addEventListener("change", function () {
 
-        const minSzoba = Number(document.getElementById("minSzoba").value) || 0;
-        const minEmelet = Number(document.getElementById("minEmelet").value) || 0;
+            DataManager.setCity(this.value);
 
-        const allapot = document.getElementById("allapot").value;
+            // Új városnál a kerület- és forrásszűrő nem értelmezhető
+            document.getElementById("keresoKerulet").value = "";
+            FilterManager.selectedSources = null;
 
-        const keruletEl = document.getElementById("keresoKerulet");
-        const kerulet = keruletEl ? keruletEl.value : "";
+            CityManager.loadSearchKeruletek(this.value);
 
-        // A jelenlegi keresési feltételek eltárolása
-        DataManager.filter = {
+            if (typeof BulkEditManager !== "undefined") {
+                BulkEditManager.loadKeruletOptions();
+                if (TableManager.grid) TableManager.grid.deselectAll();
+                BulkEditManager.updateBar([]);
+            }
 
-             minAr,
-             maxAr,
+            UIManager.showNoSelection();
 
-             minNm,
-             maxNm,
-
-            minSzoba,
-
-            minEmelet,
-
-            allapot,
-
-            kerulet
-
-            };
-
-        const lista = DataManager.ingatlanok.filter(i => {
-
-            if (i.ar < minAr) return false;
-            if (i.ar > maxAr) return false;
-
-            if (i.nm < minNm) return false;
-            if (i.nm > maxNm) return false;
-
-            if (i.szobak < minSzoba) return false;
-            const emelet = parseInt(i.emelet);
-
-            if (!isNaN(emelet) && emelet < minEmelet)
-            return false;
-
-            if (allapot !== "" && i.allapot !== allapot) return false;
-
-            if (kerulet !== "" && (i.kerulet || "") !== kerulet) return false;
-
-            return true;
+            DataManager.init();
 
         });
 
+    }
+
+    // ---------- Forrás lista (Hirdetési oldal fül) ----------
+
+    static renderSources() {
+
+        const box = document.getElementById("sourceList");
+
+        if (!box) return;
+
+        const lista = Sources.count(DataManager.ingatlanok);
+
+        if (lista.length === 0) {
+            box.innerHTML = `<p class="small text-body-secondary mb-0">${I18n.t("sourcesEmpty")}</p>`;
+            return;
+        }
+
+        box.innerHTML = lista.map(s => {
+
+            const checked = FilterManager.selectedSources === null || FilterManager.selectedSources.has(s.key);
+
+            return `
+                <label class="sourceItem">
+                    <input type="checkbox" class="form-check-input" value="${Utils.escape(s.key)}" ${checked ? "checked" : ""}>
+                    <i class="${Sources.icon(s.key)}"></i>
+                    <span class="flex-fill">${Utils.escape(Sources.label(s.key))}</span>
+                    <span class="badge rounded-pill text-bg-light">${s.db}</span>
+                </label>`;
+
+        }).join("");
+
+        box.querySelectorAll("input").forEach(cb => {
+
+            cb.addEventListener("change", () => {
+
+                const all = [...box.querySelectorAll("input")];
+                const checked = all.filter(x => x.checked).map(x => x.value);
+
+                FilterManager.selectedSources = checked.length === all.length ? null : new Set(checked);
+
+                FilterManager.apply();
+
+            });
+
+        });
+
+        FilterManager.updateSourceBadge();
+
+    }
+
+    static updateSourceBadge() {
+
+        const badge = document.getElementById("sourceFilterBadge");
+
+        if (badge) {
+            badge.style.display = FilterManager.selectedSources === null ? "none" : "inline-block";
+        }
+
+    }
+
+    // ---------- Szűrés ----------
+
+    static read() {
+
+        const n = id => {
+            const v = document.getElementById(id).value;
+            return v === "" ? null : Number(v);
+        };
+
+        return {
+            varos: DataManager.currentCity,
+            minAr: n("minAr"),
+            maxAr: n("maxAr"),
+            minNm: n("minNm"),
+            maxNm: n("maxNm"),
+            minSzoba: n("minSzoba"),
+            minEmelet: n("minEmelet"),
+            allapot: document.getElementById("allapot").value,
+            kerulet: document.getElementById("keresoKerulet").value,
+            sources: FilterManager.selectedSources
+        };
+
+    }
+
+    static matches(i, f) {
+
+        if (f.minAr !== null && i.ar < f.minAr) return false;
+        if (f.maxAr !== null && i.ar > f.maxAr) return false;
+
+        if (f.minNm !== null && i.nm < f.minNm) return false;
+        if (f.maxNm !== null && i.nm > f.maxNm) return false;
+
+        if (f.minSzoba !== null && (i.szobak || 0) < f.minSzoba) return false;
+
+        if (f.minEmelet !== null) {
+            const e = Utils.emeletSzam(i.emelet);
+            if (e !== null && e < f.minEmelet) return false;
+        }
+
+        if (f.allapot && Utils.normAllapot(i.allapot) !== f.allapot) return false;
+
+        if (f.kerulet && (i.kerulet || "") !== f.kerulet) return false;
+
+        if (f.sources !== null && !f.sources.has(i.forras)) return false;
+
+        return true;
+
+    }
+
+    static apply() {
+
+        const f = FilterManager.read();
+
+        DataManager.filter = f;
+
+        const lista = DataManager.ingatlanok.filter(i => FilterManager.matches(i, f));
+
         DataManager.szurtIngatlanok = lista;
 
-DashboardManager.load(lista);
+        document.getElementById("searchResultCount").innerText = lista.length;
 
-TableManager.update(lista);
+        FilterManager.updateSourceBadge();
 
-MapManager.load(lista);
+        DashboardManager.load(lista);
+        TableManager.load(lista);
 
-// Ha a statisztika oldal látható,
-// akkor automatikusan frissítjük.
+        // A térképet csak akkor rajzoljuk, ha látszik (rejtett elemen a Leaflet rosszul méretez)
+        if (PageManager.current === "properties") {
+            MapManager.load(lista);
+        } else {
+            MapManager.dirty = true;
+        }
 
-const page = document.getElementById("pageStatistics");
+        if (PageManager.current === "market") {
+            StatisticsManager.refreshCurrent();
+        }
 
-if (page && page.style.display !== "none") {
+    }
 
-    StatisticsManager.loadCurrent();
+    static reset() {
 
-}
+        ["minAr", "maxAr", "minNm", "maxNm", "minSzoba", "minEmelet"].forEach(id => {
+            document.getElementById(id).value = "";
+        });
 
+        document.getElementById("allapot").value = "";
+        document.getElementById("keresoKerulet").value = "";
+
+        FilterManager.selectedSources = null;
+        FilterManager.renderSources();
+
+        FilterManager.apply();
+
+    }
+
+    // Az aktív szűrők emberi nyelven (a Piaci elemzés fejlécéhez)
+    static describe() {
+
+        const f = DataManager.filter;
+        const chips = [];
+
+        const varosNev = CityManager.displayName(f.varos || DataManager.currentCity);
+        chips.push(`<i class="fa-solid fa-city"></i> ${Utils.escape(varosNev)}`);
+
+        if (f.minAr !== null || f.maxAr !== null) {
+            chips.push(`${I18n.t("searchAr")}: ${f.minAr !== null ? Utils.num(f.minAr) : "…"} – ${f.maxAr !== null ? Utils.num(f.maxAr) : "…"}`);
+        }
+
+        if (f.minNm !== null || f.maxNm !== null) {
+            chips.push(`m²: ${f.minNm !== null ? f.minNm : "…"} – ${f.maxNm !== null ? f.maxNm : "…"}`);
+        }
+
+        if (f.minSzoba !== null) chips.push(`${I18n.t("minSzoba")}: ${f.minSzoba}`);
+        if (f.minEmelet !== null) chips.push(`${I18n.t("minEmelet")}: ${f.minEmelet}`);
+        if (f.allapot) chips.push(`${I18n.t("allapot")}: ${Utils.allapotLabel(f.allapot)}`);
+        if (f.kerulet) chips.push(`${I18n.t("kerulet")}: ${Utils.escape(f.kerulet)}`);
+
+        if (f.sources !== null && f.sources !== undefined) {
+            const nevek = [...f.sources].map(Sources.label).join(", ");
+            chips.push(`${I18n.t("searchTabSources")}: ${Utils.escape(nevek || "–")}`);
+        }
+
+        return chips;
+
+    }
+
+    static isFiltered() {
+        return FilterManager.describe().length > 1;
     }
 
 }

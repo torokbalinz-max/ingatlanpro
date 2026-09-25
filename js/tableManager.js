@@ -3,108 +3,128 @@ class TableManager {
     static grid = null;
     static lastData = [];
 
-    static buildColumnDefs() {
+    // ag-Grid téma a világos / sötét módhoz
+    static theme() {
 
-        const euro = value =>
-            Number(value).toLocaleString("hu-HU") + " €";
+        const dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+
+        let t = agGrid.themeQuartz.withParams({
+            fontFamily: "inherit",
+            fontSize: 14,
+            headerFontWeight: 700,
+            borderRadius: 10,
+            wrapperBorderRadius: 12,
+            accentColor: "#2563eb"
+        });
+
+        if (dark) {
+            t = t.withPart(agGrid.colorSchemeDarkBlue).withParams({
+                backgroundColor: "#111827",
+                headerBackgroundColor: "#1f2937",
+                accentColor: "#60a5fa"
+            });
+        }
+
+        return t;
+
+    }
+
+    static buildColumnDefs() {
 
         return [
 
             {
                 headerName: "⭐",
-                width: 60,
+                colId: "fav",
+                width: 56,
                 sortable: false,
                 filter: false,
+                resizable: false,
+                cellClass: "favCell",
                 cellRenderer: params =>
                     DataManager.isFavorite(params.data.id) ? "⭐" : "☆",
                 onCellClicked: params => {
-
                     DataManager.toggleFavorite(params.data.id);
-
                 }
             },
 
             {
                 field: "id",
                 headerName: "#",
-                width: 90,
-                checkboxSelection: true,
-                headerCheckboxSelection: true,
-                cellStyle: {
-                    fontWeight: "700",
-                    color: "#3b82f6"
-                }
+                width: 80,
+                cellStyle: { fontWeight: "700", color: "#3b82f6" }
             },
 
             {
                 field: "ar",
                 headerName: I18n.t("colAr"),
-                flex: 1.3,
-                valueFormatter: p => euro(p.value),
-                cellStyle: {
-                    fontWeight: "700",
-                    color: "#16a34a",
-                    fontSize: "15px"
-                }
+                minWidth: 115,
+                flex: 1,
+                valueFormatter: p => Utils.eur(p.value),
+                cellStyle: { fontWeight: "700", color: "#16a34a" }
             },
 
             {
                 field: "nm",
                 headerName: I18n.t("colNm"),
-                width: 110,
-                valueFormatter: p => p.value + " m²",
-                cellStyle: {
-                    fontWeight: "600"
-                }
+                width: 95,
+                valueFormatter: p => Utils.num(p.value) + " m²"
             },
 
             {
-                field: "arNm",
+                colId: "arNm",
                 headerName: I18n.t("colArNm"),
-                width: 130,
-                valueFormatter: p => Math.round(p.value),
+                width: 110,
+                valueGetter: p => Math.round(Utils.arNm(p.data)),
+                valueFormatter: p => Utils.num(p.value),
                 cellStyle: params => {
 
-                    let color = "#2563eb";
+                    const atlag = DashboardManager.lastAvgArNm;
+                    let color = "inherit";
 
-                    if(params.value > 3500) color = "#dc2626";
+                    if (atlag && params.value > 0) {
+                        if (params.value < atlag * 0.9) color = "#16a34a";
+                        else if (params.value > atlag * 1.1) color = "#dc2626";
+                    }
 
-                    if(params.value < 2200) color = "#16a34a";
-
-                    return {
-
-                        fontWeight:"700",
-
-                        color:color
-
-                    };
+                    return { fontWeight: "700", color };
 
                 }
-
             },
 
             {
-                field:"szobak",
+                field: "szobak",
                 headerName: I18n.t("colSzoba"),
-                width:100
+                width: 95
             },
 
             {
-                field:"emelet",
+                field: "emelet",
                 headerName: I18n.t("colEmelet"),
-                width:120
+                width: 100
             },
 
             {
-                field:"kerulet",
+                field: "kerulet",
                 headerName: I18n.t("colKerulet"),
-                width:150
+                minWidth: 110,
+                flex: 1
             },
 
             {
-                field:"allapot",
+                colId: "allapot",
                 headerName: I18n.t("colAllapot"),
-                flex:1
+                minWidth: 120,
+                flex: 1,
+                valueGetter: p => Utils.allapotLabel(p.data.allapot)
+            },
+
+            {
+                colId: "forras",
+                headerName: I18n.t("colForras"),
+                minWidth: 120,
+                flex: 1,
+                valueGetter: p => Sources.label(p.data.forras)
             }
 
         ];
@@ -115,152 +135,98 @@ class TableManager {
 
         TableManager.lastData = lista;
 
-        const columnDefs = TableManager.buildColumnDefs();
-
-        if(this.grid){
-
-            this.grid.setGridOption("rowData",lista);
-            this.grid.setGridOption("columnDefs",columnDefs);
-
+        if (TableManager.grid) {
+            TableManager.grid.setGridOption("rowData", lista);
             return;
-
         }
 
-        this.grid = agGrid.createGrid(
+        TableManager.grid = agGrid.createGrid(
 
             document.querySelector("#ingatlanGrid"),
 
             {
+                theme: TableManager.theme(),
+                rowData: lista,
+                columnDefs: TableManager.buildColumnDefs(),
+                getRowId: p => String(p.data.id),
+                animateRows: true,
+                pagination: true,
+                paginationPageSize: 25,
+                paginationPageSizeSelector: [25, 50, 100, 250],
+                rowSelection: {
+                    mode: "multiRow",
+                    checkboxes: true,
+                    headerCheckbox: true,
+                    enableClickSelection: false
+                },
+                selectionColumnDef: { width: 48, pinned: "left" },
 
-                rowData:lista,
-
-                columnDefs,
-
-                animateRows:true,
-
-                pagination:true,
-
-                paginationPageSize:25,
-
-                paginationPageSizeSelector:[25,50,100,250],
-
-                rowSelection:"multiple",
-
-                suppressRowClickSelection:true,
-
-                defaultColDef:{
-
-                    sortable:true,
-
-                    filter:true,
-
-                    resizable:true
-
+                defaultColDef: {
+                    sortable: true,
+                    filter: true,
+                    resizable: true
                 },
 
-                onGridReady(params){
-
-                    params.api.sizeColumnsToFit();
-
-                },
-
-                onGridSizeChanged(params){
-
-                    params.api.sizeColumnsToFit();
-
-                },
-
-                onSelectionChanged(params){
-
+                onSelectionChanged(params) {
                     if (typeof BulkEditManager !== "undefined") {
                         BulkEditManager.updateBar(params.api.getSelectedRows());
                     }
-
                 },
 
-                onRowClicked(event){
+                onCellClicked(event) {
 
-                    if (event.colDef && event.colDef.headerName === "⭐") return;
-
-                    if (event.colDef && event.colDef.field === "id") return;
+                    // A kedvenc csillag és a kijelölő jelölőnégyzet nem nyitja az adatlapot
+                    const colId = event.column.getColId();
+                    if (colId === "fav" || colId.startsWith("ag-Grid-Selection")) return;
 
                     AppController.select(event.data);
 
                 }
-
             }
 
         );
 
     }
 
-    static update(lista){
-
-        TableManager.lastData = lista;
-
-        if(this.grid){
-
-            this.grid.setGridOption("rowData",lista);
-
-        }
-
+    static update(lista) {
+        TableManager.load(lista);
     }
 
-    static refreshColumns(){
-
-        if(this.grid){
-
-            this.grid.setGridOption("columnDefs", TableManager.buildColumnDefs());
-
+    static refreshColumns() {
+        if (TableManager.grid) {
+            TableManager.grid.setGridOption("columnDefs", TableManager.buildColumnDefs());
         }
-
     }
 
-    static remove(ingatlan){
-
-        if(this.grid){
-
-            this.grid.applyTransaction({
-
-                remove:[ingatlan]
-
-            });
-
+    static refreshTheme() {
+        if (TableManager.grid) {
+            TableManager.grid.setGridOption("theme", TableManager.theme());
         }
-
     }
 
-    static selectById(id){
+    static remove(ingatlan) {
+        if (TableManager.grid) {
+            TableManager.grid.applyTransaction({ remove: [ingatlan] });
+        }
+    }
 
-        if(!this.grid) return;
+    static selectById(id) {
 
-        let targetNode=null;
+        const grid = TableManager.grid;
 
-        this.grid.forEachNode(node=>{
+        if (!grid) return;
 
-            if(node.data.id===id){
+        const node = grid.getRowNode(String(id));
 
-                targetNode=node;
+        if (!node || node.rowIndex === null) return;
 
-            }
+        const pageSize = grid.paginationGetPageSize();
+        grid.paginationGoToPage(Math.floor(node.rowIndex / pageSize));
 
-        });
-
-        if(!targetNode) return;
-
-        const pageSize=this.grid.paginationGetPageSize();
-
-        const page=Math.floor(targetNode.rowIndex/pageSize);
-
-        this.grid.paginationGoToPage(page);
-
-        setTimeout(()=>{
-
-            targetNode.setSelected(true);
-
-            this.grid.ensureNodeVisible(targetNode,"middle");
-
-        },120);
+        setTimeout(() => {
+            grid.ensureNodeVisible(node, "middle");
+            grid.flashCells({ rowNodes: [node] });
+        }, 120);
 
     }
 

@@ -2,25 +2,31 @@ class UIManager {
 
     static selectedIngatlan = null;
 
-    static showDetails(ingatlan) {
+    static showDetails(i) {
 
-        UIManager.selectedIngatlan = ingatlan;
+        UIManager.selectedIngatlan = i;
 
-        document.getElementById("detailId").innerText = ingatlan.id;
-        document.getElementById("detailAr").innerText = ingatlan.ar.toLocaleString() + " €";
-        document.getElementById("detailNm").innerText = ingatlan.nm + " nm";
-        document.getElementById("detailSzoba").innerText = ingatlan.szobak;
-        document.getElementById("detailEmelet").innerText = ingatlan.emelet;
-        document.getElementById("detailAllapot").innerText = ingatlan.allapot;
-        document.getElementById("detailLink").href = ingatlan.link;
+        document.getElementById("detailIdLabel").innerText = I18n.t("popupProperty").replace("#", "").trim();
+        document.getElementById("detailId").innerText = "#" + i.id;
 
-        const varosEl = document.getElementById("detailVaros");
-        const keruletEl = document.getElementById("detailKerulet");
+        document.getElementById("detailAr").innerText = Utils.eur(i.ar);
+        document.getElementById("detailArNm").innerText = Utils.eurNm(Utils.arNm(i));
+        document.getElementById("detailNm").innerText = Utils.num(i.nm) + " m²";
+        document.getElementById("detailSzoba").innerText = i.szobak ?? "-";
+        document.getElementById("detailEmelet").innerText = i.emelet || "-";
+        document.getElementById("detailAllapot").innerText = Utils.allapotLabel(i.allapot);
+        document.getElementById("detailHely").innerText =
+            [CityManager.displayName(i.varos), i.kerulet].filter(Boolean).join(" · ") || "-";
 
-        if (varosEl) varosEl.innerText = ingatlan.varos || "-";
-        if (keruletEl) keruletEl.innerText = ingatlan.kerulet || "-";
+        const src = document.getElementById("detailSource");
+        src.outerHTML = Sources.badge(i.forras).replace("<span ", '<span id="detailSource" ');
 
-        UIManager.updateFavoriteButton(ingatlan.id);
+        const link = document.getElementById("detailLink");
+        const hasLink = i.link && i.forras !== "local" && i.forras !== "other";
+        link.href = hasLink ? i.link : "#";
+        link.classList.toggle("disabled", !hasLink);
+
+        UIManager.updateFavoriteButton(i.id);
 
     }
 
@@ -28,13 +34,23 @@ class UIManager {
 
         UIManager.selectedIngatlan = null;
 
-        const detailId = document.getElementById("detailId");
+        document.getElementById("detailIdLabel").innerText = "";
+        document.getElementById("detailId").innerText = I18n.t("detailNincsKivalasztva");
 
-        if (detailId) detailId.innerText = I18n.t("detailNincsKivalasztva");
+        ["detailAr", "detailArNm", "detailNm", "detailSzoba", "detailEmelet", "detailAllapot", "detailHely"]
+            .forEach(id => { document.getElementById(id).innerText = "-"; });
+
+        const src = document.getElementById("detailSource");
+        if (src) src.style.display = "none";
+
+        const link = document.getElementById("detailLink");
+        link.href = "#";
+        link.classList.add("disabled");
 
         const btn = document.getElementById("btnFavoriteToggle");
-
-        if (btn) btn.innerHTML = I18n.t("favAdd");
+        btn.innerHTML = I18n.t("favAdd");
+        btn.classList.add("btn-outline-warning");
+        btn.classList.remove("btn-warning");
 
     }
 
@@ -52,218 +68,68 @@ class UIManager {
 
     }
 
-    static setActiveMenu(id){
+    static requireSelection() {
 
-        document.querySelectorAll(".sidebarBtn").forEach(btn=>{
+        if (!UIManager.selectedIngatlan) {
+            alert(I18n.t("alertNincsKivalasztva"));
+            return false;
+        }
 
-            btn.classList.remove("active");
-
-        });
-
-        document.getElementById(id).classList.add("active");
+        return true;
 
     }
 
-    static initMenu() {
+    static init() {
 
-
-        // Ingatlanok
-
-        document.getElementById("menuIngatlanok").onclick = () => {
-
-            UIManager.setActiveMenu("menuIngatlanok");
-
-            PageManager.show("pageDashboard");
-
+        // Kedvenc gomb
+        document.getElementById("btnFavoriteToggle").onclick = () => {
+            if (!UIManager.requireSelection()) return;
+            DataManager.toggleFavorite(UIManager.selectedIngatlan.id);
         };
 
-        // Statisztikák
-
-        document.getElementById("menuStatisztika").onclick = () => {
-
-            UIManager.setActiveMenu("menuStatisztika");
-
-            PageManager.show("pageStatistics");
-
-            StatisticsManager.loadCurrent();
-
-            setTimeout(() => {
-
-                document.getElementById("pageStatistics").scrollIntoView({
-
-                    behavior:"smooth",
-
-                    block:"start"
-
-                });
-
-            },100);
-
+        // Értékbecslés erre az ingatlanra
+        document.getElementById("btnValuateThis").onclick = () => {
+            if (!UIManager.requireSelection()) return;
+            PageManager.show("valuation");
+            ValuationManager.prefill(UIManager.selectedIngatlan).then(() => ValuationManager.run());
         };
 
-        // Kedvencek
-
-        const menuKedvencek = document.getElementById("menuKedvencek");
-
-        if (menuKedvencek) {
-
-            menuKedvencek.onclick = () => {
-
-                UIManager.setActiveMenu("menuKedvencek");
-
-                PageManager.show("pageFavorites");
-
-                FavoritesManager.load();
-
-            };
-
-        }
-
-        // Kedvenc gomb az adatlapon
-
-        const btnFavoriteToggle = document.getElementById("btnFavoriteToggle");
-
-        if (btnFavoriteToggle) {
-
-            btnFavoriteToggle.onclick = () => {
-
-                if (!UIManager.selectedIngatlan) {
-
-                    alert(I18n.t("alertNincsKivalasztva"));
-                    return;
-
-                }
-
-                DataManager.toggleFavorite(UIManager.selectedIngatlan.id)
-                    .then(() => {
-
-                        UIManager.updateFavoriteButton(UIManager.selectedIngatlan.id);
-
-                    });
-
-            };
-
-        }
-
-        // Új ingatlan
-
-      document.getElementById("menuUj").onclick = () => {
-
-    // Ha új ingatlant veszünk fel, ne szerkesztés legyen
-    NewPropertyManager.editId = null;
-
-    // Űrlap törlése
-    NewPropertyManager.clearForm();
-
-    UIManager.setActiveMenu("menuUj");
-
-    PageManager.show("pageNew");
-
-    setTimeout(() => {
-
-        NewPropertyMap.refresh();
-
-    }, 200);
-
-};
-
-        // ===== Törlés =====
-
+        // Törlés
         document.getElementById("btnDelete").onclick = () => {
 
-            if (!UIManager.selectedIngatlan) {
+            if (!UIManager.requireSelection()) return;
 
-                alert(I18n.t("alertNincsKivalasztva"));
+            if (!confirm(I18n.t("alertConfirmDelete"))) return;
 
-                return;
+            const torolt = UIManager.selectedIngatlan;
 
-            }
+            fetch("/api/ingatlanok/" + torolt.id, { method: "DELETE" })
+                .then(r => r.json())
+                .then(() => {
 
-            if (!confirm(I18n.t("alertConfirmDelete"))) {
+                    DataManager.ingatlanok = DataManager.ingatlanok.filter(x => x.id !== torolt.id);
 
-                return;
+                    UIManager.showNoSelection();
 
-            }
+                    FilterManager.renderSources();
+                    FilterManager.apply();
 
-            fetch("/api/ingatlanok/" + UIManager.selectedIngatlan.id, {
+                    alert(I18n.t("alertDeleted"));
 
-                method:"DELETE"
-
-            })
-
-            .then(r=>r.json())
-
-            .then(()=>{
-
-                alert(I18n.t("alertDeleted"));
-
-                DataManager.ingatlanok =
-                    DataManager.ingatlanok.filter(x=>x.id!==UIManager.selectedIngatlan.id);
-
-                DataManager.szurtIngatlanok =
-                    DataManager.szurtIngatlanok.filter(x=>x.id!==UIManager.selectedIngatlan.id);
-
-                TableManager.remove(UIManager.selectedIngatlan);
-
-                DashboardManager.load(DataManager.szurtIngatlanok);
-
-                MapManager.load(DataManager.szurtIngatlanok);
-
-                UIManager.showNoSelection();
-
-            });
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert(I18n.t("alertSaveError"));
+                });
 
         };
 
-        // ===== Szerkesztés =====
-
+        // Szerkesztés
         document.getElementById("btnEdit").onclick = () => {
 
-            if (!UIManager.selectedIngatlan) {
+            if (!UIManager.requireSelection()) return;
 
-                alert(I18n.t("alertNincsKivalasztva"));
-
-                return;
-
-            }
-
-            const i = UIManager.selectedIngatlan;
-
-            document.getElementById("ujLink").value=i.link;
-            document.getElementById("ujAr").value=i.ar;
-            document.getElementById("ujNm").value=i.nm;
-            document.getElementById("ujSzobak").value=i.szobak;
-
-            const emelet=String(i.emelet||"").split("/");
-
-            document.getElementById("ujEmelet").value=emelet[0]||"";
-            document.getElementById("ujOsszEmelet").value=emelet[1]||"";
-
-            document.getElementById("ujAllapot").value=i.allapot;
-            document.getElementById("ujX").value=i.x;
-            document.getElementById("ujY").value=i.y;
-
-            const ujVaros = document.getElementById("ujVaros");
-
-            if (ujVaros) {
-
-                ujVaros.value = i.varos || DataManager.currentCity;
-
-                CityManager.loadKeruletek(ujVaros.value, i.kerulet || "");
-
-            }
-
-            NewPropertyManager.editId=i.id;
-
-            UIManager.setActiveMenu("menuUj");
-
-            PageManager.show("pageNew");
-
-            setTimeout(()=>{
-
-                NewPropertyMap.refresh();
-
-            },300);
+            NewPropertyManager.startEdit(UIManager.selectedIngatlan);
 
         };
 

@@ -1,195 +1,108 @@
+// ============================================================
+//  Piaci elemzés – Ártrend a mentett piaci állapotokból
+// ============================================================
+
 class TrendStatistics {
+
+    static data = [];
 
     static load() {
 
-        document.getElementById("statisticsContainer").innerHTML = `
+        const container = document.getElementById("statisticsContainer");
 
-            <h2>${I18n.t("trendTitle")}</h2>
+        fetch("/api/statistics/trend")
+            .then(r => r.json())
+            .then(lista => {
 
-            <br>
+                TrendStatistics.data = lista;
 
-            <div class="row mb-3">
+                const varosok = [...new Set(lista.map(s => s.varos || ""))];
+                const alap = varosok.includes(DataManager.currentCity) ? DataManager.currentCity : (varosok[0] ?? "");
 
-                <div class="col-md-3">
-                    <label>${I18n.t("trendFrom")}</label>
-                    <input type="date" id="trendFrom" class="form-control">
-                </div>
+                container.innerHTML = `
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <p class="sectionNote">${I18n.t("trendNote")}</p>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">${I18n.t("detailVaros")}</label>
+                                    <select id="trendCity" class="form-select">
+                                        ${varosok.map(v => `<option value="${Utils.escape(v)}">${Utils.escape(v ? CityManager.displayName(v) : I18n.t("allCities"))}</option>`).join("")}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">${I18n.t("trendIndicator")}</label>
+                                    <select id="trendType" class="form-select">
+                                        <option value="avg_price_nm">${I18n.t("trendOptAvgPriceNm")}</option>
+                                        <option value="avg_price">${I18n.t("trendOptAvgPrice")}</option>
+                                        <option value="property_count">${I18n.t("trendOptCount")}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">${I18n.t("trendFrom")}</label>
+                                    <input type="date" id="trendFrom" class="form-control">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">${I18n.t("trendTo")}</label>
+                                    <input type="date" id="trendTo" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <div id="trendSummary" class="mb-3"></div>
+                            <div class="chartBox tall"><canvas id="trendChart"></canvas></div>
+                        </div>
+                    </div>`;
 
-                <div class="col-md-3">
-                    <label>${I18n.t("trendTo")}</label>
-                    <input type="date" id="trendTo" class="form-control">
-                </div>
+                document.getElementById("trendCity").value = alap;
 
-                <div class="col-md-3">
-                    <label>${I18n.t("trendIndicator")}</label>
+                ["trendCity", "trendType", "trendFrom", "trendTo"].forEach(id => {
+                    document.getElementById(id).onchange = () => TrendStatistics.draw();
+                });
 
-                    <select id="trendType" class="form-select">
+                TrendStatistics.draw();
 
-                        <option value="avg_price_nm">${I18n.t("trendOptAvgPriceNm")}</option>
-                        <option value="avg_price">${I18n.t("trendOptAvgPrice")}</option>
-                        <option value="property_count">${I18n.t("trendOptCount")}</option>
-
-                    </select>
-
-                </div>
-
-            </div>
-
-            <div class="card">
-
-                <div class="card-body">
-
-                    <canvas id="trendChart"></canvas>
-
-                </div>
-
-            </div>
-
-        `;
-
-        document.getElementById("trendFrom").onchange = () => {
-
-            TrendStatistics.draw();
-
-        };
-
-        document.getElementById("trendTo").onchange = () => {
-
-            TrendStatistics.draw();
-
-        };
-
-        document.getElementById("trendType").onchange = () => {
-
-            TrendStatistics.draw();
-
-        };
-
-        TrendStatistics.draw();
+            });
 
     }
 
     static draw() {
 
-        fetch("/api/statistics/trend")
+        ChartStatistics.destroy();
 
-        .then(r => r.json())
+        const varos = document.getElementById("trendCity").value;
+        const from = document.getElementById("trendFrom").value;
+        const to = document.getElementById("trendTo").value;
+        const type = document.getElementById("trendType").value;
 
-        .then(lista => {
+        let adatok = TrendStatistics.data.filter(x => (x.varos || "") === varos);
 
-            const from = document.getElementById("trendFrom").value;
-            const to = document.getElementById("trendTo").value;
-            const type = document.getElementById("trendType").value;
+        if (from) adatok = adatok.filter(x => x.created_at >= from);
+        if (to) adatok = adatok.filter(x => x.created_at <= to + "T23:59:59");
 
-            let chartLabel = "";
+        const fmt = type === "avg_price" ? Utils.eur : type === "avg_price_nm" ? Utils.eurNm : v => Utils.num(v);
 
-            switch(type){
+        const summary = document.getElementById("trendSummary");
 
-                case "avg_price_nm":
-                    chartLabel = I18n.t("trendOptAvgPriceNm");
-                    break;
-
-                case "avg_price":
-                    chartLabel = I18n.t("trendOptAvgPrice") + " (€)";
-                    break;
-
-                case "property_count":
-                    chartLabel = I18n.t("trendOptCount");
-                    break;
-
-            }
-
-            let adatok = lista;
-
-            if(from){
-
-                adatok = adatok.filter(x => x.created_at >= from);
-
-            }
-
-            if(to){
-
-                adatok = adatok.filter(x => x.created_at <= to + "T23:59:59");
-
-            }
-
-            const labels = adatok.map(x =>
-                new Date(x.created_at).toLocaleDateString()
-            );
-
-            const values = adatok.map(x =>
-                Number(x[type])
-            );
-
-            if (
-    window.trendChart &&
-    typeof window.trendChart.destroy === "function"
-) {
-    window.trendChart.destroy();
-}
-
-            const ctx = document.getElementById("trendChart").getContext("2d");
-
-window.trendChart = new Chart(ctx, {
-
-                    type: "line",
-
-                    data: {
-
-                        labels,
-
-                        datasets: [
-
-                            {
-
-                                label: chartLabel,
-
-                                data: values,
-
-                                borderWidth: 3,
-
-                                tension: 0.35,
-
-                                fill: false
-
-                            }
-                        ]
-
-                    },
-
-                    options: {
-
-    responsive: true,
-
-    maintainAspectRatio: false,
-
-    plugins: {
-
-        legend: {
-
-            display: true
-
+        if (adatok.length < 2) {
+            summary.innerHTML = `<div class="alert alert-info mb-0">${I18n.t("trendNeedMore")}</div>`;
+        } else {
+            const elso = Number(adatok[0][type]);
+            const utolso = Number(adatok[adatok.length - 1][type]);
+            summary.innerHTML = `
+                <span class="me-2">${fmt(elso)} <i class="fa-solid fa-arrow-right mx-1"></i> <b>${fmt(utolso)}</b></span>
+                ${CompareStatistics.changeBadge(CompareStatistics.change(elso, utolso))}
+                <span class="text-body-secondary small ms-2">(${adatok.length} ${I18n.t("trendPoints")})</span>`;
         }
 
-    },
+        const labels = adatok.map(x => new Date(x.created_at).toLocaleDateString(Utils.locale()));
+        const values = adatok.map(x => Math.round(Number(x[type])));
 
-    scales: {
+        const label = document.querySelector(`#trendType option[value="${type}"]`).innerText;
 
-        y: {
-
-            beginAtZero: false
-
-        }
-
-    }
-
-}
-
-                }
-
-            );
-
-        });
+        ChartStatistics.line("trendChart", labels, values, label, fmt);
 
     }
 

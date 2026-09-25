@@ -11,6 +11,8 @@ class NewPropertyMap {
 
         this.map = L.map("newMap").setView([45.8590, 25.7900], 13);
 
+        this.map.getContainer().style.cursor = "crosshair";
+
         L.tileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             {
@@ -57,6 +59,11 @@ class NewPropertyMap {
                 this.marker = L.marker(latlng).addTo(this.map);
 
             } else {
+
+                if (this.marker) {
+                    this.map.removeLayer(this.marker);
+                    this.marker = null;
+                }
 
                 this.map.setView([45.8590, 25.7900], 13);
 

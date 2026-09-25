@@ -2,161 +2,90 @@ document.addEventListener("DOMContentLoaded", () => {
 
     console.log("IngatlanPro indult");
 
-    UIManager.initMenu();
-    StatisticsManager.init();
+    // ===================== MODULOK =====================
 
-    CityManager.init();
-
-    BulkEditManager.init();
-
-    DataManager.init();
+    UIManager.init();
     FilterManager.init();
-
+    StatisticsManager.init();
+    BulkEditManager.init();
     NewPropertyMap.init();
     NewPropertyManager.init();
+    ValuationManager.init();
 
     UIManager.showNoSelection();
 
-    // ===================== NYELV VÁLTOZÁS KEZELÉSE =====================
+    // Városok, majd az ingatlanok betöltése
+    CityManager.init().then(() => DataManager.init());
+
+    // Oldal a címsor alapján (#properties, #market ...)
+    PageManager.init();
+
+    // ===================== SÖTÉT MÓD =====================
+
+    const darkBtn = document.getElementById("btnDarkMode");
+
+    function applyTheme(dark) {
+
+        document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
+
+        darkBtn.innerHTML = dark
+            ? '<i class="fa-solid fa-sun"></i>'
+            : '<i class="fa-solid fa-moon"></i>';
+
+        darkBtn.title = I18n.t(dark ? "darkModeOff" : "darkModeOn");
+
+        TableManager.refreshTheme();
+        FavoritesManager.refreshTheme();
+        StatisticsManager.rerender();
+
+    }
+
+    applyTheme(document.documentElement.getAttribute("data-bs-theme") === "dark");
+
+    darkBtn.onclick = () => {
+
+        const dark = document.documentElement.getAttribute("data-bs-theme") !== "dark";
+
+        try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) { /* nem kritikus */ }
+
+        applyTheme(dark);
+
+    };
+
+    // ===================== NYELVVÁLTÁS =====================
 
     I18n.onChange(() => {
 
         TableManager.refreshColumns();
+        FavoritesManager.refreshColumns();
 
-        if (typeof FavoritesManager !== "undefined") {
-            FavoritesManager.refreshColumns();
-        }
+        CityManager.refreshLabels();
+        FilterManager.renderSources();
 
-        if (!UIManager.selectedIngatlan) {
-            UIManager.showNoSelection();
+        if (UIManager.selectedIngatlan) {
+            UIManager.showDetails(UIManager.selectedIngatlan);
         } else {
-            UIManager.updateFavoriteButton(UIManager.selectedIngatlan.id);
+            UIManager.showNoSelection();
         }
 
-        if (MapManager.map && DataManager.szurtIngatlanok) {
+        DashboardManager.load(DataManager.szurtIngatlanok);
+
+        if (PageManager.current === "properties") {
             MapManager.load(DataManager.szurtIngatlanok);
+        } else {
+            MapManager.dirty = true;
         }
 
-        if (typeof BulkEditManager !== "undefined") {
-            BulkEditManager.loadKeruletOptions();
-        }
-
-        updateDarkModeButtonText();
-
-    });
-
-    // ===================== PIACI MENTÉS =====================
-
-    const btnSaveStatistics = document.getElementById("btnSaveStatistics");
-
-    if (btnSaveStatistics) {
-
-        btnSaveStatistics.onclick = () => {
-
-            if (!confirm(I18n.t("alertConfirmSaveStats"))) {
-                return;
-            }
-
-            fetch("/api/statistics/save", {
-                method: "POST"
-            })
-            .then(r => r.json())
-            .then(() => {
-                alert(I18n.t("alertStatsSaved"));
-            })
-            .catch(err => {
-                console.error(err);
-                alert(I18n.t("alertStatsSaveError"));
-            });
-
-        };
-
-    }
-
-    // ===================== STATISZTIKA GOMB =====================
-
-    const btnStatistics = document.getElementById("btnStatistics");
-
-    if (btnStatistics) {
-
-        btnStatistics.onclick = () => {
-
-            PageManager.show("pageStatistics");
-
-            StatisticsManager.loadCurrent();
-
-            setTimeout(() => {
-
-                window.scrollTo({
-                    top: document.body.scrollHeight,
-                    behavior: "smooth"
-                });
-
-            }, 100);
-
-        };
-
-    }
-
-    // ===================== SÖTÉT MÓD =====================
-
-    const body = document.body;
-    const darkBtn = document.getElementById("btnDarkMode");
-
-    function updateDarkModeButtonText() {
-
-        if (!darkBtn) return;
-
-        darkBtn.innerHTML = body.classList.contains("dark-mode")
-            ? I18n.t("darkModeOff")
-            : I18n.t("darkModeOn");
-
-    }
-
-    if (darkBtn) {
-
-        if (localStorage.getItem("theme") === "dark") {
-
-            body.classList.add("dark-mode");
-
-        }
-
-        updateDarkModeButtonText();
-
-        darkBtn.onclick = () => {
-
-            body.classList.toggle("dark-mode");
-
-            localStorage.setItem(
-                "theme",
-                body.classList.contains("dark-mode") ? "dark" : "light"
-            );
-
-            updateDarkModeButtonText();
-
-        };
-
-    }
-
-});
-document.getElementById("citySelect").onchange = function () {
-
-    DataManager.currentCity = this.value;
-
-    DataManager.init();
-
-    CityManager.loadSearchKeruletek(this.value);
-
-    if (typeof BulkEditManager !== "undefined") {
+        NewPropertyManager.updateTitle();
+        NewPropertyManager.updatePreview();
 
         BulkEditManager.loadKeruletOptions();
 
-        if (TableManager.grid) {
-            TableManager.grid.deselectAll();
-        }
+        StatisticsManager.rerender();
+        ValuationManager.rerender();
 
-        BulkEditManager.updateBar([]);
+        darkBtn.title = I18n.t(document.documentElement.getAttribute("data-bs-theme") === "dark" ? "darkModeOff" : "darkModeOn");
 
-    }
+    });
 
-};
+});

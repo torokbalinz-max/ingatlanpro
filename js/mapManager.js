@@ -1,162 +1,138 @@
 class MapManager {
 
-    static map;
-    static markers = [];
+    static map = null;
+    static layer = null;
+    static legend = null;
     static markerMap = new Map();
+    static dirty = false;
+
+    static COLORS = {
+        "felújítandó": "#f97316",
+        "részbenfel": "#eab308",
+        "jó": "#2563eb",
+        "újszerű": "#16a34a",
+        "luxus": "#9333ea",
+        "": "#64748b"
+    };
+
+    static color(allapot) {
+        return MapManager.COLORS[Utils.normAllapot(allapot)] || MapManager.COLORS[""];
+    }
+
+    static ensureMap() {
+
+        if (MapManager.map) return;
+
+        MapManager.map = L.map("map").setView([45.8590, 25.7900], 13);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "© OpenStreetMap"
+        }).addTo(MapManager.map);
+
+        MapManager.layer = L.featureGroup().addTo(MapManager.map);
+
+    }
+
+    static renderLegend() {
+
+        if (MapManager.legend) MapManager.legend.remove();
+
+        MapManager.legend = L.control({ position: "bottomright" });
+
+        MapManager.legend.onAdd = () => {
+
+            const div = L.DomUtil.create("div", "mapLegend");
+
+            div.innerHTML = ["felújítandó", "részbenfel", "jó", "újszerű", "luxus"]
+                .map(a => `<span><i style="background:${MapManager.COLORS[a]}"></i>${Utils.allapotLabel(a)}</span>`)
+                .join("");
+
+            return div;
+
+        };
+
+        MapManager.legend.addTo(MapManager.map);
+
+    }
+
+    static popupHtml(i) {
+
+        return `
+            <div class="mapPopup">
+                <h6>${I18n.t("popupProperty")}${i.id}</h6>
+                <div class="mapPopupPrice">${Utils.eur(i.ar)}</div>
+                <div>${Utils.num(i.nm)} m² · ${Utils.eurNm(Utils.arNm(i))}</div>
+                <div>${I18n.f("roomsLabel", { n: i.szobak || "-" })} · ${Utils.allapotLabel(i.allapot)}</div>
+                <div class="mt-1">${Sources.badge(i.forras)}</div>
+                ${i.link && i.forras !== "other"
+                    ? `<a href="${Utils.escape(i.link)}" target="_blank" rel="noopener" class="btn btn-primary btn-sm w-100 mt-2">${I18n.t("popupLink")}</a>`
+                    : ""}
+            </div>`;
+
+    }
 
     static load(lista) {
 
-        if (this.map) {
-            this.map.remove();
-        }
+        MapManager.ensureMap();
+        MapManager.dirty = false;
 
-        this.map = L.map("map").setView([45.8590, 25.7900], 13);
+        MapManager.map.invalidateSize();
 
-        L.tileLayer(
-            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            {
-                attribution: "© OpenStreetMap"
-            }
-        ).addTo(this.map);
-
-        this.markers = [];
-        this.markerMap.clear();
+        MapManager.layer.clearLayers();
+        MapManager.markerMap.clear();
 
         lista.forEach(ingatlan => {
 
-            if (isNaN(ingatlan.y) || isNaN(ingatlan.x))
-                return;
+            const x = Number(ingatlan.x);
+            const y = Number(ingatlan.y);
 
-            // =============================
-            // MARKER SZÍN AZ ÁLLAPOT ALAPJÁN
-            // =============================
+            // Hiányzó / 0 koordináta: nem tesszük ki a térképre
+            if (!x || !y || isNaN(x) || isNaN(y)) return;
 
-            let markerColor = "blue";
+            const marker = L.circleMarker([y, x], {
+                radius: 8,
+                weight: 2,
+                color: "#ffffff",
+                fillColor: MapManager.color(ingatlan.allapot),
+                fillOpacity: 0.9
+            })
+            .bindPopup(MapManager.popupHtml(ingatlan));
 
-            const allapot = (ingatlan.allapot || "").toLowerCase();
+            marker.on("click", () => AppController.select(ingatlan, { fromMap: true }));
 
-            if (
-                allapot.includes("új") ||
-                allapot.includes("uj") ||
-                allapot.includes("újszerű") ||
-                allapot.includes("ujszerű") ||
-                allapot.includes("ujszeru")
-            ) {
+            marker.addTo(MapManager.layer);
 
-                markerColor = "green";
-
-            } else if (
-                allapot.includes("jó") ||
-                allapot.includes("jo")
-            ) {
-
-                markerColor = "blue";
-
-            } else if (
-                allapot.includes("felúj") ||
-                allapot.includes("feluj")
-            ) {
-
-                markerColor = "orange";
-
-            } else {
-
-                markerColor = "red";
-
-            }
-
-            const icon = new L.Icon({
-
-                iconUrl:
-                    `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${markerColor}.png`,
-
-                shadowUrl:
-                    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-
-            });
-
-            const marker = L.marker(
-                [ingatlan.y, ingatlan.x],
-                {
-                    icon: icon
-                }
-            )
-
-            .addTo(this.map)
-
-            .bindPopup(`
-
-                <div style="min-width:220px">
-
-                    <h5 style="margin-bottom:10px;">
-                        ${I18n.t("popupProperty")}${ingatlan.id}
-                    </h5>
-
-                    <b>${I18n.t("popupAr")}</b>
-                    ${ingatlan.ar.toLocaleString()} €<br>
-
-                    <b>${I18n.t("popupNm")}</b>
-                    ${ingatlan.nm} m²<br>
-
-                    <b>${I18n.t("popupArNm")}</b>
-                    ${Math.round(ingatlan.arNm)}<br>
-
-                    <b>${I18n.t("popupAllapot")}</b>
-                    ${ingatlan.allapot}
-
-                    <hr>
-
-                    <a
-                        href="${ingatlan.link}"
-                        target="_blank"
-                        class="btn btn-primary btn-sm w-100">
-
-                        ${I18n.t("popupLink")}
-
-                    </a>
-
-                </div>
-
-            `);
-
-            marker.on("click", () => {
-
-                AppController.select(ingatlan);
-
-                TableManager.selectById(ingatlan.id);
-
-                UIManager.showDetails(ingatlan);
-
-            });
-
-            this.markers.push(marker);
-
-            this.markerMap.set(ingatlan.id, marker);
+            MapManager.markerMap.set(ingatlan.id, marker);
 
         });
+
+        if (MapManager.markerMap.size > 0) {
+            MapManager.map.fitBounds(MapManager.layer.getBounds(), { padding: [30, 30], maxZoom: 15 });
+        }
+
+        MapManager.renderLegend();
+
+    }
+
+    // Oldalváltás után (a rejtett térkép méretének frissítése)
+    static refresh() {
+
+        if (MapManager.dirty || !MapManager.map) {
+            MapManager.load(DataManager.szurtIngatlanok);
+            return;
+        }
+
+        setTimeout(() => MapManager.map.invalidateSize(), 50);
 
     }
 
     static focus(ingatlan) {
 
-        const marker = this.markerMap.get(ingatlan.id);
+        const marker = MapManager.markerMap.get(ingatlan.id);
 
-        if (!marker)
-            return;
+        if (!marker || !MapManager.map) return;
 
-        this.map.flyTo(
-            marker.getLatLng(),
-            17,
-            {
-                animate: true,
-                duration: 0.8
-            }
-        );
+        MapManager.map.flyTo(marker.getLatLng(), 16, { animate: true, duration: 0.8 });
 
         marker.openPopup();
 

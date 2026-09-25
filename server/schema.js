@@ -26,7 +26,24 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS varos TEXT`);
     await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS kerulet TEXT`);
 
+    // Felvétel ideje + tulajdonos (a 2. verzió felhasználókezeléséhez előkészítve)
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS owner_id INTEGER`);
+
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_varos ON ingatlanok (varos)`);
+
+    // Felhasználók – egyelőre üres, a bejelentkezés a 2. verzióban jön
+    // (e-mail vagy Google fiók). Az ingatlanok owner_id mezője ide mutat.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email TEXT UNIQUE,
+            nev TEXT,
+            google_id TEXT UNIQUE,
+            szerep TEXT DEFAULT 'user',
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
 
     // Kedvencek
     await db.query(`
@@ -70,6 +87,9 @@ async function createSchema(db) {
         )
     `);
 
+    // Melyik városra készült a snapshot (NULL = régi, az összes város)
+    await db.query(`ALTER TABLE market_snapshots ADD COLUMN IF NOT EXISTS varos TEXT`);
+
     await db.query(`
         CREATE TABLE IF NOT EXISTS market_snapshot_groups (
             id SERIAL PRIMARY KEY,
@@ -109,6 +129,7 @@ async function seedDefaults(db) {
 
 // Táblák a helyes (függőségi) sorrendben – a migráció is ezt használja
 const TABLES = [
+    "users",
     "varosok",
     "keruletek",
     "ingatlanok",
