@@ -16,7 +16,7 @@
 // ============================================================
 
 const db = require("./database");
-const { scrape, fetchPage, extractListingLinks, isListingUrl, pageUrl } = require("./scraper");
+const { scrape, fetchPage, extractListingLinks, extractSearchItems, isListingUrl, pageUrl } = require("./scraper");
 const { geocode } = require("./geocode");
 const { normalize, normLink } = require("./listing");
 const quality = require("./quality");
@@ -74,22 +74,45 @@ function allapot(id) {
 
 // ---------- közös ----------
 
+// Egy link azonosító kulcsai: a normalizált link, és az imobiliare.ro
+// hirdetésszáma (ugyanaz a hirdetés más címmel / utm-paraméterrel is)
+function linkKulcsok(link) {
+    const k = [];
+    const n = normLink(link);
+    if (n) k.push(n);
+    const m = String(link || "").match(/imobiliare\.ro\/(?:[a-z]{2}\/)?oferta\/[a-z0-9-]*?-(\d{6,})(?:[/?#]|$)/i);
+    if (m) k.push("imo:" + m[1]);
+    return k;
+}
+
+function elemKulcsok(d) {
+    const k = [];
+    [d.link, ...(d.tovabbi_linkek || [])].forEach(l => k.push(...linkKulcsok(l)));
+    if (d.imoId) k.push("imo:" + d.imoId);
+    return [...new Set(k)];
+}
+
 async function meglevoLinkek() {
 
     const r = await db.query("SELECT id, link, ar, statusz, tovabbi_linkek FROM ingatlanok");
     const m = new Map();
 
     r.rows.forEach(i => {
-        const k = normLink(i.link);
-        if (k) m.set(k, i);
-        (i.tovabbi_linkek || []).forEach(l => {
-            const k2 = normLink(l);
-            if (k2 && !m.has(k2)) m.set(k2, i);
+        [i.link, ...(i.tovabbi_linkek || [])].forEach(l => {
+            linkKulcsok(l).forEach(k => { if (!m.has(k)) m.set(k, i); });
         });
     });
 
     return m;
 
+}
+
+function keresMeglevo(meglevo, kulcsok) {
+    for (const k of kulcsok) {
+        const v = meglevo.get(k);
+        if (v) return v;
+    }
+    return null;
 }
 
 // Egy beolvasott hirdetés adatainak előkészítése mentéshez
@@ -128,12 +151,14 @@ async function elokeszit(d, alap) {
 
 // ---------- beolvasás ----------
 
-async function egyHirdetes(url, alap, job, meglevo) {
+async function egyHirdetes(url, alap, job, meglevo, kesz) {
 
-    const k = normLink(url);
-    const van = meglevo.get(k);
+    // "kesz": a találati listából már kiolvasott adatok (nem kell megnyitni a hirdetést)
+    const d = kesz || await scrape(url);
+    if (!d.link) d.link = url;
 
-    const d = await scrape(url);
+    const kulcsok = kesz ? elemKulcsok(d) : linkKulcsok(url);
+    const van = keresMeglevo(meglevo, kulcsok);
 
     if (van) {
 
@@ -142,17 +167,8 @@ async function egyHirdetes(url, alap, job, meglevo) {
             return;
         }
 
-        if (d.ar && van.ar && Math.abs(d.ar - van.ar) >= 1) {
-            await db.query(
-                "UPDATE ingatlanok SET ar = $1, arnm = CASE WHEN nm > 0 THEN $1 / nm ELSE arnm END, updated_at = NOW(), utolso_ellenorzes = NOW() WHERE id = $2",
-                [d.ar, van.id]
-            );
-            job.frissitett++;
-            naplo(job, { url, eredmeny: "ar_frissitve", id: van.id, regi: van.ar, uj: d.ar });
-        } else {
-            job.kihagyott++;
-            naplo(job, { url, eredmeny: "mar_megvan", id: van.id });
-        }
+        const r = await db.query("SELECT * FROM ingatlanok WHERE id = $1", [van.id]);
+        if (r.rows[0]) await frissitAdatbol(r.rows[0], d, job);
 
         return;
 
@@ -171,31 +187,39 @@ async function egyHirdetes(url, alap, job, meglevo) {
         INSERT INTO ingatlanok
         (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
          tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
-         kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, forras_kerulet, evszam, utolso_ellenorzes)
+         kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, forras_kerulet, evszam,
+         tovabbi_linkek, utolso_ellenorzes)
         VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$12,$13,$14,$15,$16,'aktiv','import',$17,
-                $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,NOW())
+                $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,NOW())
         RETURNING id
     `, [
-        url, adat.ar, adat.nm, adat.arnm, adat.szobak, adat.emelet, adat.allapot,
+        d.link, adat.ar, adat.nm, adat.arnm, adat.szobak, adat.emelet, adat.allapot,
         adat.x, adat.y, adat.varos, adat.kerulet, adat.tipus, adat.ugylet,
         adat.cim, adat.leiras, adat.telek_nm, adat.hely_pontossag,
         JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.hianyzo), JSON.stringify(q.problemak),
-        q.ellenorzott, adat.forras_szoveg, adat.forras_kerulet, adat.evszam
+        q.ellenorzott, adat.forras_szoveg, adat.forras_kerulet, adat.evszam,
+        JSON.stringify(d.tovabbi_linkek || [])
     ]);
 
-    meglevo.set(k, { id: r.rows[0].id, link: url, ar: adat.ar });
+    const uj = { id: r.rows[0].id, link: d.link, ar: adat.ar };
+    kulcsok.forEach(k => meglevo.set(k, uj));
 
     job.uj++;
-    naplo(job, { url, eredmeny: "uj", id: r.rows[0].id, hianyzo: q.hianyzo, problemak: q.problemak });
+    naplo(job, { url: d.link, eredmeny: "uj", id: uj.id, hianyzo: q.hianyzo, problemak: q.problemak });
 
 }
 
-// Egy találati lista összes oldalának hirdetés-linkjei
-async function listaLinkek(url, job) {
+// Egy találati lista összes oldala.
+// Imoradar24-en a listában minden adat benne van ("elemek"),
+// máshol csak a hirdetések linkjeit gyűjtjük ("linkek").
+// "teljes": a lista végéig eljutottunk (nem a korlát állított meg).
+async function listaOldalak(url, job, maxOldal = MAX_OLDAL) {
 
-    const osszes = new Set();
+    const elemek = new Map();
+    const linkek = new Set();
+    let teljes = false;
 
-    for (let oldal = 1; oldal <= MAX_OLDAL; oldal++) {
+    for (let oldal = 1; oldal <= maxOldal; oldal++) {
 
         const u = oldal === 1 ? url : pageUrl(url, oldal);
 
@@ -208,59 +232,145 @@ async function listaLinkek(url, job) {
             break;
         }
 
-        if (p.status >= 400) break;
+        if (p.status >= 400) {
+            naplo(job, { url: u, eredmeny: "hiba", uzenet: tiltasUzenet(u, p.status) });
+            break;
+        }
 
-        const linkek = extractListingLinks(p.html, p.finalUrl || u);
-        const elotte = osszes.size;
+        const elotte = elemek.size + linkek.size;
 
-        linkek.forEach(l => osszes.add(l));
+        const talalt = extractSearchItems(p.html);
 
-        naplo(job, { url: u, eredmeny: "lista", db: linkek.length });
+        if (talalt.length) {
+            talalt.forEach(d => { if (!elemek.has(normLink(d.link))) elemek.set(normLink(d.link), d); });
+        } else {
+            extractListingLinks(p.html, p.finalUrl || u).forEach(l => linkek.add(l));
+        }
+
+        const ujDb = elemek.size + linkek.size - elotte;
+
+        naplo(job, { url: u, eredmeny: "lista", db: talalt.length || ujDb });
 
         // Nincs új hirdetés ezen az oldalon: vége a listának
-        if (osszes.size === elotte || linkek.length === 0) break;
+        if (ujDb === 0) { teljes = true; break; }
 
-        if (osszes.size >= MAX_HIRDETES) break;
+        if (elemek.size + linkek.size >= MAX_HIRDETES) break;
 
         await sleep(KESLELTETES);
 
     }
 
-    return [...osszes];
+    return { elemek: [...elemek.values()], linkek: [...linkek], teljes };
 
 }
 
-async function futtat(job, urls, alap) {
+function tiltasUzenet(url, status) {
+    if (status === 403 && /imobiliare\.ro/i.test(url)) {
+        return "HTTP 403 – az imobiliare.ro letiltja a szervert. Használd ugyanennek a keresésnek az Imoradar24-es linkjét (ott minden imobiliare hirdetés benne van).";
+    }
+    return `HTTP ${status}`;
+}
+
+// Egy teljesen végigolvasott találati listából hiányzó imobiliare-hirdetések:
+// ezeket eladták / levették → "nem elérhető" (az admin visszaállíthatja)
+async function hianyzokJelol(latottKulcsok, alap, job, elemDb) {
+
+    if (!alap.varos || !alap.tipus || !alap.ugylet || elemDb < 10) return;
+
+    const r = await db.query(`
+        SELECT id, link, tovabbi_linkek FROM ingatlanok
+        WHERE statusz = 'aktiv' AND varos = $1
+          AND COALESCE(tipus, 'lakas') = $2 AND COALESCE(ugylet, 'elado') = $3
+          AND link ILIKE '%imobiliare.ro/%oferta/%'
+    `, [alap.varos, alap.tipus, alap.ugylet]);
+
+    const hianyzik = r.rows.filter(i =>
+        ![i.link, ...(i.tovabbi_linkek || [])].some(l => linkKulcsok(l).some(k => latottKulcsok.has(k)))
+    );
+
+    if (!hianyzik.length) return;
+
+    // Biztonsági fék: ha szinte minden eltűnne, valószínűleg a lista hibás
+    if (r.rows.length >= 10 && hianyzik.length > r.rows.length * 0.9) {
+        naplo(job, { eredmeny: "hiba", uzenet: `Túl sok hiányzó hirdetés (${hianyzik.length}/${r.rows.length}) – nem jelöltem őket, ellenőrizd a keresési linket.` });
+        return;
+    }
+
+    for (const i of hianyzik) {
+        await nemElerhetoJelol(i.id, job, i.link, "nincs_a_listaban");
+    }
+
+}
+
+// A lista típusa / ügylete a linkből, ha nincs megadva
+function listaAlap(url, alap) {
+    const u = String(url).toLowerCase();
+    const tipus = /\/apartamente|garsoniere/.test(u) ? "lakas" : /\/case|vile/.test(u) ? "haz" : /\/teren/.test(u) ? "telek" : /birouri/.test(u) ? "iroda" : /spatii-comerciale/.test(u) ? "kereskedelmi" : null;
+    const ugylet = /inchiriat|inchiriere/.test(u) ? "kiado" : /vanzare/.test(u) ? "elado" : null;
+    return { ...alap, tipus: tipus || alap.tipus, ugylet: ugylet || alap.ugylet };
+}
+
+async function futtat(job, urls, alap, opts = {}) {
 
     try {
 
         const meglevo = await meglevoLinkek();
 
-        const hirdetesek = [];
+        const feladatok = [];      // { url, alap, kesz }
+        const listak = [];         // teljesen végigolvasott listák a hiányzók jelöléséhez
 
         for (const u of urls) {
-            if (isListingUrl(u)) hirdetesek.push(u);
-            else hirdetesek.push(...await listaLinkek(u, job));
+
+            if (isListingUrl(u)) {
+                feladatok.push({ url: u, alap });
+                continue;
+            }
+
+            const la = listaAlap(u, alap);
+            const l = await listaOldalak(u, job, opts.maxOldal);
+
+            l.elemek.forEach(d => feladatok.push({ url: d.link, alap: la, kesz: d }));
+            l.linkek.forEach(x => feladatok.push({ url: x, alap: la }));
+
+            if (l.teljes && l.elemek.length) listak.push({ alap: la, elemek: l.elemek });
+
         }
 
-        const egyedi = [...new Set(hirdetesek)].slice(0, MAX_HIRDETES);
+        const lattam = new Set();
+        const egyedi = feladatok.filter(f => {
+            const k = normLink(f.url);
+            if (lattam.has(k)) return false;
+            lattam.add(k);
+            return true;
+        }).slice(0, MAX_HIRDETES);
 
-        job.osszes = egyedi.length;
+        job.osszes += egyedi.length;
         job.allapot = "fut";
 
-        for (const url of egyedi) {
+        for (const f of egyedi) {
 
             try {
-                await egyHirdetes(url, alap, job, meglevo);
+                if (f.kesz && opts.csakMeglevo && !keresMeglevo(meglevo, elemKulcsok(f.kesz))) {
+                    job.kihagyott++;
+                } else {
+                    await egyHirdetes(f.url, f.alap, job, meglevo, f.kesz);
+                }
             } catch (e) {
                 job.hibak++;
-                naplo(job, { url, eredmeny: "hiba", uzenet: e.message });
+                naplo(job, { url: f.url, eredmeny: "hiba", uzenet: /HTTP 403/.test(e.message) ? tiltasUzenet(f.url, 403) : e.message });
             }
 
             job.kesz++;
 
-            await sleep(KESLELTETES);
+            // A listából kiolvasott adatnál nem kérünk le semmit – nem kell várni
+            if (!f.kesz) await sleep(KESLELTETES);
 
+        }
+
+        for (const l of listak) {
+            const kulcsok = new Set();
+            l.elemek.forEach(d => elemKulcsok(d).forEach(k => kulcsok.add(k)));
+            await hianyzokJelol(kulcsok, l.alap, job, l.elemek.length);
         }
 
         job.allapot = "kesz";
@@ -286,7 +396,7 @@ function indit(urls, alap) {
 
 // ---------- meglévő hirdetések figyelése ----------
 
-async function nemElerhetoJelol(id, job, url) {
+async function nemElerhetoJelol(id, job, url, ok) {
 
     await db.query(
         "UPDATE ingatlanok SET statusz = 'nem_elerheto', utolso_ellenorzes = NOW(), updated_at = NOW() WHERE id = $1 AND statusz <> 'nem_elerheto'",
@@ -294,14 +404,34 @@ async function nemElerhetoJelol(id, job, url) {
     );
 
     job.nemElerheto++;
-    naplo(job, { url, eredmeny: "nem_elerheto", id });
+    naplo(job, { url, eredmeny: "nem_elerheto", id, ok: ok || null });
 
 }
 
 // Egy hirdetés frissítése a forrásoldalról: ár, elérhetőség, hiányzó adatok, képek
 async function frissitForrasbol(i, job) {
 
-    const d = await scrape(i.link);
+    let d;
+
+    try {
+        d = await scrape(i.link);
+    } catch (e) {
+        // Az imobiliare.ro letiltja a szervert: a város Imoradar24-es listájából frissítünk
+        if (/HTTP 403/.test(e.message) && /imobiliare\.ro/i.test(i.link)) {
+            const volt = job.frissitett + job.kihagyott + job.nemElerheto;
+            await varosSzinkron([{ varos: i.varos, tipus: i.tipus || "lakas", ugylet: i.ugylet || "elado" }], job, { csakMeglevo: true });
+            await db.query("UPDATE ingatlanok SET utolso_ellenorzes = NOW() WHERE id = $1", [i.id]);
+            if (job.frissitett + job.kihagyott + job.nemElerheto === volt) throw new Error(tiltasUzenet(i.link, 403));
+            return;
+        }
+        throw e;
+    }
+
+    await frissitAdatbol(i, d, job);
+
+}
+
+async function frissitAdatbol(i, d, job) {
 
     if (d.elerheto === false) {
         await nemElerhetoJelol(i.id, job, i.link);
@@ -323,9 +453,19 @@ async function frissitForrasbol(i, job) {
     if (ures(i.leiras) && d.leiras) potol.leiras = d.leiras;
     if (ures(i.telek_nm) && d.telek_nm) potol.telek_nm = d.telek_nm;
     if (ures(i.evszam) && d.evszam) potol.evszam = d.evszam;
-    if (d.forrasSzoveg) potol.forras_szoveg = d.forrasSzoveg;
+    if (d.forrasSzoveg && (ures(i.forras_szoveg) || !(d.forrasok && d.forrasok.osszes === "kereses"))) potol.forras_szoveg = d.forrasSzoveg;
     if (d.kerulet) potol.forras_kerulet = d.kerulet;
-    if (d.kulso_kepek && d.kulso_kepek.length) potol.kulso_kepek = JSON.stringify(d.kulso_kepek);
+    // Képek: ha eddig nem volt, vagy most több van
+    const regiKepek = Array.isArray(i.kulso_kepek) ? i.kulso_kepek : [];
+    if (d.kulso_kepek && d.kulso_kepek.length && (!regiKepek.length || d.kulso_kepek.length >= regiKepek.length)) {
+        potol.kulso_kepek = JSON.stringify(d.kulso_kepek);
+        if (!regiKepek.length) valtozas.push("kepek");
+    }
+
+    // A forrás további linkjei (ugyanaz a hirdetés több oldalon)
+    const tovabbi = [...new Set([...(i.tovabbi_linkek || []), ...(d.tovabbi_linkek || []), d.link]
+        .filter(l => l && normLink(l) !== normLink(i.link)))];
+    if (tovabbi.length !== (i.tovabbi_linkek || []).length) potol.tovabbi_linkek = JSON.stringify(tovabbi);
 
     if (ures(i.kerulet) && d.kerulet) {
         const k = await quality.keruletKeres(i.varos, d.kerulet, d.utca, d.cim);
@@ -356,7 +496,7 @@ async function frissitForrasbol(i, job) {
     if (uj.ar > 0 && uj.nm > 0) potol.arnm = uj.ar / uj.nm;
 
     const kulcsok = Object.keys(potol);
-    const sets = kulcsok.map((k, idx) => `${k} = $${idx + 1}${["kulso_kepek", "hianyzo", "problemak"].includes(k) ? "::jsonb" : ""}`);
+    const sets = kulcsok.map((k, idx) => `${k} = $${idx + 1}${["kulso_kepek", "hianyzo", "problemak", "tovabbi_linkek"].includes(k) ? "::jsonb" : ""}`);
 
     const params = kulcsok.map(k => potol[k]);
     params.push(i.id);
@@ -366,12 +506,65 @@ async function frissitForrasbol(i, job) {
         params
     );
 
-    if (valtozas.length) {
+    if (i.statusz === "nem_elerheto") {
+        job.frissitett++;
+        naplo(job, { url: i.link, eredmeny: "ujra_elerheto", id: i.id });
+    } else if (valtozas.includes("ar")) {
         job.frissitett++;
         naplo(job, { url: i.link, eredmeny: "ar_frissitve", id: i.id, regi: i.ar, uj: d.ar });
+    } else if (valtozas.length) {
+        job.frissitett++;
+        naplo(job, { url: i.link, eredmeny: "frissitve", id: i.id, mi: valtozas });
     } else {
         job.kihagyott++;
         naplo(job, { url: i.link, eredmeny: "rendben", id: i.id, problemak: q.problemak, hianyzo: q.hianyzo });
+    }
+
+}
+
+// ---------- Imoradar24 városi listák (az imobiliare-hirdetések frissítéséhez) ----------
+
+// Imoradar24 városnév a keresési linkhez
+const IMORADAR_VAROS = {
+    Sepsiszentgyorgy: "judetul-covasna/sfantu-gheorghe",
+    Kezdivasarhely: "judetul-covasna/targu-secuiesc",
+    Kovaszna: "judetul-covasna/covasna",
+    Baroth: "judetul-covasna/baraolt",
+    Csikszereda: "judetul-harghita/miercurea-ciuc",
+    Szekelyudvarhely: "judetul-harghita/odorheiu-secuiesc",
+    Gyergyoszentmiklos: "judetul-harghita/gheorgheni",
+    Brasso: "judetul-brasov/brasov",
+    Marosvasarhely: "judetul-mures/targu-mures",
+    Kolozsvar: "judetul-cluj/cluj-napoca",
+    Deva: "deva"
+};
+
+const IMORADAR_TIPUS = { lakas: "apartamente", haz: "case", telek: "terenuri", kereskedelmi: "spatii-comerciale", iroda: "birouri" };
+
+function imoradarLink(varos, tipus, ugylet) {
+    const kat = IMORADAR_TIPUS[tipus];
+    if (!kat || !varos) return null;
+    const hely = IMORADAR_VAROS[varos] || quality.ekezetNelkul(varos).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
+    return `https://www.imoradar24.ro/${kat}-de-${ugylet === "kiado" ? "inchiriat" : "vanzare"}/${hely}`;
+}
+
+async function varosSzinkron(csoportok, job, opts = {}) {
+
+    const lattam = new Set();
+
+    for (const c of csoportok) {
+
+        const url = imoradarLink(c.varos, c.tipus, c.ugylet);
+        if (!url || lattam.has(url)) continue;
+        lattam.add(url);
+
+        naplo(job, { url, eredmeny: "lista_szinkron" });
+
+        await futtat(job, [url], { varos: c.varos, tipus: c.tipus, ugylet: c.ugylet }, { maxOldal: 20, ...opts });
+
+        job.allapot = "fut";
+        job.vege = null;
+
     }
 
 }
@@ -398,9 +591,31 @@ async function figyelesFuttat(job, opts) {
         `, params);
 
         // Csak értelmes linkek (a hibás adatsorokat kihagyjuk)
-        const lista = r.rows.filter(i => /^https?:\/\//.test(i.link) && isListingUrl(i.link));
+        let lista = r.rows.filter(i => /^https?:\/\//.test(i.link) && isListingUrl(i.link));
 
-        job.osszes = lista.length;
+        // Az imobiliare.ro letiltja a szervert: az ilyen hirdetéseket a város
+        // Imoradar24-es listájából frissítjük (ár, képek, adatok), és ami
+        // már nincs a listában, azt "nem elérhető"-nek jelöljük
+        const imo = lista.filter(i => /imobiliare\.ro/i.test(i.link));
+
+        if (imo.length) {
+
+            const csoportok = new Map();
+            imo.forEach(i => {
+                const c = { varos: i.varos, tipus: i.tipus || "lakas", ugylet: i.ugylet || "elado" };
+                csoportok.set(`${c.varos}|${c.tipus}|${c.ugylet}`, c);
+            });
+
+            job.allapot = "fut";
+            await varosSzinkron([...csoportok.values()], job, { csakMeglevo: !!(opts.ids && opts.ids.length) });
+
+            await db.query("UPDATE ingatlanok SET utolso_ellenorzes = NOW() WHERE id = ANY($1::int[])", [imo.map(i => i.id)]);
+
+            lista = lista.filter(i => !/imobiliare\.ro/i.test(i.link));
+
+        }
+
+        job.osszes += lista.length;
         job.allapot = "fut";
 
         for (const i of lista) {
@@ -471,4 +686,4 @@ async function figyeltFuttat(ids) {
 
 }
 
-module.exports = { indit, allapot, figyeltFuttat, figyelesIndit, frissitForrasbol, ujJob };
+module.exports = { indit, allapot, figyeltFuttat, figyelesIndit, frissitForrasbol, ujJob, imoradarLink, _teszt: { linkKulcsok, elemKulcsok, listaAlap } };

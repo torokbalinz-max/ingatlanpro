@@ -752,7 +752,10 @@ class AdminManager {
                 lista: I18n.t("importResList"),
                 hiba: I18n.t("importResError"),
                 nem_elerheto: I18n.t("importResUnavailable"),
-                rendben: I18n.t("importResOk")
+                rendben: I18n.t("importResOk"),
+                frissitve: I18n.t("importResUpdated"),
+                ujra_elerheto: I18n.t("importResBack"),
+                lista_szinkron: I18n.t("importResSync")
             };
 
             box.innerHTML = `
@@ -765,7 +768,7 @@ class AdminManager {
                         <div class="progress mb-3" style="height:8px;"><div class="progress-bar ${job.allapot === "kesz" ? "bg-success" : "progress-bar-striped progress-bar-animated"}" style="width:${job.allapot === "kesz" ? 100 : pct}%"></div></div>
                         <div class="d-flex flex-wrap gap-2 mb-3">
                             <span class="badge text-bg-success">${job.uj} ${I18n.t("importResNew")}</span>
-                            <span class="badge text-bg-info">${job.frissitett} ${I18n.t("importResPrice")}</span>
+                            <span class="badge text-bg-info">${job.frissitett} ${I18n.t("importResUpdated")}</span>
                             <span class="badge text-bg-secondary">${job.kihagyott} ${I18n.t("importResExists")}</span>
                             ${job.nemElerheto ? `<span class="badge text-bg-dark">${job.nemElerheto} ${I18n.t("importResUnavailable")}</span>` : ""}
                             <span class="badge text-bg-danger">${job.hibak} ${I18n.t("importResError")}</span>
@@ -776,6 +779,7 @@ class AdminManager {
                                     <span class="badge ${n.eredmeny === "uj" ? "text-bg-success" : n.eredmeny === "hiba" ? "text-bg-danger" : "text-bg-light"}">${szoveg[n.eredmeny] || n.eredmeny}</span>
                                     ${n.url ? `<a href="${Utils.escape(n.url)}" target="_blank" rel="noopener">${Utils.escape(n.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80))}</a>` : ""}
                                     ${n.db !== undefined ? `(${n.db})` : ""}
+                                    ${n.ok === "nincs_a_listaban" ? `<span class="text-muted">${I18n.t("importResNotInList")}</span>` : ""}
                                     ${n.uzenet ? `<span class="text-danger">${Utils.escape(n.uzenet)}</span>` : ""}
                                     ${n.regi ? `${Utils.eur(n.regi)} → ${Utils.eur(n.uj)}` : ""}
                                     ${n.hianyzo && n.hianyzo.length ? n.hianyzo.map(m => `<span class="badge text-bg-warning">${I18n.t("field_" + m)}</span>`).join(" ") : ""}

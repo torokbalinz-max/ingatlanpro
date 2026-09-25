@@ -155,7 +155,7 @@ function guessAllapot(text) {
 }
 
 // "Nem elérhető" jelzések a szövegben
-const INAKTIV_RE = /anun[tț]ul (?:nu mai este|a fost) (?:disponibil|dezactivat|șters|sters)|anun[tț] inactiv|acest anun[tț] nu mai este|proprietate v[aâ]ndut[aă]|\bV[AÂ]NDUT\b|oferta a expirat|anun[tț] expirat/i;
+const INAKTIV_RE = /anun[tț]ul (?:nu mai este|a fost) (?:disponibil|dezactivat|șters|sters)|anun[tț] inactiv|acest anun[tț] nu mai este|proprietate v[aâ]ndut[aă]|\bV[AÂ]NDUT\b|oferta a expirat|anun[tț] expirat|nu se primesc cereri pentru aceast[aă] proprietate/i;
 
 // ---------- fő kinyerő ----------
 
@@ -200,6 +200,12 @@ function extract(html, url, finalUrl) {
     // ===== Elérhetőség: átirányítás a hirdetésről máshová =====
     if (finalUrl && isListingUrl(url) && !isListingUrl(finalUrl)) {
         d.elerheto = false;
+    }
+
+    // ===== Imoradar24: a lejárt hirdetés oldala megmarad, de "noindex" jelölést kap =====
+    if (/imoradar24\.ro\/oferta\//i.test(url)) {
+        const robots = $('meta[name="robots"]').attr("content") || "";
+        if (/noindex/i.test(robots)) d.elerheto = false;
     }
 
     // ===== 1) JSON-LD =====
@@ -426,6 +432,148 @@ function extract(html, url, finalUrl) {
 
 // ---------- Találati listák ----------
 
+// Egy JSON objektum vége (idézőjelek és escape-ek figyelembevételével)
+function objektumVege(s, start) {
+    let depth = 0, str = false, esc = false;
+    for (let j = start; j < s.length; j++) {
+        const c = s[j];
+        if (str) {
+            if (esc) esc = false;
+            else if (c === "\\") esc = true;
+            else if (c === '"') str = false;
+            continue;
+        }
+        if (c === '"') str = true;
+        else if (c === "{") depth++;
+        else if (c === "}") { depth--; if (depth === 0) return j + 1; }
+    }
+    return -1;
+}
+
+function tipusAngolbol(t) {
+    t = String(t || "").toLowerCase();
+    if (/apartament|apartment|single room|studio|penthouse|garsonier/.test(t)) return "lakas";
+    if (/house|villa|casa|vila/.test(t)) return "haz";
+    if (/land|teren|plot/.test(t)) return "telek";
+    if (/office|birou/.test(t)) return "iroda";
+    if (/commercial|spatiu|industrial|retail|shop/.test(t)) return "kereskedelmi";
+    return null;
+}
+
+function emeletCimkebol(label) {
+    const l = String(label || "").trim();
+    if (!l) return { emelet: null, ossz: null };
+    const m = l.match(/(parter|demisol|subsol|mansard[aă]|\d{1,2})\s*(?:\/\s*(\d{1,2}))?/i);
+    if (!m) return { emelet: null, ossz: null };
+    const ossz = m[2] ? Number(m[2]) : null;
+    let e = m[1];
+    if (/parter/i.test(e)) e = "0";
+    else if (/demisol|subsol/i.test(e)) e = "-1";
+    else if (/mansard/i.test(e)) e = ossz !== null ? String(ossz) : null;
+    if (e === null) return { emelet: null, ossz };
+    return { emelet: ossz !== null ? `${e}/${ossz}` : e, ossz };
+}
+
+const nemAlkalmazhato = v => (v === undefined || v === null || v === "" || /not applicable/i.test(String(v))) ? null : v;
+
+// Imoradar24 / Imobiliare találati lista: a beágyazott adatcsomagban
+// minden hirdetés összes fontos adata benne van (ár, m², szobák,
+// emelet, környék, képek, elérhetőség, eredeti link) – így az egyes
+// hirdetéseket meg sem kell nyitni (az imobiliare.ro le is tiltja).
+function extractSearchItems(html) {
+
+    const dec = decodeEntities(html);
+    const elemek = [];
+    const lattam = new Set();
+
+    let pos = 0;
+
+    while ((pos = dec.indexOf('"sellerSources"', pos)) !== -1) {
+
+        const start = dec.lastIndexOf('{"id":', pos);
+        pos += 15;
+        if (start < 0 || lattam.has(start)) continue;
+
+        const vege = objektumVege(dec, start);
+        if (vege < 0) continue;
+
+        lattam.add(start);
+
+        let o;
+        try { o = JSON.parse(dec.slice(start, vege)); } catch (e) { continue; }
+        if (!o || !Array.isArray(o.sellerSources)) continue;
+
+        const d = keresesiElem(o);
+        if (d) elemek.push(d);
+
+    }
+
+    return elemek;
+
+}
+
+function keresesiElem(o) {
+
+    const ga = (o.tracking && o.tracking.ga4Item) || {};
+    const forrasok = (o.sellerSources || []).filter(s => s && s.viewAdUrl);
+    const linkek = forrasok.map(s => String(s.viewAdUrl).split("#")[0].split("?")[0]);
+
+    const link = linkek[0] || (o.url ? String(o.url) : null);
+    if (!link) return null;
+
+    const hl = {};
+    (o.highlights || []).forEach(h => { if (h && h.key) hl[h.key] = h.label; });
+
+    const em = emeletCimkebol(hl.floor_number);
+    const ossz = em.ossz || numberFrom(hl.number_of_floors);
+
+    const kerulet = nemAlkalmazhato(ga.propertyArea);
+    const ev = Number(nemAlkalmazhato(ga.propertyYear) || hl.year_built) || null;
+
+    const d = {
+        link,
+        tovabbi_linkek: linkek.slice(1),
+        imoId: nemAlkalmazhato(ga.cubeid) || nemAlkalmazhato(o.phoneApiEntityId),
+        elerheto: !o.isArchived && !/unavailable|sold|inactive|archived/i.test(String(ga.propertyAvailability || "")),
+        cim: decodeEntities(o.title || o.heading || ga.item_name || "").trim().slice(0, 200) || null,
+        leiras: o.descriptionPreview ? decodeEntities(o.descriptionPreview).trim() : null,
+        ar: Number(ga.price) || numberFrom(o.price) || numberFrom(forrasok[0] && forrasok[0].price),
+        penznem: (o.tracking && o.tracking.currency) || "EUR",
+        nm: Number(ga.propertySurface) || numberFrom(hl.usable_surface) || null,
+        telek_nm: numberFrom(hl.land_surface || hl.lot_surface) || null,
+        szobak: numberFrom(hl.bedroom_count) || numberFrom(ga.item_category3) || null,
+        emelet: em.emelet,
+        osszEmelet: ossz || null,
+        evszam: ev && ev > 1700 && ev < 2100 ? ev : null,
+        allapot: guessAllapot(o.descriptionPreview || ""),
+        tipus: tipusAngolbol(ga.item_category2) || tipusAngolbol(ga.item_category) || guessTipus(`${o.title || ""} ${link}`),
+        ugylet: /rent|inchiri/i.test(`${o.offerType || ""} ${ga.propertyStatus || ""}`) ? "kiado"
+            : /sell|sale|vanz/i.test(`${o.offerType || ""} ${ga.propertyStatus || ""}`) ? "elado" : guessUgylet(link),
+        x: null,
+        y: null,
+        kerulet,
+        utca: null,
+        varosForras: nemAlkalmazhato(ga.propertyCity),
+        cimSzoveg: kerulet,
+        kulso_kepek: [...new Set((o.images || []).map(i => i && i.src).filter(Boolean).filter(joKep))].slice(0, 20),
+        forrasok: { osszes: "kereses" }
+    };
+
+    if (d.penznem && /ron|lei/i.test(d.penznem) && d.ar) d.ar = Math.round(d.ar / 5);
+    if (d.nm && (d.nm < 8 || d.nm > 100000)) d.nm = null;
+    if (d.szobak && (d.szobak < 1 || d.szobak > 30)) d.szobak = null;
+
+    d.forrasSzoveg = [
+        d.cim,
+        o.heading && o.heading !== d.cim ? decodeEntities(o.heading) : null,
+        [o.price, o.location, ...Object.values(hl)].filter(Boolean).join(" · "),
+        d.leiras
+    ].filter(Boolean).join("\n\n").slice(0, 4000);
+
+    return d;
+
+}
+
 // A hirdetés-linkek a HTML-ben (a beágyazott adatcsomagokban is) keresve
 function extractListingLinks(html, baseUrl) {
 
@@ -471,4 +619,4 @@ async function scrape(url) {
     return extract(p.html, url, p.finalUrl);
 }
 
-module.exports = { scrape, extract, extractListingLinks, fetchHtml, fetchPage, pageUrl, isListingUrl, isRoam, numberFrom };
+module.exports = { scrape, extract, extractListingLinks, extractSearchItems, fetchHtml, fetchPage, pageUrl, isListingUrl, isRoam, numberFrom };
