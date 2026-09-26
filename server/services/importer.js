@@ -17,9 +17,9 @@
 
 const db = require("../db/database");
 const { scrape, fetchPage, extractListingLinks, extractSearchItems, isListingUrl, pageUrl } = require("./scraper");
-const { geocode } = require("./geocode");
 const { normalize, normLink } = require("./listing");
 const quality = require("./quality");
+const autofix = require("./autofix");
 
 const jobs = new Map();
 let jobSzamlalo = 0;
@@ -115,35 +115,25 @@ function keresMeglevo(meglevo, kulcsok) {
     return null;
 }
 
-// Egy beolvasott hirdetés adatainak előkészítése mentéshez
+// Egy beolvasott hirdetés adatainak előkészítése mentéshez.
+// A hiányzó adatokat (telek mérete, szobák, kerület, település, hely...)
+// az automatikus javítás tölti ki a hirdetés szövegéből.
 async function elokeszit(d, alap) {
-
-    const kerulet = await quality.keruletKeres(alap.varos, d.kerulet, d.utca, d.cim);
 
     const adat = normalize({
         ...d,
         tipus: d.tipus || alap.tipus,
         ugylet: d.ugylet || alap.ugylet,
         varos: alap.varos,
-        kerulet
+        kerulet: null,
+        telepules: null
     });
 
     adat.forras_kerulet = d.kerulet || null;
     adat.forras_szoveg = d.forrasSzoveg || null;
     adat.evszam = d.evszam || null;
 
-    // Pontos hely híján közelítő hely az utcából / környékből
-    if (!(adat.x && adat.y)) {
-
-        const hely = await geocode(d.cimSzoveg || d.kerulet || kerulet || "", alap.varos);
-
-        if (hely) {
-            adat.x = hely.x;
-            adat.y = hely.y;
-            adat.hely_pontossag = hely.szint;
-        }
-
-    }
+    Object.assign(adat, await autofix.javaslat(adat, { utca: d.utca, varosForras: d.varosForras }));
 
     return adat;
 
@@ -188,9 +178,9 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
          tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
          kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, forras_kerulet, evszam,
-         tovabbi_linkek, utolso_ellenorzes)
+         tovabbi_linkek, telepules, utolso_ellenorzes, auto_javitva)
         VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$12,$13,$14,$15,$16,'aktiv','import',$17,
-                $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,NOW())
+                $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,$26,NOW(),NOW())
         RETURNING id
     `, [
         d.link, adat.ar, adat.nm, adat.arnm, adat.szobak, adat.emelet, adat.allapot,
@@ -198,7 +188,7 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         adat.cim, adat.leiras, adat.telek_nm, adat.hely_pontossag,
         JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.hianyzo), JSON.stringify(q.problemak),
         q.ellenorzott, adat.forras_szoveg, adat.forras_kerulet, adat.evszam,
-        JSON.stringify(d.tovabbi_linkek || [])
+        JSON.stringify(d.tovabbi_linkek || []), adat.telepules
     ]);
 
     const uj = { id: r.rows[0].id, link: d.link, ar: adat.ar };
@@ -467,18 +457,14 @@ async function frissitAdatbol(i, d, job) {
         .filter(l => l && normLink(l) !== normLink(i.link)))];
     if (tovabbi.length !== (i.tovabbi_linkek || []).length) potol.tovabbi_linkek = JSON.stringify(tovabbi);
 
-    if (ures(i.kerulet) && d.kerulet) {
-        const k = await quality.keruletKeres(i.varos, d.kerulet, d.utca, d.cim);
-        if (k) potol.kerulet = k;
-    }
-
-    if (!(i.x && i.y)) {
-        const hely = await geocode(d.cimSzoveg || d.kerulet || i.kerulet || "", i.varos);
-        if (hely) {
-            potol.x = hely.x;
-            potol.y = hely.y;
-            potol.hely_pontossag = hely.szint;
-        }
+    // Ami még mindig hiányzik: a szövegből (kerület, település, telek, hely...)
+    {
+        const alap = { ...i, ...potol, forras_kerulet: potol.forras_kerulet || i.forras_kerulet };
+        if (typeof alap.kulso_kepek === "string") alap.kulso_kepek = d.kulso_kepek;
+        const v = await autofix.javaslat(alap, { utca: d.utca, varosForras: d.varosForras });
+        Object.keys(v).forEach(k => { if (!(k in potol)) potol[k] = v[k]; });
+        if (Object.keys(v).some(k => !["hely_pontossag", "arnm"].includes(k))) valtozas.push("auto");
+        potol.auto_javitva = new Date();
     }
 
     const uj = { ...i, ...potol };

@@ -216,7 +216,7 @@ class ValuationManager {
                 <td class="text-center">${c.szobak || "-"}</td>
                 <td>${Utils.escape(c.emelet || "-")}</td>
                 <td>${Utils.escape(Utils.allapotLabel(c.allapot))}</td>
-                <td>${Utils.escape(c.kerulet || "-")}</td>
+                <td>${Utils.escape(CityManager.helyReszLabel(c) || "-")}</td>
                 <td>${c.link && Sources.fromLink(c.link) !== "other" && Sources.fromLink(c.link) !== "local"
                         ? `<a href="${Utils.escape(c.link)}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
                         : ""}</td>

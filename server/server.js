@@ -65,4 +65,6 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`Szerver elindult a ${PORT} porton.`);
+    // A meglévő hirdetések automatikus javítása – csak egyszer, az első indításkor
+    setTimeout(() => require("./services/autofix").indulaskor(), 5000);
 });

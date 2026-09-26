@@ -52,7 +52,7 @@ class CurrentStatistics {
             title: "statsByKerulet",
             note: "noteKerulet",
             key: i => (i.kerulet || "").trim(),
-            label: k => k || I18n.t("keruletNincsMegadva"),
+            label: k => k ? CityManager.keruletLabel(k) : I18n.t("keruletNincsMegadva"),
             order: k => k ? 0 : 1
         },
 

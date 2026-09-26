@@ -34,7 +34,7 @@ class FavoritesManager {
                 flex: 1.2,
                 minWidth: 120,
                 valueFormatter: p => Utils.price(p.data),
-                cellStyle: { fontWeight: "700", color: "#16a34a" }
+                cellStyle: { fontWeight: "700", fontVariantNumeric: "tabular-nums" }
             },
 
             {
@@ -62,7 +62,7 @@ class FavoritesManager {
                 valueGetter: p => CityManager.displayName(p.data.varos)
             },
 
-            { field: "kerulet", headerName: I18n.t("colKerulet"), minWidth: 120, flex: 1 },
+            { colId: "kerulet", headerName: I18n.t("colKerulet"), minWidth: 120, flex: 1, valueGetter: p => CityManager.helyReszLabel(p.data) },
 
             {
                 colId: "allapot",

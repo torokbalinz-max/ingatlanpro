@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>IngatlanPro</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%232563eb%22/%3E%3Cpath d=%22M10 24V9h12v15h-4v-4h-4v4z%22 fill=%22white%22/%3E%3C/svg%3E">
+    <meta name="description" content="Romániai ingatlanhirdetések egy helyen: keresés, térkép, piaci elemzés, értékbecslés.">
+    <meta name="theme-color" content="#f5f6f4" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111413" media="(prefers-color-scheme: dark)">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%231f6f5c%22/%3E%3Cpath d=%22M10 24V9h12v15h-4v-4h-4v4z%22 fill=%22white%22/%3E%3C/svg%3E">
 
     <!-- Sötét mód azonnal (villanás nélkül) -->
     <script>
@@ -15,6 +18,11 @@
             }
         } catch (e) { }
     </script>
+
+    <!-- Betűtípus -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -31,19 +39,22 @@
 
 <body>
 
+<a class="skipLink" href="#mainCol" data-i18n="skipToContent">Ugrás a tartalomra</a>
+
 <!-- ===================== FEJLÉC ===================== -->
 
 <nav class="appNav">
 
     <div class="appNavInner">
 
-        <a class="appBrand" href="#properties">
-            <span class="appBrandIcon"><i class="fa-solid fa-building"></i></span>
-            <span>Ingatlan<b>Pro</b></span>
+        <a class="appBrand" href="#home" aria-label="IngatlanPro">
+            <span class="appBrandIcon"><i class="fa-solid fa-building" aria-hidden="true"></i></span>
+            <span translate="no">Ingatlan<b>Pro</b></span>
         </a>
 
         <!-- Főmenü (nagy képernyőn látható linkek) -->
         <div class="navLinks">
+            <a class="navLink" href="#home" data-page="home"><i class="fa-solid fa-compass" aria-hidden="true"></i><span data-i18n="menuHome">Kezdőlap</span></a>
             <a class="navLink" href="#properties" data-page="properties"><i class="fa-solid fa-house"></i><span data-i18n="menuIngatlanok">Ingatlanok</span></a>
             <a class="navLink" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span data-i18n="menuStatisztika">Piaci elemzés</span></a>
             <a class="navLink" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span data-i18n="menuErtekbecslo">Értékbecslő</span></a>
@@ -59,6 +70,7 @@
             </button>
 
             <ul class="dropdown-menu navMenu shadow">
+                <li><a class="dropdown-item" href="#home" data-page="home"><i class="fa-solid fa-compass"></i><span><b data-i18n="menuHome">Kezdőlap</b><small data-i18n="menuHomeDesc">Mit tudsz itt csinálni?</small></span></a></li>
                 <li><a class="dropdown-item" href="#properties" data-page="properties"><i class="fa-solid fa-house"></i><span><b data-i18n="menuIngatlanok">Ingatlanok</b><small data-i18n="menuIngatlanokDesc">Keresés, táblázat, térkép</small></span></a></li>
                 <li><a class="dropdown-item" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a></li>
                 <li><a class="dropdown-item" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a></li>
@@ -91,7 +103,7 @@
                 <button type="button" class="btn langBtn" data-lang="ro">RO</button>
             </div>
 
-            <button class="navIconBtn" id="btnDarkMode" type="button" data-i18n-title="darkModeToggle" title="Sötét mód">
+            <button class="navIconBtn" id="btnDarkMode" type="button" data-i18n-title="darkModeToggle" title="Sötét mód" aria-label="Dark mode">
                 <i class="fa-solid fa-moon"></i>
             </button>
 
@@ -156,9 +168,26 @@
                 <label class="form-label" for="citySelect" data-i18n="searchVaros">Város</label>
                 <select id="citySelect" class="form-select mb-3"></select>
 
-                <label class="form-label" for="keresoKerulet" data-i18n="kerulet">Kerület</label>
-                <select id="keresoKerulet" class="form-select">
+                <div data-field="kerulet">
+                    <label class="form-label" for="keresoKerulet" data-i18n="kerulet">Kerület</label>
+                    <select id="keresoKerulet" class="form-select mb-3">
+                        <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                    </select>
+                </div>
+
+                <div data-field="telepules">
+                    <label class="form-label" for="keresoTelepules" data-i18n="telepulesLabel">Hol van?</label>
+                    <select id="keresoTelepules" class="form-select mb-3">
+                        <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                    </select>
+                </div>
+
+                <label class="form-label" for="keresoHely" data-i18n="filterHely">Hely pontossága</label>
+                <select id="keresoHely" class="form-select">
                     <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                    <option value="pontos" data-i18n="hely_pontos">Pontos hely</option>
+                    <option value="kozelito" data-i18n="hely_kozelito">Közelítő hely</option>
+                    <option value="nincs" data-i18n="hely_nincs">Nincs megadva pontos hely</option>
                 </select>
             </div>
 
@@ -278,10 +307,29 @@
 <div class="col-xl-9 col-lg-8" id="mainCol">
 
 <!-- =====================================================================
+     KEZDŐLAP
+     ===================================================================== -->
+
+<section id="page-home" class="page" style="display:none;">
+    <div id="homeContent"></div>
+</section>
+
+<!-- =====================================================================
      INGATLANOK
      ===================================================================== -->
 
 <section id="page-properties" class="page">
+
+    <div class="pageHeader">
+        <div class="pageHeaderRow">
+            <div>
+                <h2 data-i18n="propsTitle">Ingatlanok</h2>
+                <p class="text-body-secondary mb-0" data-i18n="propsSubtitle">Szűrj a bal oldalon. Egy kártyára kattintva megnyílik a hirdetés.</p>
+            </div>
+            <button class="helpBtn" type="button" data-help="properties"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span data-i18n="helpBtn">Hogyan működik?</span></button>
+        </div>
+        <div class="pageHelp" id="help-properties" hidden></div>
+    </div>
 
     <!-- KPI kártyák -->
     <div class="row g-3 g-xxl-4 mb-4 kpiRow">
@@ -542,8 +590,14 @@
 <section id="page-new" class="page" style="display:none;">
 
     <div class="pageHeader">
-        <h2 id="newPageTitle" data-i18n="newTitle">Új hirdetés feladása</h2>
-        <p class="text-body-secondary" data-i18n="newSubtitle">Minden csillaggal jelölt mezőt ki kell tölteni.</p>
+        <div class="pageHeaderRow">
+            <div>
+                <h2 id="newPageTitle" data-i18n="newTitle">Új hirdetés feladása</h2>
+                <p class="text-body-secondary mb-0" data-i18n="newSubtitle">Minden csillaggal jelölt mezőt ki kell tölteni.</p>
+            </div>
+            <button class="helpBtn" type="button" data-help="new"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span data-i18n="helpBtn">Hogyan működik?</span></button>
+        </div>
+        <div class="pageHelp" id="help-new" hidden></div>
     </div>
 
     <div id="newMissingAlert" class="alert alert-danger" style="display:none;"></div>
@@ -649,7 +703,7 @@
                             </div>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-field="kerulet">
                             <label class="form-label req" for="ujKerulet" data-i18n="newKerulet">Kerület / városrész</label>
                             <div class="input-group">
                                 <select id="ujKerulet" class="form-select">
@@ -659,6 +713,13 @@
                                     <i class="fa-solid fa-plus"></i>
                                 </button>
                             </div>
+                        </div>
+
+                        <div class="col-md-6" data-field="telepules">
+                            <label class="form-label" for="ujTelepules" data-i18n="telepulesLabel">Hol van?</label>
+                            <input id="ujTelepules" type="text" class="form-control" list="telepulesLista" autocomplete="off" data-i18n-placeholder="telepulesPh" placeholder="Üresen hagyva: a városban">
+                            <datalist id="telepulesLista"></datalist>
+                            <div class="form-text" data-i18n="telepulesHelp">Ha nem a városban, hanem mellette van: a település neve.</div>
                         </div>
 
                         <div class="col-12">
@@ -695,7 +756,7 @@
         <!-- 4. Hely -->
         <div class="col-xl-5">
             <div class="card newMapCard">
-                <div class="card-header"><h5 class="mb-0"><span class="stepNo">4</span> <span data-i18n="newHely">Elhelyezkedés</span> <span class="text-danger">*</span></h5></div>
+                <div class="card-header"><h5 class="mb-0"><span class="stepNo">4</span> <span data-i18n="newHely">Elhelyezkedés</span> <span class="text-danger" id="newHelyReq">*</span></h5></div>
                 <div class="card-body p-2">
                     <p class="small text-body-secondary px-2 mb-2" data-i18n="newHelyHelp">Kattints a térképre az ingatlan helyén.</p>
                     <div id="newMap"></div>
@@ -729,6 +790,7 @@
         <div>
             <h2 data-i18n="statsTitle">Piaci elemzés</h2>
             <p class="text-body-secondary mb-0" data-i18n="statsSubtitle">A számok a bal oldali keresésben beállított szűrésre vonatkoznak.</p>
+            <button class="helpBtn mt-2" type="button" data-help="market"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span data-i18n="helpBtn">Hogyan működik?</span></button>
         </div>
 
         <ul class="nav nav-pills marketTabs">
@@ -759,6 +821,8 @@
         </ul>
     </div>
 
+    <div class="pageHelp mb-4" id="help-market" hidden></div>
+
     <div id="statisticsContainer"></div>
 
 </section>
@@ -766,8 +830,14 @@
 <section id="page-favorites" class="page" style="display:none;">
 
     <div class="pageHeader">
-        <h2 data-i18n="favTitle">Kedvencek</h2>
-        <p class="text-body-secondary" data-i18n="favSubtitle">Kattints egy sorra, és megnyílik a hirdetés.</p>
+        <div class="pageHeaderRow">
+            <div>
+                <h2 data-i18n="favTitle">Kedvencek</h2>
+                <p class="text-body-secondary mb-0" data-i18n="favSubtitle">Kattints egy sorra, és megnyílik a hirdetés.</p>
+            </div>
+            <button class="helpBtn" type="button" data-help="favorites"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span data-i18n="helpBtn">Hogyan működik?</span></button>
+        </div>
+        <div class="pageHelp" id="help-favorites" hidden></div>
     </div>
 
     <div class="card">
@@ -785,8 +855,14 @@
 <section id="page-valuation" class="page" style="display:none;">
 
     <div class="pageHeader">
-        <h2 data-i18n="valTitle">Ingatlan értékbecslő</h2>
-        <p class="text-body-secondary" data-i18n="valSubtitle">Add meg a lakás adatait, és a hasonló ingatlanok alapján megbecsüljük az árát.</p>
+        <div class="pageHeaderRow">
+            <div>
+                <h2 data-i18n="valTitle">Ingatlan értékbecslő</h2>
+                <p class="text-body-secondary mb-0" data-i18n="valSubtitle">Add meg a lakás adatait, és a hasonló ingatlanok alapján megbecsüljük az árát.</p>
+            </div>
+            <button class="helpBtn" type="button" data-help="valuation"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span data-i18n="helpBtn">Hogyan működik?</span></button>
+        </div>
+        <div class="pageHelp" id="help-valuation" hidden></div>
     </div>
 
     <div class="row g-4">
@@ -1003,6 +1079,8 @@
 
 <!-- Alap -->
 <script src="js/core/i18n.js"></script>
+<script src="js/core/i18n-extra.js"></script>
+<script src="js/core/telepulesek.js"></script>
 <script src="js/core/utils.js"></script>
 <script src="js/core/types.js"></script>
 <script src="js/core/sources.js"></script>
@@ -1050,6 +1128,7 @@
 <script src="js/admin/places.js"></script>
 
 <!-- Oldalak, indítás -->
+<script src="js/core/homePage.js"></script>
 <script src="js/core/pageManager.js"></script>
 <script src="js/core/app.js"></script>
 

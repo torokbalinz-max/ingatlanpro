@@ -9,7 +9,7 @@ AdminManager.dupRow = function (i, name, checked) {
             <input type="radio" class="form-check-input" name="${name}" value="${i.id}" ${checked ? "checked" : ""}>
             <span class="flex-fill">
                 <b>#${i.id}</b> · ${Utils.eur(i.ar)} · ${Utils.num(i.nm)} m² · ${i.szobak || "-"} ${I18n.t("colSzoba").toLowerCase()} · ${Utils.escape(i.emelet || "-")}
-                ${i.kerulet ? " · " + Utils.escape(i.kerulet) : ""}
+                ${CityManager.helyReszLabel(i) ? " · " + Utils.escape(CityManager.helyReszLabel(i)) : ""}
                 ${i.kep_db ? ` · <i class="fa-solid fa-camera"></i> ${i.kep_db}` : ""}
                 ${i.kedvenc ? " · ⭐" : ""}
             </span>

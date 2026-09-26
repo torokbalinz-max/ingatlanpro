@@ -18,7 +18,7 @@ class UIManager {
         document.getElementById("detailEmelet").innerText = t.fields.emelet ? (i.emelet || "-") : "–";
         document.getElementById("detailAllapot").innerText = t.fields.allapot ? Utils.allapotLabel(i.allapot) : "–";
         document.getElementById("detailHely").innerText =
-            [CityManager.displayName(i.varos), i.kerulet].filter(Boolean).join(" · ") || "-";
+            CityManager.helyLabel(i) || "-";
 
         const src = document.getElementById("detailSource");
         src.outerHTML = (i.forrasok || [i.forras]).map(Sources.badge).join(" ").replace("<span ", '<span id="detailSource" ');

@@ -6,11 +6,11 @@
 class Types {
 
     static LIST = [
-        { key: "lakas", icon: "fa-solid fa-building", label: "typeLakas", fields: { szobak: true, emelet: true, allapot: true, telek: false } },
-        { key: "haz", icon: "fa-solid fa-house-chimney", label: "typeHaz", fields: { szobak: true, emelet: false, allapot: true, telek: true } },
-        { key: "telek", icon: "fa-solid fa-mountain-sun", label: "typeTelek", fields: { szobak: false, emelet: false, allapot: false, telek: false } },
-        { key: "kereskedelmi", icon: "fa-solid fa-store", label: "typeKereskedelmi", fields: { szobak: false, emelet: true, allapot: true, telek: false } },
-        { key: "iroda", icon: "fa-solid fa-briefcase", label: "typeIroda", fields: { szobak: true, emelet: true, allapot: true, telek: false } }
+        { key: "lakas", icon: "fa-solid fa-building", label: "typeLakas", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false } },
+        { key: "haz", icon: "fa-solid fa-house-chimney", label: "typeHaz", fields: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true } },
+        { key: "telek", icon: "fa-solid fa-mountain-sun", label: "typeTelek", fields: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true } },
+        { key: "kereskedelmi", icon: "fa-solid fa-store", label: "typeKereskedelmi", fields: { szobak: false, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false } },
+        { key: "iroda", icon: "fa-solid fa-briefcase", label: "typeIroda", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false } }
     ];
 
     static get(key) {

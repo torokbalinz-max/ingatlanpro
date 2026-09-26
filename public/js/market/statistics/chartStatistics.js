@@ -6,7 +6,7 @@ class ChartStatistics {
 
     static charts = [];
 
-    static PALETTE = ["#2563eb", "#16a34a", "#f97316", "#9333ea", "#eab308", "#0891b2", "#dc2626", "#64748b", "#db2777", "#65a30d"];
+    static PALETTE = ["#1f6f5c", "#c2410c", "#f97316", "#9333ea", "#eab308", "#0891b2", "#dc2626", "#64748b", "#db2777", "#65a30d"];
 
     static destroy() {
         ChartStatistics.charts.forEach(c => c.destroy());
@@ -38,7 +38,7 @@ class ChartStatistics {
                 datasets: [{
                     label: opts.label || I18n.t("statsColAvgPriceNm"),
                     data: rows.map(r => Math.round(r.value)),
-                    backgroundColor: rows.map((r, idx) => opts.single ? "#2563eb" : ChartStatistics.PALETTE[idx % ChartStatistics.PALETTE.length]),
+                    backgroundColor: rows.map((r, idx) => opts.single ? Utils.accent() : ChartStatistics.PALETTE[idx % ChartStatistics.PALETTE.length]),
                     borderRadius: 6,
                     maxBarThickness: 34
                 }]
@@ -86,7 +86,7 @@ class ChartStatistics {
                 datasets: [{
                     label,
                     data: values,
-                    borderColor: "#2563eb",
+                    borderColor: Utils.accent(),
                     backgroundColor: "rgba(37,99,235,0.12)",
                     fill: true,
                     borderWidth: 3,

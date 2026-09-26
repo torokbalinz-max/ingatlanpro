@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     AdminManager.init();
 
     UIManager.showNoSelection();
+    HelpManager.init();
 
     // Először kiderítjük, admin-e a belépett felhasználó,
     // utána töltjük a városokat és az ingatlanokat.
@@ -78,6 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
             UIManager.showDetails(UIManager.selectedIngatlan);
         } else {
             UIManager.showNoSelection();
+    HelpManager.init();
         }
 
         DashboardManager.load(DataManager.szurtIngatlanok);
@@ -100,6 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ListingPage.rerender();
 
         if (PageManager.current === "admin") AdminManager.show();
+        if (PageManager.current === "home") HomePage.render();
 
         darkBtn.title = I18n.t(document.documentElement.getAttribute("data-bs-theme") === "dark" ? "darkModeOff" : "darkModeOn");
 

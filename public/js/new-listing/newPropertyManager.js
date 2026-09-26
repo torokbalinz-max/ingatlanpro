@@ -101,6 +101,14 @@ class NewPropertyManager {
         document.getElementById("ujNmLabel").innerText =
             I18n.t(NewPropertyManager.tipus === "telek" ? "searchTelekNm" : "newNm");
 
+        // Teleknél a hely nem kötelező ("nincs megadva pontos hely")
+        const req = document.getElementById("newHelyReq");
+        if (req) req.style.display = NewPropertyManager.tipus === "telek" ? "none" : "";
+
+        // A település-javaslatok nyelv szerint
+        const dl = document.getElementById("telepulesLista");
+        if (dl) dl.innerHTML = Telepulesek.LISTA.map(t => `<option value="${Utils.escape(I18n.current === "hu" ? t.hu : t.ro)}">`).join("");
+
         NewPropertyManager.updatePreview();
 
     }
@@ -281,13 +289,14 @@ class NewPropertyManager {
         if (d.allapot) tolt("ujAllapot", d.allapot, "allapot");
 
         if (d.keruletNev) tolt("ujKerulet", d.keruletNev, "kerulet");
+        if (d.telepules) tolt("ujTelepules", CityManager.telepulesLabel(d.telepules), "telepules");
 
         NewPropertyManager.forrasSzoveg = d.forrasSzoveg || null;
 
         document.getElementById("ujLeirasCount").innerText = document.getElementById("ujLeiras").value.length;
 
         if (d.x && d.y) {
-            NewPropertyMap.setPoint(d.x, d.y, d.hely_pontossag === "kozelito" ? "kozelito" : "pontos");
+            NewPropertyMap.setPoint(d.x, d.y, ["kozelito", "utca"].includes(d.hely_pontossag) ? d.hely_pontossag : "pontos");
             talalt.push("hely");
         }
 
@@ -343,6 +352,7 @@ class NewPropertyManager {
             hely_pontossag: NewPropertyManager.helyPontossag,
             varos: v("ujVaros"),
             kerulet: v("ujKerulet"),
+            telepules: NewPropertyManager.telepulesErtek(v("ujTelepules")),
             eladva: false,
             kulso_kepek: NewPropertyManager.photos.filter(p => p.kind === "ext").map(p => p.url),
             kepek: NewPropertyManager.photos.filter(p => p.kind === "new").map(p => p.data),
@@ -350,6 +360,13 @@ class NewPropertyManager {
             forras_szoveg: NewPropertyManager.forrasSzoveg || null
         };
 
+    }
+
+    // A beírt (magyar vagy román) településnévből a tárolt román név
+    static telepulesErtek(nev) {
+        if (!nev) return "";
+        const t = Telepulesek.keres(nev);
+        return t ? t.ro : nev;
     }
 
     // Ugyanaz a szabály, mint a szerveren (listing.js)
@@ -369,10 +386,10 @@ class NewPropertyManager {
         if (!d.varos) h.push("varos");
 
         const keruletSelect = document.getElementById("ujKerulet");
-        if (!d.kerulet && keruletSelect.options.length > 1) h.push("kerulet");
+        if (f.kerulet && !d.kerulet && keruletSelect.options.length > 1) h.push("kerulet");
 
         if (local && (!d.leiras || d.leiras.length < 20)) h.push("leiras");
-        if (!(d.x && d.y)) h.push("hely");
+        if (local && d.tipus !== "telek" && !(d.x && d.y)) h.push("hely");
 
         const kepDb = NewPropertyManager.photos.filter(p => p.kind !== "ext").length;
         if (local && kepDb === 0) h.push("kepek");
@@ -465,6 +482,7 @@ class NewPropertyManager {
                 set("ujNm", i.nm);
                 set("ujTelekNm", i.telek_nm);
                 set("ujSzobak", i.szobak);
+                set("ujTelepules", i.telepules ? CityManager.telepulesLabel(i.telepules) : "");
 
                 const emelet = String(i.emelet ?? "").split("/");
                 set("ujEmelet", emelet[0]);
@@ -504,7 +522,7 @@ class NewPropertyManager {
 
     static clearForm() {
 
-        ["ujLink", "ujCim", "ujLeiras", "ujAr", "ujNm", "ujTelekNm", "ujSzobak", "ujEmelet", "ujOsszEmelet", "ujX", "ujY"].forEach(id => {
+        ["ujLink", "ujCim", "ujLeiras", "ujAr", "ujNm", "ujTelekNm", "ujSzobak", "ujEmelet", "ujOsszEmelet", "ujX", "ujY", "ujTelepules"].forEach(id => {
             document.getElementById(id).value = "";
         });
 

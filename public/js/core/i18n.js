@@ -1657,6 +1657,9 @@ class I18n {
         if (v === "Ismeretlen") return I18n.t("unknownLabel");
         if (v === "Nincs megadva") return I18n.t("keruletNincsMegadva");
 
+        // Kerületnév a mentett statisztikában (magyarul tárolva)
+        if (typeof CityManager !== "undefined") return CityManager.keruletLabel(v);
+
         return v;
 
     }

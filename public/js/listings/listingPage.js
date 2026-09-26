@@ -70,7 +70,7 @@ class ListingPage {
         ListingPage.kepIdx = 0;
 
         const cim = i.cim || `${Types.label(i.tipus)} · ${CityManager.displayName(i.varos)}`;
-        const hely = [CityManager.displayName(i.varos), i.kerulet].filter(Boolean).join(" · ");
+        const hely = CityManager.helyLabel(i);
 
         const galeria = ListingPage.kepek.length
             ? `
@@ -169,7 +169,7 @@ class ListingPage {
                         <div class="card-body p-2">
                             ${i.hely_pontossag === "kozelito" ? `<div class="alert alert-info small py-2 m-2">${I18n.t("approxLocation")}</div>` : ""}
                             ${i.hely_pontossag === "utca" ? `<div class="alert alert-light small py-2 m-2">${I18n.t("streetLocation")}</div>` : ""}
-                            ${i.x && i.y ? `<div id="listingMap"></div>` : `<p class="text-body-secondary m-2">${I18n.t("noLocation")}</p>`}
+                            ${i.x && i.y ? `<div id="listingMap"></div>` : `<div class="noLocationBox"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i><div><b>${I18n.t("hely_nincs")}</b><p class="mb-0">${Utils.escape(CityManager.helyLabel(i))}. ${I18n.t("noLocationHelp")}</p></div></div>`}
                         </div>
                     </div>
 
@@ -308,9 +308,9 @@ class ListingPage {
             }).addTo(ListingPage.map);
 
             if (i.hely_pontossag === "kozelito") {
-                L.circle([i.y, i.x], { radius: 400, color: "#2563eb", fillOpacity: 0.12 }).addTo(ListingPage.map);
+                L.circle([i.y, i.x], { radius: i.telepules ? 900 : 400, color: Utils.accent(), fillOpacity: 0.12 }).addTo(ListingPage.map);
             } else {
-                L.circleMarker([i.y, i.x], { radius: 10, color: "#fff", weight: 3, fillColor: "#2563eb", fillOpacity: 1 }).addTo(ListingPage.map);
+                L.circleMarker([i.y, i.x], { radius: 10, color: "#fff", weight: 3, fillColor: Utils.accent(), fillOpacity: 1 }).addTo(ListingPage.map);
             }
 
             setTimeout(() => ListingPage.map && ListingPage.map.invalidateSize(), 100);

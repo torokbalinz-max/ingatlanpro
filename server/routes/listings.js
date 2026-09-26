@@ -6,7 +6,7 @@ const express = require("express");
 const db = require("../db/database");
 const { normalize, hianyzoMezok, parseKepek } = require("../services/listing");
 const { scrape } = require("../services/scraper");
-const { geocode } = require("../services/geocode");
+const autofix = require("../services/autofix");
 const quality = require("../services/quality");
 const { hiba, csakAdmin } = require("../lib/http");
 const { LISTA_MEZOK } = require("../lib/sql");
@@ -102,14 +102,15 @@ router.post("/api/ingatlanok", async (req, res) => {
             INSERT INTO ingatlanok
             (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
              tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
-             kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22)
+             kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, telepules)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22,$23)
             RETURNING id
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva, d.x, d.y,
             d.varos, d.kerulet, d.tipus, d.ugylet, d.cim, d.leiras, d.telek_nm, d.hely_pontossag,
             JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.problemak), q.ellenorzott,
-            req.body.forras_szoveg ? String(req.body.forras_szoveg).slice(0, 5000) : null
+            req.body.forras_szoveg ? String(req.body.forras_szoveg).slice(0, 5000) : null,
+            d.telepules
         ]);
 
         const id = r.rows[0].id;
@@ -171,7 +172,7 @@ router.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
         // Jóváhagyás: az alapadatok mindenképp kellenek
         if (req.body.jovahagy) {
 
-            const alap = hianyzoMezok(d, { mod: "import" }).filter(m => ["ar", "nm", "varos", "hely"].includes(m));
+            const alap = hianyzoMezok(d, { mod: "import" }).filter(m => ["ar", "nm", "varos"].includes(m));
 
             if (alap.length) {
                 return res.status(400).json({ error: "missing_fields", hianyzo: alap });
@@ -206,14 +207,14 @@ router.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
                 x=$9, y=$10, varos=$11, kerulet=$12, tipus=$13, ugylet=$14, cim=$15, leiras=$16,
                 telek_nm=$17, hely_pontossag=$18, kulso_kepek=$19::jsonb, statusz=$20,
                 hianyzo=$21::jsonb, tovabbi_linkek=COALESCE($22::jsonb, tovabbi_linkek),
-                problemak=$23::jsonb, ellenorzott=$24, jovahagyva=$25, updated_at=NOW()
+                problemak=$23::jsonb, ellenorzott=$24, jovahagyva=$25, telepules=$27, updated_at=NOW()
             WHERE id=$26
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva,
             d.x, d.y, d.varos, d.kerulet, d.tipus, d.ugylet, d.cim, d.leiras,
             d.telek_nm, d.hely_pontossag, JSON.stringify(d.kulso_kepek || []), statusz,
             JSON.stringify(hianyzo), d.tovabbi_linkek ? JSON.stringify(d.tovabbi_linkek) : null,
-            JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id
+            JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id, d.telepules
         ]);
 
         if (torlendo.length) {
@@ -292,20 +293,21 @@ router.post("/api/scrape", async (req, res) => {
 
         const d = await scrape(url);
 
-        // A forrásoldal környék-nevéből a mi kerületünk (ha ismert)
-        if (req.body.varos) {
-            d.keruletNev = await quality.keruletKeres(req.body.varos, d.kerulet, d.utca, d.cim);
-        }
+        // A hiányzó adatok a hirdetés szövegéből: telek mérete, szobák,
+        // kerület (magyar / román név), település, közelítő hely
+        const v = await autofix.javaslat({
+            tipus: d.tipus || req.body.tipus || "lakas",
+            varos: req.body.varos || null,
+            cim: d.cim, leiras: d.leiras, forras_szoveg: d.forrasSzoveg,
+            nm: d.nm, telek_nm: d.telek_nm, szobak: d.szobak, emelet: d.emelet, evszam: d.evszam,
+            forras_kerulet: d.kerulet, x: d.x, y: d.y
+        }, { utca: d.utca, varosForras: d.varosForras });
 
-        // Ha nincs koordináta, közelítő hely a címből
-        if (!(d.x && d.y) && d.cimSzoveg) {
-            const hely = await geocode(d.cimSzoveg, req.body.varos);
-            if (hely) {
-                d.x = hely.x;
-                d.y = hely.y;
-                d.hely_pontossag = hely.szint;
-            }
-        }
+        ["nm", "telek_nm", "szobak", "emelet", "evszam", "telepules", "x", "y", "hely_pontossag"].forEach(k => {
+            if (v[k] !== undefined) d[k] = v[k];
+        });
+
+        if (v.kerulet) d.keruletNev = v.kerulet;
 
         res.json(d);
 

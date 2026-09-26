@@ -51,6 +51,8 @@ async function createSchema(db) {
         "forras_kerulet TEXT",                   // a forrásoldal szerinti környék neve
         "utolso_ellenorzes TIMESTAMP",           // mikor néztük meg utoljára a forrásoldalt
         "evszam INTEGER",                        // építés éve
+        "telepules TEXT",                        // háznál / teleknél: melyik település (ha nem a városban)
+        "auto_javitva TIMESTAMP",                // mikor futott rá az automatikus javítás
         "updated_at TIMESTAMP DEFAULT NOW()"
     ];
 
@@ -137,6 +139,19 @@ async function createSchema(db) {
     // Más oldalak környék-nevei, amelyek ehhez a kerülethez tartoznak (vesszővel)
     await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS aliasok TEXT`);
 
+    // A kerület román neve (a "nev" a magyar). Angolul és románul a román
+    // név látszik, magyarul a magyar.
+    await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS nev_ro TEXT`);
+
+    // Egyszerű beállítások / jelzők (pl. lefutott-e már az automatikus javítás)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS beallitasok (
+            kulcs TEXT PRIMARY KEY,
+            ertek TEXT,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
     // Piaci snapshotok (korábban a külön create_statistics_tables.js hozta létre)
     await db.query(`
         CREATE TABLE IF NOT EXISTS market_snapshots (
@@ -172,6 +187,22 @@ async function createSchema(db) {
 
 }
 
+// Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]
+const ALAP_KERULETEK = {
+    Sepsiszentgyorgy: [
+        ["Központ", "Centru", "Central, Centrală, Centrala, Centrul, Városközpont, Centrum"],
+        ["Félközpont", "Semicentral", "Semicentrală, Semicentrala, Semi-central, Semi central"],
+        ["Csíki negyed", "Cartierul Ciucului", "Ciucului, Ciuc, Cartierul Ciuc, Cartier Ciuc, Csíki lakótelep, Csiki"],
+        ["Simeria", "Simeria", "Semeria, Cartierul Simeria, Simeria lakótelep"],
+        ["Lenin", "Lenin", "Lenin lakótelep, Cartierul Lenin"],
+        ["Állomás negyed", "Gării", "Garii, Gara, Zona Gării, Zona Garii, Állomás, Vasútállomás"],
+        ["Kós Károly", "Kós Károly", "Kos Karoly, Kós Károly lakótelep, Cartierul Kós Károly"],
+        ["Őrkő", "Őrkő", "Orko, Örkő, Orkő"],
+        ["Szépmező", "Câmpul Frumos", "Campul Frumos"],
+        ["Kórház környéke", "Spitalului", "Spital, Zona Spitalului, Kórház"]
+    ]
+};
+
 // Alapadatok – csak az éles indulásnál fut, migráláskor NEM
 async function seedDefaults(db) {
 
@@ -185,6 +216,23 @@ async function seedDefaults(db) {
             ('Marosvasarhely')
         ON CONFLICT (nev) DO NOTHING
     `);
+
+    // Sepsiszentgyörgy kerületei magyar és román névvel – csak ha a városnak
+    // még egy kerülete sincs. Az Admin → Városok, kerületek oldalon bármi
+    // átírható, törölhető, bővíthető.
+    const van = await db.query("SELECT 1 FROM keruletek WHERE varos = 'Sepsiszentgyorgy' LIMIT 1");
+
+    if (!van.rowCount) {
+
+        for (const [nev, nevRo, aliasok] of ALAP_KERULETEK.Sepsiszentgyorgy) {
+            await db.query(
+                `INSERT INTO keruletek (varos, nev, nev_ro, aliasok) VALUES ('Sepsiszentgyorgy', $1, $2, $3)
+                 ON CONFLICT (varos, nev) DO NOTHING`,
+                [nev, nevRo, aliasok]
+            );
+        }
+
+    }
 
     // Város nélküli (régi) ingatlanok -> Sepsiszentgyörgy
     await db.query(`

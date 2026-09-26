@@ -83,7 +83,7 @@ class BulkEditManager {
                     const opt = document.createElement("option");
 
                     opt.value = k.nev;
-                    opt.innerText = k.nev;
+                    opt.innerText = CityManager.keruletLabelOf(k);
 
                     select.appendChild(opt);
 

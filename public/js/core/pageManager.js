@@ -10,6 +10,7 @@ class PageManager {
     static lastListPage = "properties";
 
     static PAGES = {
+        home: { icon: "fa-solid fa-compass", label: "menuHome" },
         properties: { icon: "fa-solid fa-house", label: "menuIngatlanok", search: true },
         market: { icon: "fa-solid fa-chart-line", label: "menuStatisztika", search: true },
         new: { icon: "fa-solid fa-circle-plus", label: "menuUj" },
@@ -40,11 +41,11 @@ class PageManager {
 
     static parse(target) {
 
-        target = PageManager.ALIASES[target] || target || "properties";
+        target = PageManager.ALIASES[target] || target || "home";
 
         const [page, param] = String(target).split("/");
 
-        if (!PageManager.PAGES[page]) return { page: "properties", param: null };
+        if (!PageManager.PAGES[page]) return { page: "home", param: null };
 
         return { page, param: param || null };
 
@@ -97,6 +98,10 @@ class PageManager {
         window.scrollTo({ top: 0 });
 
         // Oldal-specifikus teendők
+        if (page === "home") {
+            HomePage.render();
+        }
+
         if (page === "properties") {
             MapManager.refresh();
         }

@@ -7,6 +7,8 @@ const db = require("../db/database");
 const importer = require("../services/importer");
 const duplikatumok = require("../services/duplicates");
 const ai = require("../services/ai");
+const autofix = require("../services/autofix");
+const quality = require("../services/quality");
 const { hiba, csakAdmin } = require("../lib/http");
 const { LISTA_MEZOK } = require("../lib/sql");
 
@@ -77,12 +79,12 @@ router.post("/api/admin/review/:id/approve", csakAdmin, async (req, res) => {
 
         const r = await db.query(
             `UPDATE ingatlanok SET jovahagyva = true, ellenorzott = true, statusz = 'aktiv', updated_at = NOW()
-             WHERE id = $1 AND ar > 0 AND nm > 0 AND x IS NOT NULL AND y IS NOT NULL
+             WHERE id = $1 AND ar > 0 AND nm > 0
              RETURNING id`,
             [req.params.id]
         );
 
-        if (!r.rowCount) return res.status(400).json({ error: "missing_fields", hianyzo: ["ar", "nm", "hely"] });
+        if (!r.rowCount) return res.status(400).json({ error: "missing_fields", hianyzo: ["ar", "nm"] });
 
         res.json({ siker: true });
 
@@ -150,6 +152,95 @@ router.post("/api/admin/ai-check/:id", csakAdmin, async (req, res) => {
         if (!r.rowCount) return res.status(404).json({ error: "not_found" });
 
         res.json(await ai.ellenoriz(r.rows[0]));
+
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+// ===================== AUTOMATIKUS JAVÍTÁS =====================
+// A hirdetések szövegéből kitölti a hiányzó adatokat (telek mérete, szobák,
+// kerület, település, közelítő hely...), és újraértékeli, mit kell még
+// kézzel ellenőrizni.
+
+router.post("/api/admin/autofix", csakAdmin, (req, res) => {
+    const j = autofix.indit({ mind: req.body.mind !== false });
+    res.json(autofix.allapot() || { allapot: j.allapot });
+});
+
+router.get("/api/admin/autofix", csakAdmin, async (req, res) => {
+    try {
+        res.json({ ...(autofix.allapot() || {}), utolso: await autofix.beallitas("autofix_v1") });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
+// ===================== KERÜLET-PÁROSÍTÁS =====================
+// A forrásoldalak környék-nevei, amelyekhez még nem tartozik kerület
+// (lakás, üzlet, iroda). Egy kattintással hozzárendelhetők – ilyenkor
+// az összes ilyen nevű hirdetés megkapja a kerületet, és a név
+// megjegyződik (legközelebb magától megy).
+
+router.get("/api/admin/unmatched-areas", csakAdmin, async (req, res) => {
+
+    try {
+        const r = await db.query(`
+            SELECT varos, forras_kerulet AS nev, COUNT(*)::int AS db
+            FROM ingatlanok
+            WHERE statusz IN ('aktiv', 'fuggo') AND (kerulet IS NULL OR kerulet = '')
+              AND forras_kerulet IS NOT NULL AND forras_kerulet <> ''
+              AND COALESCE(tipus, 'lakas') IN ('lakas', 'kereskedelmi', 'iroda')
+            GROUP BY varos, forras_kerulet
+            ORDER BY varos, db DESC, forras_kerulet
+        `);
+        const n = await db.query(`
+            SELECT varos, COUNT(*)::int AS db FROM ingatlanok
+            WHERE statusz IN ('aktiv', 'fuggo') AND (kerulet IS NULL OR kerulet = '')
+              AND COALESCE(tipus, 'lakas') IN ('lakas', 'kereskedelmi', 'iroda')
+            GROUP BY varos
+        `);
+        res.json({ nevek: r.rows, keruletNelkul: n.rows });
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+router.post("/api/admin/unmatched-areas/assign", csakAdmin, async (req, res) => {
+
+    try {
+
+        const varos = String(req.body.varos || "").trim();
+        const forras = String(req.body.nev || "").trim();
+        let kerulet = String(req.body.kerulet || "").trim();
+
+        if (!varos || !forras) return res.status(400).json({ error: "bad_request" });
+
+        // Új kerület a forrás nevéből (román név), ha kérik
+        if (!kerulet && req.body.uj) {
+            const nevHu = String(req.body.ujNev || "").trim() || forras;
+            await db.query(
+                `INSERT INTO keruletek (varos, nev, nev_ro) VALUES ($1,$2,$3) ON CONFLICT (varos, nev) DO NOTHING`,
+                [varos, nevHu, forras]
+            );
+            kerulet = nevHu;
+        }
+
+        if (!kerulet) return res.status(400).json({ error: "bad_request" });
+
+        await quality.aliasHozzaad(varos, kerulet, forras);
+
+        const r = await db.query(`
+            UPDATE ingatlanok SET kerulet = $1, updated_at = NOW()
+            WHERE varos = $2 AND forras_kerulet = $3 AND (kerulet IS NULL OR kerulet = '')
+              AND COALESCE(tipus, 'lakas') IN ('lakas', 'kereskedelmi', 'iroda')
+            RETURNING id`,
+            [kerulet, varos, forras]
+        );
+
+        res.json({ frissitett: r.rowCount });
 
     } catch (err) {
         hiba(res, err);

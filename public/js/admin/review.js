@@ -86,7 +86,7 @@ AdminManager.renderReviewItem = function () {
     const num = (id, v) => `<input type="number" class="form-control" id="${id}" value="${v ?? ""}">`;
 
     const forrasSzoveg = Utils.escape(i.forras_szoveg || i.leiras || I18n.t("reviewNoSource"))
-        .replace(/(\d[\d.,\s]*\s*(?:€|EUR|lei|mp|m²|camere|cam\.?))/gi, "<mark>$1</mark>")
+        .replace(/(\d[\d.,\s]*\s*(?:€|EUR|lei|mp|m²|m2|nm|ari|ha|hectare?|camere|cam\.?))(?![a-z])/gi, "<mark>$1</mark>")
         .replace(/(Etaj[^.\n]{0,12}|Nr\.? ?cam[^:]*:|Sup[^:]{0,25}:|An constr[^:]*:)/gi, "<b>$1</b>");
 
     box.innerHTML = AdminManager.reviewToolbar(lista.length) + `
@@ -142,9 +142,12 @@ AdminManager.renderReviewItem = function () {
                                     <option value="">${I18n.t("chooseOne")}</option>
                                     ${["felújítandó", "részbenfel", "jó", "újszerű", "luxus"].map(a => `<option value="${a}" ${Utils.normAllapot(i.allapot) === a ? "selected" : ""}>${Utils.allapotLabel(a)}</option>`).join("")}
                                 </select>`) : ""}
-                            ${mezo("kerulet", I18n.t("newKerulet"), `
+                            ${t.fields.kerulet ? mezo("kerulet", I18n.t("newKerulet"), `
                                 <select class="form-select" id="rvKerulet"><option value="">${I18n.t("newKeruletNincs")}</option></select>
-                                ${i.forras_kerulet ? `<div class="form-text">${I18n.f("reviewSourceDistrict", { nev: Utils.escape(i.forras_kerulet) })}</div>` : ""}`)}
+                                ${i.forras_kerulet ? `<div class="form-text">${I18n.f("reviewSourceDistrict", { nev: Utils.escape(i.forras_kerulet) })}</div>` : ""}`) : ""}
+                            ${t.fields.telepules ? mezo("telepules", I18n.t("telepulesLabel"), `
+                                <input class="form-control" id="rvTelepules" list="telepulesLista" autocomplete="off" placeholder="${Utils.escape(I18n.t("telepulesPh"))}" value="${Utils.escape(i.telepules ? CityManager.telepulesLabel(i.telepules) : "")}">
+                                ${i.forras_kerulet ? `<div class="form-text">${I18n.f("reviewSourceDistrict", { nev: Utils.escape(i.forras_kerulet) })}</div>` : ""}`) : ""}
                             <div class="col-12">
                                 <label class="form-label">${I18n.t("newCim")}</label>
                                 <input class="form-control" id="rvCim" value="${Utils.escape(i.cim || "")}">
@@ -152,7 +155,7 @@ AdminManager.renderReviewItem = function () {
                         </div>
 
                         <div class="mt-3 ${hianyzo.includes("hely") ? "revMissing" : ""}" data-field="hely">
-                            <label class="form-label">${I18n.t("newHely")} ${i.hely_pontossag === "kozelito" ? `<span class="badge text-bg-info">${I18n.t("approxShort")}</span>` : ""} <span class="text-body-secondary fw-normal">– ${I18n.t("reviewDragHint")}</span></label>
+                            <label class="form-label">${I18n.t("newHely")} ${Utils.helyBadge(i)} <span class="text-body-secondary fw-normal">${I18n.t("reviewDragHint")}</span></label>
                             <div id="reviewMap"></div>
                         </div>
 
@@ -270,6 +273,7 @@ AdminManager.reviewCollect = function (i) {
         telek_nm: v("rvTelek") !== null ? (Number(v("rvTelek")) || null) : i.telek_nm,
         allapot: v("rvAllapot") !== null ? v("rvAllapot") : i.allapot,
         kerulet: v("rvKerulet"),
+        telepules: v("rvTelepules") !== null ? NewPropertyManager.telepulesErtek(v("rvTelepules")) : i.telepules,
         x: marker ? marker.lng : i.x,
         y: marker ? marker.lat : i.y,
         hely_pontossag: AdminManager.reviewMoved ? "pontos" : i.hely_pontossag
@@ -280,7 +284,9 @@ AdminManager.reviewCollect = function (i) {
 AdminManager.bindReviewItem = function (i) {
 
     // Kerületek
-    CityManager.loadKeruletekInto("rvKerulet", i.varos, i.kerulet || "", "newKeruletNincs");
+    if (document.getElementById("rvKerulet")) {
+        CityManager.loadKeruletekInto("rvKerulet", i.varos, i.kerulet || "", "newKeruletNincs");
+    }
 
     // Térkép, húzható jelölővel
     if (AdminManager.reviewMap) {

@@ -17,10 +17,12 @@ const VAROS_RO = {
     Marosvasarhely: "Târgu Mureș"
 };
 
-async function geocode(szoveg, varos) {
+// varos: a mi városnevünk (ékezet nélkül); megye: ha város helyett egy
+// környékbeli településen keresünk (pl. "Ozun, Covasna")
+async function geocode(szoveg, varos, megye) {
 
     const varosRo = VAROS_RO[varos] || varos || "";
-    const q = [szoveg, varosRo, "Romania"].filter(Boolean).join(", ");
+    const q = [szoveg, varosRo, megye, "Romania"].filter(Boolean).join(", ");
 
     if (cache.has(q)) return cache.get(q);
 

@@ -7,13 +7,21 @@ const UGYLETEK = ["elado", "kiado"];
 const ALLAPOTOK = ["felújítandó", "részbenfel", "jó", "újszerű", "luxus"];
 
 // Típusonként mely mezők értelmesek
+//  kerulet:   a városon belüli kerület (lakásnál, üzlethelyiségnél, irodánál)
+//  telepules: háznál, teleknél kerület helyett – ha nem a városban, hanem
+//             mellette van, melyik településen (üres = a városban)
 const TIPUS_MEZOK = {
-    lakas: { szobak: true, emelet: true, allapot: true, telek: false },
-    haz: { szobak: true, emelet: false, allapot: true, telek: true },
-    telek: { szobak: false, emelet: false, allapot: false, telek: false },
-    kereskedelmi: { szobak: false, emelet: true, allapot: true, telek: false },
-    iroda: { szobak: true, emelet: true, allapot: true, telek: false }
+    lakas: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false },
+    haz: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true },
+    telek: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true },
+    kereskedelmi: { szobak: false, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false },
+    iroda: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false }
 };
+
+// Hely pontossága: pontos (térképen megjelölve / a forrás adta),
+// utca (utcanévből), kozelito (környékből / településből becsülve),
+// nincs (semmi nem utal rá – "nincs megadva pontos hely")
+const HELY_SZINTEK = ["pontos", "utca", "kozelito", "nincs"];
 
 function szam(v) {
     if (v === null || v === undefined || v === "") return null;
@@ -35,7 +43,14 @@ function normalize(b) {
     const mezok = TIPUS_MEZOK[tipus];
 
     const ar = szam(b.ar);
-    const nm = szam(b.nm);
+    let nm = szam(b.nm);
+
+    // Teleknél az alapterület maga a telek mérete
+    if (tipus === "telek" && !(nm > 0) && szam(b.telek_nm) > 0) nm = szam(b.telek_nm);
+
+    const x = szam(b.x);
+    const y = szam(b.y);
+    const vanHely = !!(x && y);
 
     return {
         tipus,
@@ -51,11 +66,14 @@ function normalize(b) {
         emelet: mezok.emelet ? szoveg(b.emelet, 20) : null,
         allapot: mezok.allapot && ALLAPOTOK.includes(b.allapot) ? b.allapot : (mezok.allapot ? szoveg(b.allapot, 40) : null),
         eladva: !!b.eladva,
-        x: szam(b.x),
-        y: szam(b.y),
+        x: vanHely ? x : null,
+        y: vanHely ? y : null,
         varos: szoveg(b.varos, 100),
-        kerulet: szoveg(b.kerulet, 100),
-        hely_pontossag: ["kozelito", "utca"].includes(b.hely_pontossag) ? b.hely_pontossag : (szam(b.x) && szam(b.y) ? "pontos" : null),
+        kerulet: mezok.kerulet ? szoveg(b.kerulet, 100) : null,
+        telepules: mezok.telepules ? szoveg(b.telepules, 100) : null,
+        hely_pontossag: vanHely
+            ? (["kozelito", "utca", "pontos"].includes(b.hely_pontossag) ? b.hely_pontossag : "pontos")
+            : "nincs",
         kulso_kepek: Array.isArray(b.kulso_kepek) ? b.kulso_kepek.filter(u => /^https?:\/\//.test(u)).slice(0, 20) : null,
         tovabbi_linkek: Array.isArray(b.tovabbi_linkek) ? b.tovabbi_linkek.filter(u => /^https?:\/\//.test(u)).slice(0, 20) : null
     };
@@ -75,8 +93,15 @@ function hianyzoMezok(d, opts = {}) {
     if (!(d.ar > 0)) h.push("ar");
     if (!(d.nm > 0)) h.push("nm");
     if (!d.varos) h.push("varos");
-    if (!(d.x && d.y)) h.push("hely");
-    if (opts.vannakKeruletek && !d.kerulet) h.push("kerulet");
+
+    // Hely: csak a kézzel feltöltött hirdetésnél kötelező (ott a térképre kell
+    // kattintani). Beolvasott hirdetésnél és teleknél elég a közelítő hely,
+    // vagy a "nincs megadva pontos hely" kategória.
+    if (mod === "kezi" && d.tipus !== "telek" && !(d.x && d.y)) h.push("hely");
+
+    // Kerület: csak ahol értelmes (lakás, üzlet, iroda), és nem a beolvasottaknál –
+    // azokat a kerület-párosítás (Admin → Városok, kerületek) intézi
+    if (mezok.kerulet && mod !== "import" && opts.vannakKeruletek && !d.kerulet) h.push("kerulet");
 
     if (mezok.szobak && d.tipus !== "kereskedelmi" && !(d.szobak > 0)) h.push("szobak");
 
@@ -134,4 +159,4 @@ function normLink(l) {
 
 }
 
-module.exports = { TIPUSOK, UGYLETEK, TIPUS_MEZOK, normalize, hianyzoMezok, parseKepek, normLink, szam, szoveg };
+module.exports = { TIPUSOK, UGYLETEK, TIPUS_MEZOK, HELY_SZINTEK, normalize, hianyzoMezok, parseKepek, normLink, szam, szoveg };

@@ -69,7 +69,7 @@ class FilterManager {
         });
 
         // Legördülők azonnal szűrnek
-        ["allapot", "keresoKerulet"].forEach(id => {
+        ["allapot", "keresoKerulet", "keresoTelepules", "keresoHely"].forEach(id => {
             document.getElementById(id).addEventListener("change", () => FilterManager.apply());
         });
 
@@ -92,6 +92,7 @@ class FilterManager {
 
             // Új városnál a kerület- és forrásszűrő nem értelmezhető
             document.getElementById("keresoKerulet").value = "";
+            document.getElementById("keresoTelepules").value = "";
             FilterManager.selectedSources = null;
 
             CityManager.loadSearchKeruletek(this.value);
@@ -190,7 +191,9 @@ class FilterManager {
             minSzoba: n("minSzoba"),
             minEmelet: n("minEmelet"),
             allapot: document.getElementById("allapot").value,
-            kerulet: document.getElementById("keresoKerulet").value,
+            kerulet: Types.get(FilterManager.tipus).fields.kerulet ? document.getElementById("keresoKerulet").value : "",
+            telepules: Types.get(FilterManager.tipus).fields.telepules ? document.getElementById("keresoTelepules").value : "",
+            hely: document.getElementById("keresoHely").value,
             sources: FilterManager.selectedSources
         };
 
@@ -221,9 +224,33 @@ class FilterManager {
 
         if (f.kerulet && (i.kerulet || "") !== f.kerulet) return false;
 
+        if (f.telepules === "_varos" && i.telepules) return false;
+        if (f.telepules && f.telepules !== "_varos" && (i.telepules || "") !== f.telepules) return false;
+
+        if (f.hely && (i.hely_pontossag || (i.x && i.y ? "pontos" : "nincs")) !== f.hely &&
+            !(f.hely === "pontos" && i.hely_pontossag === "utca")) return false;
+
         if (f.sources !== null && !(i.forrasok || [i.forras]).some(k => f.sources.has(k))) return false;
 
         return true;
+
+    }
+
+    // Háznál, teleknél: a városban / melyik szomszéd településen (a betöltött hirdetésekből)
+    static renderTelepulesek() {
+
+        const sel = document.getElementById("keresoTelepules");
+        if (!sel) return;
+
+        const keep = sel.value;
+        const nevek = [...new Set(DataManager.ingatlanok.map(i => i.telepules).filter(Boolean))]
+            .sort((a, b) => CityManager.telepulesLabel(a).localeCompare(CityManager.telepulesLabel(b), I18n.current));
+
+        sel.innerHTML = `<option value="">${I18n.t("allapotMindegy")}</option>` +
+            `<option value="_varos">${I18n.t("telepulesVarosban")}</option>` +
+            nevek.map(n => `<option value="${Utils.escape(n)}">${Utils.escape(CityManager.telepulesLabel(n))}</option>`).join("");
+
+        if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
 
     }
 
@@ -268,6 +295,8 @@ class FilterManager {
 
         document.getElementById("allapot").value = "";
         document.getElementById("keresoKerulet").value = "";
+        document.getElementById("keresoTelepules").value = "";
+        document.getElementById("keresoHely").value = "";
         document.getElementById("hideDuplicates").checked = true;
         document.getElementById("onlyWithPhotos").checked = false;
 
@@ -299,7 +328,9 @@ class FilterManager {
         if (f.minSzoba !== null) chips.push(`${I18n.t("minSzoba")}: ${f.minSzoba}`);
         if (f.minEmelet !== null) chips.push(`${I18n.t("minEmelet")}: ${f.minEmelet}`);
         if (f.allapot) chips.push(`${I18n.t("allapot")}: ${Utils.allapotLabel(f.allapot)}`);
-        if (f.kerulet) chips.push(`${I18n.t("kerulet")}: ${Utils.escape(f.kerulet)}`);
+        if (f.kerulet) chips.push(`${I18n.t("kerulet")}: ${Utils.escape(CityManager.keruletLabel(f.kerulet, f.varos))}`);
+        if (f.telepules) chips.push(`${I18n.t("telepulesLabel")}: ${Utils.escape(f.telepules === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(f.telepules))}`);
+        if (f.hely) chips.push(`${I18n.t("filterHely")}: ${Utils.escape(I18n.t("hely_" + f.hely))}`);
 
         if (f.sources !== null && f.sources !== undefined) {
             const nevek = [...f.sources].map(Sources.label).join(", ");

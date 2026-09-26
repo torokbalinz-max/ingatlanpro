@@ -14,14 +14,14 @@ class TableManager {
             headerFontWeight: 700,
             borderRadius: 10,
             wrapperBorderRadius: 12,
-            accentColor: "#2563eb"
+            accentColor: Utils.accent()
         });
 
         if (dark) {
-            t = t.withPart(agGrid.colorSchemeDarkBlue).withParams({
-                backgroundColor: "#111827",
-                headerBackgroundColor: "#1f2937",
-                accentColor: "#60a5fa"
+            t = t.withPart(agGrid.colorSchemeDark).withParams({
+                backgroundColor: "#181c1a",
+                headerBackgroundColor: "#202522",
+                accentColor: Utils.accent()
             });
         }
 
@@ -70,7 +70,7 @@ class TableManager {
                 minWidth: 115,
                 flex: 1,
                 valueFormatter: p => Utils.price(p.data),
-                cellStyle: { fontWeight: "700", color: "#16a34a" }
+                cellStyle: { fontWeight: "700", fontVariantNumeric: "tabular-nums" }
             },
 
             {
@@ -114,10 +114,11 @@ class TableManager {
             },
 
             {
-                field: "kerulet",
+                colId: "kerulet",
                 headerName: I18n.t("colKerulet"),
                 minWidth: 110,
-                flex: 1
+                flex: 1,
+                valueGetter: p => CityManager.helyReszLabel(p.data)
             },
 
             {

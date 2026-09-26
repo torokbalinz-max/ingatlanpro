@@ -4,6 +4,27 @@
 
 class Utils {
 
+    // A téma kiemelő színe (a térképi jelölőkhöz)
+    static accent() {
+        try {
+            return getComputedStyle(document.documentElement).getPropertyValue("--ip-accent").trim() || "#1f6f5c";
+        } catch (e) {
+            return "#1f6f5c";
+        }
+    }
+
+    // A hely pontossága: pontos / utca / közelítő / nincs megadva
+    static helySzint(i) {
+        return i.hely_pontossag || (i.x && i.y ? "pontos" : "nincs");
+    }
+
+    static helyBadge(i) {
+        const s = Utils.helySzint(i);
+        if (s === "pontos") return "";
+        const ikon = s === "nincs" ? "fa-location-crosshairs" : "fa-location-dot";
+        return `<span class="helyBadge hely-${s}"><i class="fa-solid ${ikon}" aria-hidden="true"></i> ${I18n.t("hely_" + s)}</span>`;
+    }
+
     // ----- Formázás -----
 
     static locale() {

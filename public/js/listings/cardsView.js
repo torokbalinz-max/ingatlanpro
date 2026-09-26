@@ -75,7 +75,7 @@ class CardsView {
 
         const foto = Utils.photoUrl(i);
         const cim = i.cim || `${Types.label(i.tipus)} · ${CityManager.displayName(i.varos)}`;
-        const hely = [CityManager.displayName(i.varos), i.kerulet].filter(Boolean).join(" · ");
+        const hely = CityManager.helyLabel(i);
         const fav = DataManager.isFavorite(i.id);
 
         const badges = (i.forrasok || [i.forras]).map(k => Sources.badge(k)).join(" ");
@@ -98,7 +98,7 @@ class CardsView {
                         <div class="listingNm">${Utils.arNm(i) ? Utils.eurNm(Utils.arNm(i)) : ""}</div>
                         <h6 class="listingTitle">${Utils.escape(cim)}</h6>
                         <div class="listingFacts">${CardsView.facts(i)}</div>
-                        <div class="listingPlace"><i class="fa-solid fa-location-dot"></i> ${Utils.escape(hely)}</div>
+                        <div class="listingPlace"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> <span>${Utils.escape(hely)}</span> ${Utils.helyBadge(i)}</div>
                         <div class="listingBadges">${badges}${i.ellenorzott === false ? ` <span class="badge text-bg-light" title="${I18n.t("unverifiedHint")}"><i class="fa-solid fa-hourglass-half"></i> ${I18n.t("unverified")}</span>` : ""}${hianyos && AuthManager.isAdmin() ? ` <span class="badge text-bg-warning" title="${I18n.t("incompleteHint")}"><i class="fa-solid fa-triangle-exclamation"></i> ${I18n.t("incomplete")}</span>` : ""}</div>
                     </div>
                 </article>

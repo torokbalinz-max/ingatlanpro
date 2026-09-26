@@ -15,9 +15,61 @@ class CityManager {
         return CityManager.DISPLAY[nev] || nev || "";
     }
 
+    // ---------- Kerületek: magyar és román név ----------
+    //  Az adatbázisban a "nev" a magyar név, a "nev_ro" a román.
+    //  Magyarul a magyar név látszik, angolul és románul a román.
+
+    static keruletek = [];
+
+    static loadAllKeruletek() {
+        return fetch("/api/keruletek")
+            .then(r => r.json())
+            .then(lista => { CityManager.keruletek = Array.isArray(lista) ? lista : []; })
+            .catch(err => console.error("Kerületek betöltése sikertelen:", err));
+    }
+
+    static keruletLabelOf(k) {
+        if (!k) return "";
+        return I18n.current === "hu" ? k.nev : (k.nev_ro || k.nev);
+    }
+
+    static keruletLabel(nev, varos) {
+        if (!nev) return "";
+        const k = CityManager.keruletek.find(x => x.nev === nev && (!varos || x.varos === varos))
+            || CityManager.keruletek.find(x => x.nev === nev);
+        return k ? CityManager.keruletLabelOf(k) : nev;
+    }
+
+    // Település (háznál, teleknél): magyarul magyar, máshol román név
+    static telepulesLabel(nev) {
+        return Telepulesek.nev(nev, I18n.current);
+    }
+
+    // "Sepsiszentgyörgy · Csíki negyed" / "Uzon, Sepsiszentgyörgy mellett"
+    static helyLabel(i) {
+
+        const varos = CityManager.displayName(i.varos);
+        const f = Types.get(i.tipus).fields;
+
+        if (f.telepules) {
+            if (i.telepules) return I18n.f("nearCity", { hely: CityManager.telepulesLabel(i.telepules), varos });
+            return varos;
+        }
+
+        return [varos, CityManager.keruletLabel(i.kerulet, i.varos)].filter(Boolean).join(" · ");
+
+    }
+
+    // A kerület vagy a település (táblázat oszlopához)
+    static helyReszLabel(i) {
+        const f = Types.get(i.tipus).fields;
+        if (f.telepules) return i.telepules ? CityManager.telepulesLabel(i.telepules) : I18n.t("telepulesVarosban");
+        return CityManager.keruletLabel(i.kerulet, i.varos);
+    }
+
     static init() {
 
-        return CityManager.loadVarosok().then(() => {
+        return Promise.all([CityManager.loadVarosok(), CityManager.loadAllKeruletek()]).then(() => {
 
             // Keresőben lévő városválasztó
             CityManager.fillCitySelect(document.getElementById("citySelect"), DataManager.currentCity);
@@ -177,8 +229,16 @@ class CityManager {
             .then(r => r.json())
             .then(lista => {
 
+                const cimke = k => {
+                    const fo = CityManager.keruletLabelOf(k);
+                    const masik = I18n.current === "hu" ? k.nev_ro : k.nev;
+                    return masik && masik !== fo ? `${fo} (${masik})` : fo;
+                };
+
+                lista.sort((a, b) => CityManager.keruletLabelOf(a).localeCompare(CityManager.keruletLabelOf(b), I18n.current));
+
                 select.innerHTML = `<option value="">${I18n.t(emptyKey)}</option>` +
-                    lista.map(k => `<option value="${Utils.escape(k.nev)}">${Utils.escape(k.nev)}</option>`).join("");
+                    lista.map(k => `<option value="${Utils.escape(k.nev)}">${Utils.escape(cimke(k))}</option>`).join("");
 
                 if (selectNev) select.value = selectNev;
 
@@ -199,6 +259,8 @@ class CityManager {
 
     // Nyelvváltáskor az "üres" opciók szövege frissüljön
     static refreshLabels() {
+
+        if (typeof FilterManager !== "undefined") FilterManager.renderTelepulesek();
 
         CityManager.loadSearchKeruletek(DataManager.currentCity);
 

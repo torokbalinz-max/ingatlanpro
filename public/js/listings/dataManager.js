@@ -52,7 +52,10 @@ class DataManager {
                 DataManager.ingatlanok = rows;
 
                 FilterManager.renderSources();
+                FilterManager.renderTelepulesek();
                 FilterManager.apply();
+
+                if (typeof PageManager !== "undefined" && PageManager.current === "home") HomePage.render();
 
             })
 
