@@ -86,7 +86,8 @@ class HistoryStatistics {
 
             const varosNev = CityManager.displayName(DataManager.currentCity);
 
-            let html = `
+            // A mentés az admin dolga – a látogatók csak az eredményt látják
+            let html = !AuthManager.isAdmin() ? "" : `
                 <div class="card mb-4">
                     <div class="card-body d-flex flex-wrap align-items-center gap-3">
                         <div class="flex-fill">
@@ -150,7 +151,10 @@ class HistoryStatistics {
 
     static bindSave() {
 
-        document.getElementById("btnSaveSnapshot").onclick = () => {
+        const btn = document.getElementById("btnSaveSnapshot");
+        if (!btn) return;
+
+        btn.onclick = () => {
 
             if (!confirm(I18n.t("alertConfirmSaveStats"))) return;
 

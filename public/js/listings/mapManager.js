@@ -7,12 +7,12 @@ class MapManager {
     static dirty = false;
 
     static COLORS = {
-        "felújítandó": "#f97316",
-        "részbenfel": "#eab308",
-        "jó": "#2563eb",
-        "újszerű": "#16a34a",
-        "luxus": "#9333ea",
-        "": "#64748b"
+        "felújítandó": "#c2410c",
+        "részbenfel": "#ca8a04",
+        "jó": "#1f6f5c",
+        "újszerű": "#2563eb",
+        "luxus": "#7c3aed",
+        "": "#6b7280"
     };
 
     static color(allapot) {
@@ -66,7 +66,7 @@ class MapManager {
                 <div class="mapPopupPrice">${Utils.price(i)}</div>
                 <div>${i.nm ? Utils.num(i.nm) + " m² · " : ""}${Utils.eurNm(Utils.arNm(i))}</div>
                 <div>${i.szobak ? I18n.f("roomsLabel", { n: i.szobak }) + " · " : ""}${i.allapot ? Utils.allapotLabel(i.allapot) : ""}</div>
-                <div class="mt-1">${(i.forrasok || [i.forras]).map(Sources.badge).join(" ")}</div>
+                <div class="mt-1">${(i.forrasok || [i.forras]).map(Sources.badge).join(" ")} ${Utils.helyBadge(i)}</div>
                 <button class="btn btn-primary btn-sm w-100 mt-2" onclick="ListingPage.open(${Number(i.id)})">${I18n.t("detailOpenListing")}</button>
             </div>`;
 
@@ -82,20 +82,34 @@ class MapManager {
         MapManager.layer.clearLayers();
         MapManager.markerMap.clear();
 
+        let helyNelkul = 0;
+
         lista.forEach(ingatlan => {
 
             const x = Number(ingatlan.x);
             const y = Number(ingatlan.y);
 
             // Hiányzó / 0 koordináta: nem tesszük ki a térképre
-            if (!x || !y || isNaN(x) || isNaN(y)) return;
+            if (!x || !y || isNaN(x) || isNaN(y)) { helyNelkul++; return; }
+
+            const szin = MapManager.color(ingatlan.allapot);
+            const kozelito = ingatlan.hely_pontossag === "kozelito";
+
+            // Közelítő helynél halvány kör a valószínű környékre
+            if (kozelito) {
+                L.circle([y, x], {
+                    radius: ingatlan.hely_sugar || (ingatlan.telepules ? 1500 : 500),
+                    color: szin, weight: 1, opacity: 0.5, fillOpacity: 0.06, interactive: false
+                }).addTo(MapManager.layer);
+            }
 
             const marker = L.circleMarker([y, x], {
                 radius: 8,
                 weight: 2,
                 color: "#ffffff",
-                fillColor: MapManager.color(ingatlan.allapot),
-                fillOpacity: 0.9
+                dashArray: kozelito ? "3 3" : null,
+                fillColor: szin,
+                fillOpacity: kozelito ? 0.6 : 0.9
             })
             .bindPopup(MapManager.popupHtml(ingatlan));
 
@@ -108,8 +122,14 @@ class MapManager {
         });
 
         if (MapManager.markerMap.size > 0) {
-            MapManager.map.fitBounds(MapManager.layer.getBounds(), { padding: [30, 30], maxZoom: 15 });
+            MapManager.map.fitBounds(L.featureGroup([...MapManager.markerMap.values()]).getBounds(), { padding: [30, 30], maxZoom: 15 });
         }
+
+        const cnt = document.getElementById("mapCount");
+        if (cnt) cnt.innerText = MapManager.markerMap.size;
+
+        const nl = document.getElementById("mapNoLoc");
+        if (nl) nl.innerText = helyNelkul ? " · " + I18n.f("mapNoLocCount", { n: helyNelkul }) : "";
 
         MapManager.renderLegend();
 

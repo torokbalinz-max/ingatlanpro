@@ -13,7 +13,7 @@ const ALLAPOTOK = ["felújítandó", "részbenfel", "jó", "újszerű", "luxus"]
 const TIPUS_MEZOK = {
     lakas: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false },
     haz: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true },
-    telek: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true },
+    telek: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true, jelleg: true },
     kereskedelmi: { szobak: false, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false },
     iroda: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false }
 };
@@ -74,6 +74,11 @@ function normalize(b) {
         hely_pontossag: vanHely
             ? (["kozelito", "utca", "pontos"].includes(b.hely_pontossag) ? b.hely_pontossag : "pontos")
             : "nincs",
+        // Közelítő helynél a kör sugara (m); pontosnál nincs
+        hely_sugar: vanHely && b.hely_pontossag === "kozelito"
+            ? Math.min(5000, Math.max(100, Math.round(szam(b.hely_sugar) || 500)))
+            : null,
+        telek_jelleg: mezok.jelleg && ["belterulet", "kulterulet"].includes(b.telek_jelleg) ? b.telek_jelleg : null,
         kulso_kepek: Array.isArray(b.kulso_kepek) ? b.kulso_kepek.filter(u => /^https?:\/\//.test(u)).slice(0, 20) : null,
         tovabbi_linkek: Array.isArray(b.tovabbi_linkek) ? b.tovabbi_linkek.filter(u => /^https?:\/\//.test(u)).slice(0, 20) : null
     };
@@ -108,6 +113,9 @@ function hianyzoMezok(d, opts = {}) {
     if (mezok.emelet && (d.emelet === null || d.emelet === undefined || d.emelet === "")) h.push("emelet");
 
     if (mezok.telek && !(d.telek_nm > 0)) h.push("telek_nm");
+
+    // Teleknél: belterület vagy külterület (ha a leírásból nem derül ki, ellenőrizni kell)
+    if (mezok.jelleg && !d.telek_jelleg) h.push("telek_jelleg");
 
     if (mezok.allapot && !d.allapot) h.push("allapot");
 

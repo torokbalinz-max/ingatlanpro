@@ -66,6 +66,7 @@ class CardsView {
         if (f.szobak && i.szobak) out.push(`<span><i class="fa-solid fa-bed"></i> ${I18n.f("roomsLabel", { n: i.szobak })}</span>`);
         if (f.emelet && i.emelet) out.push(`<span><i class="fa-solid fa-stairs"></i> ${Utils.escape(Utils.emeletLabel(i.emelet))}</span>`);
         if (f.telek && i.telek_nm) out.push(`<span><i class="fa-solid fa-tree"></i> ${Utils.num(i.telek_nm)} m²</span>`);
+        if (i.tipus === "telek" && i.telek_jelleg) out.push(`<span><i class="fa-solid fa-signs-post" aria-hidden="true"></i> ${I18n.t("jelleg_" + i.telek_jelleg)}</span>`);
 
         return out.join("");
 

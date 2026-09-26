@@ -8,6 +8,7 @@
 // ============================================================
 
 const cheerio = require("cheerio");
+const { arHiheto } = require("./textParse");
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
@@ -416,6 +417,7 @@ function extract(html, url, finalUrl) {
         d.forrasok.ar = "ron-atvaltva";
     }
 
+    if (d.ar && !arHiheto(d.ar, d.ugylet)) d.ar = null;
     if (d.nm && (d.nm < 8 || d.nm > 100000)) d.nm = null;
     if (d.szobak && (d.szobak < 1 || d.szobak > 30)) d.szobak = null;
     if (d.x && (d.x < 20 || d.x > 30)) { d.x = null; d.y = null; }
@@ -559,7 +561,17 @@ function keresesiElem(o) {
         forrasok: { osszes: "kereses" }
     };
 
-    if (d.penznem && /ron|lei/i.test(d.penznem) && d.ar) d.ar = Math.round(d.ar / 5);
+    // Ár: az első HIHETŐ érték a lehetséges mezőkből. A lista néha nem a teljes
+    // árat adja (pl. 0,2 – ezres egység vagy €/m²); ilyenkor üres marad, és az
+    // automatikus javítás a hirdetés szövegéből olvassa ki.
+    {
+        const ron = d.penznem && /ron|lei/i.test(d.penznem);
+        const jeloltek = [Number(ga.price), numberFrom(o.price), numberFrom(forrasok[0] && forrasok[0].price)]
+            .filter(x => x > 0)
+            .map(x => ron ? Math.round(x / 5) : x);
+        d.ar = jeloltek.find(x => arHiheto(x, d.ugylet)) || null;
+    }
+
     if (d.nm && (d.nm < 8 || d.nm > 100000)) d.nm = null;
     if (d.szobak && (d.szobak < 1 || d.szobak > 30)) d.szobak = null;
 

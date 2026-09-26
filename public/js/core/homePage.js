@@ -5,12 +5,22 @@
 
 class HomePage {
 
+    // Fotók: Unsplash (szabadon felhasználható, forrásmegjelölés nélkül)
+    static FOTO = id => `https://images.unsplash.com/${id}?auto=format&fit=crop&q=75`;
+
+    static KEPEK = {
+        hero: "photo-1636288087131-7e912d7d37cf",          // Brassó, ősszel
+        lakas: "photo-1560448204-e02f11c3d0e2",         // világos nappali
+        haz: "photo-1680645944941-da9198d7f6aa",        // családi ház zöld kerttel
+        telek: "photo-1625866529727-67ec4c3245d0",      // zöld dombok
+        kereskedelmi: "photo-1528698827591-e19ccd7bc23d" // üzletportál
+    };
+
     static FEATURES = [
-        { key: "Props", page: "properties", icon: "fa-solid fa-house", cls: "featBig", bullets: ["homeFeatPropsB1", "homeFeatPropsB2", "homeFeatPropsB3"], photo: true },
-        { key: "Market", page: "market", icon: "fa-solid fa-chart-line", cls: "featWide featTint" },
-        { key: "Val", page: "valuation", icon: "fa-solid fa-calculator", cls: "featWide" },
-        { key: "Map", page: "properties", icon: "fa-solid fa-map-location-dot", cls: "featThird", scrollMap: true },
-        { key: "Fav", page: "favorites", icon: "fa-solid fa-star", cls: "featThird" },
+        { key: "Props", page: "properties", icon: "fa-solid fa-house", cls: "featWide", bullets: ["homeFeatPropsB1", "homeFeatPropsB2", "homeFeatPropsB3"] },
+        { key: "Map", page: "map", icon: "fa-solid fa-map-location-dot", cls: "featWide featTint" },
+        { key: "Market", page: "market", icon: "fa-solid fa-chart-line", cls: "featThird" },
+        { key: "Val", page: "valuation", icon: "fa-solid fa-calculator", cls: "featThird" },
         { key: "New", page: "new", icon: "fa-solid fa-circle-plus", cls: "featThird featTint" }
     ];
 
@@ -22,13 +32,6 @@ class HomePage {
         { n: 5, icon: "fa-solid fa-map" },
         { n: 6, icon: "fa-solid fa-language" }
     ];
-
-    // Legfeljebb 3 kép a betöltött hirdetésekből (valódi fotók)
-    static fotok() {
-        const lista = (DataManager.ingatlanok || []).filter(i => Utils.hasPhoto(i) && i.ar > 0);
-        const vegyes = [...lista].sort((a, b) => (b.kep_db || 0) - (a.kep_db || 0) || b.id - a.id);
-        return vegyes.slice(0, 3);
-    }
 
     static stats() {
 
@@ -45,22 +48,60 @@ class HomePage {
 
     }
 
+    // Kereső a kezdőlapon: beállítja a szűrőket, és átvisz a hirdetésekhez
+    static go(opts) {
+
+        if (opts.ugylet) {
+            FilterManager.ugylet = opts.ugylet;
+            const r = document.getElementById(opts.ugylet === "kiado" ? "ugyletKiado" : "ugyletElado");
+            if (r) r.checked = true;
+        }
+
+        if (opts.tipus) {
+            FilterManager.tipus = opts.tipus;
+            FilterManager.renderTypes();
+        }
+
+        FilterManager.onTypeChange();
+
+        const cel = opts.page || "properties";
+
+        if (opts.varos && opts.varos !== DataManager.currentCity) {
+            const sel = document.getElementById("citySelect");
+            sel.value = opts.varos;
+            sel.dispatchEvent(new Event("change"));
+        } else {
+            FilterManager.apply();
+        }
+
+        PageManager.show(cel);
+
+    }
+
     static render() {
 
         const box = document.getElementById("homeContent");
         if (!box) return;
 
         const t = I18n.t.bind(I18n);
-        const fotok = HomePage.fotok();
         const s = HomePage.stats();
+        const esc = Utils.escape;
+        const lista = DataManager.ingatlanok || [];
 
-        const kep = (i, cls) => `
-            <button type="button" class="heroPhoto ${cls}" data-listing="${i.id}" aria-label="${Utils.escape(i.cim || Types.label(i.tipus))}">
-                <img src="${Utils.escape(Utils.photoUrl(i))}" alt="" referrerpolicy="no-referrer" loading="eager" onerror="this.closest('.heroPhoto').classList.add('broken');this.remove();">
-                <span class="heroPhotoTag">${Utils.price(i)}</span>
-            </button>`;
+        const db = tipus => lista.filter(i => (i.tipus || "lakas") === tipus).length;
 
-        const featFoto = fotok[1] || fotok[0];
+        const varosOpciok = [...CityManager.varosok].map(v => v.nev)
+            .sort((a, b) => CityManager.displayName(a).localeCompare(CityManager.displayName(b), "hu"))
+            .map(n => `<option value="${esc(n)}" ${n === DataManager.currentCity ? "selected" : ""}>${esc(CityManager.displayName(n))}</option>`).join("");
+
+        const tipusOpciok = Types.LIST.map(x => `<option value="${x.key}" ${x.key === FilterManager.tipus ? "selected" : ""}>${t(x.label)}</option>`).join("");
+
+        const kat = [
+            { tipus: "lakas", cim: "homeCatLakas", kep: "lakas", cls: "catBig" },
+            { tipus: "haz", cim: "homeCatHaz", kep: "haz" },
+            { tipus: "telek", cim: "homeCatTelek", kep: "telek" },
+            { tipus: "kereskedelmi", cim: "homeCatUzlet", kep: "kereskedelmi" }
+        ];
 
         box.innerHTML = `
 
@@ -68,31 +109,72 @@ class HomePage {
                 <div class="homeHeroText">
                     <h1>${t("homeTitle")}</h1>
                     <p class="homeLead">${t("homeSub")}</p>
-                    <div class="homeCtas">
-                        <a class="btn btn-primary btn-lg" href="#properties">${t("homeCtaBrowse")}</a>
-                        <a class="btn btn-outline-secondary btn-lg" href="#new">${t("homeCtaPost")}</a>
+
+                    <form class="heroSearch" id="heroSearch" role="search">
+                        <div class="btn-group heroDeal" role="group" aria-label="${t("ugyletLabel")}">
+                            <input type="radio" class="btn-check" name="heroUgylet" id="heroElado" value="elado" ${FilterManager.ugylet !== "kiado" ? "checked" : ""}>
+                            <label class="btn btn-outline-secondary" for="heroElado">${t("ugyletElado")}</label>
+                            <input type="radio" class="btn-check" name="heroUgylet" id="heroKiado" value="kiado" ${FilterManager.ugylet === "kiado" ? "checked" : ""}>
+                            <label class="btn btn-outline-secondary" for="heroKiado">${t("ugyletKiado")}</label>
+                        </div>
+                        <div class="heroFields">
+                            <label class="heroField">
+                                <span>${t("searchVaros")}</span>
+                                <select class="form-select" id="heroVaros">${varosOpciok}</select>
+                            </label>
+                            <label class="heroField">
+                                <span>${t("typeLabel")}</span>
+                                <select class="form-select" id="heroTipus">${tipusOpciok}</select>
+                            </label>
+                            <button class="btn btn-primary btn-lg heroGo" type="submit"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> ${t("keresesBtn")}</button>
+                        </div>
+                    </form>
+
+                    <div class="heroLinks">
+                        <a href="#map" id="heroMap"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> ${t("homeOnMap")}</a>
+                        <a href="#new"><i class="fa-solid fa-circle-plus" aria-hidden="true"></i> ${t("homeCtaPost")}</a>
                     </div>
                 </div>
-                <div class="homeHeroMedia ${fotok.length ? "" : "empty"}">
-                    ${fotok.length
-                        ? fotok.map((i, idx) => kep(i, "p" + idx)).join("")
-                        : `<div class="heroPlaceholder"><i class="fa-solid fa-building" aria-hidden="true"></i></div>`}
+
+                <div class="homeHeroMedia">
+                    <img src="${HomePage.FOTO(HomePage.KEPEK.hero)}&w=1400" alt="" fetchpriority="high" width="1400" height="1000" onerror="this.parentElement.classList.add('noImg');this.remove();">
+                    <div class="heroBadge">
+                        <b>${Utils.num(s.db)}</b>
+                        <span>${t("homeStatListings")} · ${esc(s.varos)}</span>
+                    </div>
                 </div>
             </section>
 
-            <section class="homeStats" aria-label="${Utils.escape(s.varos)}">
+            <section class="homeStats" aria-label="${esc(s.varos)}">
                 <div><b>${Utils.num(s.db)}</b><span>${t("homeStatListings")}</span></div>
-                <div><b>${Utils.escape(s.varos)}</b><span>${t("homeStatCity")}</span></div>
+                <div><b>${esc(s.varos)}</b><span>${t("homeStatCity")}</span></div>
                 <div><b>${s.atlag ? Utils.eurNm(s.atlag) : "-"}</b><span>${t("homeStatAvg")}</span></div>
                 <div><b>${Utils.num(s.foto)}</b><span>${t("homeStatPhotos")}</span></div>
+            </section>
+
+            <section class="homeSection">
+                <div class="homeSectionHead">
+                    <h2 class="homeH2">${t("homeBrowseTitle")}</h2>
+                    <a href="#properties" class="homeAll">${t("homeAllListings")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                </div>
+                <div class="catGrid">
+                    ${kat.map(k => `
+                        <a class="catTile ${k.cls || ""}" href="#properties" data-cat="${k.tipus}">
+                            <img src="${HomePage.FOTO(HomePage.KEPEK[k.kep])}&w=${k.cls ? 1100 : 700}" alt="" loading="lazy" onerror="this.remove()">
+                            <span class="catShade"></span>
+                            <span class="catText">
+                                <b>${t(k.cim)}</b>
+                                <span>${I18n.f("homeCatCount", { n: Utils.num(db(k.tipus)) })}</span>
+                            </span>
+                        </a>`).join("")}
+                </div>
             </section>
 
             <section class="homeSection">
                 <h2 class="homeH2">${t("homeFeaturesTitle")}</h2>
                 <div class="featGrid">
                     ${HomePage.FEATURES.map(f => `
-                        <a class="featCell ${f.cls}" href="#${f.page}" ${f.scrollMap ? 'data-scroll-map="1"' : ""}>
-                            ${f.photo && featFoto ? `<span class="featPhoto"><img src="${Utils.escape(Utils.photoUrl(featFoto))}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.parentElement.remove()"></span>` : ""}
+                        <a class="featCell ${f.cls}" href="#${f.page}">
                             <span class="featBody">
                                 <span class="featIcon"><i class="${f.icon}" aria-hidden="true"></i></span>
                                 <span class="featTitle">${t("homeFeat" + f.key + "Title")}</span>
@@ -117,18 +199,29 @@ class HomePage {
 
             <footer class="homeFooter">
                 <span class="appBrand small"><span class="appBrandIcon"><i class="fa-solid fa-building" aria-hidden="true"></i></span><span translate="no">Ingatlan<b>Pro</b></span></span>
+                <span class="small text-body-secondary">${t("homePhotoCredit")}</span>
             </footer>`;
 
-        box.querySelectorAll("[data-listing]").forEach(b => {
-            b.onclick = () => PageManager.show("listing/" + b.dataset.listing);
+        const ertek = () => ({
+            ugylet: (box.querySelector('input[name="heroUgylet"]:checked') || {}).value || "elado",
+            varos: document.getElementById("heroVaros").value,
+            tipus: document.getElementById("heroTipus").value
         });
 
-        box.querySelectorAll("[data-scroll-map]").forEach(a => {
-            a.addEventListener("click", () => {
-                setTimeout(() => {
-                    const m = document.getElementById("map");
-                    if (m) m.scrollIntoView({ behavior: "smooth", block: "center" });
-                }, 400);
+        document.getElementById("heroSearch").addEventListener("submit", e => {
+            e.preventDefault();
+            HomePage.go(ertek());
+        });
+
+        document.getElementById("heroMap").addEventListener("click", e => {
+            e.preventDefault();
+            HomePage.go({ ...ertek(), page: "map" });
+        });
+
+        box.querySelectorAll("[data-cat]").forEach(a => {
+            a.addEventListener("click", e => {
+                e.preventDefault();
+                HomePage.go({ tipus: a.dataset.cat });
             });
         });
 

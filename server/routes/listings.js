@@ -4,7 +4,7 @@
 
 const express = require("express");
 const db = require("../db/database");
-const { normalize, hianyzoMezok, parseKepek } = require("../services/listing");
+const { normalize, hianyzoMezok, parseKepek, TIPUS_MEZOK } = require("../services/listing");
 const { scrape } = require("../services/scraper");
 const autofix = require("../services/autofix");
 const quality = require("../services/quality");
@@ -58,6 +58,15 @@ async function vannakKeruletek(varos) {
     return r.rowCount > 0;
 }
 
+// Ha van hely, de nincs kerület: a helyből (csak ahol van kerület)
+async function keruletPotlas(d) {
+    if (d.kerulet || !d.varos || !(d.x && d.y)) return;
+    if (!(TIPUS_MEZOK[d.tipus] || TIPUS_MEZOK.lakas).kerulet) return;
+    try {
+        d.kerulet = await quality.keruletHelybol(d.varos, d.x, d.y);
+    } catch (e) { /* nem kritikus */ }
+}
+
 async function kepeketMent(client, ingatlanId, kepek, kezdoSorrend = 0) {
 
     let sorrend = kezdoSorrend;
@@ -83,6 +92,8 @@ router.post("/api/ingatlanok", async (req, res) => {
         const d = normalize(req.body);
         const kepek = parseKepek(req.body.kepek);
 
+        await keruletPotlas(d);
+
         const hianyzo = hianyzoMezok(d, {
             mod: d.link ? "link" : "kezi",
             kepDb: kepek.length,
@@ -102,15 +113,15 @@ router.post("/api/ingatlanok", async (req, res) => {
             INSERT INTO ingatlanok
             (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
              tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
-             kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, telepules)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22,$23)
+             kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, telepules, telek_jelleg, hely_sugar)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22,$23,$24,$25)
             RETURNING id
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva, d.x, d.y,
             d.varos, d.kerulet, d.tipus, d.ugylet, d.cim, d.leiras, d.telek_nm, d.hely_pontossag,
             JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.problemak), q.ellenorzott,
             req.body.forras_szoveg ? String(req.body.forras_szoveg).slice(0, 5000) : null,
-            d.telepules
+            d.telepules, d.telek_jelleg, d.hely_sugar
         ]);
 
         const id = r.rows[0].id;
@@ -155,6 +166,7 @@ router.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
         const elozo = regi.rows[0];
 
         const d = normalize(req.body);
+        await keruletPotlas(d);
         const ujKepek = parseKepek(req.body.kepek);
         const torlendo = Array.isArray(req.body.torlendoKepek) ? req.body.torlendoKepek.map(Number).filter(Boolean) : [];
 
@@ -207,14 +219,15 @@ router.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
                 x=$9, y=$10, varos=$11, kerulet=$12, tipus=$13, ugylet=$14, cim=$15, leiras=$16,
                 telek_nm=$17, hely_pontossag=$18, kulso_kepek=$19::jsonb, statusz=$20,
                 hianyzo=$21::jsonb, tovabbi_linkek=COALESCE($22::jsonb, tovabbi_linkek),
-                problemak=$23::jsonb, ellenorzott=$24, jovahagyva=$25, telepules=$27, updated_at=NOW()
+                problemak=$23::jsonb, ellenorzott=$24, jovahagyva=$25, telepules=$27,
+                telek_jelleg=$28, hely_sugar=$29, updated_at=NOW()
             WHERE id=$26
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva,
             d.x, d.y, d.varos, d.kerulet, d.tipus, d.ugylet, d.cim, d.leiras,
             d.telek_nm, d.hely_pontossag, JSON.stringify(d.kulso_kepek || []), statusz,
             JSON.stringify(hianyzo), d.tovabbi_linkek ? JSON.stringify(d.tovabbi_linkek) : null,
-            JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id, d.telepules
+            JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id, d.telepules, d.telek_jelleg, d.hely_sugar
         ]);
 
         if (torlendo.length) {
@@ -278,6 +291,16 @@ router.patch("/api/ingatlanok/bulk-kerulet", csakAdmin, async (req, res) => {
 
 });
 
+// Kerület-javaslat egy térképi pontra (az űrlapok hívják, amikor a jelölőt mozgatják)
+router.get("/api/kerulet-helybol", async (req, res) => {
+    try {
+        const x = Number(req.query.x), y = Number(req.query.y);
+        res.json({ kerulet: await quality.keruletHelybol(String(req.query.varos || ""), x, y) });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
 // ===================== LINK BEOLVASÁSA =====================
 // Bárki használhatja az "Új ingatlan" űrlapon az adatok előtöltésére.
 
@@ -296,14 +319,14 @@ router.post("/api/scrape", async (req, res) => {
         // A hiányzó adatok a hirdetés szövegéből: telek mérete, szobák,
         // kerület (magyar / román név), település, közelítő hely
         const v = await autofix.javaslat({
-            tipus: d.tipus || req.body.tipus || "lakas",
+            tipus: d.tipus || req.body.tipus || "lakas", ugylet: d.ugylet || req.body.ugylet || "elado", ar: d.ar,
             varos: req.body.varos || null,
             cim: d.cim, leiras: d.leiras, forras_szoveg: d.forrasSzoveg,
             nm: d.nm, telek_nm: d.telek_nm, szobak: d.szobak, emelet: d.emelet, evszam: d.evszam,
             forras_kerulet: d.kerulet, x: d.x, y: d.y
         }, { utca: d.utca, varosForras: d.varosForras });
 
-        ["nm", "telek_nm", "szobak", "emelet", "evszam", "telepules", "x", "y", "hely_pontossag"].forEach(k => {
+        ["ar", "nm", "telek_nm", "szobak", "emelet", "evszam", "telepules", "telek_jelleg", "x", "y", "hely_pontossag", "hely_sugar"].forEach(k => {
             if (v[k] !== undefined) d[k] = v[k];
         });
 

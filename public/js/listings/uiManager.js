@@ -30,6 +30,9 @@ class UIManager {
 
         UIManager.updateFavoriteButton(i.id);
 
+        // Háznál, teleknél nincs értékbecslés (túl nagy a szórás)
+        document.getElementById("btnValuateThis").hidden = !Types.becsulheto(i.tipus);
+
     }
 
     static showNoSelection() {

@@ -23,6 +23,10 @@ const { geocode, VAROS_RO } = require("./geocode");
 const { TIPUS_MEZOK } = require("./listing");
 const Telepulesek = require("../../public/js/core/telepulesek");
 
+// Ha a javítás szabályai bővülnek, a szám emelésével a következő
+// induláskor minden hirdetésen újra lefut (2: ár, belterület/külterület, kerület a helyből)
+const VERZIO = 2;
+
 const ures = v => v === null || v === undefined || v === "" || (typeof v === "number" && !(v > 0));
 
 // Egy hirdetés javítása. Visszaadja a módosítandó mezőket (üres objektum = nincs teendő).
@@ -48,19 +52,33 @@ async function javaslat(i, extra = {}) {
     // Teleknél: ha csak a "telek mérete" volt kitöltve, az az alapterület
     if (tipus === "telek" && ures(i.nm) && !v.nm && i.telek_nm > 0) v.nm = i.telek_nm;
 
+    // Ár: hiányzó vagy nem hihető (pl. 0,2 €) ár a szövegből; ha ott sincs, üres -> ellenőrzés
+    if ("ar" in k && !(i.jovahagyva && i.ar > 0)) v.ar = k.ar;
+
+    // Telek: belterület / külterület
+    if (k.telek_jelleg && mezok.jelleg && !i.telek_jelleg) v.telek_jelleg = k.telek_jelleg;
+
     const nm = v.nm || i.nm;
-    const ar = i.ar;
+    const ar = "ar" in v ? v.ar : i.ar;
 
-    if (ar > 0 && nm > 0 && (v.nm || ures(i.arnm))) v.arnm = ar / nm;
+    if (ar > 0 && nm > 0) {
+        if (v.nm || "ar" in v || ures(i.arnm)) v.arnm = ar / nm;
+    } else if ("ar" in v) {
+        v.arnm = null;
+    }
 
-    // ---- 2) Kerület (lakás, üzlet, iroda)
-    if (mezok.kerulet && ures(i.kerulet) && i.varos) {
+    // ---- 2) Kerület (lakás, üzlet, iroda): a forrás / cím szerinti név,
+    //         aztán a hely (térkép), végül a leírás
+    let keruletKell = mezok.kerulet && ures(i.kerulet) && i.varos;
+
+    if (keruletKell) {
 
         const kerulet =
             await quality.keruletKeres(i.varos, i.forras_kerulet, extra.utca, i.cim) ||
+            (i.x && i.y && ["pontos", "utca"].includes(i.hely_pontossag || "pontos") ? await quality.keruletHelybol(i.varos, i.x, i.y) : null) ||
             await quality.keruletSzovegbol(i.varos, szoveg);
 
-        if (kerulet) v.kerulet = kerulet;
+        if (kerulet) { v.kerulet = kerulet; keruletKell = false; }
 
     }
 
@@ -90,12 +108,21 @@ async function javaslat(i, extra = {}) {
             v.x = hely.x;
             v.y = hely.y;
             v.hely_pontossag = hely.szint;
+            v.hely_sugar = hely.szint === "kozelito" ? hely.sugar : null;
         } else if (i.hely_pontossag !== "nincs") {
             v.hely_pontossag = "nincs";
         }
 
     } else if (!i.hely_pontossag) {
         v.hely_pontossag = "pontos";
+    } else if (i.hely_pontossag === "kozelito" && !i.hely_sugar) {
+        v.hely_sugar = i.telepules || v.telepules ? 1500 : 500;
+    }
+
+    // Kerület a (most talált) helyből, ha a nevek alapján nem sikerült
+    if (keruletKell && v.x && v.y && v.hely_pontossag === "utca") {
+        const kerulet = await quality.keruletHelybol(i.varos, v.x, v.y);
+        if (kerulet) v.kerulet = kerulet;
     }
 
     return v;
@@ -131,7 +158,9 @@ async function helyKeres(d, szoveg, extra = {}) {
 
         if (h && helyJo(h, d.varos, !!d.telepules)) {
             // Az utcanév csak akkor "utca" pontosságú, ha a térkép is utcát talált
-            return { x: h.x, y: h.y, szint: p.szint === "utca" && h.szint === "utca" ? "utca" : "kozelito" };
+            const szint = p.szint === "utca" && h.szint === "utca" ? "utca" : "kozelito";
+            // A kör mérete: település ~1,5 km, kerület / környék ~500 m
+            return { x: h.x, y: h.y, szint, sugar: p.megye ? 1500 : 500 };
         }
 
     }
@@ -194,7 +223,7 @@ async function futtat(job, opts) {
         job.elotte = await reviewSzam();
 
         const felt = ["statusz IN ('aktiv', 'fuggo', 'nem_elerheto')"];
-        if (!opts.mind) felt.push("auto_javitva IS NULL");
+        if (!opts.mind) felt.push(`COALESCE(auto_javitva_v, 0) < ${VERZIO}`);
 
         const r = await db.query(`
             SELECT i.*, (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db
@@ -235,7 +264,7 @@ async function futtat(job, opts) {
                 params.push(i.id);
 
                 await db.query(
-                    `UPDATE ingatlanok SET ${sets.join(", ")}, auto_javitva = NOW() WHERE id = $${params.length}`,
+                    `UPDATE ingatlanok SET ${sets.join(", ")}, auto_javitva = NOW(), auto_javitva_v = ${VERZIO} WHERE id = $${params.length}`,
                     params
                 );
 
@@ -260,7 +289,7 @@ async function futtat(job, opts) {
         job.utana = await reviewSzam();
         job.allapot = "kesz";
 
-        await beallitas("autofix_v1", new Date().toISOString());
+        await beallitas("autofix_v" + VERZIO, new Date().toISOString());
 
     } catch (e) {
 
@@ -305,7 +334,7 @@ async function indulaskor() {
 
     try {
         await db.ready;
-        if (await beallitas("autofix_v1")) return;
+        if (await beallitas("autofix_v" + VERZIO)) return;
         console.log("Automatikus javítás indul a meglévő hirdetéseken...");
         const j = indit({ mind: false });   // ha a Render közben leállna, a következő indulás folytatja
         await j.promise;

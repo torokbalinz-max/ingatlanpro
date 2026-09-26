@@ -65,4 +65,46 @@ async function geocode(szoveg, varos, megye) {
 
 }
 
-module.exports = { geocode, VAROS_RO };
+// Visszafelé: koordinátából a környék nevei (városrész, lakótelep, utca)
+async function forditott(x, y) {
+
+    const k = `r:${Number(y).toFixed(4)},${Number(x).toFixed(4)}`;
+    if (cache.has(k)) return cache.get(k);
+
+    const varj = 1100 - (Date.now() - utolsoKeres);
+    if (varj > 0) await sleep(varj);
+    utolsoKeres = Date.now();
+
+    try {
+
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&zoom=17&addressdetails=1&accept-language=ro&lat=${y}&lon=${x}`;
+
+        const res = await fetch(url, {
+            headers: { "User-Agent": "IngatlanPro/1.0 (real estate listing organizer)" },
+            signal: AbortSignal.timeout(10000)
+        });
+
+        if (!res.ok) return null;
+
+        const v = await res.json();
+        const a = v.address || {};
+
+        const eredmeny = {
+            nevek: [a.neighbourhood, a.quarter, a.suburb, a.residential, a.city_district, a.hamlet].filter(Boolean),
+            utca: a.road || null,
+            telepules: a.village || a.town || a.city || null
+        };
+
+        cache.set(k, eredmeny);
+
+        return eredmeny;
+
+    } catch (e) {
+
+        return null;
+
+    }
+
+}
+
+module.exports = { geocode, forditott, VAROS_RO };

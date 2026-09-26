@@ -56,6 +56,7 @@
         <div class="navLinks">
             <a class="navLink" href="#home" data-page="home"><i class="fa-solid fa-compass" aria-hidden="true"></i><span data-i18n="menuHome">Kezdőlap</span></a>
             <a class="navLink" href="#properties" data-page="properties"><i class="fa-solid fa-house"></i><span data-i18n="menuIngatlanok">Ingatlanok</span></a>
+            <a class="navLink" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i><span data-i18n="mapTitle">Térkép</span></a>
             <a class="navLink" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span data-i18n="menuStatisztika">Piaci elemzés</span></a>
             <a class="navLink" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span data-i18n="menuErtekbecslo">Értékbecslő</span></a>
             <a class="navLink" href="#favorites" data-page="favorites"><i class="fa-solid fa-star"></i><span data-i18n="menuKedvencek">Kedvencek</span></a>
@@ -72,6 +73,7 @@
             <ul class="dropdown-menu navMenu shadow">
                 <li><a class="dropdown-item" href="#home" data-page="home"><i class="fa-solid fa-compass"></i><span><b data-i18n="menuHome">Kezdőlap</b><small data-i18n="menuHomeDesc">Mit tudsz itt csinálni?</small></span></a></li>
                 <li><a class="dropdown-item" href="#properties" data-page="properties"><i class="fa-solid fa-house"></i><span><b data-i18n="menuIngatlanok">Ingatlanok</b><small data-i18n="menuIngatlanokDesc">Keresés, táblázat, térkép</small></span></a></li>
+                <li><a class="dropdown-item" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot"></i><span><b data-i18n="mapTitle">Térkép</b><small data-i18n="menuMapDesc">Az ingatlanok a térképen</small></span></a></li>
                 <li><a class="dropdown-item" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a></li>
                 <li><a class="dropdown-item" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a></li>
                 <li><a class="dropdown-item" href="#favorites" data-page="favorites"><i class="fa-solid fa-star"></i><span><b data-i18n="menuKedvencek">Kedvencek</b><small data-i18n="menuKedvencekDesc">Elmentett ingatlanok</small></span></a></li>
@@ -229,15 +231,31 @@
                             <input id="maxNm" class="form-control" type="number" min="0" data-i18n-placeholder="phMax" placeholder="max">
                         </div>
 
-                        <div class="row g-3 mb-3">
-                            <div class="col-6" data-field="szobak">
-                                <label class="form-label" for="minSzoba" data-i18n="minSzoba">Min. szobák</label>
-                                <input id="minSzoba" class="form-control" type="number" min="0">
+                        <div class="mb-3" data-field="szobak">
+                            <label class="form-label" id="searchSzobaLabel" data-i18n="searchSzoba">Szobák</label>
+                            <div class="input-group">
+                                <input id="minSzoba" class="form-control" type="number" min="0" inputmode="numeric" data-i18n-placeholder="phMin" placeholder="min" aria-labelledby="searchSzobaLabel">
+                                <span class="input-group-text">–</span>
+                                <input id="maxSzoba" class="form-control" type="number" min="0" inputmode="numeric" data-i18n-placeholder="phMax" placeholder="max" aria-labelledby="searchSzobaLabel">
                             </div>
-                            <div class="col-6" data-field="emelet">
-                                <label class="form-label" for="minEmelet" data-i18n="minEmelet">Min. emelet</label>
-                                <input id="minEmelet" class="form-control" type="number" min="0">
+                        </div>
+
+                        <div class="mb-3" data-field="emelet">
+                            <label class="form-label" id="searchEmeletLabel" data-i18n="searchEmelet">Emelet (0 = földszint)</label>
+                            <div class="input-group">
+                                <input id="minEmelet" class="form-control" type="number" min="0" inputmode="numeric" data-i18n-placeholder="phMin" placeholder="min" aria-labelledby="searchEmeletLabel">
+                                <span class="input-group-text">–</span>
+                                <input id="maxEmelet" class="form-control" type="number" min="0" inputmode="numeric" data-i18n-placeholder="phMax" placeholder="max" aria-labelledby="searchEmeletLabel">
                             </div>
+                        </div>
+
+                        <div class="mb-3" data-field="jelleg">
+                            <label class="form-label" for="keresoJelleg" data-i18n="telekJellegLabel">Belterület vagy külterület?</label>
+                            <select id="keresoJelleg" class="form-select">
+                                <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                                <option value="belterulet" data-i18n="jelleg_belterulet">Belterület</option>
+                                <option value="kulterulet" data-i18n="jelleg_kulterulet">Külterület</option>
+                            </select>
                         </div>
 
                         <div data-field="allapot">
@@ -385,6 +403,8 @@
             <input type="radio" class="btn-check" name="viewMode" id="viewTable" value="table">
             <label class="btn btn-outline-secondary btn-sm" for="viewTable"><i class="fa-solid fa-table-list"></i> <span data-i18n="viewTable">Táblázat</span></label>
         </div>
+
+        <a class="btn btn-outline-primary btn-sm mapJumpBtn" href="#map"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> <span data-i18n="viewMap">Megnézem térképen</span></a>
 
         <div class="d-flex align-items-center gap-2" id="cardSortBox">
             <label class="small text-body-secondary" for="cardSort" data-i18n="sortLabel">Rendezés</label>
@@ -560,17 +580,29 @@
 
     </div>
 
-    <!-- Térkép -->
-    <div class="card mt-5">
-        <div class="card-header">
-            <h5 class="mb-0">
-                <i class="fa-solid fa-map-location-dot"></i>
-                <span data-i18n="mapTitle">Térkép</span>
-            </h5>
+</section>
+
+<!-- =====================================================================
+     TÉRKÉP (külön oldal, a bal oldali szűrőkkel)
+     ===================================================================== -->
+
+<section id="page-map" class="page" style="display:none;">
+
+    <div class="pageHeader mapPageHeader">
+        <div class="pageHeaderRow">
+            <div>
+                <h2 data-i18n="mapTitle">Térkép</h2>
+                <p class="text-body-secondary mb-0"><span id="mapCount">0</span> <span data-i18n="mapCountSuffix">találat a térképen</span><span id="mapNoLoc"></span></p>
+            </div>
+            <div class="viewSwitch" role="group">
+                <a class="btn btn-outline-secondary btn-sm" href="#properties"><i class="fa-solid fa-grip" aria-hidden="true"></i> <span data-i18n="viewCards">Hirdetések</span></a>
+                <a class="btn btn-outline-secondary btn-sm active" href="#map" aria-current="page"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> <span data-i18n="mapTitle">Térkép</span></a>
+            </div>
         </div>
-        <div class="card-body p-2">
-            <div id="map"></div>
-        </div>
+    </div>
+
+    <div class="mapPageBox">
+        <div id="map"></div>
     </div>
 
 </section>
@@ -681,6 +713,15 @@
                             <input id="ujOsszEmelet" type="number" min="0" class="form-control">
                         </div>
 
+                        <div class="col-md-6" data-field="jelleg">
+                            <label class="form-label req" for="ujTelekJelleg" data-i18n="telekJellegLabel">Belterület vagy külterület?</label>
+                            <select id="ujTelekJelleg" class="form-select">
+                                <option value="" data-i18n="chooseOne">— válassz —</option>
+                                <option value="belterulet" data-i18n="jelleg_belterulet">Belterület</option>
+                                <option value="kulterulet" data-i18n="jelleg_kulterulet">Külterület</option>
+                            </select>
+                        </div>
+
                         <div class="col-12" data-field="allapot">
                             <label class="form-label req" for="ujAllapot" data-i18n="newAllapot">Állapot</label>
                             <select id="ujAllapot" class="form-select">
@@ -758,8 +799,8 @@
             <div class="card newMapCard">
                 <div class="card-header"><h5 class="mb-0"><span class="stepNo">4</span> <span data-i18n="newHely">Elhelyezkedés</span> <span class="text-danger" id="newHelyReq">*</span></h5></div>
                 <div class="card-body p-2">
-                    <p class="small text-body-secondary px-2 mb-2" data-i18n="newHelyHelp">Kattints a térképre az ingatlan helyén.</p>
-                    <div id="newMap"></div>
+                    <p class="small text-body-secondary px-2 mb-2" data-i18n="newHelyHelp2">Kattints a térképre az ingatlan helyén. Ha csak a környéket tudod, válaszd a közelítő helyet.</p>
+                    <div id="newMap" class="locPicker"></div>
                     <div class="small px-2 mt-2" id="newLocationInfo"></div>
                 </div>
             </div>
@@ -1128,6 +1169,7 @@
 <script src="js/admin/places.js"></script>
 
 <!-- Oldalak, indítás -->
+<script src="js/core/locationPicker.js"></script>
 <script src="js/core/homePage.js"></script>
 <script src="js/core/pageManager.js"></script>
 <script src="js/core/app.js"></script>

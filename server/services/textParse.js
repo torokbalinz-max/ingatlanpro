@@ -243,6 +243,65 @@ function telepulesKeres(varosRo, eros, gyenge) {
 
 }
 
+// ---------- Ár ----------
+
+// Hihető-e az ár (a hirdetési oldalak listájában néha €/m², ezres
+// egység vagy 1 € "ár megegyezés szerint" jön a teljes ár helyett)
+function arHiheto(ar, ugylet) {
+    if (!(ar > 0)) return false;
+    return ugylet === "kiado" ? ar >= 30 && ar <= 50000 : ar >= 1000 && ar <= 20000000;
+}
+
+// Az ár a szövegből: "Preț: 85.000 €", "85 000 EUR", "12 €/mp" (x terület),
+// "450.000 lei" (/5). Több találatnál a "preț / ár" címkés, különben a
+// legnagyobb hihető összeg.
+function arSzovegbol(szoveg, nm, ugylet) {
+
+    const t = String(szoveg || "").replace(/\u00a0/g, " ");
+    const SZAM = "(\\d{1,3}(?:[.\\s]\\d{3})+(?:,\\d{1,2})?|\\d+(?:[.,]\\d{1,2})?)";
+    const jeloltek = [];
+
+    // €/m² (csak ha tudjuk a területet)
+    for (const m of t.matchAll(new RegExp(SZAM + "\\s*(?:€|eur(?:o)?)\\s*/\\s*(?:mp|m²|m2|nm|metru)", "gi"))) {
+        const v = szamSzovegbol(m[1]);
+        if (v && nm > 0) jeloltek.push({ ar: Math.round(v * nm), cimkes: /pre[tț]|[aá]r\b/i.test(t.slice(Math.max(0, m.index - 25), m.index)), perNm: true });
+    }
+
+    // Teljes ár euróban vagy lejben
+    for (const m of t.matchAll(new RegExp("(?:(pre[tț](?:ul)?|[aá]r|price)\\s*:?\\s*)?" + SZAM + "\\s*(€|eur(?:o)?\\b|lei\\b|ron\\b)(?!\\s*/\\s*(?:mp|m²|m2|nm|metru))", "gi"))) {
+        let v = szamSzovegbol(m[2]);
+        if (!v) continue;
+        if (/lei|ron/i.test(m[3])) v = Math.round(v / 5);
+        // "85 mii €" / "85k €"
+        const elotte = t.slice(Math.max(0, m.index - 25), m.index);
+        jeloltek.push({ ar: v, cimkes: !!m[1] || /pre[tț]|[aá]r\b|price/i.test(elotte) });
+    }
+
+    const jok = jeloltek.filter(j => arHiheto(j.ar, ugylet));
+    if (!jok.length) return null;
+
+    const cimkes = jok.find(j => j.cimkes && !j.perNm) || jok.find(j => j.cimkes);
+    if (cimkes) return cimkes.ar;
+
+    return jok.filter(j => !j.perNm).sort((a, b) => b.ar - a.ar)[0]?.ar || jok[0].ar;
+
+}
+
+// ---------- Telek: belterület / külterület ----------
+
+function telekJelleg(szoveg) {
+    const s = ekezetNelkul(szoveg).toLowerCase();
+    const bel = /intravilan|beltelek|belterulet|in intravilanul/.test(s);
+    const kul = /extravilan|kulterulet|teren agricol|arabil|pasune|fanea[tț]|livada|padure/.test(s);
+    if (bel && !kul) return "belterulet";
+    if (kul && !bel) return "kulterulet";
+    if (bel && kul) {
+        // mindkettő szerepel (pl. "extravilan, de intravilanizabil"): az első számít
+        return s.search(/intravilan|beltelek|belterulet/) < s.search(/extravilan|kulterulet/) ? "belterulet" : "kulterulet";
+    }
+    return null;
+}
+
 // ---------- Összesítés: mit tudunk kitölteni ----------
 
 //  d: a hirdetés (tipus, nm, telek_nm, szobak, emelet, evszam, cim, leiras, forras_szoveg)
@@ -310,6 +369,19 @@ function kinyer(d) {
 
     }
 
+    // Ár: ha hiányzik vagy nem hihető (pl. 0,2 € – a lista €/m²-t vagy ezret adott)
+    if (!arHiheto(d.ar, d.ugylet)) {
+        const nmAr = d.nm > 0 ? d.nm : javaslat.nm;
+        const ar = arSzovegbol(szoveg, nmAr, d.ugylet);
+        if (ar) javaslat.ar = ar;
+        else if (d.ar > 0) javaslat.ar = null;          // a hibás árat töröljük -> ellenőrzésre kerül
+    }
+
+    if (tipus === "telek" && !d.telek_jelleg) {
+        const j = telekJelleg(szoveg);
+        if (j) javaslat.telek_jelleg = j;
+    }
+
     if (ures(d.evszam) && tipus !== "telek") {
         const ev = evszamSzovegbol(szoveg);
         if (ev) javaslat.evszam = ev;
@@ -319,4 +391,4 @@ function kinyer(d) {
 
 }
 
-module.exports = { kinyer, teruletek, szobakSzovegbol, emeletSzovegbol, evszamSzovegbol, helyTippek, telepulesKeres, szamSzovegbol };
+module.exports = { kinyer, arSzovegbol, arHiheto, telekJelleg, teruletek, szobakSzovegbol, emeletSzovegbol, evszamSzovegbol, helyTippek, telepulesKeres, szamSzovegbol };

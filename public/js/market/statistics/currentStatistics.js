@@ -94,6 +94,34 @@ class CurrentStatistics {
 
     }
 
+    // Melyik bontások számítanak az adott típusnál (a sorrend is ez)
+    static EXTRA = [
+        {
+            id: "telepules",
+            icon: "fa-solid fa-map-pin",
+            title: "statsByTelepules",
+            key: i => i.telepules || "_varos",
+            label: k => k === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(k),
+            order: k => k === "_varos" ? 0 : 1
+        },
+        {
+            id: "jelleg",
+            icon: "fa-solid fa-signs-post",
+            title: "statsByJelleg",
+            key: i => i.telek_jelleg || "?",
+            label: k => k === "?" ? I18n.t("unknownLabel") : I18n.t("jelleg_" + k),
+            order: k => k === "?" ? 9 : k === "belterulet" ? 0 : 1
+        }
+    ];
+
+    static kategoriak(tipus) {
+        const c = id => CurrentStatistics.CATEGORIES.find(x => x.id === id) || CurrentStatistics.EXTRA.find(x => x.id === id);
+        if (tipus === "telek") return [c("telepules"), c("jelleg")];
+        if (tipus === "haz") return [c("telepules"), c("allapot"), c("szobak")];
+        if (tipus === "kereskedelmi") return [c("kerulet"), c("allapot"), c("emelet")];
+        return [c("kerulet"), c("allapot"), c("szobak"), c("emelet")];
+    }
+
     // ---------- Fő megjelenítés ----------
 
     static load() {
@@ -107,8 +135,7 @@ class CurrentStatistics {
 
         // Az ellenőrzésre váró (hiányos / gyanús) hirdetések kimaradnak
         const lista = ervenyes.filter(Utils.verified);
-        const kimaradt = osszes.length - ervenyes.length;
-        CurrentStatistics.ellenorizetlen = ervenyes.length - lista.length;
+        CurrentStatistics.kimaradt = osszes.length - lista.length;
 
         let html = CurrentStatistics.renderFilterSummary(osszes.length, lista.length);
 
@@ -125,259 +152,109 @@ class CurrentStatistics {
 
         }
 
-        html += CurrentStatistics.renderKpis(lista, osszes);
-        html += CurrentStatistics.renderInsights(lista, kimaradt);
-        html += CurrentStatistics.renderDistribution();
+        html += CurrentStatistics.renderKpis(lista);
 
+        const kategoriak = CurrentStatistics.kategoriak(FilterManager.tipus);
         const csoportok = {};
 
-        // Csak a típusnál értelmes bontások (pl. telekhez nincs szobaszám)
-        const mezok = Types.get(FilterManager.tipus).fields;
-        const kategoriak = CurrentStatistics.CATEGORIES.filter(c => !c.field || mezok[c.field] !== false);
+        html += `<div class="statGrid">`;
 
         kategoriak.forEach(cat => {
             csoportok[cat.id] = CurrentStatistics.group(lista, cat);
             html += CurrentStatistics.renderCategory(cat, csoportok[cat.id], lista);
         });
 
-        container.innerHTML = html;
+        html += `</div>`;
 
-        // Grafikonok a HTML beillesztése után
-        CurrentStatistics.drawDistribution(lista);
+        html += CurrentStatistics.renderBestValue(lista);
+
+        container.innerHTML = html;
 
         kategoriak.forEach(cat => {
             const rows = csoportok[cat.id];
             if (rows.length > 1) {
-                ChartStatistics.bar("chart_" + cat.id, rows.slice(0, 12));
+                ChartStatistics.bar("chart_" + cat.id, rows.slice(0, 10), { single: true });
             }
+        });
+
+        container.querySelectorAll("[data-open-listing]").forEach(a => {
+            a.onclick = e => { e.preventDefault(); ListingPage.open(Number(a.dataset.openListing)); };
         });
 
     }
 
     // ---------- Részek ----------
 
-    static renderFilterSummary(db, ervenyes) {
+    static renderFilterSummary(db, szamolt) {
 
         const chips = FilterManager.describe()
             .map(c => `<span class="filterChip">${c}</span>`)
             .join("");
 
         return `
-            <div class="card filterSummary mb-4">
-                <div class="card-body d-flex flex-wrap align-items-center gap-2">
-                    <span class="fw-semibold me-1"><i class="fa-solid fa-filter"></i> ${I18n.t("statsBasedOn")}</span>
-                    ${chips}
-                    <span class="ms-auto d-flex align-items-center gap-2">
-                        <span class="badge text-bg-primary fs-6">${Utils.num(db)} ${I18n.t("pcsWord")}</span>
-                        <a href="#properties" class="btn btn-sm btn-outline-primary">
-                            <i class="fa-solid fa-sliders"></i> ${I18n.t("statsChangeFilter")}
-                        </a>
-                    </span>
+            <div class="statFilterBar mb-4">
+                <div class="statChips">${chips}</div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="small text-body-secondary">${I18n.f("statsCounted", { n: Utils.num(szamolt), db: Utils.num(db) })}</span>
+                    <a href="#properties" class="btn btn-sm btn-outline-primary text-nowrap">
+                        <i class="fa-solid fa-sliders" aria-hidden="true"></i> ${I18n.t("statsChangeFilter")}
+                    </a>
                 </div>
             </div>`;
 
     }
 
-    static kpi(icon, color, label, value, note) {
+    static kpi(label, value, note) {
 
         return `
-            <div class="col-md-6 col-xl-4">
-                <div class="kpiCard tall">
-                    <span class="kpiIcon ${color}"><i class="${icon}"></i></span>
-                    <div>
-                        <small>${label}</small>
-                        <h3>${value}</h3>
-                        <p class="kpiNote">${note}</p>
-                    </div>
-                </div>
+            <div class="statKpi">
+                <small>${label}</small>
+                <b>${value}</b>
+                ${note ? `<span>${note}</span>` : ""}
             </div>`;
 
     }
 
-    static renderKpis(lista, osszes) {
+    static renderKpis(lista) {
 
         const arak = lista.map(i => i.ar).sort((a, b) => a - b);
         const arNmek = lista.map(Utils.arNm).sort((a, b) => a - b);
 
         const q = p => arak[Math.floor((arak.length - 1) * p)];
 
-        const eladva = osszes.filter(i => i.eladva).length;
-
         return `
-            <h4 class="sectionTitle"><i class="fa-solid fa-gauge-high"></i> ${I18n.t("statsKeyFigures")}</h4>
-
-            <div class="row g-3 mb-4">
-
-                ${CurrentStatistics.kpi("fa-solid fa-house", "blue", I18n.t("dashLabelCount"),
-                    Utils.num(lista.length),
-                    I18n.f("kpiNoteCount", { sold: Utils.num(eladva) }))}
-
-                ${CurrentStatistics.kpi("fa-solid fa-euro-sign", "green", I18n.t("dashLabelAvgPrice"),
-                    Utils.price({ ar: Utils.avg(arak), ugylet: FilterManager.ugylet }),
-                    I18n.f("kpiNoteMedian", { median: Utils.eur(Utils.median(arak)) }))}
-
-                ${CurrentStatistics.kpi("fa-solid fa-ruler-combined", "purple", I18n.t("dashLabelAvgPriceNm"),
-                    Utils.eurNm(Utils.avg(arNmek)),
-                    I18n.f("kpiNoteMedianNm", { median: Utils.eurNm(Utils.median(arNmek)) }))}
-
-                ${CurrentStatistics.kpi("fa-solid fa-vector-square", "cyan", I18n.t("dashLabelAvgNm"),
-                    Utils.num(Utils.avg(lista.map(i => i.nm)), 1) + " m²",
-                    I18n.t("kpiNoteNm"))}
-
-                ${CurrentStatistics.kpi("fa-solid fa-arrows-left-right", "orange", I18n.t("kpiTypicalRange"),
-                    `${Utils.eur(q(0.25))} – ${Utils.eur(q(0.75))}`,
-                    I18n.t("kpiNoteTypicalRange"))}
-
-                ${CurrentStatistics.kpi("fa-solid fa-arrow-down-up-across-line", "red", I18n.t("kpiNmRange"),
-                    `${Utils.num(arNmek[0])} – ${Utils.num(arNmek[arNmek.length - 1])} €/m²`,
-                    I18n.t("kpiNoteNmRange"))}
-
+            <div class="statKpis mb-4">
+                ${CurrentStatistics.kpi(I18n.t("dashLabelCount"), Utils.num(lista.length), "")}
+                ${CurrentStatistics.kpi(I18n.t("statsMedianPrice"), Utils.price({ ar: Utils.median(arak), ugylet: FilterManager.ugylet }),
+                    I18n.f("statsAvgSub", { v: Utils.eur(Utils.avg(arak)) }))}
+                ${CurrentStatistics.kpi(I18n.t("dashLabelAvgPriceNm"), Utils.eurNm(Utils.avg(arNmek)),
+                    I18n.f("statsMedianSub", { v: Utils.eurNm(Utils.median(arNmek)) }))}
+                ${CurrentStatistics.kpi(I18n.t("kpiTypicalRange"), `${Utils.eur(q(0.25))} – ${Utils.eur(q(0.75))}`,
+                    I18n.t("statsTypicalSub"))}
             </div>`;
 
     }
 
-    static renderInsights(lista, kimaradt) {
+    // A legalacsonyabb négyzetméterárú hirdetések a szűrésben
+    static renderBestValue(lista) {
 
-        const pontok = [];
+        const atlag = Utils.avg(lista.map(Utils.arNm));
+        const top = [...lista].sort((a, b) => Utils.arNm(a) - Utils.arNm(b)).slice(0, 5);
 
-        const atlagNm = Utils.avg(lista.map(Utils.arNm));
-
-        // 1) Mit jelent az átlag a gyakorlatban
-        pontok.push(I18n.f("insightAvg", {
-            nm: Utils.eurNm(atlagNm),
-            price60: Utils.eur(atlagNm * 60)
-        }));
-
-        // 2) Kerületek
-        const ker = CurrentStatistics.group(lista, CurrentStatistics.CATEGORIES[3])
-            .filter(g => g.key && g.count >= 3)
-            .sort((a, b) => a.avgArNm - b.avgArNm);
-
-        if (ker.length >= 2) {
-            pontok.push(I18n.f("insightDistrict", {
-                cheap: Utils.escape(ker[0].label),
-                cheapNm: Utils.eurNm(ker[0].avgArNm),
-                exp: Utils.escape(ker[ker.length - 1].label),
-                expNm: Utils.eurNm(ker[ker.length - 1].avgArNm)
-            }));
-        } else {
-            const nincs = lista.filter(i => !(i.kerulet || "").trim()).length;
-            if (nincs > lista.length / 2) {
-                pontok.push(I18n.f("insightNoDistrict", { pct: Utils.num(nincs / lista.length * 100) }));
-            }
-        }
-
-        // 3) Állapot hatása
-        const all = CurrentStatistics.group(lista, CurrentStatistics.CATEGORIES[0]);
-        const feluj = all.find(g => g.key === "felújítandó" && g.count >= 3);
-        const jo = all.find(g => g.key === "jó" && g.count >= 3);
-
-        if (feluj && jo) {
-            pontok.push(I18n.f("insightCondition", {
-                pct: Utils.num((jo.avgArNm / feluj.avgArNm - 1) * 100),
-                diff: Utils.eurNm(jo.avgArNm - feluj.avgArNm)
-            }));
-        }
-
-        // 4) Szobaszám
-        const szobak = CurrentStatistics.group(lista, CurrentStatistics.CATEGORIES[1])
-            .filter(g => g.key !== "?" && g.count >= 3);
-
-        if (szobak.length >= 2) {
-            const kicsi = szobak[0];
-            const nagy = szobak[szobak.length - 1];
-            pontok.push(I18n.f("insightRooms", {
-                small: kicsi.label,
-                smallNm: Utils.eurNm(kicsi.avgArNm),
-                big: nagy.label,
-                bigNm: Utils.eurNm(nagy.avgArNm)
-            }));
-        }
-
-        // 5) Forrás
-        const forras = CurrentStatistics.group(lista, CurrentStatistics.CATEGORIES[4]).sort((a, b) => b.count - a.count);
-
-        if (forras.length) {
-            pontok.push(I18n.f("insightSource", {
-                source: Utils.escape(forras[0].label),
-                pct: Utils.num(forras[0].share)
-            }));
-        }
-
-        // 6) Szűrt vs. teljes város
-        if (FilterManager.isFiltered()) {
-
-            const varosLista = Utils.valid(DataManager.ingatlanok);
-            const varosAtlag = Utils.avg(varosLista.map(Utils.arNm));
-
-            if (varosAtlag) {
-                const elteres = (atlagNm / varosAtlag - 1) * 100;
-                pontok.push(I18n.f(elteres >= 0 ? "insightVsCityUp" : "insightVsCityDown", {
-                    pct: Utils.num(Math.abs(elteres), 1),
-                    city: Utils.eurNm(varosAtlag)
-                }));
-            }
-
-        }
-
-        // 7) Kimaradt, hiányos adatok
-        if (kimaradt > 0) {
-            pontok.push(I18n.f("insightMissing", { db: kimaradt }));
-        }
-
-        if (CurrentStatistics.ellenorizetlen > 0) {
-            pontok.push(I18n.f("insightUnverified", { db: CurrentStatistics.ellenorizetlen }));
-        }
-
-        return `
-            <div class="card insightCard mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fa-solid fa-lightbulb"></i> ${I18n.t("statsInsightsTitle")}</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="insightList">
-                        ${pontok.map(p => `<li>${p}</li>`).join("")}
-                    </ul>
-                </div>
-            </div>`;
-
-    }
-
-    static renderDistribution() {
+        if (lista.length < 4) return "";
 
         return `
             <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fa-solid fa-chart-simple"></i> ${I18n.t("statsDistTitle")}</h5>
-                </div>
-                <div class="card-body">
-                    <p class="sectionNote">${I18n.t("noteDist")}</p>
-                    <div class="chartBox"><canvas id="chart_dist"></canvas></div>
+                <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-arrow-trend-down" aria-hidden="true"></i> ${I18n.t("statsBestValue")}</h5></div>
+                <div class="list-group list-group-flush">
+                    ${top.map(i => `
+                        <a href="#listing/${i.id}" class="list-group-item list-group-item-action bestRow" data-open-listing="${i.id}">
+                            <span class="bestTitle">${Utils.escape(i.cim || Types.label(i.tipus))}<small>${Utils.escape(CityManager.helyLabel(i))}${i.nm ? " · " + Utils.num(i.nm) + " m²" : ""}</small></span>
+                            <span class="text-end text-nowrap"><b>${Utils.eurNm(Utils.arNm(i))}</b><small>${Utils.price(i)}</small></span>
+                            ${CurrentStatistics.diffBadge(Utils.arNm(i), atlag)}
+                        </a>`).join("")}
                 </div>
             </div>`;
-
-    }
-
-    static drawDistribution(lista) {
-
-        const lepes = 250;
-        const ertekek = lista.map(Utils.arNm);
-        const min = Math.floor(Math.min(...ertekek) / lepes) * lepes;
-        const max = Math.ceil(Math.max(...ertekek) / lepes) * lepes;
-
-        const rows = [];
-
-        for (let a = min; a < Math.max(max, min + lepes); a += lepes) {
-            const count = ertekek.filter(v => v >= a && v < a + lepes).length;
-            rows.push({ label: `${Utils.num(a)}–${Utils.num(a + lepes)}`, value: count });
-        }
-
-        ChartStatistics.bar("chart_dist", rows, {
-            horizontal: false,
-            single: true,
-            label: I18n.t("chartLegendProperties"),
-            format: v => `${v} ${I18n.t("pcsWord")}`
-        });
 
     }
 
@@ -403,10 +280,9 @@ class CurrentStatistics {
                         <tr>
                             <th>${I18n.t("statsColCategory")}</th>
                             <th class="text-end">${I18n.t("statsColCount")}</th>
-                            <th class="text-end">${I18n.t("statsColShare")}</th>
                             <th class="text-end">${I18n.t("statsColAvgPrice")}</th>
-                            <th class="text-end">${I18n.t("statsColAvgPriceNm")}</th>
-                            <th class="text-end">${I18n.t("statsColVsAvg")}</th>
+                            <th class="text-end">€/m²</th>
+                            <th class="text-end"><span class="visually-hidden">${I18n.t("statsColVsAvg")}</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -414,7 +290,6 @@ class CurrentStatistics {
                             <tr>
                                 <td>${Utils.escape(r.label)}</td>
                                 <td class="text-end">${r.count}</td>
-                                <td class="text-end">${Utils.num(r.share)} %</td>
                                 <td class="text-end">${Utils.eur(r.avgAr)}</td>
                                 <td class="text-end fw-semibold">${Utils.eurNm(r.avgArNm)}</td>
                                 <td class="text-end">${CurrentStatistics.diffBadge(r.avgArNm, atlag)}</td>
@@ -424,20 +299,17 @@ class CurrentStatistics {
             </div>`;
 
         const grafikon = rows.length > 1
-            ? `<div class="chartBox small"><canvas id="chart_${cat.id}"></canvas></div>`
-            : `<p class="text-body-secondary small">${I18n.t("statsOneGroup")}</p>`;
+            ? `<div class="chartBox small mb-3"><canvas id="chart_${cat.id}" role="img" aria-label="${Utils.escape(I18n.t(cat.title))}"></canvas></div>`
+            : "";
 
         return `
-            <div class="card mb-4 categoryCard">
+            <div class="card categoryCard">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="${cat.icon}"></i> ${I18n.t(cat.title)}</h5>
+                    <h5 class="mb-0"><i class="${cat.icon}" aria-hidden="true"></i> ${I18n.t(cat.title)}</h5>
                 </div>
                 <div class="card-body">
-                    <p class="sectionNote">${I18n.t(cat.note)}</p>
-                    <div class="row g-4 align-items-center">
-                        <div class="col-12 col-wide-5">${grafikon}</div>
-                        <div class="col-12 col-wide-7">${tabla}</div>
-                    </div>
+                    ${grafikon}
+                    ${tabla}
                 </div>
             </div>`;
 

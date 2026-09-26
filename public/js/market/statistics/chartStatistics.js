@@ -20,6 +20,7 @@ class ChartStatistics {
         Chart.defaults.color = dark ? "#cbd5e1" : "#475569";
         Chart.defaults.borderColor = dark ? "rgba(148,163,184,0.18)" : "rgba(15,23,42,0.08)";
         Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+        Chart.defaults.locale = Utils.locale();
 
     }
 

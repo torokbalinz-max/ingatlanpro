@@ -290,13 +290,14 @@ class NewPropertyManager {
 
         if (d.keruletNev) tolt("ujKerulet", d.keruletNev, "kerulet");
         if (d.telepules) tolt("ujTelepules", CityManager.telepulesLabel(d.telepules), "telepules");
+        if (d.telek_jelleg) tolt("ujTelekJelleg", d.telek_jelleg, "telek_jelleg");
 
         NewPropertyManager.forrasSzoveg = d.forrasSzoveg || null;
 
         document.getElementById("ujLeirasCount").innerText = document.getElementById("ujLeiras").value.length;
 
         if (d.x && d.y) {
-            NewPropertyMap.setPoint(d.x, d.y, ["kozelito", "utca"].includes(d.hely_pontossag) ? d.hely_pontossag : "pontos");
+            NewPropertyMap.setPoint(d.x, d.y, d.hely_pontossag === "kozelito" ? "kozelito" : "pontos", true, d.hely_sugar);
             talalt.push("hely");
         }
 
@@ -350,6 +351,8 @@ class NewPropertyManager {
             x: Number(v("ujX")) || null,
             y: Number(v("ujY")) || null,
             hely_pontossag: NewPropertyManager.helyPontossag,
+            hely_sugar: NewPropertyManager.helySugar || null,
+            telek_jelleg: v("ujTelekJelleg"),
             varos: v("ujVaros"),
             kerulet: v("ujKerulet"),
             telepules: NewPropertyManager.telepulesErtek(v("ujTelepules")),
@@ -383,6 +386,7 @@ class NewPropertyManager {
         if (f.szobak && d.tipus !== "kereskedelmi" && !(d.szobak > 0)) h.push("szobak");
         if (f.emelet && d.emelet === "") h.push("emelet");
         if (f.allapot && !d.allapot) h.push("allapot");
+        if (f.jelleg && !d.telek_jelleg) h.push("telek_jelleg");
         if (!d.varos) h.push("varos");
 
         const keruletSelect = document.getElementById("ujKerulet");
@@ -400,7 +404,7 @@ class NewPropertyManager {
 
     static FIELD_EL = {
         cim: "ujCim", ar: "ujAr", nm: "ujNm", telek_nm: "ujTelekNm", szobak: "ujSzobak",
-        emelet: "ujEmelet", allapot: "ujAllapot", varos: "ujVaros", kerulet: "ujKerulet",
+        emelet: "ujEmelet", allapot: "ujAllapot", varos: "ujVaros", kerulet: "ujKerulet", telek_jelleg: "ujTelekJelleg",
         leiras: "ujLeiras", hely: "newMap", kepek: "photoDrop"
     };
 
@@ -483,6 +487,7 @@ class NewPropertyManager {
                 set("ujTelekNm", i.telek_nm);
                 set("ujSzobak", i.szobak);
                 set("ujTelepules", i.telepules ? CityManager.telepulesLabel(i.telepules) : "");
+                set("ujTelekJelleg", i.telek_jelleg || "");
 
                 const emelet = String(i.emelet ?? "").split("/");
                 set("ujEmelet", emelet[0]);
@@ -512,7 +517,7 @@ class NewPropertyManager {
                 PageManager.show("new");
 
                 setTimeout(() => {
-                    NewPropertyMap.setPoint(i.x, i.y, i.hely_pontossag || (i.x && i.y ? "pontos" : null));
+                    NewPropertyMap.setPoint(i.x, i.y, i.hely_pontossag || (i.x && i.y ? "pontos" : null), true, i.hely_sugar);
                     if (Array.isArray(i.hianyzo) && i.hianyzo.length) NewPropertyManager.markMissing(i.hianyzo);
                 }, 350);
 
@@ -527,6 +532,7 @@ class NewPropertyManager {
         });
 
         document.getElementById("ujAllapot").value = "";
+        document.getElementById("ujTelekJelleg").value = "";
         document.getElementById("ujLeirasCount").innerText = "0";
         document.getElementById("scrapeResult").innerHTML = "";
         document.getElementById("newMissingAlert").style.display = "none";

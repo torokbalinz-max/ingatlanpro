@@ -6,12 +6,18 @@
 class Types {
 
     static LIST = [
-        { key: "lakas", icon: "fa-solid fa-building", label: "typeLakas", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false } },
-        { key: "haz", icon: "fa-solid fa-house-chimney", label: "typeHaz", fields: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true } },
-        { key: "telek", icon: "fa-solid fa-mountain-sun", label: "typeTelek", fields: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true } },
-        { key: "kereskedelmi", icon: "fa-solid fa-store", label: "typeKereskedelmi", fields: { szobak: false, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false } },
-        { key: "iroda", icon: "fa-solid fa-briefcase", label: "typeIroda", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false } }
+        { key: "lakas", icon: "fa-solid fa-building", label: "typeLakas", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, becsles: true },
+        { key: "haz", icon: "fa-solid fa-house-chimney", label: "typeHaz", fields: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true, jelleg: false }, becsles: false },
+        { key: "telek", icon: "fa-solid fa-mountain-sun", label: "typeTelek", fields: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true, jelleg: true }, becsles: false },
+        { key: "kereskedelmi", icon: "fa-solid fa-store", label: "typeKereskedelmi", fields: { szobak: false, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, becsles: true },
+        { key: "iroda", icon: "fa-solid fa-briefcase", label: "typeIroda", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, becsles: true }
     ];
+
+    // Az értékbecslő csak ott pontos, ahol sok hasonló ingatlan van
+    // (lakás, üzlet, iroda). Háznál, teleknél túl nagy a szórás.
+    static becsulheto(key) {
+        return !!Types.get(key).becsles;
+    }
 
     static get(key) {
         return Types.LIST.find(t => t.key === key) || Types.LIST[0];

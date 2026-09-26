@@ -37,8 +37,10 @@ AdminManager.renderReview = function () {
 AdminManager.reviewFiltered = function () {
 
     const f = AdminManager.reviewFilter;
+    const t = AdminManager.reviewTipus || "";
 
     return AdminManager.reviewList.filter(i => {
+        if (t && (i.tipus || "lakas") !== t) return false;
         const h = (i.hianyzo || []).length;
         const p = (i.problemak || []).length;
         if (f === "missing") return h > 0;
@@ -145,6 +147,13 @@ AdminManager.renderReviewItem = function () {
                             ${t.fields.kerulet ? mezo("kerulet", I18n.t("newKerulet"), `
                                 <select class="form-select" id="rvKerulet"><option value="">${I18n.t("newKeruletNincs")}</option></select>
                                 ${i.forras_kerulet ? `<div class="form-text">${I18n.f("reviewSourceDistrict", { nev: Utils.escape(i.forras_kerulet) })}</div>` : ""}`) : ""}
+                            ${t.fields.jelleg ? mezo("telek_jelleg", I18n.t("telekJellegLabel"), `
+                                <div class="btn-group btn-group-sm w-100 jellegSwitch" role="group">
+                                    <input type="radio" class="btn-check" name="rvJelleg" id="rvJelBel" value="belterulet" ${i.telek_jelleg === "belterulet" ? "checked" : ""}>
+                                    <label class="btn btn-outline-primary" for="rvJelBel">${I18n.t("jelleg_belterulet")}</label>
+                                    <input type="radio" class="btn-check" name="rvJelleg" id="rvJelKul" value="kulterulet" ${i.telek_jelleg === "kulterulet" ? "checked" : ""}>
+                                    <label class="btn btn-outline-primary" for="rvJelKul">${I18n.t("jelleg_kulterulet")}</label>
+                                </div>`) : ""}
                             ${t.fields.telepules ? mezo("telepules", I18n.t("telepulesLabel"), `
                                 <input class="form-control" id="rvTelepules" list="telepulesLista" autocomplete="off" placeholder="${Utils.escape(I18n.t("telepulesPh"))}" value="${Utils.escape(i.telepules ? CityManager.telepulesLabel(i.telepules) : "")}">
                                 ${i.forras_kerulet ? `<div class="form-text">${I18n.f("reviewSourceDistrict", { nev: Utils.escape(i.forras_kerulet) })}</div>` : ""}`) : ""}
@@ -155,8 +164,8 @@ AdminManager.renderReviewItem = function () {
                         </div>
 
                         <div class="mt-3 ${hianyzo.includes("hely") ? "revMissing" : ""}" data-field="hely">
-                            <label class="form-label">${I18n.t("newHely")} ${Utils.helyBadge(i)} <span class="text-body-secondary fw-normal">${I18n.t("reviewDragHint")}</span></label>
-                            <div id="reviewMap"></div>
+                            <label class="form-label">${I18n.t("newHely")} ${Utils.helyBadge(i)}</label>
+                            <div id="reviewLoc" class="locPicker"></div>
                         </div>
 
                         <div id="aiResult" class="mt-3"></div>
@@ -202,7 +211,18 @@ AdminManager.renderReviewItem = function () {
 
 AdminManager.reviewToolbar = function (db) {
 
+    const tipusDb = t => AdminManager.reviewList.filter(i => !t || (i.tipus || "lakas") === t).length;
+    const aktTipus = AdminManager.reviewTipus || "";
+
     return `
+        <div class="typeTabs mb-3" role="tablist">
+            ${[{ key: "", icon: "fa-solid fa-layer-group", label: "reviewAllTypes" }, ...Types.LIST].map(t => {
+                const n = tipusDb(t.key);
+                if (t.key && !n) return "";
+                return `<button type="button" role="tab" class="typeTab ${aktTipus === t.key ? "active" : ""}" data-rvtipus="${t.key}" aria-selected="${aktTipus === t.key}">
+                    <i class="${t.icon}" aria-hidden="true"></i> ${I18n.t(t.label)} <span class="typeTabCount">${n}</span></button>`;
+            }).join("")}
+        </div>
         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <select class="form-select" style="width:auto;" id="rvFilter">
                 <option value="all" ${AdminManager.reviewFilter === "all" ? "selected" : ""}>${I18n.t("reviewFilterAll")}</option>
@@ -224,6 +244,14 @@ AdminManager.reviewToolbar = function (db) {
 AdminManager.bindReviewToolbar = function () {
 
     const f = document.getElementById("rvFilter");
+
+    document.querySelectorAll("[data-rvtipus]").forEach(b => {
+        b.onclick = () => {
+            AdminManager.reviewTipus = b.dataset.rvtipus;
+            AdminManager.reviewIdx = 0;
+            AdminManager.renderReviewItem();
+        };
+    });
 
     f.onchange = () => {
         AdminManager.reviewFilter = f.value;
@@ -258,7 +286,8 @@ AdminManager.reviewCollect = function (i) {
     const emelet = v("rvEmelet");
     const ossz = v("rvOssz");
 
-    const marker = AdminManager.reviewMarker ? AdminManager.reviewMarker.getLatLng() : null;
+    const hely = AdminManager.reviewLoc ? AdminManager.reviewLoc.get() : {};
+    const jelleg = document.querySelector('input[name="rvJelleg"]:checked');
 
     return {
         ...i,
@@ -274,9 +303,11 @@ AdminManager.reviewCollect = function (i) {
         allapot: v("rvAllapot") !== null ? v("rvAllapot") : i.allapot,
         kerulet: v("rvKerulet"),
         telepules: v("rvTelepules") !== null ? NewPropertyManager.telepulesErtek(v("rvTelepules")) : i.telepules,
-        x: marker ? marker.lng : i.x,
-        y: marker ? marker.lat : i.y,
-        hely_pontossag: AdminManager.reviewMoved ? "pontos" : i.hely_pontossag
+        telek_jelleg: jelleg ? jelleg.value : i.telek_jelleg,
+        x: hely.x !== undefined ? hely.x : i.x,
+        y: hely.y !== undefined ? hely.y : i.y,
+        hely_pontossag: hely.hely_pontossag || i.hely_pontossag,
+        hely_sugar: hely.hely_sugar !== undefined ? hely.hely_sugar : i.hely_sugar
     };
 
 };
@@ -288,36 +319,28 @@ AdminManager.bindReviewItem = function (i) {
         CityManager.loadKeruletekInto("rvKerulet", i.varos, i.kerulet || "", "newKeruletNincs");
     }
 
-    // Térkép, húzható jelölővel
-    if (AdminManager.reviewMap) {
-        AdminManager.reviewMap.remove();
-        AdminManager.reviewMap = null;
+    // Térkép: pontos hely (jelölő) vagy közelítő hely (kör). A pont
+    // mozgatásakor a kerületet is megkeressük (ha még nincs megadva).
+    if (AdminManager.reviewLoc) {
+        AdminManager.reviewLoc.remove();
+        AdminManager.reviewLoc = null;
     }
 
-    AdminManager.reviewMoved = false;
-
-    const kozep = i.x && i.y ? [i.y, i.x] : [45.8590, 25.7900];
-
-    AdminManager.reviewMap = L.map("reviewMap", { scrollWheelZoom: false }).setView(kozep, i.x && i.y ? 16 : 13);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(AdminManager.reviewMap);
-
-    const tesz = latlng => {
-        if (AdminManager.reviewMarker) AdminManager.reviewMap.removeLayer(AdminManager.reviewMarker);
-        AdminManager.reviewMarker = L.marker(latlng, { draggable: true }).addTo(AdminManager.reviewMap);
-        AdminManager.reviewMarker.on("dragend", () => { AdminManager.reviewMoved = true; });
-    };
-
-    AdminManager.reviewMarker = null;
-
-    if (i.x && i.y) tesz(kozep);
-
-    AdminManager.reviewMap.on("click", e => {
-        tesz(e.latlng);
-        AdminManager.reviewMoved = true;
+    AdminManager.reviewLoc = new LocationPicker("reviewLoc", {
+        x: i.x, y: i.y,
+        pontossag: i.hely_pontossag,
+        sugar: i.hely_sugar,
+        onPoint: (x, y) => {
+            const sel = document.getElementById("rvKerulet");
+            if (!sel || sel.value) return;
+            LocationPicker.keruletJavaslat(i.varos, x, y).then(k => {
+                if (k && !sel.value) {
+                    sel.value = k;
+                    sel.classList.add("autoFilled");
+                }
+            });
+        }
     });
-
-    setTimeout(() => AdminManager.reviewMap && AdminManager.reviewMap.invalidateSize(), 100);
 
     // Gombok
     const ment = () => {

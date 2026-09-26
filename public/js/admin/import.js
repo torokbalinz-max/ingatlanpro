@@ -5,42 +5,50 @@
 
 AdminManager.renderImport = function () {
 
+    // Lépések: 1) város  2) ingatlantípus + eladó/kiadó  3) linkek
+    const allapot = AdminManager.importValasztas = AdminManager.importValasztas || {
+        varos: DataManager.currentCity,
+        tipus: FilterManager.tipus || "lakas",
+        ugylet: FilterManager.ugylet || "elado"
+    };
+
     AdminManager.box().innerHTML = `
         <div class="row g-4">
-            <div class="col-xl-5">
+            <div class="col-xl-6">
                 <div class="card">
-                    <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-link"></i> ${I18n.t("importUrls")}</h5></div>
-                    <div class="card-body">
-                        <label class="form-label visually-hidden" for="impUrls">${I18n.t("importUrls")}</label>
-                        <textarea id="impUrls" class="form-control mb-2" rows="8" placeholder="https://www.imoradar24.ro/apartamente-de-vanzare/judetul-covasna/sfantu-gheorghe&#10;https://www.imoradar24.ro/oferta/..."></textarea>
-                        <p class="small text-body-secondary">${I18n.t("importUrlsHelp")}</p>
+                    <div class="card-body stepForm">
 
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-4">
-                                <label class="form-label">${I18n.t("detailVaros")}</label>
-                                <select id="impVaros" class="form-select">${AdminManager.cityOptions(DataManager.currentCity)}</select>
+                        <div class="stepBlock">
+                            <div class="stepHead"><span class="stepNo">1</span> ${I18n.t("importStepCity")}</div>
+                            <select id="impVaros" class="form-select" aria-label="${I18n.t("detailVaros")}">${AdminManager.cityOptions(allapot.varos)}</select>
+                        </div>
+
+                        <div class="stepBlock">
+                            <div class="stepHead"><span class="stepNo">2</span> ${I18n.t("importStepType")}</div>
+                            <div class="btn-group w-100 mb-2 ugyletSwitch" role="group">
+                                <input type="radio" class="btn-check" name="impUgylet" id="impElado" value="elado" ${allapot.ugylet !== "kiado" ? "checked" : ""}>
+                                <label class="btn btn-outline-primary btn-sm" for="impElado">${I18n.t("ugyletElado")}</label>
+                                <input type="radio" class="btn-check" name="impUgylet" id="impKiado" value="kiado" ${allapot.ugylet === "kiado" ? "checked" : ""}>
+                                <label class="btn btn-outline-primary btn-sm" for="impKiado">${I18n.t("ugyletKiado")}</label>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">${I18n.t("typeLabel")}</label>
-                                <select id="impTipus" class="form-select">${AdminManager.typeOptions(FilterManager.tipus)}</select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">${I18n.t("ugyletLabel")}</label>
-                                <select id="impUgylet" class="form-select">
-                                    <option value="elado">${I18n.t("ugyletElado")}</option>
-                                    <option value="kiado" ${FilterManager.ugylet === "kiado" ? "selected" : ""}>${I18n.t("ugyletKiado")}</option>
-                                </select>
+                            <div class="typeGrid" id="impTypeGrid"></div>
+                        </div>
+
+                        <div class="stepBlock">
+                            <div class="stepHead"><span class="stepNo">3</span> ${I18n.t("importStepLinks")} <span class="stepTarget" id="impTarget"></span></div>
+                            <label class="form-label visually-hidden" for="impUrls">${I18n.t("importUrls")}</label>
+                            <textarea id="impUrls" class="form-control mb-2" rows="7" spellcheck="false" placeholder="https://www.imoradar24.ro/apartamente-de-vanzare/judetul-covasna/sfantu-gheorghe&#10;https://www.imoradar24.ro/oferta/..."></textarea>
+                            <p class="small text-body-secondary mb-3">${I18n.t("importUrlsHelp")}</p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-primary" id="impStart"><i class="fa-solid fa-play" aria-hidden="true"></i> ${I18n.t("importStart")}</button>
+                                <button class="btn btn-outline-secondary" id="impSaveWatch"><i class="fa-solid fa-binoculars" aria-hidden="true"></i> ${I18n.t("importSaveWatch")}</button>
                             </div>
                         </div>
-                        <p class="small text-body-secondary">${I18n.t("importDefaultsHelp")}</p>
 
-                        <div class="d-grid">
-                            <button class="btn btn-primary" id="impStart"><i class="fa-solid fa-play"></i> ${I18n.t("importStart")}</button>
-                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-xl-7">
+            <div class="col-xl-6">
                 <div id="impStatus">
                     <div class="card helpCard"><div class="card-body">
                         <h6><i class="fa-solid fa-circle-info"></i> ${I18n.t("importHowTitle")}</h6>
@@ -55,13 +63,35 @@ AdminManager.renderImport = function () {
             </div>
         </div>`;
 
+    const cel = () => {
+        document.getElementById("impTarget").innerText =
+            `${CityManager.displayName(allapot.varos)} · ${Types.label(allapot.tipus)} · ${Types.ugyletLabel(allapot.ugylet)}`;
+    };
+
+    Types.renderGrid("impTypeGrid", allapot.tipus, t => { allapot.tipus = t; cel(); });
+
+    document.getElementById("impVaros").onchange = e => { allapot.varos = e.target.value; cel(); };
+    document.querySelectorAll('input[name="impUgylet"]').forEach(r => r.onchange = () => { allapot.ugylet = r.value; cel(); });
+
+    cel();
+
+    document.getElementById("impSaveWatch").onclick = () => {
+        const urls = document.getElementById("impUrls").value.split(/\s+/).filter(u => /^https?:\/\//i.test(u));
+        if (!urls.length) { alert(I18n.t("importNoUrls")); return; }
+        Promise.all(urls.map(url => fetch("/api/admin/watch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url, varos: allapot.varos, tipus: allapot.tipus, ugylet: allapot.ugylet })
+        }))).then(() => AdminManager.open("watch"));
+    };
+
     document.getElementById("impStart").onclick = () => {
 
         const body = {
             urls: document.getElementById("impUrls").value,
-            varos: document.getElementById("impVaros").value,
-            tipus: document.getElementById("impTipus").value,
-            ugylet: document.getElementById("impUgylet").value
+            varos: allapot.varos,
+            tipus: allapot.tipus,
+            ugylet: allapot.ugylet
         };
 
         fetch("/api/admin/import", {
@@ -170,45 +200,69 @@ AdminManager.renderWatch = function () {
         .then(lista => {
 
             const cronUrl = `${location.origin}/api/cron/run?key=CRON_KEY`;
+            const esc = Utils.escape;
+
+            // Város -> típus + ügylet szerinti csoportok
+            const varosok = [...new Set([DataManager.currentCity, ...lista.map(w => w.varos)])]
+                .filter(Boolean)
+                .sort((a, b) => (b === DataManager.currentCity) - (a === DataManager.currentCity) ||
+                    CityManager.displayName(a).localeCompare(CityManager.displayName(b), "hu"));
+
+            const sor = w => `
+                <div class="watchRow">
+                    <div class="watchInfo">
+                        <a href="${esc(w.url)}" target="_blank" rel="noopener">${esc(w.nev || w.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 70))}</a>
+                        <small>${w.utolso_futas ? `${I18n.t("watchLastRun")}: ${Utils.ago(w.utolso_futas)} · ${esc(w.utolso_eredmeny || "")}` : I18n.t("ovNever")}</small>
+                    </div>
+                    <div class="text-nowrap">
+                        <button class="btn btn-sm btn-outline-primary" data-run="${w.id}" aria-label="${I18n.t("watchRun")}"><i class="fa-solid fa-rotate" aria-hidden="true"></i> <span class="d-none d-md-inline">${I18n.t("watchRun")}</span></button>
+                        <button class="btn btn-sm btn-outline-danger" data-del="${w.id}" aria-label="${I18n.t("detailDelete")}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+                    </div>
+                </div>`;
+
+            const varosBlokk = varos => {
+
+                const sajat = lista.filter(w => w.varos === varos);
+
+                const csoportok = [];
+                Types.LIST.forEach(t => ["elado", "kiado"].forEach(u => {
+                    const elemek = sajat.filter(w => (w.tipus || "lakas") === t.key && (w.ugylet || "elado") === u);
+                    if (elemek.length) csoportok.push({ t, u, elemek });
+                }));
+
+                return `
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fa-solid fa-city" aria-hidden="true"></i> ${esc(CityManager.displayName(varos))} <span class="badge text-bg-light">${sajat.length}</span></h5>
+                        </div>
+                        <div class="card-body">
+                            ${csoportok.length ? csoportok.map(c => `
+                                <div class="watchGroup">
+                                    <div class="watchGroupHead"><i class="${c.t.icon}" aria-hidden="true"></i> ${I18n.t(c.t.label)} · ${Types.ugyletLabel(c.u)} <span class="badge text-bg-light">${c.elemek.length}</span></div>
+                                    ${c.elemek.map(sor).join("")}
+                                </div>`).join("") : `<p class="text-body-secondary small mb-0">${I18n.t("watchEmpty")}</p>`}
+                        </div>
+                    </div>`;
+
+            };
 
             AdminManager.box().innerHTML = `
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-plus"></i> ${I18n.t("watchAddTitle")}</h5></div>
+                    <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("watchAddTitle")}</h5></div>
                     <div class="card-body">
                         <div class="row g-3 align-items-end">
-                            <div class="col-12"><label class="form-label">${I18n.t("watchUrl")}</label><input id="wUrl" class="form-control" placeholder="https://www.imoradar24.ro/apartamente-de-vanzare/judetul-covasna/sfantu-gheorghe"></div>
-                            <div class="col-md-6 col-xl-3"><label class="form-label">${I18n.t("watchName")}</label><input id="wNev" class="form-control"></div>
-                            <div class="col-md-6 col-xl-3"><label class="form-label">${I18n.t("detailVaros")}</label><select id="wVaros" class="form-select">${AdminManager.cityOptions(DataManager.currentCity)}</select></div>
-                            <div class="col-md-4 col-xl-2"><label class="form-label">${I18n.t("typeLabel")}</label><select id="wTipus" class="form-select">${AdminManager.typeOptions("lakas")}</select></div>
-                            <div class="col-md-4 col-xl-2"><label class="form-label">${I18n.t("ugyletLabel")}</label><select id="wUgylet" class="form-select"><option value="elado">${I18n.t("ugyletElado")}</option><option value="kiado">${I18n.t("ugyletKiado")}</option></select></div>
-                            <div class="col-md-4 col-xl-2 d-grid"><button class="btn btn-primary" id="wAdd"><i class="fa-solid fa-plus"></i> ${I18n.t("watchAddBtn")}</button></div>
+                            <div class="col-md-4 col-xl-3"><label class="form-label" for="wVaros"><span class="stepNo sm">1</span> ${I18n.t("detailVaros")}</label><select id="wVaros" class="form-select">${AdminManager.cityOptions(DataManager.currentCity)}</select></div>
+                            <div class="col-md-4 col-xl-3"><label class="form-label" for="wTipus"><span class="stepNo sm">2</span> ${I18n.t("typeLabel")}</label><select id="wTipus" class="form-select">${AdminManager.typeOptions("lakas")}</select></div>
+                            <div class="col-md-4 col-xl-2"><label class="form-label" for="wUgylet">${I18n.t("ugyletLabel")}</label><select id="wUgylet" class="form-select"><option value="elado">${I18n.t("ugyletElado")}</option><option value="kiado">${I18n.t("ugyletKiado")}</option></select></div>
+                            <div class="col-xl-4"><label class="form-label" for="wNev">${I18n.t("watchName")}</label><input id="wNev" class="form-control" autocomplete="off"></div>
+                            <div class="col-md-9 col-xl-10"><label class="form-label" for="wUrl"><span class="stepNo sm">3</span> ${I18n.t("watchUrl")}</label><input id="wUrl" class="form-control" type="url" spellcheck="false" placeholder="https://www.imoradar24.ro/apartamente-de-vanzare/judetul-covasna/sfantu-gheorghe"></div>
+                            <div class="col-md-3 col-xl-2 d-grid"><button class="btn btn-primary" id="wAdd"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("watchAddBtn")}</button></div>
                         </div>
                     </div>
                 </div>
 
-                ${lista.length ? `
-                    <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-list"></i> ${I18n.t("watchListTitle")} <span class="badge text-bg-light">${lista.length}</span></h5></div>
-                    <div class="table-responsive">
-                        <table class="table statTable align-middle mb-0">
-                            <thead><tr><th>${I18n.t("watchName")}</th><th>${I18n.t("detailVaros")}</th><th>${I18n.t("typeLabel")}</th><th>${I18n.t("watchLastRun")}</th><th></th></tr></thead>
-                            <tbody>
-                                ${lista.map(w => `
-                                    <tr>
-                                        <td><a href="${Utils.escape(w.url)}" target="_blank" rel="noopener">${Utils.escape(w.nev || w.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}</a></td>
-                                        <td>${Utils.escape(CityManager.displayName(w.varos))}</td>
-                                        <td>${Types.label(w.tipus)} · ${Types.ugyletLabel(w.ugylet)}</td>
-                                        <td class="small">${w.utolso_futas ? Utils.ago(w.utolso_futas) + "<br>" + Utils.escape(w.utolso_eredmeny || "") : "–"}</td>
-                                        <td class="text-end text-nowrap">
-                                            <button class="btn btn-sm btn-outline-primary" data-run="${w.id}"><i class="fa-solid fa-rotate"></i> ${I18n.t("watchRun")}</button>
-                                            <button class="btn btn-sm btn-outline-danger" data-del="${w.id}"><i class="fa-solid fa-trash"></i></button>
-                                        </td>
-                                    </tr>`).join("")}
-                            </tbody>
-                        </table>
-                    </div>
-                    </div>
-                    <div id="watchStatus" class="mb-4"></div>` : `<div class="emptyState"><i class="fa-solid fa-binoculars"></i><h5>${I18n.t("watchEmpty")}</h5></div>`}
+                ${varosok.map(varosBlokk).join("")}
+                <div id="watchStatus" class="mb-4"></div>
 
                 <div class="card helpCard">
                     <div class="card-body">
@@ -216,7 +270,7 @@ AdminManager.renderWatch = function () {
                         <ol class="howList mb-0">
                             <li>${I18n.t("watchAuto1")}</li>
                             <li>${I18n.t("watchAuto2")}</li>
-                            <li>${I18n.t("watchAuto3")} <code>${Utils.escape(cronUrl)}</code></li>
+                            <li>${I18n.t("watchAuto3")} <code>${esc(cronUrl)}</code></li>
                         </ol>
                     </div>
                 </div>`;
@@ -242,7 +296,10 @@ AdminManager.renderWatch = function () {
                 b.onclick = () => {
                     fetch(`/api/admin/watch/${b.dataset.run}/run`, { method: "POST" })
                         .then(r => r.json())
-                        .then(v => AdminManager.pollJob(v.jobId, "watchStatus"));
+                        .then(v => {
+                            document.getElementById("watchStatus").scrollIntoView({ behavior: "smooth", block: "center" });
+                            AdminManager.pollJob(v.jobId, "watchStatus");
+                        });
                 };
             });
 

@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
         DashboardManager.load(DataManager.szurtIngatlanok);
         CardsView.render(DataManager.szurtIngatlanok);
 
-        if (PageManager.current === "properties") {
+        if (PageManager.current === "map") {
             MapManager.load(DataManager.szurtIngatlanok);
         } else {
             MapManager.dirty = true;

@@ -46,7 +46,7 @@ class StatisticsManager {
             CurrentStatistics.load();
         } else if (StatisticsManager.tab === "trend" && document.getElementById("trendChart")) {
             TrendStatistics.draw();
-        } else if (StatisticsManager.tab === "history" && document.getElementById("btnSaveSnapshot")) {
+        } else if (StatisticsManager.tab === "history") {
             HistoryStatistics.load();
         }
     }

@@ -12,6 +12,7 @@ class PageManager {
     static PAGES = {
         home: { icon: "fa-solid fa-compass", label: "menuHome" },
         properties: { icon: "fa-solid fa-house", label: "menuIngatlanok", search: true },
+        map: { icon: "fa-solid fa-map-location-dot", label: "mapTitle", search: true },
         market: { icon: "fa-solid fa-chart-line", label: "menuStatisztika", search: true },
         new: { icon: "fa-solid fa-circle-plus", label: "menuUj" },
         favorites: { icon: "fa-solid fa-star", label: "menuKedvencek" },
@@ -65,7 +66,7 @@ class PageManager {
         const elozo = PageManager.current;
         PageManager.current = page;
 
-        if (page === "properties" || page === "market") {
+        if (page === "properties" || page === "market" || page === "map") {
             PageManager.lastListPage = page;
         }
 
@@ -102,7 +103,7 @@ class PageManager {
             HomePage.render();
         }
 
-        if (page === "properties") {
+        if (page === "map") {
             MapManager.refresh();
         }
 

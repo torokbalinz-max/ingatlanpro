@@ -13,7 +13,7 @@ class ValuationManager {
         const v = sel.value || "lakas";
 
         sel.innerHTML = Types.LIST
-            .filter(t => t.key !== "telek")
+            .filter(t => Types.becsulheto(t.key))
             .map(t => `<option value="${t.key}">${I18n.t(t.label)}</option>`).join("");
 
         sel.value = v;
@@ -73,7 +73,7 @@ class ValuationManager {
         const valVaros = document.getElementById("valVaros");
         CityManager.fillCitySelect(valVaros, i.varos || DataManager.currentCity);
 
-        document.getElementById("valTipus").value = i.tipus && i.tipus !== "telek" ? i.tipus : "lakas";
+        document.getElementById("valTipus").value = Types.becsulheto(i.tipus) ? i.tipus : "lakas";
         document.getElementById(i.ugylet === "kiado" ? "valUgyletKiado" : "valUgyletElado").checked = true;
 
         document.getElementById("valNm").value = i.nm || "";

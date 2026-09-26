@@ -52,7 +52,10 @@ async function createSchema(db) {
         "utolso_ellenorzes TIMESTAMP",           // mikor néztük meg utoljára a forrásoldalt
         "evszam INTEGER",                        // építés éve
         "telepules TEXT",                        // háznál / teleknél: melyik település (ha nem a városban)
+        "telek_jelleg TEXT",                     // teleknél: belterulet | kulterulet
+        "hely_sugar INTEGER",                    // közelítő helynél a kör sugara méterben
         "auto_javitva TIMESTAMP",                // mikor futott rá az automatikus javítás
+        "auto_javitva_v INTEGER",                // az automatikus javítás melyik változata futott rá
         "updated_at TIMESTAMP DEFAULT NOW()"
     ];
 

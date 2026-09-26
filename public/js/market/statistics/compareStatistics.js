@@ -16,7 +16,7 @@ class CompareStatistics {
                     <div class="emptyState">
                         <i class="fa-solid fa-scale-balanced"></i>
                         <h5>${I18n.t("compareNeedTwo")}</h5>
-                        <p class="text-body-secondary">${I18n.t("historySaveNote")}</p>
+                        <p class="text-body-secondary">${I18n.t("historyEmpty")}</p>
                     </div>`;
 
                 return;

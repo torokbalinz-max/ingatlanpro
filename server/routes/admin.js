@@ -171,7 +171,7 @@ router.post("/api/admin/autofix", csakAdmin, (req, res) => {
 
 router.get("/api/admin/autofix", csakAdmin, async (req, res) => {
     try {
-        res.json({ ...(autofix.allapot() || {}), utolso: await autofix.beallitas("autofix_v1") });
+        res.json({ ...(autofix.allapot() || {}), utolso: await autofix.beallitas("autofix_v2") });
     } catch (err) {
         hiba(res, err);
     }

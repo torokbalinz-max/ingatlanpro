@@ -1,74 +1,60 @@
+// ============================================================
+//  Hirdetésfeladás – hely a térképen
+//  Pontos hely (jelölő) vagy közelítő hely (kör, állítható sugárral).
+//  A pont mozgatásakor a kerületet is kitöltjük, ha még üres.
+// ============================================================
+
 class NewPropertyMap {
 
-    static map = null;
-    static marker = null;
+    static picker = null;
 
     static init() {
 
-        const mapDiv = document.getElementById("newMap");
+        if (!document.getElementById("newMap")) return;
 
-        if (!mapDiv) return;
-
-        NewPropertyMap.map = L.map("newMap").setView([45.8590, 25.7900], 13);
-
-        NewPropertyMap.map.getContainer().style.cursor = "crosshair";
-
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution: "© OpenStreetMap"
-        }).addTo(NewPropertyMap.map);
-
-        NewPropertyMap.map.on("click", e => {
-            NewPropertyMap.setPoint(e.latlng.lng, e.latlng.lat, "pontos", false);
-        });
+        NewPropertyMap.build(null, null, "pontos", null);
 
     }
 
-    static setPoint(x, y, pontossag, center = true) {
+    static build(x, y, pontossag, sugar) {
 
-        if (!NewPropertyMap.map) return;
+        if (NewPropertyMap.picker) NewPropertyMap.picker.remove();
 
-        if (NewPropertyMap.marker) {
-            NewPropertyMap.map.removeLayer(NewPropertyMap.marker);
-            NewPropertyMap.marker = null;
-        }
+        NewPropertyMap.picker = new LocationPicker("newMap", {
+            x, y, pontossag, sugar,
+            onChange: h => {
+                document.getElementById("ujX").value = h.x ? Number(h.x).toFixed(7) : "";
+                document.getElementById("ujY").value = h.y ? Number(h.y).toFixed(7) : "";
+                NewPropertyManager.helySugar = h.hely_sugar;
+                NewPropertyManager.setLocationInfo(h.x ? h.hely_pontossag : null);
+            },
+            onPoint: (px, py) => {
+                const sel = document.getElementById("ujKerulet");
+                const varos = document.getElementById("ujVaros").value;
+                if (!sel || sel.value || !Types.get(NewPropertyManager.tipus).fields.kerulet) return;
+                LocationPicker.keruletJavaslat(varos, px, py).then(k => {
+                    if (k && !sel.value) sel.value = k;
+                });
+            }
+        });
 
-        if (!x || !y) {
-            document.getElementById("ujX").value = "";
-            document.getElementById("ujY").value = "";
-            NewPropertyManager.setLocationInfo(null);
-            return;
-        }
+        NewPropertyMap.picker.valtozott();
 
-        document.getElementById("ujX").value = Number(x).toFixed(7);
-        document.getElementById("ujY").value = Number(y).toFixed(7);
+    }
 
-        NewPropertyMap.marker = L.marker([y, x]).addTo(NewPropertyMap.map);
+    // A régi felület: pont beállítása kívülről (beolvasás, szerkesztés)
+    static setPoint(x, y, pontossag, center = true, sugar = null) {
 
-        if (center) NewPropertyMap.map.setView([y, x], 16);
+        if (!NewPropertyMap.picker) return;
 
-        NewPropertyManager.setLocationInfo(pontossag || "pontos");
+        NewPropertyMap.build(x || null, y || null, pontossag === "kozelito" ? "kozelito" : "pontos", sugar);
+
+        if (center) NewPropertyMap.picker.refresh();
 
     }
 
     static refresh() {
-
-        if (!NewPropertyMap.map) return;
-
-        setTimeout(() => {
-
-            NewPropertyMap.map.invalidateSize(true);
-
-            const x = Number(document.getElementById("ujX").value);
-            const y = Number(document.getElementById("ujY").value);
-
-            if (x && y) {
-                NewPropertyMap.map.setView([y, x], 16);
-            } else {
-                NewPropertyMap.map.setView([45.8590, 25.7900], 13);
-            }
-
-        }, 250);
-
+        if (NewPropertyMap.picker) NewPropertyMap.picker.refresh();
     }
 
 }

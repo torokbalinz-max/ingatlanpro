@@ -187,9 +187,9 @@ class ListingPage {
                                     <button class="btn ${DataManager.isFavorite(i.id) ? "btn-warning" : "btn-outline-warning"}" id="lpFav">
                                         ${DataManager.isFavorite(i.id) ? I18n.t("favRemove") : I18n.t("favAdd")}
                                     </button>
-                                    <button class="btn btn-outline-primary" id="lpValuate">
+                                    ${Types.becsulheto(i.tipus) ? `<button class="btn btn-outline-primary" id="lpValuate">
                                         <i class="fa-solid fa-calculator"></i> ${I18n.t("detailValuate")}
-                                    </button>
+                                    </button>` : ""}
                                 </div>
                             </div>
                         </div>
@@ -279,7 +279,8 @@ class ListingPage {
 
         document.getElementById("lpFav").onclick = () => DataManager.toggleFavorite(i.id);
 
-        document.getElementById("lpValuate").onclick = () => {
+        const lpVal = document.getElementById("lpValuate");
+        if (lpVal) lpVal.onclick = () => {
             PageManager.show("valuation");
             ValuationManager.prefill(i).then(() => ValuationManager.run());
         };
@@ -308,7 +309,7 @@ class ListingPage {
             }).addTo(ListingPage.map);
 
             if (i.hely_pontossag === "kozelito") {
-                L.circle([i.y, i.x], { radius: i.telepules ? 900 : 400, color: Utils.accent(), fillOpacity: 0.12 }).addTo(ListingPage.map);
+                L.circle([i.y, i.x], { radius: i.hely_sugar || (i.telepules ? 1500 : 500), color: Utils.accent(), weight: 2, fillOpacity: 0.14 }).addTo(ListingPage.map);
             } else {
                 L.circleMarker([i.y, i.x], { radius: 10, color: "#fff", weight: 3, fillColor: Utils.accent(), fillOpacity: 1 }).addTo(ListingPage.map);
             }

@@ -28,7 +28,7 @@ async function median(varos, tipus, ugylet) {
 
 }
 
-const KOTELEZO_IMPORT = ["ar", "nm", "varos", "szobak"];
+const KOTELEZO_IMPORT = ["ar", "nm", "varos", "szobak", "telek_jelleg"];
 
 function problemak(d, ctx = {}) {
 
@@ -166,6 +166,40 @@ async function keruletSzovegbol(varos, szoveg) {
 
 }
 
+// Kerület a helyből: 1) a térkép szerinti környéknév (OpenStreetMap),
+// 2) ha az nem ismert: a legközelebbi kerület "közepe" (a már kerülettel és
+// pontos hellyel rendelkező hirdetések átlagos helye), legfeljebb 1,5 km-re
+async function keruletHelybol(varos, x, y) {
+
+    if (!varos || !(x && y)) return null;
+
+    const { forditott } = require("./geocode");
+    const f = await forditott(x, y);
+
+    if (f && f.nevek.length) {
+        const k = await keruletKeres(varos, ...f.nevek);
+        if (k) return k;
+    }
+
+    const r = await db.query(`
+        SELECT kerulet, AVG(x) AS x, AVG(y) AS y, COUNT(*)::int AS n
+        FROM ingatlanok
+        WHERE varos = $1 AND kerulet IS NOT NULL AND kerulet <> '' AND x IS NOT NULL AND y IS NOT NULL
+          AND COALESCE(hely_pontossag, 'pontos') IN ('pontos', 'utca')
+        GROUP BY kerulet HAVING COUNT(*) >= 3
+    `, [varos]);
+
+    let legjobb = null;
+
+    r.rows.forEach(k => {
+        const km = Math.hypot((x - k.x) * 77, (y - k.y) * 111);
+        if (km <= 1.5 && (!legjobb || km < legjobb.km)) legjobb = { nev: k.kerulet, km };
+    });
+
+    return legjobb ? legjobb.nev : null;
+
+}
+
 // Ha az admin egy ismeretlen forrás-környéket kerülethez rendel, megjegyezzük
 async function aliasHozzaad(varos, kerulet, alias) {
 
@@ -186,4 +220,4 @@ async function aliasHozzaad(varos, kerulet, alias) {
 
 }
 
-module.exports = { ertekel, problemak, median, keruletKeres, keruletSzovegbol, aliasHozzaad, ekezetNelkul, KOTELEZO_IMPORT };
+module.exports = { ertekel, problemak, median, keruletKeres, keruletSzovegbol, keruletHelybol, aliasHozzaad, ekezetNelkul, KOTELEZO_IMPORT };

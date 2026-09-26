@@ -69,7 +69,7 @@ class FilterManager {
         });
 
         // Legördülők azonnal szűrnek
-        ["allapot", "keresoKerulet", "keresoTelepules", "keresoHely"].forEach(id => {
+        ["allapot", "keresoKerulet", "keresoTelepules", "keresoHely", "keresoJelleg"].forEach(id => {
             document.getElementById(id).addEventListener("change", () => FilterManager.apply());
         });
 
@@ -189,7 +189,10 @@ class FilterManager {
             minNm: n("minNm"),
             maxNm: n("maxNm"),
             minSzoba: n("minSzoba"),
+            maxSzoba: n("maxSzoba"),
             minEmelet: n("minEmelet"),
+            maxEmelet: n("maxEmelet"),
+            jelleg: FilterManager.tipus === "telek" ? document.getElementById("keresoJelleg").value : "",
             allapot: document.getElementById("allapot").value,
             kerulet: Types.get(FilterManager.tipus).fields.kerulet ? document.getElementById("keresoKerulet").value : "",
             telepules: Types.get(FilterManager.tipus).fields.telepules ? document.getElementById("keresoTelepules").value : "",
@@ -215,10 +218,18 @@ class FilterManager {
 
         if (f.minSzoba !== null && (i.szobak || 0) < f.minSzoba) return false;
 
-        if (f.minEmelet !== null) {
+        if (f.maxSzoba !== null && (i.szobak || 0) > f.maxSzoba) return false;
+
+        // Emelet: pontos tartomány (pl. 1–1 = csak első emelet). Ismeretlen emeletű
+        // hirdetés ilyenkor nem felel meg.
+        if (f.minEmelet !== null || f.maxEmelet !== null) {
             const e = Utils.emeletSzam(i.emelet);
-            if (e !== null && e < f.minEmelet) return false;
+            if (e === null) return false;
+            if (f.minEmelet !== null && e < f.minEmelet) return false;
+            if (f.maxEmelet !== null && e > f.maxEmelet) return false;
         }
+
+        if (f.jelleg && i.telek_jelleg !== f.jelleg) return false;
 
         if (f.allapot && Utils.normAllapot(i.allapot) !== f.allapot) return false;
 
@@ -275,7 +286,7 @@ class FilterManager {
         CardsView.render(lista, true);
 
         // A térképet csak akkor rajzoljuk, ha látszik (rejtett elemen a Leaflet rosszul méretez)
-        if (PageManager.current === "properties") {
+        if (PageManager.current === "map") {
             MapManager.load(lista);
         } else {
             MapManager.dirty = true;
@@ -289,7 +300,7 @@ class FilterManager {
 
     static reset() {
 
-        ["minAr", "maxAr", "minNm", "maxNm", "minSzoba", "minEmelet"].forEach(id => {
+        ["minAr", "maxAr", "minNm", "maxNm", "minSzoba", "maxSzoba", "minEmelet", "maxEmelet"].forEach(id => {
             document.getElementById(id).value = "";
         });
 
@@ -297,6 +308,7 @@ class FilterManager {
         document.getElementById("keresoKerulet").value = "";
         document.getElementById("keresoTelepules").value = "";
         document.getElementById("keresoHely").value = "";
+        document.getElementById("keresoJelleg").value = "";
         document.getElementById("hideDuplicates").checked = true;
         document.getElementById("onlyWithPhotos").checked = false;
 
@@ -325,8 +337,10 @@ class FilterManager {
             chips.push(`m²: ${f.minNm !== null ? f.minNm : "…"} – ${f.maxNm !== null ? f.maxNm : "…"}`);
         }
 
-        if (f.minSzoba !== null) chips.push(`${I18n.t("minSzoba")}: ${f.minSzoba}`);
-        if (f.minEmelet !== null) chips.push(`${I18n.t("minEmelet")}: ${f.minEmelet}`);
+        const tart = (a, b) => a !== null && b !== null && a === b ? `${a}` : `${a !== null ? a : "…"} – ${b !== null ? b : "…"}`;
+        if (f.minSzoba !== null || f.maxSzoba !== null) chips.push(`${I18n.t("searchSzoba")}: ${tart(f.minSzoba, f.maxSzoba)}`);
+        if (f.minEmelet !== null || f.maxEmelet !== null) chips.push(`${I18n.t("floorWordCap")}: ${tart(f.minEmelet, f.maxEmelet)}`);
+        if (f.jelleg) chips.push(I18n.t("jelleg_" + f.jelleg));
         if (f.allapot) chips.push(`${I18n.t("allapot")}: ${Utils.allapotLabel(f.allapot)}`);
         if (f.kerulet) chips.push(`${I18n.t("kerulet")}: ${Utils.escape(CityManager.keruletLabel(f.kerulet, f.varos))}`);
         if (f.telepules) chips.push(`${I18n.t("telepulesLabel")}: ${Utils.escape(f.telepules === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(f.telepules))}`);
