@@ -26,12 +26,31 @@ pool.on("error", err => {
 
 async function initDatabase() {
 
+    // Minden utasítás külön: ha egy elhasal, a többi (pl. az új táblák)
+    // attól még létrejön. A hibák a naplóba és a pool.schemaHibak-ba kerülnek.
+    pool.schemaHibak = [];
+
+    const turelmes = {
+        query: async (sql, params) => {
+            try {
+                return await pool.query(sql, params);
+            } catch (err) {
+                const rovid = String(sql).replace(/\s+/g, " ").trim().slice(0, 120);
+                pool.schemaHibak.push(`${err.message} | ${rovid}`);
+                console.error("Adatbázis séma hiba:", err.message, "|", rovid);
+                return { rows: [], rowCount: 0 };
+            }
+        }
+    };
+
     try {
 
-        await createSchema(pool);
-        await seedDefaults(pool);
+        await createSchema(turelmes);
+        await seedDefaults(turelmes);
 
-        console.log("PostgreSQL adatbázis csatlakoztatva, táblák rendben.");
+        console.log(pool.schemaHibak.length
+            ? `PostgreSQL csatlakoztatva, ${pool.schemaHibak.length} séma hibával (lásd fent).`
+            : "PostgreSQL adatbázis csatlakoztatva, táblák rendben.");
 
     } catch (err) {
 

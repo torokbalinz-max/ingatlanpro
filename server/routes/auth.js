@@ -19,7 +19,9 @@ router.get("/api/config", (req, res) => {
         meghivoKell: !!process.env.MEGHIVO_KOD,
         regisztracio: !/^(0|false|nem|no)$/i.test(String(process.env.REGISZTRACIO || "")),
         email: mail.elerheto(),
-        fejleszto: acc.fejlesztoiMod()
+        fejleszto: acc.fejlesztoiMod(),
+        // Hibakereséshez: ha induláskor egy táblát nem sikerült létrehozni
+        dbHibak: (db.schemaHibak || []).map(h => h.slice(0, 200))
     });
 });
 

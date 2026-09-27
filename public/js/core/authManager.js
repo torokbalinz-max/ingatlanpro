@@ -323,7 +323,14 @@ class AuthManager {
             .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, d })))
             .then(({ ok, status, d }) => {
 
-                if (!ok) return AuthManager.hiba(status === 429 ? "too_many" : (d.error || "generic"));
+                if (!ok) {
+                    AuthManager.hiba(status === 429 ? "too_many" : (d.error || "generic"));
+                    if (d.message) {
+                        const el = document.querySelector("#authModal .authError");
+                        if (el) el.innerText += " (" + d.message + ")";
+                    }
+                    return;
+                }
 
                 if (mod === "forgot") {
                     const okEl = document.querySelector("#authModal .authOk");
