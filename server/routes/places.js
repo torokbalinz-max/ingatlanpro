@@ -5,13 +5,14 @@
 const express = require("express");
 const db = require("../db/database");
 const { hiba, csakAdmin } = require("../lib/http");
+const location = require("../services/location");
 
 const router = express.Router();
 
 router.get("/api/varosok", async (req, res) => {
 
     try {
-        const result = await db.query("SELECT id, nev FROM varosok ORDER BY nev");
+        const result = await db.query("SELECT id, nev, nev_ro, megye, x, y, sugar_km FROM varosok ORDER BY nev");
         res.json(result.rows);
     } catch (err) {
         hiba(res, err);
@@ -27,14 +28,61 @@ router.post("/api/varosok", csakAdmin, async (req, res) => {
 
         if (!nev) return res.status(400).json({ error: "Hiányzó városnév" });
 
+        // Román név és megye: ezzel a helymeghatározás biztosan a jó várost
+        // találja meg (sok a hasonló nevű település)
+        const nevRo = String(req.body.nev_ro || "").trim() || null;
+        const megye = String(req.body.megye || "").trim() || null;
+
         const result = await db.query(
-            `INSERT INTO varosok (nev) VALUES ($1)
-             ON CONFLICT (nev) DO UPDATE SET nev=EXCLUDED.nev
-             RETURNING id, nev`,
-            [nev]
+            `INSERT INTO varosok (nev, nev_ro, megye) VALUES ($1, $2, $3)
+             ON CONFLICT (nev) DO UPDATE SET nev_ro = COALESCE(EXCLUDED.nev_ro, varosok.nev_ro), megye = COALESCE(EXCLUDED.megye, varosok.megye)
+             RETURNING id, nev, nev_ro, megye, x, y, sugar_km`,
+            [nev, nevRo, megye]
         );
 
+        location.cacheUrit();
+
+        // A város közepét rögtön megkeressük (háttérben)
+        location.varosAdat(nev).catch(() => { });
+
         res.json(result.rows[0]);
+
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+// Város adatai: román név, megye, közép (térképen kattintva), méret km-ben
+router.put("/api/varosok/:id", csakAdmin, async (req, res) => {
+
+    try {
+
+        const r = await db.query("SELECT * FROM varosok WHERE id = $1", [req.params.id]);
+        if (!r.rowCount) return res.status(404).json({ error: "not_found" });
+
+        const v = r.rows[0];
+        const b = req.body || {};
+        const szam = (x, regi) => x === undefined ? regi : (x === null || x === "" ? null : Number(x));
+
+        const uj = {
+            nev_ro: b.nev_ro !== undefined ? (String(b.nev_ro).trim() || null) : v.nev_ro,
+            megye: b.megye !== undefined ? (String(b.megye).trim() || null) : v.megye,
+            x: szam(b.x, v.x),
+            y: szam(b.y, v.y),
+            sugar_km: szam(b.sugar_km, v.sugar_km)
+        };
+
+        if (uj.sugar_km !== null && !(uj.sugar_km >= 1 && uj.sugar_km <= 40)) return res.status(400).json({ error: "bad_radius" });
+
+        await db.query(
+            "UPDATE varosok SET nev_ro = $1, megye = $2, x = $3, y = $4, sugar_km = $5 WHERE id = $6",
+            [uj.nev_ro, uj.megye, uj.x, uj.y, uj.sugar_km, v.id]
+        );
+
+        location.cacheUrit();
+
+        res.json({ siker: true, ...uj });
 
     } catch (err) {
         hiba(res, err);

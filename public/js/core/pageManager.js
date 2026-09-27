@@ -18,7 +18,8 @@ class PageManager {
         favorites: { icon: "fa-solid fa-star", label: "menuKedvencek" },
         valuation: { icon: "fa-solid fa-calculator", label: "menuErtekbecslo" },
         admin: { icon: "fa-solid fa-user-shield", label: "menuAdmin" },
-        user: { icon: "fa-solid fa-user", label: "menuFelhasznalo" },
+        igenyek: { icon: "fa-solid fa-bullhorn", label: "menuIgenyek" },
+        fiok: { icon: "fa-solid fa-circle-user", label: "menuFiok", login: true },
         listing: { icon: "fa-solid fa-rectangle-list", label: "menuHirdetes" }
     };
 
@@ -27,8 +28,12 @@ class PageManager {
         pageDashboard: "properties",
         pageNew: "new",
         pageStatistics: "market",
-        pageFavorites: "favorites"
+        pageFavorites: "favorites",
+        user: "fiok"
     };
+
+    // Ezekhez be kell jelentkezni
+    static LOGIN_KELL = ["new", "favorites", "fiok"];
 
     static init() {
 
@@ -56,6 +61,17 @@ class PageManager {
 
         const { page, param } = PageManager.parse(target);
         const hash = param ? `${page}/${param}` : page;
+
+        // Belépés nélkül: előbb a belépő ablak, utána megyünk tovább
+        if (PageManager.LOGIN_KELL.includes(page) && !AuthManager.loggedIn()) {
+            AuthManager.kell()
+                .then(() => PageManager.show(hash, opts))
+                .catch(() => { if (opts.fromHash) PageManager.show(PageManager.current || "home"); });
+            if (opts.fromHash && PageManager.current && PageManager.current !== page) {
+                history.replaceState(null, "", "#" + PageManager.current);
+            }
+            return;
+        }
 
         if (!opts.fromHash && location.hash !== "#" + hash) {
             // A hashchange esemény újra meghívja a show-t
@@ -136,6 +152,14 @@ class PageManager {
 
         if (page === "listing" && param) {
             ListingPage.show(Number(param));
+        }
+
+        if (page === "igenyek") {
+            RequestsPage.show(param);
+        }
+
+        if (page === "fiok") {
+            AccountPage.show(param);
         }
 
     }

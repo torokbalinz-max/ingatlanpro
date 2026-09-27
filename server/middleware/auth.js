@@ -1,78 +1,87 @@
 // ============================================================
-//  Belépés és jogosultság (HTTP Basic)
+//  Belépés és jogosultság
 //
-//  ADMIN_USER / ADMIN_PASSWORD  -> admin: mindent módosíthat
-//  APP_USER   / APP_PASSWORD    -> felhasználó: böngészhet, hirdetést tölthet fel
+//  Minden kérésnél kiderítjük, ki van bejelentkezve (süti), és
+//  beállítjuk:
+//     req.user         a fiók (vagy null = vendég)
+//     req.szerep       "admin" | "user" | "vendeg"
+//     req.felhasznalo  a megjelenítendő név
 //
-//  Ha csak az APP_PASSWORD van beállítva, az a belépés admin
-//  (így a korábbi beállítás változtatás nélkül működik tovább).
-//  Ha egyik sincs beállítva (helyi fejlesztés), mindenki admin.
+//  Két üzemmód:
+//   - PRIVÁT (alap): az adatokat csak bejelentkezve lehet látni.
+//     A weboldal betöltődik, de a belépő ablakot mutatja.
+//   - NYILVÁNOS (NYILVANOS=1 a .env-ben): bárki böngészhet;
+//     hirdetésfeladáshoz, kedvencekhez, üzenethez kell belépni.
+//
+//  A régi HTTP Basic belépés (ADMIN_USER / APP_USER) is működik
+//  még (pl. parancssorból), de a böngésző már a belépő ablakot használja.
 // ============================================================
 
-const crypto = require("crypto");
+const acc = require("../services/accounts");
 
-const FIOKOK = [];
+// Belépés nélkül is elérhető API-k
+const MINDIG_NYITOTT = [/^\/api\/me$/, /^\/api\/config$/, /^\/api\/auth\//];
 
-if (process.env.ADMIN_PASSWORD) {
-    FIOKOK.push({ user: process.env.ADMIN_USER || "admin", pass: process.env.ADMIN_PASSWORD, szerep: "admin" });
-}
-
-if (process.env.APP_PASSWORD) {
-    FIOKOK.push({
-        user: process.env.APP_USER || "user",
-        pass: process.env.APP_PASSWORD,
-        szerep: process.env.ADMIN_PASSWORD ? "user" : "admin"
-    });
-}
-
-function safeEqual(a, b) {
-    const ha = crypto.createHash("sha256").update(String(a)).digest();
-    const hb = crypto.createHash("sha256").update(String(b)).digest();
-    return crypto.timingSafeEqual(ha, hb);
+function nyilvanosMod() {
+    return /^(1|true|igen|yes)$/i.test(String(process.env.NYILVANOS || ""));
 }
 
 function belepes() {
 
-    if (FIOKOK.length) {
+    if (acc.fejlesztoiMod()) {
+        console.warn("⚠️  Nincs jelszó beállítva – helyi fejlesztés: bejelentkezés nélkül admin joggal érhető el!");
+    } else {
+        console.log(`🔒 Fiókos belépés BEKAPCSOLVA (${nyilvanosMod() ? "nyilvános böngészés" : "csak bejelentkezve"}).`);
+    }
 
-        console.log(`🔒 Jelszavas védelem BEKAPCSOLVA (${FIOKOK.map(f => f.szerep).join(", ")}).`);
+    return async (req, res, next) => {
 
-        return (req, res, next) => {
+        try {
 
-            const header = req.headers.authorization || "";
-            const [scheme, encoded] = header.split(" ");
+            let user = await acc.munkamenetUser(acc.sutiOlvas(req)[acc.SUTI]);
 
-            if (scheme === "Basic" && encoded) {
+            // Régi HTTP Basic (parancssor, régi könyvjelzők)
+            if (!user) {
+                const [scheme, encoded] = String(req.headers.authorization || "").split(" ");
+                if (scheme === "Basic" && encoded) {
+                    const d = Buffer.from(encoded, "base64").toString("utf8");
+                    const sep = d.indexOf(":");
+                    if (sep > -1) {
+                        const f = acc.envFiokok().find(x => acc.safeEqual(d.slice(0, sep), x.user) && acc.safeEqual(d.slice(sep + 1), x.pass));
+                        if (f) user = await acc.envFiokSor(f);
+                    }
+                }
+            }
 
-                const decoded = Buffer.from(encoded, "base64").toString("utf8");
-                const sep = decoded.indexOf(":");
-                const user = decoded.slice(0, sep);
-                const pass = decoded.slice(sep + 1);
+            // Helyi fejlesztés jelszó nélkül: mindenki admin
+            if (!user && acc.fejlesztoiMod()) {
+                user = await acc.envFiokSor({ user: "local", szerep: "admin" });
+            }
 
-                const fiok = sep > -1 && FIOKOK.find(f => safeEqual(user, f.user) && safeEqual(pass, f.pass));
+            req.user = user;
+            req.szerep = user ? (user.szerep || "user") : "vendeg";
+            req.felhasznalo = user ? (user.nev || user.felhasznalonev || user.email) : null;
 
-                if (fiok) {
-                    req.szerep = fiok.szerep;
-                    req.felhasznalo = fiok.user;
-                    return next();
+            // Csak az API-t védjük – a weboldal fájljai (HTML, JS, CSS) mindig
+            // betöltődnek, hogy a belépő ablak megjelenhessen
+            if (!user && req.path.startsWith("/api/") && !MINDIG_NYITOTT.some(re => re.test(req.path))) {
+
+                const olvasas = req.method === "GET" || req.method === "HEAD";
+
+                if (!nyilvanosMod() || !olvasas) {
+                    return res.status(401).json({ error: "login_required" });
                 }
 
             }
 
-            res.set("WWW-Authenticate", 'Basic realm="IngatlanPro", charset="UTF-8"');
-            res.status(401).send("Bejelentkezés szükséges.");
-        };
+            next();
 
-    }
+        } catch (err) {
+            next(err);
+        }
 
-    console.warn("⚠️  Nincs jelszó beállítva – az oldal jelszó nélkül, admin joggal érhető el!");
-
-    return (req, res, next) => {
-        req.szerep = "admin";
-        req.felhasznalo = "local";
-        next();
     };
 
 }
 
-module.exports = { belepes, safeEqual };
+module.exports = { belepes, safeEqual: acc.safeEqual, nyilvanosMod };

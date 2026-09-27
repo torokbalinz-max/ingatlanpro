@@ -75,6 +75,9 @@ async function ertekel(d, opts = {}) {
     const hianyzo = hianyzoMezok(d, { mod: opts.mod || "import", vannakKeruletek, kepDb: opts.kepDb });
     const prob = problemak(d, { medianArNm, vannakKeruletek });
 
+    // Kézzel megadott hely, ami messze van a várostól / falutól
+    if (opts.helyTavol) prob.push("hely_tavol");
+
     // Beolvasott hirdetésnél csak az alapadatok hiánya miatt kell kézzel
     // ellenőrizni (ár, alapterület, város, lakásnál szobák). Az egyéb hiányzó
     // adat (emelet, állapot, telek mérete...) látszik, de nem akasztja meg.

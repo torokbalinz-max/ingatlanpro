@@ -44,6 +44,12 @@ class NewPropertyManager {
 
         document.getElementById("btnScrape").onclick = () => NewPropertyManager.scrape();
 
+        // Városváltáskor a térkép az új városra ugrik (ha még nincs pont),
+        // különben ellenőrzi, hogy a pont nem esik-e messze
+        document.getElementById("ujVaros").addEventListener("change", () => {
+            if (NewPropertyMap.picker) NewPropertyMap.picker.varosValtas();
+        });
+
         ["ujLink", "ujAr", "ujNm"].forEach(id => {
             document.getElementById(id).addEventListener("input", () => NewPropertyManager.updatePreview());
         });

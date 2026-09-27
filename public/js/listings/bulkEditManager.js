@@ -78,7 +78,7 @@ class BulkEditManager {
 
                 select.innerHTML = `<option value="">${I18n.t("bulkKeruletChoose")}</option>`;
 
-                lista.forEach(k => {
+                (Array.isArray(lista) ? lista : []).forEach(k => {
 
                     const opt = document.createElement("option");
 

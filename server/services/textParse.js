@@ -175,32 +175,60 @@ function evszamSzovegbol(t) {
 
 // ---------- Hely-tippek a szövegből ----------
 
-// Utca / környék nevek a helymeghatározáshoz ("str. Kós Károly", "zona Ciucului")
+// Utca / környék nevek a helymeghatározáshoz ("str. Kós Károly", "zona Ciucului",
+// "Gábor Áron utca", "Csíki negyed")
+const UTCA_TIPUS = [
+    [/^(?:str(?:ada)?\.?)$/i, "Strada"],
+    [/^(?:b-?dul\.?|bulevardul|bd\.?)$/i, "Bulevardul"],
+    [/^aleea$/i, "Aleea"],
+    [/^calea$/i, "Calea"],
+    [/^pia[tț]a$/i, "Piața"]
+];
+
+// Általános szavak, amik nem utcanevek ("strada principală", "zona centrală" a fűtésnél...)
+const NEM_NEV = /^(principal[aă]?|lini[sș]tit[aă]?|lini[sș]tii|lini[sș]tita|asfaltat[aă]?|intens[aă]?|circulat[aă]?|pietruit[aă]?|nou[aă]?|rezidential[aă]?|termic[aă]?|proprie|de gaz|foarte|buna|bun[aă]|centrala termica)$/i;
+
 function helyTippek(t) {
 
-    const s = String(t || "");
+    const s = String(t || "").replace(/\s+/g, " ");
     const tippek = [];
 
-    const B = "[A-ZĂÂÎȘȚŞŢÁÉÍÓÖŐÚÜŰ0-9][\\wăâîșțşţáéíóöőúüűĂÂÎȘȚÁÉÍÓÖŐÚÜŰ.'-]*";
-    const NEV = `(${B}(?:[ \\t]+(?:(?:cel|de|lui|din|la)[ \\t]+)?${B}){0,3})`;
+    const B = "[A-ZĂÂÎȘȚŞŢÁÉÍÓÖŐÚÜŰ0-9][\\wăâîșțşţáéíóöőúüűĂÂÎȘȚÁÉÍÓÖŐÚÜŰ'-]*\\.?";
+    const NEV = `(${B}(?:[ ](?:(?:cel|de|lui|din|la)[ ])?${B}){0,3})`;
 
-    for (const m of s.matchAll(new RegExp("\\b(?:str(?:ada)?\\.?|b-?dul\\.?|bulevardul|bd\\.|aleea|calea|pia[tț]a)[ \\t]+" + NEV, "gi"))) {
-        const nev = m[1].replace(/\s+(?:nr|num[aă]r|bl|sc|ap|et)\b.*$/i, "").replace(/[.,]$/, "");
-        tippek.push({ szoveg: "Strada " + nev, szint: "utca" });
+    // A név vége: "nr. 12", "bl. 4", mondatvég
+    const tisztit = n => String(n || "")
+        .split(/\.\s/)[0]
+        .replace(/\s+(?:nr|num[aă]r|bl|sc|ap|et|etaj|in|în|si|și|cu|langa|lângă|aproape)\b.*$/i, "")
+        .replace(/[.,;:]+$/, "")
+        .trim();
+
+    for (const m of s.matchAll(new RegExp("(?<![\\wăâîșțáéíóöőúüű])(str(?:ada)?\\.?|b-?dul\\.?|bulevardul|bd\\.|aleea|calea|pia[tț]a) " + NEV, "gi"))) {
+        const nev = tisztit(m[2]);
+        if (!nev || NEM_NEV.test(nev)) continue;
+        const tipus = (UTCA_TIPUS.find(([re]) => re.test(m[1])) || [null, "Strada"])[1];
+        tippek.push({ szoveg: `${tipus} ${nev}`, szint: "utca" });
     }
 
-    for (const m of s.matchAll(new RegExp(NEV + "[ \\t]+(?:utca|út|útja|tér)\\b", "g"))) {
-        tippek.push({ szoveg: m[1] + " utca", szint: "utca" });
+    for (const m of s.matchAll(new RegExp(NEV + " (?:utca|út|útja|tér)(?![\\wáéíóöőúüű])", "g"))) {
+        const nev = tisztit(m[1]);
+        if (nev) tippek.push({ szoveg: nev + " utca", szint: "utca" });
     }
 
-    for (const m of s.matchAll(new RegExp("\\b(?:zona|zon[aă]|cartier(?:ul)?)[ \\t]+" + NEV, "gi"))) {
-        tippek.push({ szoveg: m[1].replace(/[.,]$/, ""), szint: "kozelito" });
+    for (const m of s.matchAll(new RegExp("(?<![\\wăâîșțáéíóöőúüű])(?:zona|zon[aă]|cartier(?:ul)?) " + NEV, "gi"))) {
+        const nev = tisztit(m[1]);
+        if (nev && !NEM_NEV.test(nev)) tippek.push({ szoveg: nev, szint: "kozelito" });
+    }
+
+    for (const m of s.matchAll(new RegExp(NEV + " (?:negyed|lakótelep|lakótelepen|városrész|negyedben)(?![\\wáéíóöőúüű])", "g"))) {
+        const nev = tisztit(m[1]);
+        if (nev) tippek.push({ szoveg: nev, szint: "kozelito" });
     }
 
     const lattam = new Set();
     return tippek.filter(x => {
         const k = x.szoveg.toLowerCase();
-        if (lattam.has(k) || x.szoveg.length < 4) return false;
+        if (lattam.has(k) || x.szoveg.replace(/^(Strada|Bulevardul|Aleea|Calea|Piața) /, "").length < 3) return false;
         lattam.add(k);
         return true;
     }).slice(0, 5);

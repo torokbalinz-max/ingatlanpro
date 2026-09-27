@@ -3643,3 +3643,264 @@ body[data-page="home"] .appMain { padding-top: 2.5rem; }
 @media (max-width: 767.98px) {
     .featGrid .featWide { grid-column: span 12; }
 }
+
+/* ==========================================================================
+   FIÓKOK, ÜZENETEK, KERESÉSI IGÉNYEK, HELYKERESŐ, DUPLIKÁTUMOK
+   ========================================================================== */
+
+.min-w-0 { min-width: 0; }
+
+/* ---------- Fejléc: belépés / fiók ---------- */
+
+.navLoginBtn { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.navLoginBtn[hidden] { display: none; }
+.navUserBtn { position: relative; }
+.navMsgCount {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+    background: var(--ip-danger); color: #fff;
+    font-size: 0.68rem; font-weight: 800; line-height: 18px; text-align: center;
+}
+.navMsgCount[hidden], .navMsgCount2[hidden], .accMsgCount[hidden] { display: none; }
+.navUserMenu { min-width: 240px; }
+.navUserMenu .dropdown-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 1rem; }
+.navUserMenu .dropdown-item i { width: 1.1rem; text-align: center; color: var(--ip-muted); }
+
+/* ---------- Belépő ablak ---------- */
+
+.authDialog { max-width: 440px; }
+.authHead { display: flex; align-items: flex-start; gap: 0.85rem; margin-bottom: 1.25rem; }
+.authHead .appBrandIcon { flex: 0 0 auto; }
+.authOr { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; color: var(--ip-muted); font-size: 0.85rem; }
+.authOr::before, .authOr::after { content: ""; flex: 1; border-top: 1px solid var(--ip-border); }
+.googleBtnBox { display: flex; justify-content: center; min-height: 44px; }
+.authLangs { display: flex; justify-content: center; gap: 0.35rem; }
+
+/* Privát mód, nincs belépve: az oldal csak háttér */
+body.auth-gate .appMain { display: none; }
+body.auth-gate .appNav .navLinks,
+body.auth-gate .appNav .navRight,
+body.auth-gate .appNav .navDropdown { visibility: hidden; }
+body.auth-gate .modal-backdrop.show { opacity: 0.92; background: var(--ip-bg); }
+
+/* ---------- Rövid visszajelzés ---------- */
+
+.ipToast {
+    position: fixed; left: 50%; bottom: 1.5rem; z-index: 2000;
+    transform: translate(-50%, 150%);
+    display: flex; align-items: center; gap: 0.5rem;
+    max-width: calc(100vw - 2rem);
+    padding: 0.7rem 1.1rem; border-radius: 12px;
+    background: var(--ip-text); color: var(--ip-bg);
+    box-shadow: var(--ip-shadow-lift); font-weight: 500;
+    transition: transform 0.25s ease;
+}
+.ipToast.show { transform: translate(-50%, 0); }
+.ipToast i { color: #5fbfa3; }
+
+/* ---------- Fiókom ---------- */
+
+.accAvatar, .msgAvatar {
+    display: grid; place-items: center; flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--ip-accent-soft); color: var(--ip-accent); font-weight: 700;
+}
+.accAvatar { width: 56px; height: 56px; font-size: 1.4rem; }
+a.typeTab { text-decoration: none; }
+.typeTab .badge { font-size: 0.7rem; }
+
+.accListings { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+.accListing { overflow: hidden; }
+.accListingPhoto {
+    display: grid; place-items: center; height: 150px;
+    background: var(--ip-surface-2); color: var(--ip-muted); font-size: 2rem; overflow: hidden;
+}
+.accListingPhoto img { width: 100%; height: 100%; object-fit: cover; }
+.accListing a { text-decoration: none; }
+
+.savedSearch .form-switch { display: flex; align-items: center; gap: 0.35rem; }
+
+/* ---------- Üzenetek ---------- */
+
+.msgShell {
+    display: grid; grid-template-columns: 320px 1fr;
+    border: 1px solid var(--ip-border); border-radius: var(--ip-radius);
+    background: var(--ip-surface); overflow: hidden;
+    min-height: 520px;
+}
+.msgList { border-right: 1px solid var(--ip-border); overflow-y: auto; max-height: 70vh; }
+.msgItem {
+    display: flex; align-items: flex-start; gap: 0.7rem; width: 100%;
+    padding: 0.85rem 1rem; border: 0; border-bottom: 1px solid var(--ip-border);
+    background: transparent; color: inherit; text-align: left;
+}
+.msgItem:hover { background: var(--ip-surface-2); }
+.msgItem.active { background: var(--ip-accent-soft); }
+.msgItem.unread b { color: var(--ip-accent); }
+.msgItemBody { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.msgTopic { color: var(--ip-accent); }
+.msgAvatar { width: 38px; height: 38px; }
+.msgThread { display: flex; flex-direction: column; padding: 1rem; min-width: 0; }
+.msgThreadHead { display: flex; align-items: center; gap: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--ip-border); }
+.msgBubbles { flex: 1; overflow-y: auto; max-height: 55vh; padding: 1rem 0.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.msgBubble {
+    align-self: flex-start; max-width: min(78%, 560px);
+    padding: 0.6rem 0.85rem; border-radius: 14px 14px 14px 4px;
+    background: var(--ip-surface-2);
+}
+.msgBubble.mine { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: var(--ip-accent); color: var(--ip-accent-contrast); }
+.msgBubble small { display: block; margin-top: 0.25rem; opacity: 0.7; font-size: 0.72rem; }
+.msgBubbleText { white-space: pre-wrap; overflow-wrap: anywhere; }
+.msgOffer {
+    display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem;
+    padding: 0.55rem 0.7rem; border-radius: 10px;
+    background: var(--ip-surface); color: var(--ip-text); text-decoration: none;
+    border: 1px solid var(--ip-border);
+}
+.msgOffer span { display: flex; flex-direction: column; min-width: 0; }
+.msgOffer small { color: var(--ip-muted); }
+.msgCompose { display: flex; gap: 0.5rem; align-items: flex-end; border-top: 1px solid var(--ip-border); padding-top: 0.75rem; }
+.msgCompose textarea { resize: vertical; }
+
+@media (max-width: 991.98px) {
+    .msgShell { grid-template-columns: 1fr; }
+    .msgList { border-right: 0; max-height: none; }
+    .msgShell .msgThread { display: none; }
+    .msgShell.threadOpen .msgThread { display: flex; }
+    .msgShell.threadOpen .msgList { display: none; }
+}
+
+/* ---------- Keresési igények ---------- */
+
+.reqHow {
+    display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr);
+    padding: 1.1rem 1.25rem; border-radius: var(--ip-radius);
+    background: var(--ip-accent-soft);
+}
+.reqHow > div { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.92rem; }
+.reqHowNum {
+    display: grid; place-items: center; flex: 0 0 26px; height: 26px; border-radius: 50%;
+    background: var(--ip-accent); color: var(--ip-accent-contrast); font-weight: 700; font-size: 0.85rem;
+}
+@media (max-width: 767.98px) { .reqHow { grid-template-columns: 1fr; } }
+
+.reqGrid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.reqGrid > .emptyState { grid-column: 1 / -1; }
+.reqCard { color: inherit; text-decoration: none; transition: box-shadow 0.15s, border-color 0.15s; }
+.reqCard:hover { box-shadow: var(--ip-shadow-lift); border-color: color-mix(in srgb, var(--ip-accent) 35%, var(--ip-border)); }
+.reqCard h5 { font-size: 1.05rem; }
+.reqChips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.reqChips .filterChip { font-weight: 500; font-size: 0.8rem; }
+.reqDesc {
+    margin: 0.75rem 0; color: var(--ip-muted); font-size: 0.92rem;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    white-space: pre-line;
+}
+.reqDistricts { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.reqDistrict {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.7rem; border: 1px solid var(--ip-border); border-radius: 999px; cursor: pointer;
+}
+.reqDistrict:has(input:checked) { border-color: var(--ip-accent); background: var(--ip-accent-soft); }
+.reqDistrict input { margin: 0; }
+.reqReplyCard { position: sticky; top: calc(var(--ip-nav-h) + 1rem); }
+
+.reqMatches { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.miniCard {
+    display: flex; gap: 0.75rem; align-items: center; padding: 0.5rem;
+    border: 1px solid var(--ip-border); border-radius: var(--ip-radius-sm);
+    background: var(--ip-surface); color: inherit; text-decoration: none;
+}
+.miniCard:hover { border-color: var(--ip-accent); }
+.miniCard img, .miniCardNoPhoto {
+    width: 84px; height: 64px; flex: 0 0 84px; border-radius: 8px; object-fit: cover;
+    display: grid; place-items: center; background: var(--ip-surface-2); color: var(--ip-muted);
+}
+.miniCardBody { display: flex; flex-direction: column; min-width: 0; }
+
+/* ---------- Helykereső a térképnél ---------- */
+
+.locSearch { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.locSearch .input-group { flex: 1 1 260px; }
+.locResults { display: flex; flex-direction: column; gap: 0.25rem; }
+.locResult {
+    display: flex; align-items: center; gap: 0.55rem; width: 100%;
+    padding: 0.4rem 0.6rem; border: 1px solid var(--ip-border); border-radius: 8px;
+    background: var(--ip-surface); color: inherit; text-align: left; font-size: 0.9rem;
+}
+.locResult:hover { border-color: var(--ip-accent); background: var(--ip-accent-soft); }
+.locResult i { color: var(--ip-accent); }
+
+/* ---------- Városok: helyadatok ---------- */
+
+.cityGeo {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 1rem; border-bottom: 1px solid var(--ip-border);
+    font-size: 0.85rem; color: var(--ip-muted);
+}
+
+/* ---------- Duplikátumok ---------- */
+
+.dupSummary { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.dupStrongCard { border-color: color-mix(in srgb, #198754 35%, var(--ip-border)); }
+.dupInvalid > summary { cursor: pointer; list-style: none; }
+.dupInvalid > summary::-webkit-details-marker { display: none; }
+
+.dupGroup { transition: box-shadow 0.15s, border-color 0.15s; }
+.dupGroup.current { border-color: var(--ip-accent); box-shadow: 0 0 0 3px var(--ip-accent-soft), var(--ip-shadow); }
+.dupScore { font-weight: 700; font-variant-numeric: tabular-nums; }
+.dupWhyList { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.dupWhy {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.15rem 0.55rem; border-radius: 999px;
+    background: var(--ip-surface-2); font-size: 0.78rem; color: var(--ip-muted);
+}
+.dupWhy.strong { background: rgba(25, 135, 84, 0.12); color: #198754; font-weight: 600; }
+[data-bs-theme="dark"] .dupWhy.strong { color: #6fd3a1; }
+
+.dupCols { display: grid; gap: 0.85rem; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); }
+@media (max-width: 767.98px) { .dupCols { grid-template-columns: 1fr; } }
+.dupCol {
+    border: 2px solid var(--ip-border); border-radius: var(--ip-radius-sm); overflow: hidden;
+    background: var(--ip-surface); transition: border-color 0.15s;
+}
+.dupCol.keep { border-color: var(--ip-accent); }
+.dupPhotos { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; height: 170px; background: var(--ip-surface-2); }
+.dupPhotos img { width: 100%; height: 100%; object-fit: cover; min-height: 0; outline: 0 solid transparent; }
+.dupPhotos img:first-child { grid-row: 1 / 3; }
+.dupPhotos img:nth-child(n+4) { display: none; }
+.dupPhotos img.match { outline: 3px solid #198754; outline-offset: -3px; }
+.dupPhotos img.broken { visibility: hidden; }
+.dupNoPhoto { grid-column: 1 / -1; grid-row: 1 / -1; display: grid; place-items: center; color: var(--ip-muted); font-size: 0.85rem; }
+.dupColBody { padding: 0.7rem 0.8rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.dupColBody a { text-decoration: none; }
+.dupPrice { font-weight: 700; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.dupFacts { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; font-size: 0.88rem; }
+.dupKeep { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: 600; font-size: 0.88rem; }
+.dupKeep input { margin: 0; }
+.dupGroup kbd, .dupKeep kbd { font-size: 0.7rem; padding: 0.05rem 0.3rem; }
+
+/* A fejléc 7 menüponttal: közepes képernyőn ikon nélkül, kisebben a lenyíló menü */
+@media (max-width: 1599.98px) {
+    .navLink i { display: none; }
+    .navLink { padding: 0 0.6rem; }
+    .navLink.active::after { left: 0.6rem; right: 0.6rem; }
+}
+
+@media (max-width: 1279.98px) {
+    .navLinks, .navSep { display: none; }
+    .navDropdown { display: block; }
+}
+
+/* Telefonon a fiók menü fontosabb, mint a sötét mód gomb (az a Fiókomban is elérhető lenne) */
+@media (max-width: 429.98px) {
+    body.is-logged-in #btnDarkMode { display: none; }
+    .navLoginBtn span { display: none; }
+}
+@media (min-width: 430px) {
+    .navUserMenu .navDarkItem { display: none; }
+}
+
+@media (max-width: 991.98px) {
+    .msgShell { min-height: 0; }
+}

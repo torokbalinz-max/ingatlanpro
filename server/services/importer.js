@@ -178,9 +178,11 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
          tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
          kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, forras_kerulet, evszam,
-         tovabbi_linkek, telepules, telek_jelleg, hely_sugar, utolso_ellenorzes, auto_javitva, auto_javitva_v)
+         tovabbi_linkek, telepules, telek_jelleg, hely_sugar, utolso_ellenorzes, auto_javitva, auto_javitva_v,
+         hely_forras, hely_eredeti)
         VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$12,$13,$14,$15,$16,'aktiv','import',$17,
-                $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,$26,$27,$28,NOW(),NOW(),2)
+                $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,$26,$27,$28,NOW(),NOW(),$29,
+                $30,$31::jsonb)
         RETURNING id
     `, [
         d.link, adat.ar, adat.nm, adat.arnm, adat.szobak, adat.emelet, adat.allapot,
@@ -188,7 +190,9 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         adat.cim, adat.leiras, adat.telek_nm, adat.hely_pontossag,
         JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.hianyzo), JSON.stringify(q.problemak),
         q.ellenorzott, adat.forras_szoveg, adat.forras_kerulet, adat.evszam,
-        JSON.stringify(d.tovabbi_linkek || []), adat.telepules, adat.telek_jelleg || null, adat.hely_sugar || null
+        JSON.stringify(d.tovabbi_linkek || []), adat.telepules, adat.telek_jelleg || null, adat.hely_sugar || null,
+        autofix.VERZIO, adat.hely_forras || (adat.x && adat.y ? "forras" : null),
+        adat.hely_eredeti ? JSON.stringify(adat.hely_eredeti) : null
     ]);
 
     const uj = { id: r.rows[0].id, link: d.link, ar: adat.ar };
@@ -465,7 +469,8 @@ async function frissitAdatbol(i, d, job) {
         Object.keys(v).forEach(k => { if (!(k in potol)) potol[k] = v[k]; });
         if (Object.keys(v).some(k => !["hely_pontossag", "arnm"].includes(k))) valtozas.push("auto");
         potol.auto_javitva = new Date();
-        potol.auto_javitva_v = 2;
+        potol.auto_javitva_v = autofix.VERZIO;
+        if (potol.hely_eredeti && typeof potol.hely_eredeti === "object") potol.hely_eredeti = JSON.stringify(potol.hely_eredeti);
     }
 
     const uj = { ...i, ...potol };
@@ -483,7 +488,7 @@ async function frissitAdatbol(i, d, job) {
     if (uj.ar > 0 && uj.nm > 0) potol.arnm = uj.ar / uj.nm;
 
     const kulcsok = Object.keys(potol);
-    const sets = kulcsok.map((k, idx) => `${k} = $${idx + 1}${["kulso_kepek", "hianyzo", "problemak", "tovabbi_linkek"].includes(k) ? "::jsonb" : ""}`);
+    const sets = kulcsok.map((k, idx) => `${k} = $${idx + 1}${["kulso_kepek", "hianyzo", "problemak", "tovabbi_linkek", "hely_eredeti"].includes(k) ? "::jsonb" : ""}`);
 
     const params = kulcsok.map(k => potol[k]);
     params.push(i.id);

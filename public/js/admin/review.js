@@ -165,6 +165,7 @@ AdminManager.renderReviewItem = function () {
 
                         <div class="mt-3 ${hianyzo.includes("hely") ? "revMissing" : ""}" data-field="hely">
                             <label class="form-label">${I18n.t("newHely")} ${Utils.helyBadge(i)}</label>
+                            ${i.hely_eredeti && i.hely_eredeti.ok ? `<div class="alert alert-info small py-2"><i class="fa-solid fa-location-crosshairs"></i> ${ListingPage.helyEredetiSzoveg(i)}</div>` : ""}
                             <div id="reviewLoc" class="locPicker"></div>
                         </div>
 
@@ -330,6 +331,15 @@ AdminManager.bindReviewItem = function (i) {
         x: i.x, y: i.y,
         pontossag: i.hely_pontossag,
         sugar: i.hely_sugar,
+        varos: () => i.varos,
+        szoveg: () => ({
+            cim: (document.getElementById("rvCim") || {}).value || i.cim,
+            leiras: [i.leiras, i.forras_szoveg].filter(Boolean).join("\n"),
+            tipus: (document.getElementById("rvTipus") || {}).value || i.tipus,
+            telepules: document.getElementById("rvTelepules") ? NewPropertyManager.telepulesErtek(document.getElementById("rvTelepules").value) : i.telepules,
+            kerulet: (document.getElementById("rvKerulet") || {}).value || i.kerulet,
+            forras_kerulet: i.forras_kerulet
+        }),
         onPoint: (x, y) => {
             const sel = document.getElementById("rvKerulet");
             if (!sel || sel.value) return;

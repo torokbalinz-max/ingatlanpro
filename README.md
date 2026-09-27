@@ -57,8 +57,18 @@ git push
 
 A Render a push után magától újraindul az új kóddal (pár perc).
 
-## Szerepek
+## Szerepek és fiókok
 
-- **Admin** (`ADMIN_USER` / `ADMIN_PASSWORD`): mindent lát és módosíthat, övé az Admin felület.
-- **Felhasználó** (`APP_USER` / `APP_PASSWORD`): böngészhet, hirdetést adhat fel.
-- Az admin gombok és oldalak a felhasználóknak nem látszanak, és a szerver is elutasítja a kéréseiket.
+- **Admin** (`ADMIN_USER` / `ADMIN_PASSWORD`, vagy az `ADMIN_EMAILS`-ben felsorolt e-mail címek): mindent lát és módosíthat, övé az Admin felület.
+- **Felhasználó**: saját fiók (e-mail + jelszó, vagy Google). Hirdetést adhat fel, a sajátját szerkesztheti / törölheti, saját kedvencei, mentett keresései, keresési igényei és üzenetei vannak.
+- A belépés a weboldal belépő ablakában történik (süti, 60 napig bent marad). A régi `ADMIN_USER` / `APP_USER` belépés ugyanott működik.
+- `NYILVANOS=1`: belépés nélkül is lehet böngészni. Üresen hagyva az oldal csak belépve látszik.
+- `MEGHIVO_KOD`: ha be van állítva, csak ezzel a kóddal lehet regisztrálni.
+
+## Új részek
+
+- **Keresek** (`#igenyek`): a vevők leírják, mit keresnek; az eladók üzenetben válaszolnak, és ajánlhatják a hirdetésüket.
+- **Fiókom** (`#fiok`): profil, hirdetéseim, mentett keresések, keresési igényeim, üzenetek.
+- **Hely-ellenőrzés** (`server/services/location.js`): a városon / falun kívülre tett, vagy a leírt utcával nem egyező jelölőket kijavítja. A hasonló nevű falvakat csak a város körül keresi.
+- **Duplikátumok fotókkal** (`server/services/imagehash.js`): a képek ujjlenyomatából ismeri fel ugyanazt az ingatlant más oldalakon. Kell hozzá a `sharp` csomag (`npm install`).
+- **E-mail** (`server/services/mail.js`): Brevo vagy Resend API-val, ha be van állítva (lásd `.env.example`).

@@ -20,6 +20,10 @@ const { belepes } = require("./middleware/auth");
 
 const app = express();
 
+// A Render egy proxy mögött fut: így tudjuk, hogy https-en jött-e a kérés
+// (a belépési süti "secure" jelzéséhez)
+app.set("trust proxy", 1);
+
 const PUBLIC = path.join(__dirname, "..", "public");
 
 console.log("Server indul...");
@@ -32,6 +36,12 @@ app.get("/healthz", (req, res) => {
 
 app.use(require("./routes/cron"));
 
+// ===================== WEBOLDAL =====================
+// A weboldal fájljai belépés nélkül is betöltődnek (a belépő ablak miatt);
+// az adatokat (API) a belépés védi.
+
+app.use(express.static(PUBLIC, { index: "index.html" }));
+
 // ===================== BELÉPÉS =====================
 
 app.use(belepes());
@@ -41,16 +51,9 @@ app.use(cors());
 // Nagyobb limit a képek miatt (a böngésző előtte lekicsinyíti őket)
 app.use(express.json({ limit: "40mb" }));
 
-// ===================== WEBOLDAL =====================
-
-app.use(express.static(PUBLIC, { index: "index.html" }));
-
 // ===================== API =====================
 
-app.get("/api/me", (req, res) => {
-    res.json({ szerep: req.szerep, felhasznalo: req.felhasznalo });
-});
-
+app.use(require("./routes/auth"));
 app.use(require("./routes/listings"));
 app.use(require("./routes/images"));
 app.use(require("./routes/places"));
@@ -58,6 +61,17 @@ app.use(require("./routes/favorites"));
 app.use(require("./routes/statistics"));
 app.use(require("./routes/valuation"));
 app.use(require("./routes/admin"));
+app.use(require("./routes/searches"));
+app.use(require("./routes/requests"));
+app.use(require("./routes/messages"));
+app.use(require("./routes/location"));
+
+// Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
+app.use((err, req, res, next) => {
+    console.error(err);
+    if (res.headersSent) return next(err);
+    res.status(500).json({ error: "server_error", message: err.message });
+});
 
 // ===================== INDÍTÁS =====================
 

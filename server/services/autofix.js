@@ -19,13 +19,15 @@
 const db = require("../db/database");
 const quality = require("./quality");
 const textParse = require("./textParse");
-const { geocode, VAROS_RO } = require("./geocode");
+const { VAROS_RO } = require("./geocode");
+const location = require("./location");
 const { TIPUS_MEZOK } = require("./listing");
 const Telepulesek = require("../../public/js/core/telepulesek");
 
 // Ha a javítás szabályai bővülnek, a szám emelésével a következő
-// induláskor minden hirdetésen újra lefut (2: ár, belterület/külterület, kerület a helyből)
-const VERZIO = 2;
+// induláskor minden hirdetésen újra lefut (2: ár, belterület/külterület, kerület a helyből;
+// 3: hely-ellenőrzés – a forrásoldal rossz pontjai, hasonló nevű falvak)
+const VERZIO = 3;
 
 const ures = v => v === null || v === undefined || v === "" || (typeof v === "number" && !(v > 0));
 
@@ -85,7 +87,8 @@ async function javaslat(i, extra = {}) {
     // ---- 3) Település (ház, telek)
     if (mezok.telepules && ures(i.telepules)) {
 
-        const varosRo = VAROS_RO[i.varos] || i.varos || "";
+        const va = await location.varosAdat(i.varos).catch(() => null);
+        const varosRo = (va && va.nev_ro) || VAROS_RO[i.varos] || i.varos || "";
 
         const t = textParse.telepulesKeres(
             varosRo,
@@ -102,25 +105,39 @@ async function javaslat(i, extra = {}) {
 
     if (!vanHely) {
 
-        const hely = await helyKeres({ ...i, ...v }, szoveg, extra);
+        const hely = await location.helyKeres({ ...i, ...v }, szoveg, extra);
 
         if (hely) {
             v.x = hely.x;
             v.y = hely.y;
             v.hely_pontossag = hely.szint;
             v.hely_sugar = hely.szint === "kozelito" ? hely.sugar : null;
+            v.hely_forras = hely.forras;
         } else if (i.hely_pontossag !== "nincs") {
             v.hely_pontossag = "nincs";
         }
 
-    } else if (!i.hely_pontossag) {
-        v.hely_pontossag = "pontos";
-    } else if (i.hely_pontossag === "kozelito" && !i.hely_sugar) {
-        v.hely_sugar = i.telepules || v.telepules ? 1500 : 500;
+    } else {
+
+        // A meglévő pont ellenőrzése: a városban / a faluban van-e, és
+        // egyezik-e a leírásban említett utcával. Amit ember tett le, marad.
+        const e = await location.ellenoriz({ ...i, ...v }, szoveg, extra);
+
+        if (e.hely_ok) {
+            const { hely_ok, ...mezok } = e;
+            Object.assign(v, mezok);
+        } else if (!i.hely_pontossag) {
+            v.hely_pontossag = "pontos";
+        } else if (i.hely_pontossag === "kozelito" && !i.hely_sugar) {
+            v.hely_sugar = i.telepules || v.telepules ? 1500 : 500;
+        }
+
+        if (!e.hely_ok && !i.hely_forras && !i.hely_kezi) v.hely_forras = "forras";
+
     }
 
     // Kerület a (most talált) helyből, ha a nevek alapján nem sikerült
-    if (keruletKell && v.x && v.y && v.hely_pontossag === "utca") {
+    if (keruletKell && v.x && v.y && ["utca", "pontos"].includes(v.hely_pontossag)) {
         const kerulet = await quality.keruletHelybol(i.varos, v.x, v.y);
         if (kerulet) v.kerulet = kerulet;
     }
@@ -130,63 +147,9 @@ async function javaslat(i, extra = {}) {
 }
 
 // Közelítő hely: utca a szövegből -> település -> kerület / forrás szerinti környék
+// (a location.js végzi, a város / falu körüli "dobozban")
 async function helyKeres(d, szoveg, extra = {}) {
-
-    const probak = [];
-
-    textParse.helyTippek(szoveg).forEach(t => probak.push({ szoveg: t.szoveg, varos: d.varos, szint: t.szint }));
-
-    if (extra.utca) probak.unshift({ szoveg: extra.utca, varos: d.varos, szint: "utca" });
-
-    if (d.telepules) {
-        const t = Telepulesek.keres(d.telepules);
-        probak.push({ szoveg: t ? t.ro : d.telepules, varos: null, megye: MEGYE[d.varos], szint: "kozelito" });
-    }
-
-    if (d.kerulet) {
-        const r = await db.query("SELECT nev_ro FROM keruletek WHERE varos = $1 AND nev = $2", [d.varos, d.kerulet]);
-        const ro = r.rows[0] && r.rows[0].nev_ro;
-        if (ro) probak.push({ szoveg: ro, varos: d.varos, szint: "kozelito" });
-        probak.push({ szoveg: d.kerulet, varos: d.varos, szint: "kozelito" });
-    }
-
-    if (d.forras_kerulet) probak.push({ szoveg: d.forras_kerulet, varos: d.varos, szint: "kozelito" });
-
-    for (const p of probak.slice(0, 4)) {
-
-        const h = await geocode(p.szoveg, p.varos, p.megye);
-
-        if (h && helyJo(h, d.varos, !!d.telepules)) {
-            // Az utcanév csak akkor "utca" pontosságú, ha a térkép is utcát talált
-            const szint = p.szint === "utca" && h.szint === "utca" ? "utca" : "kozelito";
-            // A kör mérete: település ~1,5 km, kerület / környék ~500 m
-            return { x: h.x, y: h.y, szint, sugar: p.megye ? 1500 : 500 };
-        }
-
-    }
-
-    return null;
-
-}
-
-// A városok megyéje (a település-kereséshez) és közepe (a józan-ész ellenőrzéshez)
-const MEGYE = {
-    Sepsiszentgyorgy: "Covasna", Kezdivasarhely: "Covasna", Kovaszna: "Covasna", Baroth: "Covasna",
-    Csikszereda: "Harghita", Szekelyudvarhely: "Harghita", Gyergyoszentmiklos: "Harghita",
-    Brasso: "Brașov", Marosvasarhely: "Mureș", Kolozsvar: "Cluj"
-};
-
-const KOZEP = {
-    Sepsiszentgyorgy: [25.79, 45.865], Kezdivasarhely: [26.13, 46.0], Csikszereda: [25.80, 46.36],
-    Brasso: [25.59, 45.65], Marosvasarhely: [24.56, 46.54], Kolozsvar: [23.60, 46.77]
-};
-
-// Ne tegyük a hirdetést egy azonos nevű utcára egy másik városban
-function helyJo(h, varos, telepules) {
-    const k = KOZEP[varos];
-    if (!k) return true;
-    const km = Math.hypot((h.x - k[0]) * 77, (h.y - k[1]) * 111);
-    return km <= (telepules ? 40 : 12);
+    return location.helyKeres(d, szoveg, extra);
 }
 
 // ---------- Tömeges futtatás ----------
@@ -251,15 +214,18 @@ async function futtat(job, opts) {
                     mod: i.forras_tipus === "import" ? "import" : (i.link ? "link" : "kezi"),
                     jovahagyva: i.jovahagyva,
                     vannakKeruletek: vannakKeruletek.get(i.varos),
-                    kepDb: (i.kep_db || 0) + (Array.isArray(i.kulso_kepek) ? i.kulso_kepek.length : 0)
+                    kepDb: (i.kep_db || 0) + (Array.isArray(i.kulso_kepek) ? i.kulso_kepek.length : 0),
+                    helyTavol: uj.hely_kezi && !i.jovahagyva ? await location.helyTavol(uj).catch(() => false) : false
                 });
+
+                if (v.hely_eredeti) v.hely_eredeti = JSON.stringify(v.hely_eredeti);
 
                 v.hianyzo = JSON.stringify(q.hianyzo);
                 v.problemak = JSON.stringify(q.problemak);
                 v.ellenorzott = q.ellenorzott;
 
                 const kulcsok = Object.keys(v);
-                const sets = kulcsok.map((k, idx) => `${k} = $${idx + 1}${["hianyzo", "problemak"].includes(k) ? "::jsonb" : ""}`);
+                const sets = kulcsok.map((k, idx) => `${k} = $${idx + 1}${["hianyzo", "problemak", "hely_eredeti"].includes(k) ? "::jsonb" : ""}`);
                 const params = kulcsok.map(k => v[k]);
                 params.push(i.id);
 
@@ -268,7 +234,8 @@ async function futtat(job, opts) {
                     params
                 );
 
-                const mit = kulcsok.filter(k => !["hianyzo", "problemak", "ellenorzott", "arnm"].includes(k));
+                const mit = kulcsok.filter(k => !["hianyzo", "problemak", "ellenorzott", "arnm", "hely_forras", "hely_sugar", "y", "hely_pontossag"].includes(k))
+                    .map(k => k === "x" ? "hely" : k);
 
                 if (mit.length) {
                     job.javitott++;
@@ -345,4 +312,4 @@ async function indulaskor() {
 
 }
 
-module.exports = { javaslat, helyKeres, indit, allapot, indulaskor, beallitas };
+module.exports = { javaslat, helyKeres, indit, allapot, indulaskor, beallitas, VERZIO };

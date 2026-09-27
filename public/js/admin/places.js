@@ -76,7 +76,9 @@ AdminManager.renderPlaces = function () {
             <div class="card mb-4">
                 <div class="card-body d-flex flex-wrap gap-2">
                     <label class="visually-hidden" for="newCityName">${I18n.t("alertNewCityPrompt")}</label>
-                    <input id="newCityName" class="form-control flex-fill" style="min-width:220px;" autocomplete="off" placeholder="${I18n.t("alertNewCityPrompt")}">
+                    <input id="newCityName" class="form-control flex-fill" style="min-width:200px;" autocomplete="off" placeholder="${I18n.t("alertNewCityPrompt")}">
+                    <input id="newCityRo" class="form-control" style="max-width:220px;" autocomplete="off" lang="ro" placeholder="${I18n.t("placesCityRo")}" aria-label="${I18n.t("placesCityRo")}">
+                    <input id="newCityMegye" class="form-control" style="max-width:180px;" autocomplete="off" placeholder="${I18n.t("placesCounty")}" aria-label="${I18n.t("placesCounty")}">
                     <button class="btn btn-primary text-nowrap" id="addCity"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("newAddVaros")}</button>
                 </div>
             </div>
@@ -94,6 +96,13 @@ AdminManager.renderPlaces = function () {
                                 <div class="card-header d-flex justify-content-between align-items-center gap-2">
                                     <h6 class="mb-0"><i class="fa-solid fa-city" aria-hidden="true"></i> ${esc(CityManager.displayName(v.nev))} <span class="badge text-bg-light">${k.length}</span></h6>
                                     ${nelkul && nelkul.db ? `<span class="small text-body-secondary">${I18n.f("placesWithout", { n: nelkul.db })}</span>` : ""}
+                                </div>
+                                <div class="cityGeo" data-city-geo="${v.id}">
+                                    <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+                                    <span>${v.x && v.y
+                                        ? `${esc(v.nev_ro || "")}${v.megye ? " · " + esc(v.megye) : ""} · ${I18n.f("placesRadius", { km: v.sugar_km || 6 })}`
+                                        : `<span class="text-warning">${I18n.t("placesNoCenter")}</span>`}</span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-geo-edit="${v.id}">${I18n.t("placesEdit")}</button>
                                 </div>
                                 <div class="card-body">
                                     <div class="districtList mb-3">
@@ -130,9 +139,14 @@ AdminManager.renderPlaces = function () {
             fetch("/api/varosok", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nev })
+                body: JSON.stringify({ nev, nev_ro: document.getElementById("newCityRo").value.trim(), megye: document.getElementById("newCityMegye").value.trim() })
             }).then(() => CityManager.init()).then(() => AdminManager.renderPlaces());
         };
+
+        // A város helyadatai: román név, megye, méret, közép a térképen
+        box.querySelectorAll("[data-geo-edit]").forEach(b => {
+            b.onclick = () => AdminManager.cityGeoEdit(varosok.find(v => String(v.id) === b.dataset.geoEdit));
+        });
 
         // Kerület szerkesztése: a sor helyén három mező (magyar, román, más nevek)
         box.querySelectorAll("[data-edit]").forEach(b => {
@@ -226,5 +240,74 @@ AdminManager.renderPlaces = function () {
         });
 
     });
+
+};
+
+
+// A város közepe, mérete, román neve és megyéje (a helymeghatározás ebből
+// dönti el, mi van "a városban", és hol keresse a hasonló nevű falvakat)
+AdminManager.cityGeoEdit = function (v) {
+
+    let el = document.getElementById("cityGeoModal");
+
+    if (!el) {
+        el = document.createElement("div");
+        el.id = "cityGeoModal";
+        el.className = "modal fade";
+        el.tabIndex = -1;
+        el.innerHTML = `<div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"></div></div>`;
+        document.body.appendChild(el);
+    }
+
+    const esc = Utils.escape;
+
+    el.querySelector(".modal-content").innerHTML = `
+        <div class="modal-header">
+            <h5 class="modal-title"><i class="fa-solid fa-city"></i> ${esc(CityManager.displayName(v.nev))}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${I18n.t("close")}"></button>
+        </div>
+        <div class="modal-body">
+            <p class="sectionNote">${I18n.t("placesGeoHelp")}</p>
+            <div class="row g-3 mb-3">
+                <div class="col-md-5"><label class="form-label" for="cgRo">${I18n.t("placesCityRo")}</label><input class="form-control" id="cgRo" lang="ro" value="${esc(v.nev_ro || "")}"></div>
+                <div class="col-md-4"><label class="form-label" for="cgMegye">${I18n.t("placesCounty")}</label><input class="form-control" id="cgMegye" value="${esc(v.megye || "")}"></div>
+                <div class="col-md-3"><label class="form-label" for="cgSugar">${I18n.t("placesRadiusLabel")}</label><input class="form-control" id="cgSugar" type="number" min="1" max="40" step="0.5" value="${v.sugar_km || 6}"></div>
+            </div>
+            <label class="form-label">${I18n.t("placesCenterLabel")}</label>
+            <div id="cityGeoMap" class="locPicker"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${I18n.t("cancel")}</button>
+            <button type="button" class="btn btn-primary" id="cgSave">${I18n.t("save")}</button>
+        </div>`;
+
+    const modal = bootstrap.Modal.getOrCreateInstance(el);
+    let picker = null;
+
+    el.addEventListener("shown.bs.modal", function once() {
+        el.removeEventListener("shown.bs.modal", once);
+        picker = new LocationPicker("cityGeoMap", { x: v.x, y: v.y, pontossag: "pontos", varos: () => v.nev, kozep: v.x && v.y ? [v.y, v.x] : null });
+        picker.refresh();
+    });
+
+    document.getElementById("cgSave").onclick = () => {
+        const h = picker ? picker.get() : {};
+        fetch("/api/varosok/" + v.id, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                nev_ro: document.getElementById("cgRo").value,
+                megye: document.getElementById("cgMegye").value,
+                sugar_km: document.getElementById("cgSugar").value,
+                x: h.x || v.x, y: h.y || v.y
+            })
+        }).then(r => {
+            if (!r.ok) return alert(I18n.t("alertSaveError"));
+            modal.hide();
+            CityManager.loadVarosok().then(() => AdminManager.renderPlaces());
+        });
+    };
+
+    modal.show();
 
 };

@@ -8,7 +8,8 @@ const { normalize, hianyzoMezok, parseKepek, TIPUS_MEZOK } = require("../service
 const { scrape } = require("../services/scraper");
 const autofix = require("../services/autofix");
 const quality = require("../services/quality");
-const { hiba, csakAdmin } = require("../lib/http");
+const location = require("../services/location");
+const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
 const { LISTA_MEZOK } = require("../lib/sql");
 
 const router = express.Router();
@@ -35,7 +36,10 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
 
     try {
 
-        const r = await db.query(`SELECT ${LISTA_MEZOK}, i.leiras, i.forras_szoveg FROM ingatlanok i WHERE i.id = $1`, [req.params.id]);
+        const r = await db.query(`
+            SELECT ${LISTA_MEZOK}, i.leiras, i.forras_szoveg,
+                   (SELECT COALESCE(u.nev, u.felhasznalonev) FROM users u WHERE u.id = i.owner_id) AS hirdeto_nev
+            FROM ingatlanok i WHERE i.id = $1`, [req.params.id]);
 
         if (!r.rowCount) return res.status(404).json({ error: "not_found" });
 
@@ -57,6 +61,24 @@ async function vannakKeruletek(varos) {
     const r = await db.query("SELECT 1 FROM keruletek WHERE varos = $1 LIMIT 1", [varos]);
     return r.rowCount > 0;
 }
+
+// Szerkesztheti / törölheti-e: az admin mindent, a felhasználó a sajátját
+async function sajatVagyAdmin(req, id) {
+    const r = await db.query("SELECT id, owner_id FROM ingatlanok WHERE id = $1", [id]);
+    if (!r.rowCount) return { nincs: true };
+    if (req.szerep === "admin") return { ok: true, admin: true };
+    return { ok: !!(req.user && r.rows[0].owner_id === req.user.id), admin: false };
+}
+
+// A saját hirdetéseim (Fiókom oldal)
+router.get("/api/sajat-hirdetesek", csakBelepve, async (req, res) => {
+    try {
+        const r = await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.owner_id = $1 ORDER BY i.id DESC`, [req.user.id]);
+        res.json(r.rows);
+    } catch (err) {
+        hiba(res, err);
+    }
+});
 
 // Ha van hely, de nincs kerület: a helyből (csak ahol van kerület)
 async function keruletPotlas(d) {
@@ -81,7 +103,7 @@ async function kepeketMent(client, ingatlanId, kepek, kezdoSorrend = 0) {
 }
 
 // Új hirdetés – bárki (bejelentkezve). Minden kötelező adatot ki kell tölteni.
-router.post("/api/ingatlanok", async (req, res) => {
+router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
 
     let client;
 
@@ -104,8 +126,11 @@ router.post("/api/ingatlanok", async (req, res) => {
             return res.status(400).json({ error: "missing_fields", hianyzo });
         }
 
+        // A térképen megjelölt hely a városban / mellette van-e
+        const helyGond = await location.helyTavol(d);
+
         // Gyanús adatok (pl. irreális €/m²) – a hirdetés megjelenik, de az admin ellenőrzi
-        const q = await quality.ertekel(d, { mod: d.link ? "link" : "kezi", kepDb: kepek.length });
+        const q = await quality.ertekel(d, { mod: d.link ? "link" : "kezi", kepDb: kepek.length, helyTavol: helyGond });
 
         await client.query("BEGIN");
 
@@ -113,15 +138,18 @@ router.post("/api/ingatlanok", async (req, res) => {
             INSERT INTO ingatlanok
             (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
              tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
-             kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, telepules, telek_jelleg, hely_sugar)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22,$23,$24,$25)
+             kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, telepules, telek_jelleg, hely_sugar,
+             owner_id, hely_forras, hely_kezi)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22,$23,$24,$25,
+                    $26,$27,$28)
             RETURNING id
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva, d.x, d.y,
             d.varos, d.kerulet, d.tipus, d.ugylet, d.cim, d.leiras, d.telek_nm, d.hely_pontossag,
             JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.problemak), q.ellenorzott,
             req.body.forras_szoveg ? String(req.body.forras_szoveg).slice(0, 5000) : null,
-            d.telepules, d.telek_jelleg, d.hely_sugar
+            d.telepules, d.telek_jelleg, d.hely_sugar,
+            req.user.id, d.x && d.y ? "kezi" : null, !!(d.x && d.y)
         ]);
 
         const id = r.rows[0].id;
@@ -145,21 +173,26 @@ router.post("/api/ingatlanok", async (req, res) => {
 
 });
 
-// Hirdetés módosítása – egyelőre csak admin (a 2. verzióban a tulajdonos is)
-//  body.jovahagy = true   -> függő (importált) hirdetés élesítése
+// Hirdetés módosítása – az admin bármelyiket, a felhasználó a sajátját
+//  body.jovahagy = true   -> függő (importált) hirdetés élesítése (csak admin)
 //  body.torlendoKepek     -> törlendő képek azonosítói
 //  body.kepek             -> új képek (data URL)
-router.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
+router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 
     let client;
 
     try {
 
-        client = await db.connect();
-
         const id = Number(req.params.id);
 
-        const regi = await client.query("SELECT statusz, forras_tipus, jovahagyva, forras_kerulet, kerulet FROM ingatlanok WHERE id = $1", [id]);
+        const jog = await sajatVagyAdmin(req, id);
+        if (jog.nincs) return res.status(404).json({ error: "not_found" });
+        if (!jog.ok) return res.status(403).json({ error: "not_owner" });
+        if (!jog.admin) delete req.body.jovahagy;
+
+        client = await db.connect();
+
+        const regi = await client.query("SELECT statusz, forras_tipus, jovahagyva, forras_kerulet, kerulet, x, y, hely_kezi, hely_forras FROM ingatlanok WHERE id = $1", [id]);
 
         if (!regi.rowCount) return res.status(404).json({ error: "not_found" });
 
@@ -197,10 +230,18 @@ router.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
 
         d.forras_kerulet = elozo.forras_kerulet;
 
+        // Ha a helyet kézzel áthelyezték a térképen, az automatika többé nem mozgatja
+        const helyValtozott = !!(d.x && d.y) && (Math.abs((elozo.x || 0) - d.x) > 1e-6 || Math.abs((elozo.y || 0) - d.y) > 1e-6);
+        const helyKezi = helyValtozott ? true : (d.x && d.y ? !!elozo.hely_kezi : false);
+        const helyForras = helyValtozott ? "kezi" : (d.x && d.y ? elozo.hely_forras : null);
+
+        const helyGond = helyKezi || !importalt ? await location.helyTavol(d) : false;
+
         const q = await quality.ertekel(d, {
             mod: importalt ? "import" : (d.link ? "link" : "kezi"),
             kepDb,
-            jovahagyva
+            jovahagyva,
+            helyTavol: helyGond && !jovahagyva
         });
 
         const hianyzo = q.hianyzo;
@@ -220,14 +261,15 @@ router.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
                 telek_nm=$17, hely_pontossag=$18, kulso_kepek=$19::jsonb, statusz=$20,
                 hianyzo=$21::jsonb, tovabbi_linkek=COALESCE($22::jsonb, tovabbi_linkek),
                 problemak=$23::jsonb, ellenorzott=$24, jovahagyva=$25, telepules=$27,
-                telek_jelleg=$28, hely_sugar=$29, updated_at=NOW()
+                telek_jelleg=$28, hely_sugar=$29, hely_kezi=$30, hely_forras=$31, updated_at=NOW()
             WHERE id=$26
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva,
             d.x, d.y, d.varos, d.kerulet, d.tipus, d.ugylet, d.cim, d.leiras,
             d.telek_nm, d.hely_pontossag, JSON.stringify(d.kulso_kepek || []), statusz,
             JSON.stringify(hianyzo), d.tovabbi_linkek ? JSON.stringify(d.tovabbi_linkek) : null,
-            JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id, d.telepules, d.telek_jelleg, d.hely_sugar
+            JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id, d.telepules, d.telek_jelleg, d.hely_sugar,
+            helyKezi, helyForras
         ]);
 
         if (torlendo.length) {
@@ -255,9 +297,13 @@ router.put("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
 
 });
 
-router.delete("/api/ingatlanok/:id", csakAdmin, async (req, res) => {
+router.delete("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 
     try {
+
+        const jog = await sajatVagyAdmin(req, Number(req.params.id));
+        if (jog.nincs) return res.json({ siker: true });
+        if (!jog.ok) return res.status(403).json({ error: "not_owner" });
 
         await db.query("DELETE FROM favorites WHERE property_id = $1", [req.params.id]);
         await db.query("DELETE FROM ingatlanok WHERE id = $1", [req.params.id]);
@@ -304,7 +350,7 @@ router.get("/api/kerulet-helybol", async (req, res) => {
 // ===================== LINK BEOLVASÁSA =====================
 // Bárki használhatja az "Új ingatlan" űrlapon az adatok előtöltésére.
 
-router.post("/api/scrape", async (req, res) => {
+router.post("/api/scrape", csakBelepve, async (req, res) => {
 
     try {
 

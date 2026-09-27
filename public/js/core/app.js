@@ -16,8 +16,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     UIManager.showNoSelection();
     HelpManager.init();
+    SavedSearches.init();
 
-    // Először kiderítjük, admin-e a belépett felhasználó,
+    // Fejléc: belépés / kilépés
+    document.getElementById("navLoginBtn").onclick = () => AuthManager.open("login");
+    document.getElementById("navLogout").onclick = () => AuthManager.logout();
+    document.getElementById("navDarkItem").onclick = () => document.getElementById("btnDarkMode").click();
+
+    // Először kiderítjük, ki van belépve (privát módban megvárjuk a belépést),
     // utána töltjük a városokat és az ingatlanokat.
     AuthManager.load()
         .then(() => CityManager.init())
@@ -26,6 +32,11 @@ document.addEventListener("DOMContentLoaded", () => {
             PageManager.init();
             AdminManager.refreshPendingCount();
         });
+
+    // Olvasatlan üzenetek száma (percenként)
+    setInterval(() => {
+        if (AuthManager.loggedIn() && document.visibilityState === "visible") AuthManager.refresh();
+    }, 60000);
 
     // ===================== SÖTÉT MÓD =====================
 
@@ -102,6 +113,9 @@ document.addEventListener("DOMContentLoaded", () => {
         ListingPage.rerender();
 
         if (PageManager.current === "admin") AdminManager.show();
+        if (PageManager.current === "igenyek") RequestsPage.rerender();
+        if (PageManager.current === "fiok") AccountPage.rerender();
+        AuthManager.apply();
         if (PageManager.current === "home") HomePage.render();
 
         darkBtn.title = I18n.t(document.documentElement.getAttribute("data-bs-theme") === "dark" ? "darkModeOff" : "darkModeOn");

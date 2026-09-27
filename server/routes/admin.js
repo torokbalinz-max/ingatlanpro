@@ -6,6 +6,7 @@ const express = require("express");
 const db = require("../db/database");
 const importer = require("../services/importer");
 const duplikatumok = require("../services/duplicates");
+const imagehash = require("../services/imagehash");
 const ai = require("../services/ai");
 const autofix = require("../services/autofix");
 const quality = require("../services/quality");
@@ -171,7 +172,7 @@ router.post("/api/admin/autofix", csakAdmin, (req, res) => {
 
 router.get("/api/admin/autofix", csakAdmin, async (req, res) => {
     try {
-        res.json({ ...(autofix.allapot() || {}), utolso: await autofix.beallitas("autofix_v2") });
+        res.json({ ...(autofix.allapot() || {}), utolso: await autofix.beallitas("autofix_v" + autofix.VERZIO) });
     } catch (err) {
         hiba(res, err);
     }
@@ -267,6 +268,44 @@ router.post("/api/admin/duplicates/clean", csakAdmin, async (req, res) => {
         hiba(res, err);
     }
 
+});
+
+// Több csoport összevonása egyszerre: { csoportok: [{ megtart, torlendo: [...] }] }
+router.post("/api/admin/duplicates/merge-bulk", csakAdmin, async (req, res) => {
+    try {
+        const cs = Array.isArray(req.body.csoportok) ? req.body.csoportok.slice(0, 500) : [];
+        if (!cs.length) return res.status(400).json({ error: "bad_request" });
+        res.json(await duplikatumok.tomegesOsszevon(cs));
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
+// "Nem ugyanaz" – a csoport tagjai között (vagy egy tag kivétele a csoportból)
+router.post("/api/admin/duplicates/ignore", csakAdmin, async (req, res) => {
+    try {
+        const ids = (req.body.ids || []).map(Number).filter(Boolean);
+        if (ids.length < 2) return res.status(400).json({ error: "bad_request" });
+        if (req.body.kivesz) return res.json(await duplikatumok.kivesz(Number(req.body.kivesz), ids));
+        res.json(await duplikatumok.kizar(ids));
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
+// A képek ujjlenyomatának elkészítése (háttérben)
+router.post("/api/admin/duplicates/images", csakAdmin, (req, res) => {
+    const j = imagehash.indit(Math.min(Number(req.body.limit) || 400, 2000));
+    if (!j) return res.status(400).json({ error: "sharp_missing" });
+    res.json(imagehash.allapot());
+});
+
+router.get("/api/admin/duplicates/images", csakAdmin, async (req, res) => {
+    try {
+        res.json({ ...(imagehash.allapot() || {}), hianyzik: await imagehash.hianyzoSzam(), elerheto: imagehash.elerheto() });
+    } catch (err) {
+        hiba(res, err);
+    }
 });
 
 // Hibás alapadatú hirdetések törlése (a kijelölt azonosítók)

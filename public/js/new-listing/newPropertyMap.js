@@ -22,6 +22,14 @@ class NewPropertyMap {
 
         NewPropertyMap.picker = new LocationPicker("newMap", {
             x, y, pontossag, sugar,
+            varos: () => (document.getElementById("ujVaros") || {}).value || DataManager.currentCity,
+            szoveg: () => ({
+                cim: document.getElementById("ujCim").value,
+                leiras: document.getElementById("ujLeiras").value,
+                tipus: NewPropertyManager.tipus,
+                telepules: NewPropertyManager.telepulesErtek(document.getElementById("ujTelepules").value) || null,
+                kerulet: (document.getElementById("ujKerulet") || {}).value || null
+            }),
             onChange: h => {
                 document.getElementById("ujX").value = h.x ? Number(h.x).toFixed(7) : "";
                 document.getElementById("ujY").value = h.y ? Number(h.y).toFixed(7) : "";

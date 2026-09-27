@@ -93,6 +93,11 @@ class DataManager {
 
     static loadFavoriteIds() {
 
+        if (!AuthManager.loggedIn()) {
+            DataManager.favoriteIds = new Set();
+            return Promise.resolve();
+        }
+
         return fetch("/api/favorites/ids")
 
             .then(r => r.json())
@@ -104,6 +109,8 @@ class DataManager {
                 if (TableManager.grid) {
                     TableManager.grid.refreshCells({ force: true });
                 }
+
+                if (typeof CardsView !== "undefined") CardsView.refreshFavorites();
 
             })
 
@@ -122,6 +129,14 @@ class DataManager {
     }
 
     static toggleFavorite(id) {
+
+        // Kedvenc csak bejelentkezve (a fiókhoz tartozik)
+        if (!AuthManager.loggedIn()) {
+            return AuthManager.kell()
+                .then(() => DataManager.loadFavoriteIds())
+                .then(() => DataManager.isFavorite(id) ? true : DataManager.toggleFavorite(id))
+                .catch(() => { });
+        }
 
         const isFav = DataManager.isFavorite(id);
 

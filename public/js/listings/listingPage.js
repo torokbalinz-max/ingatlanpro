@@ -102,6 +102,37 @@ class ListingPage {
 
         const hianyzo = Array.isArray(i.hianyzo) ? i.hianyzo : [];
 
+        // A hely-ellenőrzés áthelyezte a forrás (rossz) pontját
+        const helyInfo = i.hely_eredeti && i.hely_eredeti.ok
+            ? `<div class="alert alert-info small py-2"><i class="fa-solid fa-location-crosshairs"></i> ${ListingPage.helyEredetiSzoveg(i)}</div>`
+            : "";
+
+        // A saját hirdetésem (nem admin): szerkesztés, törlés
+        const sajatBox = !AuthManager.isAdmin() && AuthManager.owns(i) ? `
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="fa-solid fa-house-user"></i> ${I18n.t("lpOwnListing")}</h6>
+                    ${(i.problemak || []).includes("hely_tavol") ? `<div class="alert alert-warning small py-2">${I18n.t("prob_hely_tavol")}</div>` : ""}
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary btn-sm flex-fill" id="lpEdit"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
+                        <button class="btn btn-outline-danger btn-sm flex-fill" id="lpDelete"><i class="fa-solid fa-trash"></i> ${I18n.t("detailDelete")}</button>
+                    </div>
+                </div>
+            </div>` : "";
+
+        // Kapcsolat a hirdetővel (csak az oldalon, fiókkal feltöltött hirdetéseknél)
+        const kapcsolatBox = i.owner_id && !AuthManager.owns(i) ? `
+            <div class="card mt-4" id="lpContactCard">
+                <div class="card-body">
+                    <h6 class="mb-1"><i class="fa-regular fa-user"></i> ${Utils.escape(i.hirdeto_nev || I18n.t("lpSeller"))}</h6>
+                    <p class="small text-body-secondary">${I18n.t("lpContactHelp")}</p>
+                    <div id="lpContactForm" hidden>
+                        <textarea class="form-control mb-2" id="lpContactText" rows="4" maxlength="3000" placeholder="${Utils.escape(I18n.t("lpContactPh"))}"></textarea>
+                    </div>
+                    <button class="btn btn-primary w-100" id="lpContact"><i class="fa-regular fa-envelope"></i> ${I18n.t("lpContactBtn")}</button>
+                </div>
+            </div>` : "";
+
         const adminBox = AuthManager.isAdmin() ? `
             <div class="card mt-4 listingAdminBox">
                 <div class="card-body">
@@ -110,6 +141,7 @@ class ListingPage {
                     ${hianyzo.length ? `<div class="small mb-2">${I18n.t("missingFields")}: ${hianyzo.map(m => `<span class="badge text-bg-warning">${I18n.t("field_" + m)}</span>`).join(" ")}</div>` : ""}
                     ${(i.problemak || []).length ? `<div class="small mb-2">${I18n.t("problemsLabel")}: ${(i.problemak || []).map(m => `<span class="badge text-bg-danger">${I18n.t("prob_" + m)}</span>`).join(" ")}</div>` : ""}
                     ${i.statusz === "nem_elerheto" ? `<div class="alert alert-secondary small py-2">${I18n.t("listingUnavailable")}</div>` : ""}
+                    ${helyInfo}
                     ${i.ellenorzott === false ? `<button class="btn btn-warning btn-sm w-100 mb-2" id="lpReview"><i class="fa-solid fa-list-check"></i> ${I18n.t("openInReview")}</button>` : ""}
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-secondary btn-sm flex-fill" id="lpEdit"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
@@ -201,6 +233,10 @@ class ListingPage {
                             </div>
                         </div>
 
+                        ${kapcsolatBox}
+
+                        ${sajatBox}
+
                         ${adminBox}
 
                     </div>
@@ -291,6 +327,36 @@ class ListingPage {
         const edit = document.getElementById("lpEdit");
         if (edit) edit.onclick = () => NewPropertyManager.startEdit(i);
 
+        const kapcs = document.getElementById("lpContact");
+        if (kapcs) kapcs.onclick = () => {
+            AuthManager.kell().then(() => {
+                if (AuthManager.owns(i)) return ListingPage.render(i);
+                const form = document.getElementById("lpContactForm");
+                const text = document.getElementById("lpContactText");
+                if (form.hidden) {
+                    form.hidden = false;
+                    kapcs.innerHTML = `<i class="fa-solid fa-paper-plane"></i> ${I18n.t("msgSend")}`;
+                    text.focus();
+                    return;
+                }
+                const szoveg = text.value.trim();
+                if (szoveg.length < 2) return text.focus();
+                kapcs.disabled = true;
+                fetch(`/api/ingatlanok/${i.id}/uzenet`, {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ szoveg })
+                })
+                    .then(r => r.json().then(v => ({ ok: r.ok, v })))
+                    .then(({ ok, v }) => {
+                        if (!ok) throw new Error(v.error);
+                        Utils.toast(I18n.t("reqSent"));
+                        AccountPage.nyitando = { masik: v.cimzett_id, ingatlan: i.id };
+                        PageManager.show("fiok/uzenetek");
+                    })
+                    .catch(() => alert(I18n.t("msgSendError")))
+                    .finally(() => { kapcs.disabled = false; });
+            }).catch(() => { });
+        };
+
         const del = document.getElementById("lpDelete");
         if (del) del.onclick = () => UIManager.deleteProperty(i).then(ok => { if (ok) PageManager.show("properties"); });
 
@@ -318,6 +384,13 @@ class ListingPage {
 
         }
 
+    }
+
+    static helyEredetiSzoveg(i) {
+        const e = i.hely_eredeti || {};
+        const kulcs = { varostol_tavol: "helyOkVaros", falutol_tavol: "helyOkFalu", utca_eltero: "helyOkUtca" }[e.ok] || "helyOkVaros";
+        return I18n.f(kulcs, { km: e.km !== null && e.km !== undefined ? Utils.num(e.km, 1) : "?" }) + " " +
+            I18n.t(i.x && i.y ? "helyAthelyezve" : "helyTorolve");
     }
 
     static updateFavorite(id) {
