@@ -35,6 +35,7 @@ AdminManager.renderPlaces = function () {
                     <b>${esc(x.nev)}</b>
                     ${x.nev_ro && x.nev_ro !== x.nev ? `<span class="districtRo" lang="ro">${esc(x.nev_ro)}</span>` : ""}
                     ${!x.nev_ro ? `<span class="badge text-bg-warning">${I18n.t("placesNoRo")}</span>` : ""}
+                    ${Array.isArray(x.hatar) && x.hatar.length >= 3 ? `<span class="badge text-bg-success-subtle text-success-emphasis" title="${esc(I18n.t("deHasBorder"))}"><i class="fa-solid fa-draw-polygon"></i></span>` : ""}
                     ${x.aliasok ? `<small class="districtAlias">${esc(x.aliasok)}</small>` : ""}
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-edit="${x.id}" aria-label="${I18n.t("placesEdit")}"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>
@@ -97,6 +98,12 @@ AdminManager.renderPlaces = function () {
                                     <h6 class="mb-0"><i class="fa-solid fa-city" aria-hidden="true"></i> ${esc(CityManager.displayName(v.nev))} <span class="badge text-bg-light">${k.length}</span></h6>
                                     ${nelkul && nelkul.db ? `<span class="small text-body-secondary">${I18n.f("placesWithout", { n: nelkul.db })}</span>` : ""}
                                 </div>
+                                ${k.length ? `
+                                <div class="cityBorders">
+                                    <i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>
+                                    <span>${I18n.f("deBordersCount", { n: k.filter(x => Array.isArray(x.hatar) && x.hatar.length >= 3).length, ossz: k.length })}</span>
+                                    <button type="button" class="btn btn-sm btn-outline-primary ms-auto" data-borders="${esc(v.nev)}">${I18n.t("deOpenBtn")}</button>
+                                </div>` : ""}
                                 <div class="cityGeo" data-city-geo="${v.id}">
                                     <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
                                     <span>${v.x && v.y
@@ -142,6 +149,11 @@ AdminManager.renderPlaces = function () {
                 body: JSON.stringify({ nev, nev_ro: document.getElementById("newCityRo").value.trim(), megye: document.getElementById("newCityMegye").value.trim() })
             }).then(() => CityManager.init()).then(() => AdminManager.renderPlaces());
         };
+
+        // Kerülethatárok rajzolása
+        box.querySelectorAll("[data-borders]").forEach(b => {
+            b.onclick = () => AdminManager.districtEditor(b.dataset.borders);
+        });
 
         // A város helyadatai: román név, megye, méret, közép a térképen
         box.querySelectorAll("[data-geo-edit]").forEach(b => {

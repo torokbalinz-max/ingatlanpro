@@ -143,14 +143,25 @@ class Utils {
         if (v === "új" || v === "uj" || v.startsWith("újsz") || v.startsWith("ujsz")) return "újszerű";
         if (v.startsWith("részben") || v.startsWith("reszben")) return "részbenfel";
         if (v.startsWith("felúj") || v.startsWith("feluj")) return "felújítandó";
+        if (v.startsWith("közep") || v.startsWith("kozep") || v === "átlagos" || v === "lakható") return "közepes";
         if (v === "jó" || v === "jo") return "jó";
         if (v.startsWith("lux")) return "luxus";
         return v;
     }
 
+    // A hat állapot a legrosszabbtól a legjobbig (űrlapok, jelmagyarázat)
+    static ALLAPOTOK = ["felújítandó", "közepes", "részbenfel", "jó", "újszerű", "luxus"];
+
+    // <option> elemek az állapot-választókhoz
+    static allapotOptions(selected, ures) {
+        return (ures ? `<option value="">${I18n.t(ures)}</option>` : "") +
+            Utils.ALLAPOTOK.map(a => `<option value="${a}" ${Utils.normAllapot(selected) === a ? "selected" : ""}>${Utils.allapotLabel(a)}</option>`).join("");
+    }
+
     static allapotLabel(a) {
         const key = {
             "felújítandó": "allapotFelujitando",
+            "közepes": "allapotKozepes",
             "részbenfel": "allapotReszben",
             "jó": "allapotJo",
             "újszerű": "allapotUjszeru",
@@ -161,7 +172,7 @@ class Utils {
 
     // Sorrend a táblázatokban / grafikonokon
     static allapotRank(a) {
-        const r = { "felújítandó": 0, "részbenfel": 1, "jó": 2, "újszerű": 3, "luxus": 4 }[Utils.normAllapot(a)];
+        const r = { "felújítandó": 0, "közepes": 1, "részbenfel": 2, "jó": 3, "újszerű": 4, "luxus": 5 }[Utils.normAllapot(a)];
         return r === undefined ? 9 : r;
     }
 

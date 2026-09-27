@@ -142,7 +142,7 @@ AdminManager.renderReviewItem = function () {
                             ${t.fields.allapot ? mezo("allapot", I18n.t("newAllapot"), `
                                 <select class="form-select" id="rvAllapot">
                                     <option value="">${I18n.t("chooseOne")}</option>
-                                    ${["felújítandó", "részbenfel", "jó", "újszerű", "luxus"].map(a => `<option value="${a}" ${Utils.normAllapot(i.allapot) === a ? "selected" : ""}>${Utils.allapotLabel(a)}</option>`).join("")}
+                                    ${Utils.ALLAPOTOK.map(a => `<option value="${a}" ${Utils.normAllapot(i.allapot) === a ? "selected" : ""}>${Utils.allapotLabel(a)}</option>`).join("")}
                                 </select>`) : ""}
                             ${t.fields.kerulet ? mezo("kerulet", I18n.t("newKerulet"), `
                                 <select class="form-select" id="rvKerulet"><option value="">${I18n.t("newKeruletNincs")}</option></select>

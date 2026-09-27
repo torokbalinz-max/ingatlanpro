@@ -57,6 +57,7 @@ class LocationPicker {
             </div>
             <div class="locResults" hidden></div>
             <div class="locMap"></div>
+            <div class="locDistrict small" hidden></div>
             <div class="locWarn alert alert-warning small py-2 mb-0" hidden></div>`;
 
         this.mapEl = this.box.querySelector(".locMap");
@@ -70,6 +71,9 @@ class LocationPicker {
         this.map.getContainer().style.cursor = "crosshair";
 
         this.map.on("click", e => this.set(e.latlng.lng, e.latlng.lat, true));
+
+        // A város kerülethatárai (ha az admin megrajzolta) – látszik, hová esik a pont
+        if (opts.hatarok !== false) this.drawDistricts();
 
         this.box.querySelectorAll(`input[name="${this.id}_mod"]`).forEach(r => {
             r.addEventListener("change", () => {
@@ -99,6 +103,7 @@ class LocationPicker {
 
         this.draw();
         if (this.x && this.y) this.ellenoriz();
+        this.kerulteKiir();
 
         setTimeout(() => this.map.invalidateSize(), 120);
 
@@ -121,6 +126,8 @@ class LocationPicker {
 
     // Városváltáskor: ha még nincs pont, a térkép az új városra ugrik
     varosValtas() {
+        this.drawDistricts();
+        this.kerulteKiir();
         if (this.x && this.y) return this.ellenoriz();
         const k = LocationPicker.varosKozep(this.varos());
         if (k) this.map.setView(k, 13);
@@ -252,7 +259,25 @@ class LocationPicker {
         this.draw();
         this.valtozott();
         this.ellenoriz();
+        this.kerulteKiir();
         if (felhasznalo && this.opts.onPoint) this.opts.onPoint(x, y);
+    }
+
+    drawDistricts() {
+        if (typeof Districts === "undefined" || !this.map) return;
+        if (this.hatarLayer) { this.hatarLayer.remove(); this.hatarLayer = null; }
+        const varos = this.varos();
+        if (!Districts.any(varos)) return;
+        this.hatarLayer = Districts.layer(varos, { labels: true, fillOpacity: 0.04, weight: 1.2 }).addTo(this.map);
+    }
+
+    // A pont alatt: melyik kerületbe esik (a megrajzolt határok szerint)
+    kerulteKiir() {
+        const box = this.box.querySelector(".locDistrict");
+        if (!box || typeof Districts === "undefined") return;
+        const k = this.x && this.y ? Districts.findObj(this.varos(), this.x, this.y) : null;
+        box.hidden = !k;
+        if (k) box.innerHTML = `<i class="fa-solid fa-draw-polygon" aria-hidden="true"></i> ${I18n.t("locInDistrict")}: <b>${Utils.escape(CityManager.keruletLabelOf(k))}</b>`;
     }
 
     clear() {

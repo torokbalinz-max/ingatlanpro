@@ -50,6 +50,7 @@ class AccountPage {
                         ${t.key === "uzenetek" ? `<span class="badge rounded-pill text-bg-danger accMsgCount" ${AuthManager.olvasatlan ? "" : "hidden"}>${AuthManager.olvasatlan}</span>` : ""}
                     </a>`).join("")}
                 <a class="typeTab" href="#favorites"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("menuKedvencek")}</a>
+                <a class="typeTab" href="#iroda"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> ${I18n.t(AuthManager.irodak.length ? "agMenu" : "agCreateShort")}</a>
             </div>
 
             <div id="accBody"></div>`;
@@ -255,7 +256,7 @@ class AccountPage {
         const foto = Utils.photoUrl(i);
         const allapot = i.statusz === "aktiv"
             ? (i.ellenorzott === false ? `<span class="badge text-bg-warning">${I18n.t("accStatusReview")}</span>` : `<span class="badge text-bg-success">${I18n.t("accStatusLive")}</span>`)
-            : `<span class="badge text-bg-secondary">${I18n.t(i.statusz === "nem_elerheto" ? "accStatusUnavailable" : "accStatusPending")}</span>`;
+            : `<span class="badge text-bg-secondary">${I18n.t(i.statusz === "nem_elerheto" ? "accStatusUnavailable" : (i.statusz === "archiv" ? "agStatus_archiv" : "accStatusPending"))}</span>`;
 
         return `
             <div class="card accListing">
@@ -268,6 +269,7 @@ class AccountPage {
                         ${allapot}
                     </div>
                     <div class="small text-body-secondary">${Utils.escape(CityManager.helyLabel(i))} · #${i.id} · ${Utils.ago(i.created_at)}</div>
+                    ${i.iroda_nev ? `<div class="small"><i class="fa-solid fa-briefcase"></i> <a href="#iroda/${i.iroda_id}">${Utils.escape(i.iroda_nev)}</a></div>` : ""}
                     <div class="fw-bold mt-1">${Utils.price(i)} <span class="small fw-normal text-body-secondary">${i.nm ? Utils.num(i.nm) + " m²" : ""}</span></div>
                     <div class="d-flex gap-2 mt-2">
                         <button class="btn btn-sm btn-outline-secondary" data-edit="${i.id}"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>

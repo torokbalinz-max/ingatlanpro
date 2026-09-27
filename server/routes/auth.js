@@ -30,19 +30,24 @@ router.get("/api/me", async (req, res) => {
     try {
 
         let olvasatlan = 0;
+        let irodak = [];
 
         if (req.user) {
             const r = await db.query("SELECT COUNT(*)::int AS n FROM uzenetek WHERE cimzett_id = $1 AND NOT olvasva", [req.user.id]);
             olvasatlan = r.rows[0].n;
+            irodak = await require("./irodak").sajatIrodak(req.user.id).catch(() => []);
         }
 
         res.json({
             bejelentkezve: !!req.user,
             user: acc.nyilvanos(req.user),
             szerep: req.szerep,
+            // Az admin éppen a felhasználói nézetet próbálja
+            adminNezet: req.valodiSzerep === "admin" && req.szerep !== "admin",
             felhasznalo: req.felhasznalo,
             nyilvanos: nyilvanosMod(),
-            olvasatlan
+            olvasatlan,
+            irodak
         });
 
     } catch (err) {
@@ -249,6 +254,13 @@ router.delete("/api/auth/fiok", csakBelepve, async (req, res) => {
 
         await client.query("BEGIN");
         await client.query("DELETE FROM favorites WHERE user_id = $1", [u.id]);
+        // Az iroda hirdetései az irodánál maradnak (egy másik tag lesz a feladójuk)
+        await client.query(`
+            UPDATE ingatlanok i SET owner_id = (
+                SELECT t.user_id FROM iroda_tagok t WHERE t.iroda_id = i.iroda_id AND t.user_id <> $1
+                ORDER BY (t.szerep = 'vezeto') DESC LIMIT 1)
+            WHERE i.owner_id = $1 AND i.iroda_id IS NOT NULL
+              AND EXISTS (SELECT 1 FROM iroda_tagok t WHERE t.iroda_id = i.iroda_id AND t.user_id <> $1)`, [u.id]);
         await client.query("DELETE FROM favorites WHERE property_id IN (SELECT id FROM ingatlanok WHERE owner_id = $1)", [u.id]);
         await client.query("DELETE FROM ingatlanok WHERE owner_id = $1", [u.id]);
         await client.query("DELETE FROM users WHERE id = $1", [u.id]);

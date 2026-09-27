@@ -39,7 +39,16 @@ class NewPropertyMap {
             onPoint: (px, py) => {
                 const sel = document.getElementById("ujKerulet");
                 const varos = document.getElementById("ujVaros").value;
-                if (!sel || sel.value || !Types.get(NewPropertyManager.tipus).fields.kerulet) return;
+                if (!sel || !Types.get(NewPropertyManager.tipus).fields.kerulet) return;
+                // A megrajzolt kerülethatár dönt (pontos helynél felülírja a választást)
+                const hatar = typeof Districts !== "undefined" && NewPropertyMap.picker && NewPropertyMap.picker.mod === "pontos"
+                    ? Districts.find(varos, px, py) : null;
+                if (hatar) {
+                    sel.value = hatar;
+                    sel.classList.remove("is-invalid");
+                    return;
+                }
+                if (sel.value) return;
                 LocationPicker.keruletJavaslat(varos, px, py).then(k => {
                     if (k && !sel.value) sel.value = k;
                 });

@@ -18,6 +18,7 @@
 
 const db = require("../db/database");
 const quality = require("./quality");
+const districts = require("./districts");
 const textParse = require("./textParse");
 const { VAROS_RO } = require("./geocode");
 const location = require("./location");
@@ -75,7 +76,10 @@ async function javaslat(i, extra = {}) {
 
     if (keruletKell) {
 
+        const pontosHely = i.x && i.y && ["pontos", "utca"].includes(i.hely_pontossag || "pontos");
+
         const kerulet =
+            (pontosHely ? await districts.keruletPontbol(i.varos, Number(i.x), Number(i.y)) : null) ||
             await quality.keruletKeres(i.varos, i.forras_kerulet, extra.utca, i.cim) ||
             (i.x && i.y && ["pontos", "utca"].includes(i.hely_pontossag || "pontos") ? await quality.keruletHelybol(i.varos, i.x, i.y) : null) ||
             await quality.keruletSzovegbol(i.varos, szoveg);

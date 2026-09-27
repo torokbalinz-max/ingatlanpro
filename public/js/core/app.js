@@ -21,6 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Fejléc: belépés / kilépés
     document.getElementById("navLoginBtn").onclick = () => AuthManager.open("login");
     document.getElementById("navLogout").onclick = () => AuthManager.logout();
+    document.getElementById("navViewToggle").onclick = () => AuthManager.setView(!AuthManager.adminNezet);
+    document.getElementById("viewAsUserBack").onclick = () => AuthManager.setView(false);
     document.getElementById("navDarkItem").onclick = () => document.getElementById("btnDarkMode").click();
 
     // Először kiderítjük, ki van belépve (privát módban megvárjuk a belépést),
@@ -115,6 +117,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (PageManager.current === "admin") AdminManager.show();
         if (PageManager.current === "igenyek") RequestsPage.rerender();
         if (PageManager.current === "fiok") AccountPage.rerender();
+        AgencyPage.rerender();
+        AgencyProfile.rerender();
         AuthManager.apply();
         if (PageManager.current === "home") HomePage.render();
 

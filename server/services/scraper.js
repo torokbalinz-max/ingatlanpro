@@ -149,6 +149,7 @@ function guessAllapot(text) {
     const t = text.toLowerCase();
     if (/necesit[aă] renovare|de renovat|stare de renovare|necesită renovare/.test(t)) return "felújítandó";
     if (/renovat par[tț]ial|par[tț]ial renovat/.test(t)) return "részbenfel";
+    if (/stare medie|stare satisf[aă]c[aă]toare|\(medie\)|locuibil[aă]? imediat f[aă]r[aă] renov/.test(t)) return "közepes";
     if (/\blux\b|finisaje de lux|premium/.test(t)) return "luxus";
     if (/bloc nou|construc[tț]ie nou[aă]|imobil nou|\bnou\b.{0,20}\(foarte bun|finalizat 202[3-9]/.test(t)) return "újszerű";
     if (/renovat|foarte bun|bine între[tț]inut|\(bun[aă]\)|stare bun[aă]/.test(t)) return "jó";

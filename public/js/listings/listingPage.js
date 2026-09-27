@@ -108,10 +108,15 @@ class ListingPage {
             : "";
 
         // A saját hirdetésem (nem admin): szerkesztés, törlés
-        const sajatBox = !AuthManager.isAdmin() && AuthManager.owns(i) ? `
+        const sajatBox = !AuthManager.isAdmin() && AuthManager.canEdit(i) ? `
             <div class="card mt-4">
                 <div class="card-body">
-                    <h6 class="mb-3"><i class="fa-solid fa-house-user"></i> ${I18n.t("lpOwnListing")}</h6>
+                    <h6 class="mb-3"><i class="fa-solid fa-house-user"></i> ${I18n.t(i.iroda && !AuthManager.owns(i) ? "lpAgencyListing" : "lpOwnListing")}</h6>
+                    ${i.statusz === "archiv" ? `<div class="alert alert-secondary small py-2">${I18n.t("agArchivedInfo")}</div>` : ""}
+                    ${i.iroda_mappa || i.iroda_megjegyzes ? `<div class="small mb-2 agInternalBox">
+                        ${i.iroda_mappa ? `<div><i class="fa-regular fa-folder"></i> ${Utils.escape(i.iroda_mappa)}</div>` : ""}
+                        ${i.iroda_megjegyzes ? `<div><i class="fa-regular fa-note-sticky"></i> ${Utils.escape(i.iroda_megjegyzes)}</div>` : ""}
+                    </div>` : ""}
                     ${(i.problemak || []).includes("hely_tavol") ? `<div class="alert alert-warning small py-2">${I18n.t("prob_hely_tavol")}</div>` : ""}
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-secondary btn-sm flex-fill" id="lpEdit"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
@@ -120,8 +125,40 @@ class ListingPage {
                 </div>
             </div>` : "";
 
+        // Ingatlanirodás hirdetés: az iroda és az ügynök elérhetősége
+        const tel = t => `<a class="btn btn-outline-primary btn-sm w-100 mb-2 text-start" href="tel:${Utils.escape(String(t).replace(/\s/g, ""))}"><i class="fa-solid fa-phone"></i> ${Utils.escape(t)}</a>`;
+        const mail = m => `<a class="btn btn-outline-secondary btn-sm w-100 mb-2 text-start text-truncate" href="mailto:${Utils.escape(m)}"><i class="fa-regular fa-envelope"></i> ${Utils.escape(m)}</a>`;
+        const uzenhet = i.owner_id && !AuthManager.canEdit(i);
+
+        const irodaBox = i.iroda ? `
+            <div class="card mt-4 agContactCard" id="lpContactCard">
+                <div class="card-body">
+                    <div class="small text-body-secondary mb-1">${I18n.t("lpListedBy")}</div>
+                    <a class="d-flex align-items-center gap-2 mb-3 agContactHead" href="#irodak/${i.iroda.id}">
+                        <span class="agLogo sm">${Utils.escape((i.iroda.nev || "?").slice(0, 1).toUpperCase())}</span>
+                        <span class="min-w-0">
+                            <b class="d-block text-truncate">${Utils.escape(i.iroda.nev)} ${i.iroda.ellenorzott ? `<i class="fa-solid fa-circle-check text-primary" title="${Utils.escape(I18n.t("agVerified"))}"></i>` : ""}</b>
+                            <span class="small text-body-secondary">${I18n.t("agLabel")}</span>
+                        </span>
+                    </a>
+                    ${i.ugynok ? `
+                        <div class="agAgentLine mb-2"><i class="fa-regular fa-user"></i> <span class="small text-body-secondary">${I18n.t("agAgent")}:</span> <b>${Utils.escape(i.ugynok.nev)}</b></div>
+                        ${i.ugynok.telefon ? tel(i.ugynok.telefon) : ""}
+                        ${i.ugynok.email ? mail(i.ugynok.email) : ""}` : ""}
+                    ${(!i.ugynok || !i.ugynok.telefon) && i.iroda.telefon ? tel(i.iroda.telefon) : ""}
+                    ${(!i.ugynok || !i.ugynok.email) && i.iroda.email ? mail(i.iroda.email) : ""}
+                    ${i.iroda_ref ? `<div class="small text-body-secondary mb-2">${I18n.t("agRef")}: <b>${Utils.escape(i.iroda_ref)}</b></div>` : ""}
+                    ${uzenhet ? `
+                        <div id="lpContactForm" hidden>
+                            <textarea class="form-control mb-2" id="lpContactText" rows="4" maxlength="3000" placeholder="${Utils.escape(I18n.t("lpContactPh"))}"></textarea>
+                        </div>
+                        <button class="btn btn-primary w-100" id="lpContact"><i class="fa-regular fa-envelope"></i> ${I18n.t("lpContactBtn")}</button>` : ""}
+                    <a class="btn btn-link btn-sm w-100 mt-1" href="#irodak/${i.iroda.id}">${I18n.t("lpAgencyAll")} <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </div>` : "";
+
         // Kapcsolat a hirdetővel (csak az oldalon, fiókkal feltöltött hirdetéseknél)
-        const kapcsolatBox = i.owner_id && !AuthManager.owns(i) ? `
+        const kapcsolatBox = i.iroda ? irodaBox : i.owner_id && !AuthManager.owns(i) ? `
             <div class="card mt-4" id="lpContactCard">
                 <div class="card-body">
                     <h6 class="mb-1"><i class="fa-regular fa-user"></i> ${Utils.escape(i.hirdeto_nev || I18n.t("lpSeller"))}</h6>
@@ -373,6 +410,16 @@ class ListingPage {
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 attribution: "© OpenStreetMap"
             }).addTo(ListingPage.map);
+
+            // A hirdetés kerületének határa (ha meg van rajzolva)
+            const kn = Districts.ofListing(i);
+            const kObj = kn && Districts.list(i.varos).find(k => k.nev === kn);
+            if (kObj && !(Types.get(i.tipus).fields.telepules && i.telepules)) {
+                const szin = Districts.color(kObj);
+                L.polygon(Districts.latlngs(kObj.hatar), { color: szin, weight: 1.5, fillColor: szin, fillOpacity: 0.06, interactive: false })
+                    .bindTooltip(Utils.escape(CityManager.keruletLabelOf(kObj)), { permanent: true, direction: "center", offset: [0, -22], className: "districtLabel" })
+                    .addTo(ListingPage.map);
+            }
 
             if (i.hely_pontossag === "kozelito") {
                 L.circle([i.y, i.x], { radius: i.hely_sugar || (i.telepules ? 1500 : 500), color: Utils.accent(), weight: 2, fillOpacity: 0.14 }).addTo(ListingPage.map);

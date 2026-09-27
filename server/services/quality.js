@@ -176,6 +176,10 @@ async function keruletHelybol(varos, x, y) {
 
     if (!varos || !(x && y)) return null;
 
+    // 1) Az admin által megrajzolt kerülethatárok (ez a legbiztosabb)
+    const hatarbol = await require("./districts").keruletPontbol(varos, Number(x), Number(y));
+    if (hatarbol) return hatarbol;
+
     const { forditott } = require("./geocode");
     const f = await forditott(x, y);
 

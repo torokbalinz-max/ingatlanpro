@@ -4,7 +4,8 @@
 
 const TIPUSOK = ["lakas", "haz", "telek", "kereskedelmi", "iroda"];
 const UGYLETEK = ["elado", "kiado"];
-const ALLAPOTOK = ["felújítandó", "részbenfel", "jó", "újszerű", "luxus"];
+// Hat fokozat, a legrosszabbtól a legjobbig
+const ALLAPOTOK = ["felújítandó", "közepes", "részbenfel", "jó", "újszerű", "luxus"];
 
 // Típusonként mely mezők értelmesek
 //  kerulet:   a városon belüli kerület (lakásnál, üzlethelyiségnél, irodánál)
@@ -167,4 +168,4 @@ function normLink(l) {
 
 }
 
-module.exports = { TIPUSOK, UGYLETEK, TIPUS_MEZOK, HELY_SZINTEK, normalize, hianyzoMezok, parseKepek, normLink, szam, szoveg };
+module.exports = { ALLAPOTOK, TIPUSOK, UGYLETEK, TIPUS_MEZOK, HELY_SZINTEK, normalize, hianyzoMezok, parseKepek, normLink, szam, szoveg };

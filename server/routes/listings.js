@@ -9,8 +9,10 @@ const { scrape } = require("../services/scraper");
 const autofix = require("../services/autofix");
 const quality = require("../services/quality");
 const location = require("../services/location");
+const districts = require("../services/districts");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
 const { LISTA_MEZOK } = require("../lib/sql");
+const irodak = require("./irodak");
 
 const router = express.Router();
 
@@ -48,7 +50,30 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
             [req.params.id]
         );
 
-        res.json({ ...r.rows[0], kepek: kepek.rows.map(k => k.id) });
+        const i = r.rows[0];
+
+        // Ingatlanirodás hirdetés: az iroda és az ügynök elérhetősége
+        let iroda = null, ugynok = null, belso = {};
+
+        if (i.iroda_id) {
+
+            const ir = await db.query("SELECT id, nev, telefon, email, weboldal, cim, ellenorzott FROM irodak WHERE id = $1", [i.iroda_id]);
+            iroda = ir.rows[0] || null;
+
+            if (i.ugynok_id) {
+                const u = await db.query("SELECT id, nev, telefon, email, user_id IS NOT NULL AS van_fiok FROM iroda_ugynokok WHERE id = $1 AND aktiv", [i.ugynok_id]);
+                ugynok = u.rows[0] || null;
+            }
+
+            // A belső adatok csak az iroda tagjainak
+            if ((await irodak.jog(req, i.iroda_id)).tag) {
+                const b = await db.query("SELECT iroda_mappa, iroda_megjegyzes FROM ingatlanok WHERE id = $1", [i.id]);
+                belso = b.rows[0] || {};
+            }
+
+        }
+
+        res.json({ ...i, ...belso, iroda, ugynok, kepek: kepek.rows.map(k => k.id) });
 
     } catch (err) {
         hiba(res, err);
@@ -62,12 +87,61 @@ async function vannakKeruletek(varos) {
     return r.rowCount > 0;
 }
 
-// Szerkesztheti / törölheti-e: az admin mindent, a felhasználó a sajátját
+// Szerkesztheti / törölheti-e: az admin mindent, a felhasználó a sajátját,
+// az ingatlaniroda tagja az iroda hirdetéseit
 async function sajatVagyAdmin(req, id) {
-    const r = await db.query("SELECT id, owner_id FROM ingatlanok WHERE id = $1", [id]);
+    const r = await db.query("SELECT id, owner_id, iroda_id FROM ingatlanok WHERE id = $1", [id]);
     if (!r.rowCount) return { nincs: true };
     if (req.szerep === "admin") return { ok: true, admin: true };
-    return { ok: !!(req.user && r.rows[0].owner_id === req.user.id), admin: false };
+    if (req.user && r.rows[0].owner_id === req.user.id) return { ok: true, admin: false };
+    if (r.rows[0].iroda_id && (await irodak.jog(req, r.rows[0].iroda_id)).tag) return { ok: true, admin: false, iroda: true };
+    return { ok: false, admin: false };
+}
+
+// Az űrlap iroda-mezői (ki hirdeti: magánszemély vagy egy iroda, melyik ügynök)
+//  -> null (a kérés nem küldött ilyet), vagy { iroda_id, ugynok_id, iroda_ref, iroda_mappa, iroda_megjegyzes }
+async function irodaMezok(req, b) {
+
+    if (!("iroda_id" in (b || {}))) return null;
+
+    const irodaId = b.iroda_id ? Number(b.iroda_id) : null;
+    const sz = (v, max) => (v === null || v === undefined || String(v).trim() === "") ? null : String(v).trim().slice(0, max);
+
+    if (!irodaId) return { iroda_id: null, ugynok_id: null, iroda_ref: null, iroda_mappa: null, iroda_megjegyzes: null };
+
+    if (!(await irodak.jog(req, irodaId)).tag) {
+        const e = new Error("not_member");
+        e.kod = "not_member";
+        throw e;
+    }
+
+    let ugynokId = b.ugynok_id ? Number(b.ugynok_id) : null;
+
+    if (ugynokId) {
+        const u = await db.query("SELECT 1 FROM iroda_ugynokok WHERE id = $1 AND iroda_id = $2", [ugynokId, irodaId]);
+        if (!u.rowCount) ugynokId = null;
+    }
+
+    // A kérésből hiányzó mező = marad a régi (undefined)
+    const ha = (k, max) => (k in b ? sz(b[k], max) : undefined);
+
+    return {
+        iroda_id: irodaId,
+        ugynok_id: "ugynok_id" in b ? ugynokId : undefined,
+        iroda_ref: ha("iroda_ref", 40),
+        iroda_mappa: ha("iroda_mappa", 60),
+        iroda_megjegyzes: ha("iroda_megjegyzes", 2000)
+    };
+
+}
+
+async function irodaMent(client, id, m) {
+    if (!m) return;
+    const mezok = Object.keys(m).filter(k => m[k] !== undefined);
+    await client.query(
+        `UPDATE ingatlanok SET ${mezok.map((k, n) => `${k} = $${n + 2}`).join(", ")} WHERE id = $1`,
+        [id, ...mezok.map(k => m[k])]
+    );
 }
 
 // A saját hirdetéseim (Fiókom oldal)
@@ -80,10 +154,19 @@ router.get("/api/sajat-hirdetesek", csakBelepve, async (req, res) => {
     }
 });
 
-// Ha van hely, de nincs kerület: a helyből (csak ahol van kerület)
+// Kerület a helyből (csak ahol van kerület):
+//  - pontos helynél a megrajzolt kerülethatár mindig nyer
+//  - különben csak akkor töltjük ki, ha üres
 async function keruletPotlas(d) {
-    if (d.kerulet || !d.varos || !(d.x && d.y)) return;
+    if (!d.varos || !(d.x && d.y)) return;
     if (!(TIPUS_MEZOK[d.tipus] || TIPUS_MEZOK.lakas).kerulet) return;
+    if (["pontos", "utca"].includes(d.hely_pontossag)) {
+        try {
+            const k = await districts.keruletPontbol(d.varos, d.x, d.y);
+            if (k) { d.kerulet = k; return; }
+        } catch (e) { /* nem kritikus */ }
+    }
+    if (d.kerulet) return;
     try {
         d.kerulet = await quality.keruletHelybol(d.varos, d.x, d.y);
     } catch (e) { /* nem kritikus */ }
@@ -113,6 +196,7 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
 
         const d = normalize(req.body);
         const kepek = parseKepek(req.body.kepek);
+        const iroda = await irodaMezok(req, req.body);
 
         await keruletPotlas(d);
 
@@ -155,6 +239,7 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
         const id = r.rows[0].id;
 
         await kepeketMent(client, id, kepek);
+        await irodaMent(client, id, iroda);
 
         await client.query("COMMIT");
 
@@ -200,6 +285,7 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 
         const d = normalize(req.body);
         await keruletPotlas(d);
+        const iroda = await irodaMezok(req, req.body);
         const ujKepek = parseKepek(req.body.kepek);
         const torlendo = Array.isArray(req.body.torlendoKepek) ? req.body.torlendoKepek.map(Number).filter(Boolean) : [];
 
@@ -279,6 +365,8 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
         const max = await client.query("SELECT COALESCE(MAX(sorrend), -1) AS m FROM ingatlan_kepek WHERE ingatlan_id = $1", [id]);
 
         await kepeketMent(client, id, ujKepek, max.rows[0].m + 1);
+
+        await irodaMent(client, id, iroda);
 
         await client.query("COMMIT");
 

@@ -8,10 +8,15 @@
 //     req.felhasznalo  a megjelenítendő név
 //
 //  Két üzemmód:
-//   - PRIVÁT (alap): az adatokat csak bejelentkezve lehet látni.
-//     A weboldal betöltődik, de a belépő ablakot mutatja.
-//   - NYILVÁNOS (NYILVANOS=1 a .env-ben): bárki böngészhet;
-//     hirdetésfeladáshoz, kedvencekhez, üzenethez kell belépni.
+//   - NYILVÁNOS (alap): bárki böngészhet; hirdetésfeladáshoz,
+//     kedvencekhez, üzenethez kell belépni.
+//   - PRIVÁT (NYILVANOS=0 a .env-ben): az adatokat csak bejelentkezve
+//     lehet látni. A weboldal betöltődik, de a belépő ablakot mutatja.
+//
+//  Felhasználói nézet: az admin kipróbálhatja, mit lát egy sima
+//  felhasználó ("ipnezet=user" süti). Ilyenkor req.szerep = "user",
+//  az admin felület és az admin API-k nem érhetők el; req.valodiSzerep
+//  = "admin", hogy vissza tudjon váltani.
 //
 //  A régi HTTP Basic belépés (ADMIN_USER / APP_USER) is működik
 //  még (pl. parancssorból), de a böngésző már a belépő ablakot használja.
@@ -23,7 +28,7 @@ const acc = require("../services/accounts");
 const MINDIG_NYITOTT = [/^\/api\/me$/, /^\/api\/config$/, /^\/api\/auth\//];
 
 function nyilvanosMod() {
-    return /^(1|true|igen|yes)$/i.test(String(process.env.NYILVANOS || ""));
+    return !/^(0|false|nem|no|privat|privát)$/i.test(String(process.env.NYILVANOS || "").trim());
 }
 
 function belepes() {
@@ -60,6 +65,12 @@ function belepes() {
 
             req.user = user;
             req.szerep = user ? (user.szerep || "user") : "vendeg";
+            req.valodiSzerep = req.szerep;
+
+            // Az admin felhasználói nézetben (kipróbálja a sima felhasználói felületet)
+            if (req.szerep === "admin" && acc.sutiOlvas(req).ipnezet === "user") {
+                req.szerep = "user";
+            }
             req.felhasznalo = user ? (user.nev || user.felhasznalonev || user.email) : null;
 
             // Csak az API-t védjük – a weboldal fájljai (HTML, JS, CSS) mindig

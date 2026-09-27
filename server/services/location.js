@@ -21,6 +21,7 @@
 const db = require("../db/database");
 const geo = require("./geocode");
 const textParse = require("./textParse");
+const districts = require("./districts");
 const Telepulesek = require("../../public/js/core/telepulesek");
 
 const KORNYEK_KM = 45;          // a falvakat a város ennyi km-es körzetében keressük
@@ -197,6 +198,13 @@ async function helyKeres(d, szoveg, extra = {}) {
 
     if (d.forras_kerulet) kornyekek.push(d.forras_kerulet);
     textParse.helyTippek(szoveg).filter(t => t.szint === "kozelito").forEach(t => kornyekek.push(t.szoveg));
+
+    // A megrajzolt kerülethatár közepe – ez pontosabb, mint a névre keresés
+    // (a "Centru" típusú nevekre a kereső a város közepét adja)
+    if (d.kerulet) {
+        const h = await districts.keruletKozep(d.varos, d.kerulet);
+        if (h) return { x: h.x, y: h.y, szint: "kozelito", sugar: h.sugar, forras: "kerulet", nev: d.kerulet };
+    }
 
     for (const k of [...new Set(kornyekek)].slice(0, 3)) {
         const t = await kornyekKeres(d.varos, k);

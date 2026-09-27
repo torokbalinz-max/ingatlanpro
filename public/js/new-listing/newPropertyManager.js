@@ -23,6 +23,9 @@ class NewPropertyManager {
 
     static MAX_PHOTOS = 15;
 
+    static prefIroda = null;          // az iroda oldaláról indított új hirdetés
+    static irodaCache = new Map();    // iroda id -> { nev, ugynokok, mappak }
+
     static init() {
 
         NewPropertyManager.renderTypes();
@@ -43,6 +46,8 @@ class NewPropertyManager {
         };
 
         document.getElementById("btnScrape").onclick = () => NewPropertyManager.scrape();
+
+        document.getElementById("ujIroda").addEventListener("change", () => NewPropertyManager.irodaValtas());
 
         // Városváltáskor a térkép az új városra ugrik (ha még nincs pont),
         // különben ellenőrzi, hogy a pont nem esik-e messze
@@ -366,7 +371,107 @@ class NewPropertyManager {
             kulso_kepek: NewPropertyManager.photos.filter(p => p.kind === "ext").map(p => p.url),
             kepek: NewPropertyManager.photos.filter(p => p.kind === "new").map(p => p.data),
             torlendoKepek: NewPropertyManager.removedPhotoIds,
-            forras_szoveg: NewPropertyManager.forrasSzoveg || null
+            forras_szoveg: NewPropertyManager.forrasSzoveg || null,
+            ...NewPropertyManager.irodaAdat()
+        };
+
+    }
+
+    // ---------- Ingatlaniroda (ki hirdeti) ----------
+
+    // A blokk csak az iroda tagjainak látszik (és ha a hirdetés már egy irodáé)
+    static renderIroda(irodaId, ugynokId, ref, mappa, megj, irodaNev) {
+
+        const block = document.getElementById("newAgencyBlock");
+        const sel = document.getElementById("ujIroda");
+        const irodak = [...(AuthManager.irodak || [])];
+
+        if (irodaId && !irodak.some(x => x.id === irodaId)) irodak.push({ id: irodaId, nev: irodaNev || ("#" + irodaId) });
+
+        block.hidden = !irodak.length;
+        NewPropertyManager.irodaMod = irodak.length > 0;
+
+        if (!irodak.length) return Promise.resolve();
+
+        sel.innerHTML = `<option value="">${I18n.t("agPostPrivate")}</option>` +
+            irodak.map(x => `<option value="${x.id}">${Utils.escape(x.nev)}</option>`).join("");
+
+        sel.value = irodaId ? String(irodaId) : "";
+
+        document.getElementById("ujIrodaRef").value = ref || "";
+        document.getElementById("ujIrodaMappa").value = mappa || "";
+        document.getElementById("ujIrodaMegj").value = megj || "";
+
+        return NewPropertyManager.irodaValtas(ugynokId);
+
+    }
+
+    static irodaBetolt(id) {
+
+        if (NewPropertyManager.irodaCache.has(id)) return Promise.resolve(NewPropertyManager.irodaCache.get(id));
+
+        return Promise.all([
+            fetch("/api/irodak/" + id).then(r => r.ok ? r.json() : null),
+            fetch(`/api/irodak/${id}/hirdetesek`).then(r => r.ok ? r.json() : []).catch(() => [])
+        ]).then(([ir, lista]) => {
+            const adat = {
+                ugynokok: ir ? ir.ugynokok.filter(u => u.aktiv !== false) : [],
+                mappak: [...new Set(lista.map(i => i.iroda_mappa).filter(Boolean))].sort()
+            };
+            NewPropertyManager.irodaCache.set(id, adat);
+            return adat;
+        });
+
+    }
+
+    static irodaValtas(ugynokId) {
+
+        const id = Number(document.getElementById("ujIroda").value) || null;
+
+        document.querySelectorAll("#newAgencyBlock [data-agency-only], #ujUgynokWrap").forEach(el => { el.hidden = !id; });
+
+        const ugSel = document.getElementById("ujUgynok");
+
+        if (!id) {
+            ugSel.innerHTML = "";
+            return Promise.resolve();
+        }
+
+        const jegy = NewPropertyManager.irodaJegy = (NewPropertyManager.irodaJegy || 0) + 1;
+
+        return NewPropertyManager.irodaBetolt(id).then(adat => {
+
+            // Közben újra lett választva (pl. szerkesztés indult): ez a válasz már elavult
+            if (jegy !== NewPropertyManager.irodaJegy) return;
+
+            // Alapból a saját ügynök-kártyám
+            const sajat = adat.ugynokok.find(u => AuthManager.user && u.user_id === AuthManager.user.id);
+            const valasztott = ugynokId !== undefined ? ugynokId : (sajat ? sajat.id : null);
+
+            ugSel.innerHTML = `<option value="">— ${I18n.t("agNoAgent")}</option>` +
+                adat.ugynokok.map(u => `<option value="${u.id}">${Utils.escape(u.nev)}</option>`).join("");
+            ugSel.value = valasztott ? String(valasztott) : "";
+
+            document.getElementById("ujIrodaMappaLista").innerHTML = adat.mappak.map(m => `<option value="${Utils.escape(m)}">`).join("");
+
+        });
+
+    }
+
+    static irodaAdat() {
+
+        if (!NewPropertyManager.irodaMod) return {};
+
+        const id = Number(document.getElementById("ujIroda").value) || null;
+
+        if (!id) return { iroda_id: null };
+
+        return {
+            iroda_id: id,
+            ugynok_id: Number(document.getElementById("ujUgynok").value) || null,
+            iroda_ref: document.getElementById("ujIrodaRef").value.trim(),
+            iroda_mappa: document.getElementById("ujIrodaMappa").value.trim(),
+            iroda_megjegyzes: document.getElementById("ujIrodaMegj").value.trim()
         };
 
     }
@@ -520,6 +625,8 @@ class NewPropertyManager {
                 NewPropertyManager.updateTitle();
                 NewPropertyManager.applyType();
 
+                NewPropertyManager.renderIroda(i.iroda_id || null, i.ugynok_id || null, i.iroda_ref, i.iroda_mappa, i.iroda_megjegyzes, i.iroda && i.iroda.nev);
+
                 PageManager.show("new");
 
                 setTimeout(() => {
@@ -564,6 +671,12 @@ class NewPropertyManager {
 
         NewPropertyMap.setPoint(null, null);
         NewPropertyManager.markMissing([]);
+
+        // Iroda: az iroda oldaláról indítva az az iroda, különben (ha tag) az első irodája
+        const pref = NewPropertyManager.prefIroda || ((AuthManager.irodak || [])[0] || {}).id || null;
+        NewPropertyManager.prefIroda = null;
+        NewPropertyManager.irodaCache.clear();
+        NewPropertyManager.renderIroda(pref);
 
         NewPropertyManager.updateTitle();
         NewPropertyManager.applyType();

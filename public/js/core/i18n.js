@@ -1644,7 +1644,7 @@ class I18n {
 
         const v = String(value).trim();
 
-        if (typeof Utils !== "undefined" && Utils.normAllapot(v) && ["felújítandó", "részbenfel", "jó", "újszerű", "luxus"].includes(Utils.normAllapot(v))) {
+        if (typeof Utils !== "undefined" && Utils.normAllapot(v) && Utils.ALLAPOTOK.includes(Utils.normAllapot(v))) {
             return Utils.allapotLabel(v);
         }
 

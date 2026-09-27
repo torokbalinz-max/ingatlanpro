@@ -22,6 +22,7 @@ function normAllapot(a) {
     if (v === "új" || v === "uj" || v.startsWith("újsz") || v.startsWith("ujsz")) return "újszerű";
     if (v.startsWith("részben") || v.startsWith("reszben")) return "részbenfel";
     if (v.startsWith("felúj") || v.startsWith("feluj")) return "felújítandó";
+    if (v.startsWith("közep") || v.startsWith("kozep") || v === "átlagos" || v === "lakható") return "közepes";
     if (v === "jó" || v === "jo") return "jó";
     if (v.startsWith("lux")) return "luxus";
     return v;

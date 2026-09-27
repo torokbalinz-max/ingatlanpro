@@ -31,7 +31,7 @@ ${JSON.stringify(adatok, null, 2)}
 
 Szabályok:
 - tipus: lakas | haz | telek | kereskedelmi | iroda ; ugylet: elado | kiado
-- allapot: felújítandó | részbenfel | jó | újszerű | luxus
+- allapot: felújítandó | közepes | részbenfel | jó | újszerű | luxus  (közepes = lakható, de régi / átlagos állapot)
 - emelet formátum: "emelet/összes", pl. "4/4", földszint = "0"
 - Az "alapterulet_m2" a hasznos (utilă) terület.
 - Csak akkor javasolj módosítást, ha a szöveg egyértelműen mást mond, vagy az érték hiányzik és a szövegben szerepel.

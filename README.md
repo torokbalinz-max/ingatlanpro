@@ -62,7 +62,10 @@ A Render a push után magától újraindul az új kóddal (pár perc).
 - **Admin** (`ADMIN_USER` / `ADMIN_PASSWORD`, vagy az `ADMIN_EMAILS`-ben felsorolt e-mail címek): mindent lát és módosíthat, övé az Admin felület.
 - **Felhasználó**: saját fiók (e-mail + jelszó, vagy Google). Hirdetést adhat fel, a sajátját szerkesztheti / törölheti, saját kedvencei, mentett keresései, keresési igényei és üzenetei vannak.
 - A belépés a weboldal belépő ablakában történik (süti, 60 napig bent marad). A régi `ADMIN_USER` / `APP_USER` belépés ugyanott működik.
-- `NYILVANOS=1`: belépés nélkül is lehet böngészni. Üresen hagyva az oldal csak belépve látszik.
+- Az oldal alapból **nyilvános**: belépés nélkül is lehet böngészni. `NYILVANOS=0`: csak belépve látszik.
+- **Felhasználói nézet**: az admin a fejléc menüjében átválthat, és úgy látja az oldalt, mint egy sima felhasználó (az admin felület ilyenkor rejtve van). Ugyanott lehet visszaváltani.
+- **Ingatlanirodák** (`#iroda`): bármelyik felhasználó létrehozhat egy irodát (Fiókom → Ingatlaniroda). Az iroda hirdetései egy helyen kezelhetők: ügynökök, belső hivatkozási szám, mappák, archiválás, tömeges műveletek. A hirdetésen látszik az iroda és az ügynök elérhetősége.
+- **Kerülethatárok** (Admin → Városok, kerületek → Határok rajzolása): a kerületek határa a térképen. Pontos helyű hirdetésnél ebből dől el a kerület; a csak kerülettel ismert hirdetések a kerület közepére kerülnek.
 - `MEGHIVO_KOD`: ha be van állítva, csak ezzel a kóddal lehet regisztrálni.
 
 ## Új részek

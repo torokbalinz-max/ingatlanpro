@@ -17,6 +17,8 @@ class AuthManager {
     static user = null;
     static config = {};
     static olvasatlan = 0;
+    static adminNezet = false;      // az admin a felhasználói nézetet próbálja
+    static irodak = [];             // az ingatlanirodák, amelyeknek tagja
     static varakozok = [];
     static modal = null;
     static mod = "login";
@@ -35,7 +37,12 @@ class AuthManager {
     }
 
     static canEdit(i) {
-        return AuthManager.isAdmin() || AuthManager.owns(i);
+        return AuthManager.isAdmin() || AuthManager.owns(i) || AuthManager.irodaTag(i && i.iroda_id);
+    }
+
+    // Tagja-e az irodának (az iroda hirdetéseit kezelheti)
+    static irodaTag(irodaId) {
+        return !!(irodaId && AuthManager.irodak.some(x => x.id === Number(irodaId)));
     }
 
     static load() {
@@ -75,6 +82,8 @@ class AuthManager {
         AuthManager.szerep = me.szerep || (me.user ? me.user.szerep : "vendeg");
         AuthManager.felhasznalo = me.felhasznalo || null;
         AuthManager.olvasatlan = me.olvasatlan || 0;
+        AuthManager.adminNezet = !!me.adminNezet;
+        AuthManager.irodak = Array.isArray(me.irodak) ? me.irodak : [];
 
         AuthManager.apply();
 
@@ -96,6 +105,18 @@ class AuthManager {
         document.querySelectorAll(".admin-only").forEach(el => { el.hidden = !admin; });
         document.querySelectorAll(".auth-only").forEach(el => { el.hidden = !bent; });
         document.querySelectorAll(".guest-only").forEach(el => { el.hidden = bent; });
+
+        // Admin: felhasználói nézet ki / be
+        const valodiAdmin = admin || AuthManager.adminNezet;
+        document.querySelectorAll(".adminView-only").forEach(el => { el.hidden = !valodiAdmin; });
+        const bar = document.getElementById("viewAsUserBar");
+        if (bar) bar.hidden = !AuthManager.adminNezet;
+        document.body.classList.toggle("view-as-user", !!AuthManager.adminNezet);
+        const vl = document.getElementById("navViewLabel");
+        if (vl) {
+            vl.setAttribute("data-i18n", AuthManager.adminNezet ? "viewAsAdmin" : "viewAsUser");
+            vl.innerText = I18n.t(AuthManager.adminNezet ? "viewAsAdmin" : "viewAsUser");
+        }
 
         const nev = document.getElementById("navUserName");
         if (nev) nev.innerText = bent ? AuthManager.user.nev : I18n.t("authLoginBtn");
@@ -373,7 +394,15 @@ class AuthManager {
 
     }
 
+    // Az admin kipróbálja a felhasználói felületet (süti: a szerver is így kezeli)
+    static setView(user) {
+        document.cookie = "ipnezet=" + (user ? "user" : "") + "; path=/; SameSite=Lax" + (user ? "; max-age=86400" : "; max-age=0");
+        location.hash = user ? "#home" : "#admin";
+        location.reload();
+    }
+
     static logout() {
+        document.cookie = "ipnezet=; path=/; max-age=0";
         return fetch("/api/auth/logout", { method: "POST" })
             .finally(() => { location.hash = "#home"; location.reload(); });
     }

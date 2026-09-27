@@ -84,6 +84,7 @@
                 <li class="admin-only" hidden><a class="dropdown-item" href="#admin" data-page="admin"><i class="fa-solid fa-user-shield"></i><span><b data-i18n="menuAdmin">Admin</b><small data-i18n="menuAdminDesc">Import, jóváhagyás, duplikátumok</small></span></a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="#fiok" data-page="fiok"><i class="fa-solid fa-circle-user"></i><span><b data-i18n="menuFiok">Fiókom</b><small data-i18n="menuFiokDesc">Hirdetéseim, keresések, üzenetek</small></span></a></li>
+                <li><a class="dropdown-item" href="#iroda" data-page="iroda"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agMenu">Ingatlaniroda</b><small data-i18n="agMenuDesc">Az iroda hirdetései, ügynökei</small></span></a></li>
             </ul>
 
         </div>
@@ -131,6 +132,9 @@
                     <li><a class="dropdown-item" href="#fiok/igenyek"><i class="fa-solid fa-bullhorn"></i> <span data-i18n="accTabRequests">Keresési igényeim</span></a></li>
                     <li><a class="dropdown-item" href="#fiok/uzenetek"><i class="fa-solid fa-envelope"></i> <span data-i18n="accTabMessages">Üzenetek</span> <span class="badge text-bg-danger ms-1 navMsgCount2" hidden></span></a></li>
                     <li><a class="dropdown-item" href="#favorites"><i class="fa-solid fa-star"></i> <span data-i18n="menuKedvencek">Kedvencek</span></a></li>
+                    <li><a class="dropdown-item" href="#iroda"><i class="fa-solid fa-briefcase"></i> <span data-i18n="agMenu">Ingatlaniroda</span></a></li>
+                    <li class="adminView-only" hidden><hr class="dropdown-divider"></li>
+                    <li class="adminView-only" hidden><button class="dropdown-item" type="button" id="navViewToggle"><i class="fa-solid fa-eye"></i> <span id="navViewLabel" data-i18n="viewAsUser">Felhasználói nézet</span></button></li>
                     <li class="navDarkItem"><button class="dropdown-item" type="button" id="navDarkItem"><i class="fa-solid fa-circle-half-stroke"></i> <span data-i18n="darkModeToggle">Sötét mód</span></button></li>
                     <li><hr class="dropdown-divider"></li>
                     <li><button class="dropdown-item" type="button" id="navLogout"><i class="fa-solid fa-right-from-bracket"></i> <span data-i18n="authLogout">Kilépés</span></button></li>
@@ -144,6 +148,13 @@
 </nav>
 
 <main class="appMain">
+
+<div class="viewAsUserBar" id="viewAsUserBar" hidden>
+    <i class="fa-solid fa-eye" aria-hidden="true"></i>
+    <span data-i18n="viewAsUserBar">Felhasználói nézetben vagy: így látja az oldalt egy sima felhasználó.</span>
+    <button type="button" class="btn btn-sm btn-light" id="viewAsUserBack" data-i18n="viewAsAdmin">Vissza az admin nézetre</button>
+</div>
+
 
 <div class="row g-4 g-xl-5" id="layoutRow">
 
@@ -287,6 +298,7 @@
                             <select id="allapot" class="form-select mb-3">
                                 <option value="" data-i18n="allapotMindegy">Mindegy</option>
                                 <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
+                                <option value="közepes" data-i18n="allapotKozepes">közepes</option>
                                 <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
                                 <option value="jó" data-i18n="allapotJo">jó</option>
                                 <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
@@ -631,6 +643,17 @@
         </div>
     </div>
 
+    <div class="mapToggles">
+        <div class="form-check form-switch mb-0" id="mapToggleDistrictsWrap" hidden>
+            <input class="form-check-input" type="checkbox" id="mapShowDistricts" checked>
+            <label class="form-check-label" for="mapShowDistricts" data-i18n="mapShowDistricts">Kerülethatárok</label>
+        </div>
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="mapShowApprox" checked>
+            <label class="form-check-label" for="mapShowApprox" data-i18n="mapShowApprox">Közelítő helyek</label>
+        </div>
+    </div>
+
     <div class="mapPageBox">
         <div id="map"></div>
     </div>
@@ -682,6 +705,33 @@
                     </div>
 
                     <div class="typeGrid mb-3" id="newTypeGrid"></div>
+
+                    <!-- Ki hirdeti? (csak ha a felhasználó egy ingatlaniroda tagja) -->
+                    <div class="agFormBlock mb-3" id="newAgencyBlock" hidden>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label" for="ujIroda" data-i18n="agPostedAs">Ki hirdeti?</label>
+                                <select id="ujIroda" class="form-select"></select>
+                            </div>
+                            <div class="col-md-6" id="ujUgynokWrap">
+                                <label class="form-label" for="ujUgynok" data-i18n="agAgent">Ügynök</label>
+                                <select id="ujUgynok" class="form-select"></select>
+                            </div>
+                            <div class="col-md-6" data-agency-only>
+                                <label class="form-label" for="ujIrodaRef" data-i18n="agRef">Hivatkozási szám</label>
+                                <input id="ujIrodaRef" type="text" maxlength="40" class="form-control" data-i18n-placeholder="agRefPh" placeholder="pl. SSG-0142">
+                            </div>
+                            <div class="col-md-6" data-agency-only>
+                                <label class="form-label" for="ujIrodaMappa" data-i18n="agFolder">Mappa</label>
+                                <input id="ujIrodaMappa" type="text" maxlength="60" class="form-control" list="ujIrodaMappaLista" data-i18n-placeholder="agFolderPh" placeholder="pl. Exkluzív, Új építésű">
+                                <datalist id="ujIrodaMappaLista"></datalist>
+                            </div>
+                            <div class="col-12" data-agency-only>
+                                <label class="form-label" for="ujIrodaMegj" data-i18n="agNote">Belső megjegyzés</label>
+                                <textarea id="ujIrodaMegj" rows="2" maxlength="2000" class="form-control" data-i18n-placeholder="agNotePh" placeholder="Csak az iroda látja (pl. kulcs az irodában, tulaj elérhetősége)"></textarea>
+                            </div>
+                        </div>
+                    </div>
 
                     <label class="form-label" for="ujLink" data-i18n="newLink">Link egy másik hirdetési oldalról (nem kötelező)</label>
                     <div class="input-group">
@@ -756,10 +806,11 @@
                             <label class="form-label req" for="ujAllapot" data-i18n="newAllapot">Állapot</label>
                             <select id="ujAllapot" class="form-select">
                                 <option value="" data-i18n="chooseOne">— válassz —</option>
+                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
+                                <option value="közepes" data-i18n="allapotKozepes">közepes</option>
+                                <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
                                 <option value="jó" data-i18n="allapotJo">jó</option>
                                 <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
-                                <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
-                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
                                 <option value="luxus" data-i18n="allapotLuxus">luxus</option>
                             </select>
                         </div>
@@ -978,6 +1029,7 @@
                             <select id="valAllapot" class="form-select">
                                 <option value="" data-i18n="allapotMindegy">Mindegy</option>
                                 <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
+                                <option value="közepes" data-i18n="allapotKozepes">közepes</option>
                                 <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
                                 <option value="jó" data-i18n="allapotJo">jó</option>
                                 <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
@@ -1082,6 +1134,18 @@
     <div id="fiokContent"></div>
 </section>
 
+<!-- =====================================================================
+     INGATLANIRODA (kezelés) és az iroda nyilvános oldala
+     ===================================================================== -->
+
+<section id="page-iroda" class="page" style="display:none;">
+    <div id="irodaContent"></div>
+</section>
+
+<section id="page-irodak" class="page" style="display:none;">
+    <div id="irodaProfilContent"></div>
+</section>
+
 </div> <!-- mainCol -->
 
 </div> <!-- layoutRow -->
@@ -1110,8 +1174,10 @@
 <script src="js/core/i18n.js"></script>
 <script src="js/core/i18n-extra.js"></script>
 <script src="js/core/i18n-accounts.js"></script>
+<script src="js/core/i18n-agency.js"></script>
 <script src="js/core/telepulesek.js"></script>
 <script src="js/core/utils.js"></script>
+<script src="js/core/districts.js"></script>
 <script src="js/core/types.js"></script>
 <script src="js/core/sources.js"></script>
 <script src="js/core/authManager.js"></script>
@@ -1156,6 +1222,7 @@
 <script src="js/admin/import.js"></script>
 <script src="js/admin/duplicates.js"></script>
 <script src="js/admin/places.js"></script>
+<script src="js/admin/districtEditor.js"></script>
 
 <!-- Oldalak, indítás -->
 <script src="js/core/locationPicker.js"></script>
@@ -1163,6 +1230,7 @@
 <script src="js/account/messages.js"></script>
 <script src="js/account/accountPage.js"></script>
 <script src="js/requests/requestsPage.js"></script>
+<script src="js/agency/agencyPage.js"></script>
 <script src="js/core/homePage.js"></script>
 <script src="js/core/pageManager.js"></script>
 <script src="js/core/app.js"></script>

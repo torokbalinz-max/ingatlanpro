@@ -60,6 +60,11 @@ async function createSchema(db) {
         "hely_kezi BOOLEAN DEFAULT false",       // ember tette le a térképen – az automatika nem mozgatja
         "hely_eredeti JSONB",                    // a forrásoldal (rossz) helye, ha áttettük
         "kep_hash_v INTEGER",                    // a képek ujjlenyomata elkészült-e
+        "iroda_id INTEGER",                      // ingatlanirodás hirdetésnél az iroda
+        "ugynok_id INTEGER",                     // az irodán belül a felelős ügynök
+        "iroda_ref TEXT",                        // az iroda saját hivatkozási száma
+        "iroda_mappa TEXT",                      // az iroda saját rendszerezése (mappa / címke)
+        "iroda_megjegyzes TEXT",                 // belső megjegyzés (csak az iroda látja)
         "updated_at TIMESTAMP DEFAULT NOW()"
     ];
 
@@ -73,6 +78,7 @@ async function createSchema(db) {
 
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_varos ON ingatlanok (varos)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_statusz ON ingatlanok (statusz)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_iroda ON ingatlanok (iroda_id)`);
 
     // Feltöltött képek (az adatbázisban, mert a Render ingyenes szerverén
     // a fájlok újraindításkor elvesznének)
@@ -283,6 +289,58 @@ async function createSchema(db) {
     // név látszik, magyarul a magyar.
     await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS nev_ro TEXT`);
 
+    // A kerület határa a térképen (az admin rajzolja): [[hosszúság, szélesség], ...]
+    // Ebből dől el, melyik kerületben van egy pontos helyű hirdetés.
+    await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS hatar JSONB`);
+
+    // ===================== INGATLANIRODÁK =====================
+
+    // Az iroda (cég) adatai – egy felhasználó hozza létre, ő a vezetője
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS irodak (
+            id SERIAL PRIMARY KEY,
+            nev TEXT NOT NULL,
+            leiras TEXT,
+            telefon TEXT,
+            email TEXT,
+            weboldal TEXT,
+            cim TEXT,
+            varos TEXT,
+            ellenorzott BOOLEAN DEFAULT false,
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    // Kik kezelhetik az iroda hirdetéseit (vezeto: mindent, tag: hirdetéseket)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS iroda_tagok (
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            szerep TEXT DEFAULT 'tag',
+            created_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (iroda_id, user_id)
+        )
+    `);
+
+    // Az iroda ügynökei (kapcsolattartók a hirdetéseken). Nem kell fiók hozzá;
+    // ha van (user_id), az érdeklődők üzenete neki megy.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS iroda_ugynokok (
+            id SERIAL PRIMARY KEY,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE CASCADE,
+            nev TEXT NOT NULL,
+            telefon TEXT,
+            email TEXT,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            aktiv BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_iroda_ugynokok ON iroda_ugynokok (iroda_id)`);
+
     // Egyszerű beállítások / jelzők (pl. lefutott-e már az automatikus javítás)
     await db.query(`
         CREATE TABLE IF NOT EXISTS beallitasok (
@@ -412,6 +470,9 @@ async function seedDefaults(db) {
 // Táblák a helyes (függőségi) sorrendben – a migráció is ezt használja
 const TABLES = [
     "users",
+    "irodak",
+    "iroda_tagok",
+    "iroda_ugynokok",
     "varosok",
     "keruletek",
     "ingatlanok",

@@ -20,6 +20,8 @@ class PageManager {
         admin: { icon: "fa-solid fa-user-shield", label: "menuAdmin" },
         igenyek: { icon: "fa-solid fa-bullhorn", label: "menuIgenyek" },
         fiok: { icon: "fa-solid fa-circle-user", label: "menuFiok", login: true },
+        iroda: { icon: "fa-solid fa-briefcase", label: "agMenu", login: true },
+        irodak: { icon: "fa-solid fa-briefcase", label: "agLabel" },
         listing: { icon: "fa-solid fa-rectangle-list", label: "menuHirdetes" }
     };
 
@@ -33,7 +35,7 @@ class PageManager {
     };
 
     // Ezekhez be kell jelentkezni
-    static LOGIN_KELL = ["new", "favorites", "fiok"];
+    static LOGIN_KELL = ["new", "favorites", "fiok", "iroda"];
 
     static init() {
 
@@ -160,6 +162,14 @@ class PageManager {
 
         if (page === "fiok") {
             AccountPage.show(param);
+        }
+
+        if (page === "iroda") {
+            AgencyPage.show(param);
+        }
+
+        if (page === "irodak" && param) {
+            AgencyProfile.show(Number(param));
         }
 
     }

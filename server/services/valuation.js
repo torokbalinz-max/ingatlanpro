@@ -10,8 +10,12 @@ const db = require("../db/database");
 
 // Állapotok egységesítése (az adatokban vannak pl. "jó*",
 // "részbenfel" jellegű értékek is)
+// (fél lépések: a "közepes" a felújítandó és a részben felújított között van,
+// így a régi értékek távolsága nem változik)
 const ALLAPOT_RANG = {
     "felújítandó": 0,
+    "közepes": 0.5,
+    "átlagos": 0.5,
     "részbenfel": 1,
     "részben felújított": 1,
     "jó": 2,

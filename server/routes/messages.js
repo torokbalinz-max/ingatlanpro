@@ -141,7 +141,11 @@ router.post("/api/ingatlanok/:id/uzenet", csakBelepve, async (req, res) => {
 
     try {
 
-        const r = await db.query("SELECT id, owner_id, cim FROM ingatlanok WHERE id = $1", [req.params.id]);
+        // Ingatlanirodás hirdetésnél az ügynök kapja (ha van fiókja), különben a feladó
+        const r = await db.query(`
+            SELECT i.id, i.cim, COALESCE(u.user_id, i.owner_id) AS owner_id
+            FROM ingatlanok i LEFT JOIN iroda_ugynokok u ON u.id = i.ugynok_id AND u.aktiv
+            WHERE i.id = $1`, [req.params.id]);
         const i = r.rows[0];
 
         if (!i || !i.owner_id) return res.status(400).json({ error: "no_owner" });
