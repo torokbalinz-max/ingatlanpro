@@ -1,7 +1,7 @@
 // ============================================================
 //  Oldalak (a fejléc menüpontjai) + címsor (#hash) kezelés
 //  #properties, #market, #new, #favorites, #valuation, #admin,
-//  #user, #listing/123
+//  #user, #listing/123, #jogi/aszf
 // ============================================================
 
 class PageManager {
@@ -22,7 +22,8 @@ class PageManager {
         fiok: { icon: "fa-solid fa-circle-user", label: "menuFiok", login: true },
         iroda: { icon: "fa-solid fa-briefcase", label: "agMenu", login: true },
         irodak: { icon: "fa-solid fa-briefcase", label: "agLabel" },
-        listing: { icon: "fa-solid fa-rectangle-list", label: "menuHirdetes" }
+        listing: { icon: "fa-solid fa-rectangle-list", label: "menuHirdetes" },
+        jogi: { icon: "fa-solid fa-scale-balanced", label: "legalPageTitle" }
     };
 
     // Régi nevek (más modulok még ezeket hívhatják)
@@ -154,6 +155,12 @@ class PageManager {
 
         if (page === "listing" && param) {
             ListingPage.show(Number(param));
+            if (typeof LegalPage !== "undefined") LegalPage.listingHook(Number(param));
+        }
+
+        // Jogi oldalak (impresszum, feltételek, adatvédelem, sütik, bejelentés)
+        if (page === "jogi" && typeof LegalPage !== "undefined") {
+            LegalPage.show(param);
         }
 
         if (page === "igenyek") {

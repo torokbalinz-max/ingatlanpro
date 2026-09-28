@@ -131,7 +131,10 @@ async function createSchema(db) {
         "telefon TEXT",
         "ertesites_email BOOLEAN DEFAULT true",
         "utolso_belepes TIMESTAMP",
-        "tiltva BOOLEAN DEFAULT false"
+        "tiltva BOOLEAN DEFAULT false",
+        // Jogi: mikor és melyik ÁSZF / adatvédelmi verziót fogadta el
+        "aszf_elfogadva TIMESTAMP",
+        "aszf_verzio TEXT"
     ];
 
     for (const o of userOszlopok) {
@@ -380,6 +383,41 @@ async function createSchema(db) {
             property_count INTEGER,
             avg_price DOUBLE PRECISION,
             avg_price_nm DOUBLE PRECISION
+        )
+    `);
+
+    // ---------- Jogi ----------
+
+    // Tartalom-bejelentések (EU DSA 16. cikk: bárki jelezheti a jogellenes
+    // tartalmat; a döntést és az indoklást is itt tartjuk nyilván)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS bejelentesek (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE SET NULL,
+            url TEXT,
+            ok TEXT NOT NULL,
+            leiras TEXT NOT NULL,
+            nev TEXT,
+            email TEXT,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            statusz TEXT DEFAULT 'uj',
+            dontes_indok TEXT,
+            dontes_ido TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_bejelentesek_statusz ON bejelentesek (statusz, created_at)`);
+
+    // Süti-hozzájárulások naplója (GDPR 7. cikk (1): igazolni kell tudni a
+    // hozzájárulást). IP-címet és fiókot NEM tárolunk, csak egy véletlen azonosítót.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS suti_hozzajarulasok (
+            id SERIAL PRIMARY KEY,
+            azonosito TEXT NOT NULL,
+            valasztas JSONB NOT NULL,
+            verzio TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
         )
     `);
 

@@ -87,6 +87,9 @@ class AuthManager {
 
         AuthManager.apply();
 
+        // A felhasználási feltételek (új változatának) elfogadása
+        if (me.aszfKell && typeof LegalPage !== "undefined") LegalPage.aszfKerdes();
+
     }
 
     static refresh() {
@@ -209,6 +212,7 @@ class AuthManager {
 
         const google = c.googleClientId && (mod === "login" || mod === "register") ? `
             <div id="googleBtn" class="googleBtnBox"></div>
+            ${typeof LegalPage !== "undefined" ? `<p class="authGoogleTerms small text-body-secondary text-center">${LegalPage.feltetelSzoveg("authGoogleTerms")}</p>` : ""}
             <div class="authOr"><span>${I18n.t("authOr")}</span></div>` : "";
 
         let urlap = "";
@@ -243,6 +247,11 @@ class AuthManager {
                         <label class="form-label" for="authInvite">${I18n.t("authInvite")}</label>
                         <input class="form-control mb-1" id="authInvite" autocomplete="off" required>
                         <div class="form-text mb-3">${I18n.t("authInviteHelp")}</div>` : ""}
+                    ${typeof LegalPage !== "undefined" ? `
+                    <div class="form-check mb-3 authTerms">
+                        <input class="form-check-input" type="checkbox" id="authTerms" required>
+                        <label class="form-check-label small" for="authTerms">${LegalPage.feltetelSzoveg("authTermsCheck")}</label>
+                    </div>` : ""}
                     <div class="authError alert alert-danger small py-2" hidden></div>
                     <button class="btn btn-primary w-100" type="submit">${I18n.t("authRegisterBtn")}</button>
                 </form>
@@ -324,9 +333,11 @@ class AuthManager {
             if (!body.email || !body.jelszo) return AuthManager.hiba("missing");
         } else if (mod === "register") {
             url = "/api/auth/register";
-            body = { nev: v("authName"), email: v("authEmail"), jelszo: document.getElementById("authPass").value, meghivo: v("authInvite") };
+            const terms = document.getElementById("authTerms");
+            body = { nev: v("authName"), email: v("authEmail"), jelszo: document.getElementById("authPass").value, meghivo: v("authInvite"), aszf: !!(terms && terms.checked) };
             if (!body.nev || !body.email) return AuthManager.hiba("missing");
             if (body.jelszo.length < 8) return AuthManager.hiba("weak_password");
+            if (terms && !terms.checked) return AuthManager.hiba("terms_required");
         } else if (mod === "forgot") {
             url = "/api/auth/elfelejtett";
             body = { email: v("authEmail") };
@@ -409,6 +420,25 @@ class AuthManager {
 
     // Google gomb (Google Identity Services)
     static googleGomb() {
+
+        // A Google-gomb a Google sütijeit használja: csak hozzájárulással töltjük be
+        if (typeof ConsentManager !== "undefined" && !ConsentManager.allowed("google")) {
+            const box = document.getElementById("googleBtn");
+            if (!box) return;
+            box.innerHTML = `
+                <div class="googleConsentBox">
+                    <button type="button" class="btn btn-outline-secondary w-100 googleConsentBtn">
+                        <i class="fa-brands fa-google" aria-hidden="true"></i> ${I18n.t("ckGoogleBtn")}
+                    </button>
+                    <p class="small text-body-secondary text-center mt-1 mb-0">${I18n.t("ckGoogleNote")}</p>
+                </div>`;
+            box.querySelector("button").onclick = () => {
+                ConsentManager.set({ google: true });
+                box.innerHTML = "";
+                AuthManager.googleGomb();
+            };
+            return;
+        }
 
         const rajzol = () => {
             const box = document.getElementById("googleBtn");

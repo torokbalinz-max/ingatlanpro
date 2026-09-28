@@ -19,10 +19,9 @@
         } catch (e) { }
     </script>
 
-    <!-- Betűtípus -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Betűtípus: saját szerverről (a Google Fonts az IP-címet a Google-nak küldené – GDPR) -->
+    <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="css/fonts.css">
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -35,6 +34,7 @@
 
     <!-- Saját CSS -->
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/legal.css">
 </head>
 
 <body>
@@ -1146,11 +1146,46 @@
     <div id="irodaProfilContent"></div>
 </section>
 
+<!-- =====================================================================
+     JOGI OLDALAK (impresszum, feltételek, adatvédelem, sütik, bejelentés)
+     ===================================================================== -->
+
+<section id="page-jogi" class="page" style="display:none;">
+    <div id="jogiContent"></div>
+</section>
+
 </div> <!-- mainCol -->
 
 </div> <!-- layoutRow -->
 
 </main>
+
+<!-- ===================== LÁBLÉC (jogi linkek) ===================== -->
+
+<footer class="appFooter">
+    <div class="appFooterInner">
+        <div class="appFooterBrand">
+            <span class="appBrandIcon"><i class="fa-solid fa-building" aria-hidden="true"></i></span>
+            <div>
+                <b translate="no">Ingatlan<span>Pro</span></b>
+                <small data-i18n="legalFooterNote">Romániai ingatlanhirdetések egy helyen.</small>
+            </div>
+        </div>
+        <nav class="appFooterLinks" aria-label="Legal">
+            <a href="#jogi/impresszum" data-legal-link="impresszum" data-i18n="legalImpresszum">Impresszum</a>
+            <a href="#jogi/aszf" data-legal-link="aszf" data-i18n="legalAszf">Felhasználási feltételek</a>
+            <a href="#jogi/adatvedelem" data-legal-link="adatvedelem" data-i18n="legalAdatvedelem">Adatvédelem</a>
+            <a href="#jogi/sutik" data-legal-link="sutik" data-i18n="legalSutik">Sütik</a>
+            <button type="button" class="btn btn-link p-0" data-consent-open data-i18n="legalCookieSettings">Süti-beállítások</button>
+            <a href="#jogi/bejelentes" data-i18n="legalReport">Tartalom bejelentése</a>
+            <a href="#jogi/bejelentesek" class="admin-only" hidden data-i18n="legalReports">Bejelentések</a>
+        </nav>
+        <div class="appFooterCopy">
+            <span>© <span id="footerYear">2026</span> IngatlanPro<span id="footerOperator"></span></span>
+            <span class="appFooterAnpc" id="footerAnpc" hidden></span>
+        </div>
+    </div>
+</footer>
 
 <!-- Képnagyító -->
 <div class="modal fade" id="photoModal" tabindex="-1">
@@ -1232,6 +1267,13 @@
 <script src="js/requests/requestsPage.js"></script>
 <script src="js/agency/agencyPage.js"></script>
 <script src="js/core/homePage.js"></script>
+<!-- Jogi: adatok, szövegek, süti-hozzájárulás, jogi oldalak -->
+<script src="js/legal/legalConfig.js"></script>
+<script src="js/legal/i18n-legal.js"></script>
+<script src="js/legal/legalTexts.js"></script>
+<script src="js/legal/consent.js"></script>
+<script src="js/legal/legalPage.js"></script>
+
 <script src="js/core/pageManager.js"></script>
 <script src="js/core/app.js"></script>
 

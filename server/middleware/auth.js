@@ -25,7 +25,9 @@
 const acc = require("../services/accounts");
 
 // Belépés nélkül is elérhető API-k
-const MINDIG_NYITOTT = [/^\/api\/me$/, /^\/api\/config$/, /^\/api\/auth\//];
+const MINDIG_NYITOTT = [/^\/api\/me$/, /^\/api\/config$/, /^\/api\/auth\//,
+    // Jogi: tartalom bejelentése (EU DSA – bárki megteheti) és a süti-választás naplója
+    /^\/api\/jogi\/(bejelentes|suti)$/];
 
 function nyilvanosMod() {
     return !/^(0|false|nem|no|privat|privát)$/i.test(String(process.env.NYILVANOS || "").trim());

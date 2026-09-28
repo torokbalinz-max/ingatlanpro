@@ -1,0 +1,13 @@
+/* ==========================================================================
+   Geist betűtípus – saját szerverről (SIL Open Font License, lásd fonts/Geist-OFL.txt)
+   Változó betűtípus: minden vastagság (100–900) egy fájlban, magyar és román
+   ékezetekkel (ő, ű, ș, ț, ă, â, î).
+   ========================================================================== */
+
+@font-face {
+    font-family: "Geist";
+    src: url("../fonts/Geist-Variable.woff2") format("woff2");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}

@@ -52,6 +52,11 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
 
         const i = r.rows[0];
 
+        // Bejelentés miatt eltávolított hirdetés: csak a hirdető és az admin látja
+        if (i.statusz === "tiltott" && req.szerep !== "admin" && !(req.user && req.user.id === i.owner_id)) {
+            return res.status(404).json({ error: "not_found" });
+        }
+
         // Ingatlanirodás hirdetés: az iroda és az ügynök elérhetősége
         let iroda = null, ugynok = null, belso = {};
 

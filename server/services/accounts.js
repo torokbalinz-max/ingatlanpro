@@ -11,6 +11,7 @@
 
 const crypto = require("crypto");
 const db = require("../db/database");
+const { ASZF_VERZIO } = require("../lib/jogi");
 
 const SUTI = "ipsid";
 const NAPOK = 60;                         // ennyi napig marad bejelentkezve
@@ -133,20 +134,23 @@ async function userByEmail(email) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-async function regisztral({ email, jelszo, nev, telefon }) {
+async function regisztral({ email, jelszo, nev, telefon, aszf }) {
 
     email = String(email || "").trim().toLowerCase();
     nev = String(nev || "").trim().slice(0, 80);
 
     if (!EMAIL_RE.test(email)) throw hibaKod("bad_email");
     if (String(jelszo || "").length < 8) throw hibaKod("weak_password");
+    // Az ÁSZF elfogadása és a 18 év feletti kor megerősítése kötelező
+    if (aszf !== true) throw hibaKod("terms_required");
     if (await userByEmail(email)) throw hibaKod("email_taken");
 
     const szerep = adminEmailek().includes(email) ? "admin" : "user";
 
     const r = await db.query(
-        `INSERT INTO users (email, nev, telefon, jelszo_hash, szerep) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-        [email, nev || email.split("@")[0], String(telefon || "").trim().slice(0, 40) || null, hashJelszo(jelszo), szerep]
+        `INSERT INTO users (email, nev, telefon, jelszo_hash, szerep, aszf_elfogadva, aszf_verzio)
+         VALUES ($1,$2,$3,$4,$5,NOW(),$6) RETURNING *`,
+        [email, nev || email.split("@")[0], String(telefon || "").trim().slice(0, 40) || null, hashJelszo(jelszo), szerep, ASZF_VERZIO]
     );
 
     return r.rows[0];

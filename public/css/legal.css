@@ -1,0 +1,314 @@
+/* ==========================================================================
+   JOGI RÉSZEK – lábléc, süti-sáv, jogi oldalak, bejelentés
+   A style.css színeit (--ip-*) használja, világos és sötét módban is.
+   ========================================================================== */
+
+/* ---------- Lábléc ---------- */
+
+.appFooter {
+    border-top: 1px solid var(--ip-border);
+    background: var(--ip-surface);
+    color: var(--ip-muted);
+    font-size: 0.85rem;
+}
+
+.appFooterInner {
+    max-width: var(--ip-max);
+    margin: 0 auto;
+    padding: 1.75rem 2rem 2rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem 2.5rem;
+    align-items: center;
+}
+
+.appFooterBrand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.appFooterBrand b {
+    display: block;
+    color: var(--ip-text);
+    font-size: 1rem;
+    letter-spacing: -0.02em;
+}
+
+.appFooterBrand b span { color: var(--ip-accent); }
+
+.appFooterBrand small { display: block; }
+
+.appFooterLinks {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem 1.25rem;
+}
+
+.appFooterLinks a,
+.appFooterLinks .btn-link {
+    color: var(--ip-muted);
+    text-decoration: none;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    vertical-align: baseline;
+    border: 0;
+}
+
+.appFooterLinks a:hover,
+.appFooterLinks .btn-link:hover {
+    color: var(--ip-accent);
+    text-decoration: underline;
+}
+
+.appFooterLinks [hidden] { display: none !important; }
+
+.appFooterCopy {
+    grid-column: 1 / -1;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ip-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    justify-content: space-between;
+}
+
+.appFooterAnpc a { color: var(--ip-muted); }
+
+/* Hely a süti-sávnak, hogy ne takarja a lábléc alját */
+body.has-cookie-banner .appFooter { padding-bottom: 7rem; }
+
+@media (max-width: 767.98px) {
+    .appFooterInner {
+        grid-template-columns: 1fr;
+        padding: 1.5rem 1rem 1.75rem;
+    }
+    .appFooterLinks { justify-content: flex-start; }
+    body.has-cookie-banner .appFooter { padding-bottom: 14rem; }
+}
+
+@media print {
+    .appFooter, .cookieBanner, .appNav, .legalTabs, .legalData, #searchAside { display: none !important; }
+    .legalDoc { box-shadow: none !important; border: 0 !important; }
+}
+
+/* ---------- Süti-sáv ---------- */
+
+.cookieBanner {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1045;
+    max-width: 980px;
+    margin: 0 auto;
+    background: var(--ip-surface);
+    color: var(--ip-text);
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius);
+    box-shadow: var(--ip-shadow-lift);
+    animation: cookieIn 0.25s ease-out;
+}
+
+@keyframes cookieIn {
+    from { transform: translateY(12px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cookieBanner { animation: none; }
+}
+
+.cookieBannerInner {
+    display: flex;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    padding: 1rem 1.25rem;
+}
+
+.cookieBannerText { flex: 1 1 auto; font-size: 0.9rem; }
+.cookieBannerText b { display: block; margin-bottom: 0.2rem; }
+.cookieBannerText b i { color: var(--ip-accent); }
+
+.cookieBannerBtns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+}
+
+.cookieBannerBtns .btn { min-width: 8.5rem; }
+
+@media (max-width: 767.98px) {
+    .cookieBannerInner { flex-direction: column; align-items: stretch; }
+    .cookieBannerBtns { display: grid; grid-template-columns: 1fr 1fr; }
+    .cookieBannerBtns [data-ck="settings"] { grid-column: 1 / -1; order: 3; }
+    .cookieBannerBtns .btn { min-width: 0; }
+}
+
+.ckCat {
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--ip-border);
+}
+
+.ckCat:first-child { padding-top: 0; }
+
+.ckCat .form-check { margin-bottom: 0.2rem; }
+
+.ckFooter { flex-wrap: wrap; }
+
+/* ---------- Jogi oldal ---------- */
+
+.legalHeader { margin-bottom: 1.25rem; }
+
+.legalTabs {
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.legalTabs .nav-link {
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    color: var(--ip-muted);
+    font-size: 0.9rem;
+}
+
+.legalTabs .nav-link.active {
+    background: var(--ip-accent);
+    color: var(--ip-accent-contrast);
+}
+
+.legalDoc {
+    max-width: 920px;
+}
+
+.legalDoc .card-body { padding: 2rem 2.25rem; }
+
+@media (max-width: 575.98px) {
+    .legalDoc .card-body { padding: 1.25rem 1rem; }
+}
+
+.legalDoc h3 {
+    font-size: 1.1rem;
+    margin: 1.75rem 0 0.6rem;
+}
+
+.legalDoc h3:first-child,
+.legalDoc .legalLead + h3 { margin-top: 1.25rem; }
+
+.legalDoc p,
+.legalDoc li { line-height: 1.65; }
+
+.legalDoc ul { padding-left: 1.25rem; }
+.legalDoc li { margin-bottom: 0.35rem; }
+
+.legalLead {
+    font-size: 1rem;
+    color: var(--ip-muted);
+}
+
+.legalTableWrap {
+    overflow-x: auto;
+    margin-bottom: 1rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius-sm);
+}
+
+.legalTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+}
+
+.legalTableWrap .legalTable { min-width: 640px; }
+
+.legalTable th,
+.legalTable td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--ip-border);
+    vertical-align: top;
+    text-align: left;
+}
+
+.legalTable thead th {
+    background: var(--ip-surface-2);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.legalTable tr:last-child td,
+.legalTable tr:last-child th { border-bottom: 0; }
+
+.legalKV {
+    max-width: 640px;
+    margin-bottom: 1rem;
+}
+
+.legalKV th {
+    width: 38%;
+    color: var(--ip-muted);
+    font-weight: 500;
+}
+
+.legalTodo {
+    display: inline-block;
+    padding: 0 0.4rem;
+    border-radius: 6px;
+    background: var(--ip-warn-soft);
+    color: var(--ip-warn);
+    font-weight: 600;
+    font-size: 0.85em;
+}
+
+.legalData { max-width: 920px; }
+
+.legalDataText { flex: 1 1 240px; min-width: 0; }
+
+.legalData .btn { white-space: nowrap; }
+
+.legalDataIcon {
+    font-size: 1.6rem;
+    color: var(--ip-accent);
+}
+
+/* A jogi ablak egy másik ablak (pl. belépés) fölött */
+#legalModal { z-index: 1065; }
+.modal-backdrop.legalBackdrop { z-index: 1060; }
+
+#legalModal .modal-body.legalDoc { max-width: none; padding: 1.5rem 1.75rem; }
+
+/* ---------- Belépés / regisztráció ---------- */
+
+.authTerms .form-check-label,
+.authGoogleTerms { line-height: 1.45; }
+
+.authGoogleTerms { margin: 0.5rem 0 0; }
+
+.googleConsentBox { width: 100%; }
+
+.googleConsentBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+
+/* ---------- Bejelentés ---------- */
+
+.listingReportBox {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.75rem;
+}
+
+.reportCard .reportText {
+    white-space: pre-line;
+    background: var(--ip-surface-2);
+    border-radius: var(--ip-radius-sm);
+    padding: 0.6rem 0.8rem;
+}
+
+.reportListing { font-weight: 600; }

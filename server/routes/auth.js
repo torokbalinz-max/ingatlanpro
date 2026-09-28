@@ -8,6 +8,7 @@ const acc = require("../services/accounts");
 const mail = require("../services/mail");
 const { nyilvanosMod } = require("../middleware/auth");
 const { hiba, csakBelepve } = require("../lib/http");
+const { ASZF_VERZIO } = require("../lib/jogi");
 
 const router = express.Router();
 
@@ -20,6 +21,12 @@ router.get("/api/config", (req, res) => {
         regisztracio: !/^(0|false|nem|no)$/i.test(String(process.env.REGISZTRACIO || "")),
         email: mail.elerheto(),
         fejleszto: acc.fejlesztoiMod(),
+        // A jogi oldalakhoz: mely külső szolgáltatások vannak bekapcsolva
+        jogi: {
+            mail: process.env.BREVO_API_KEY ? "brevo" : (process.env.RESEND_API_KEY ? "resend" : null),
+            google: !!process.env.GOOGLE_CLIENT_ID,
+            ai: !!process.env.ANTHROPIC_API_KEY
+        },
         // Hibakereséshez: ha induláskor egy táblát nem sikerült létrehozni
         dbHibak: (db.schemaHibak || []).map(h => h.slice(0, 200))
     });
@@ -47,7 +54,9 @@ router.get("/api/me", async (req, res) => {
             felhasznalo: req.felhasznalo,
             nyilvanos: nyilvanosMod(),
             olvasatlan,
-            irodak
+            irodak,
+            // Az ÁSZF (új változatát) még nem fogadta el -> a weboldal megkérdezi
+            aszfKell: !!(req.user && req.valodiSzerep !== "admin" && req.user.aszf_verzio !== ASZF_VERZIO)
         });
 
     } catch (err) {
@@ -72,7 +81,7 @@ router.post("/api/auth/register", async (req, res) => {
             return res.status(400).json({ error: "bad_invite" });
         }
 
-        const u = await acc.regisztral(req.body || {});
+        const u = await acc.regisztral({ ...(req.body || {}), aszf: req.body && req.body.aszf === true });
 
         await acc.munkamenetNyit(res, u, req);
 

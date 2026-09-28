@@ -66,6 +66,7 @@ app.use(require("./routes/requests"));
 app.use(require("./routes/messages"));
 app.use(require("./routes/location"));
 app.use(require("./routes/irodak"));
+app.use(require("./routes/legal"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {
