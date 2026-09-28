@@ -409,6 +409,25 @@ async function createSchema(db) {
 
     await db.query(`CREATE INDEX IF NOT EXISTS idx_bejelentesek_statusz ON bejelentesek (statusz, created_at)`);
 
+    // Látogatottsági statisztika – sütik nélkül. IP-címet NEM tárolunk: a
+    // "latogato" egy naponta változó, visszafejthetetlen azonosító (hash),
+    // így a látogató napokon át nem követhető. 400 nap után törlődik.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS latogatasok (
+            id BIGSERIAL PRIMARY KEY,
+            ido TIMESTAMPTZ DEFAULT NOW(),
+            latogato TEXT NOT NULL,
+            oldal TEXT NOT NULL,
+            ingatlan_id INTEGER,
+            eszkoz TEXT,
+            nyelv TEXT,
+            forras TEXT,
+            bejelentkezve BOOLEAN DEFAULT false
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_latogatasok_ido ON latogatasok (ido)`);
+
     // Süti-hozzájárulások naplója (GDPR 7. cikk (1): igazolni kell tudni a
     // hozzájárulást). IP-címet és fiókot NEM tárolunk, csak egy véletlen azonosítót.
     await db.query(`

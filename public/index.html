@@ -35,6 +35,7 @@
     <!-- Saját CSS -->
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/legal.css">
+    <link rel="stylesheet" href="css/sitestats.css">
 </head>
 
 <body>
@@ -1083,6 +1084,7 @@
             <nav id="adminTabs" class="adminNavList">
 
                 <button class="adminNavItem" data-tab="overview" type="button"><i class="fa-solid fa-gauge-high"></i><span data-i18n="adminTabOverview">Áttekintés</span></button>
+                <button class="adminNavItem" data-tab="sitestats" type="button"><i class="fa-solid fa-chart-column"></i><span data-i18n="adminTabSiteStats">Látogatottság</span></button>
 
                 <div class="adminNavGroup" data-i18n="adminGroupListings">Hirdetések</div>
                 <button class="adminNavItem" data-tab="review" type="button"><i class="fa-solid fa-list-check"></i><span data-i18n="adminTabReview">Ellenőrzésre vár</span><span class="navCount warn" id="pendingCount" hidden></span></button>
@@ -1258,6 +1260,7 @@
 <script src="js/admin/duplicates.js"></script>
 <script src="js/admin/places.js"></script>
 <script src="js/admin/districtEditor.js"></script>
+<script src="js/admin/siteStats.js"></script>
 
 <!-- Oldalak, indítás -->
 <script src="js/core/locationPicker.js"></script>
@@ -1274,6 +1277,7 @@
 <script src="js/legal/consent.js"></script>
 <script src="js/legal/legalPage.js"></script>
 
+<script src="js/core/visitTracker.js"></script>
 <script src="js/core/pageManager.js"></script>
 <script src="js/core/app.js"></script>
 

@@ -9,6 +9,7 @@
 //    import.js       beolvasás linkről + figyelt oldalak
 //    duplicates.js   duplikátumok, hibás adatsorok
 //    places.js       városok, kerületek
+//    siteStats.js    látogatottság, fiókok, forgalmas órák, adatbázis mérete
 // ============================================================
 
 class AdminManager {
@@ -31,6 +32,7 @@ class AdminManager {
     // A menüpontok: cím + rövid leírás a tartalom fölött
     static TABS = {
         overview:    { title: "adminTabOverview",    desc: "adminDescOverview",    render: () => AdminManager.renderOverview() },
+        sitestats:   { title: "adminTabSiteStats",   desc: "adminDescSiteStats",   render: () => AdminManager.renderSiteStats() },
         review:      { title: "adminTabReview",      desc: "adminDescReview",      render: () => AdminManager.renderReview() },
         unavailable: { title: "adminTabUnavailable", desc: "adminDescUnavailable", render: () => AdminManager.renderUnavailable() },
         dups:        { title: "adminTabDups",        desc: "adminDescDups",        render: () => AdminManager.renderDups() },

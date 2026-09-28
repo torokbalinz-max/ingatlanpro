@@ -33,7 +33,7 @@
 
             // Süti-sáv
             ckTitle: "Cookies",
-            ckText: "We only use cookies that are necessary for the site to work – no analytics or advertising. The Google sign-in button uses Google's own cookies; we load it only if you allow it.",
+            ckText: "We only use cookies that are necessary for the site to work – no tracking or advertising cookies. The Google sign-in button uses Google's own cookies; we load it only if you allow it.",
             ckAcceptAll: "Accept all",
             ckRejectAll: "Necessary only",
             ckSettings: "Settings",
@@ -142,7 +142,7 @@
             legalDeleteHint: "A fiókodat a Fiókom → Profil oldalon törölheted.",
 
             ckTitle: "Sütik",
-            ckText: "Csak a működéshez szükséges sütiket használjuk – nincs statisztika, nincs reklám. A Google-belépés gomb a Google saját sütijeit használja; csak akkor töltjük be, ha engedélyezed.",
+            ckText: "Csak a működéshez szükséges sütiket használjuk – nincsenek követő vagy reklámsütik. A Google-belépés gomb a Google saját sütijeit használja; csak akkor töltjük be, ha engedélyezed.",
             ckAcceptAll: "Mindet elfogadom",
             ckRejectAll: "Csak a szükségesek",
             ckSettings: "Beállítások",
@@ -247,7 +247,7 @@
             legalDeleteHint: "Contul îl poți șterge din Contul meu → Profil.",
 
             ckTitle: "Cookie-uri",
-            ckText: "Folosim doar cookie-urile necesare funcționării site-ului – fără statistici și fără reclame. Butonul de autentificare Google folosește cookie-urile proprii ale Google; îl încărcăm doar dacă permiți.",
+            ckText: "Folosim doar cookie-urile necesare funcționării site-ului – fără cookie-uri de urmărire sau publicitate. Butonul de autentificare Google folosește cookie-urile proprii ale Google; îl încărcăm doar dacă permiți.",
             ckAcceptAll: "Accept toate",
             ckRejectAll: "Doar cele necesare",
             ckSettings: "Setări",

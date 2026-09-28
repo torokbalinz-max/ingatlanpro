@@ -154,6 +154,7 @@ ${c.ceg ? `<li>Fogyasztói panasz esetén a Nemzeti Fogyasztóvédelmi Hatóság
 <thead><tr><th>Cél</th><th>Adatok</th><th>Jogalap (GDPR 6. cikk)</th><th>Meddig</th></tr></thead>
 <tbody>
 <tr><td>Az Oldal működtetése, biztonság, visszaélések kivédése</td><td>IP-cím, böngésző adatai, a kérés ideje és címe (a tárhelyszolgáltató naplói); IP-cím a belépési és bejelentési próbálkozások számlálásához</td><td>jogos érdek – (1) f)</td><td>A számláló csak a szerver memóriájában, legfeljebb 24 óráig; a tárhely naplói a szolgáltató beállításai szerint, rövid ideig. Adatbázisban IP-címet nem tárolunk.</td></tr>
+<tr><td>Látogatottsági statisztika (sütik nélkül)</td><td>a megnézett oldal (hirdetésnél a száma), időpont, eszköz típusa (telefon / tablet / számítógép), nyelv, a hivatkozó oldal domainje; egy naponta változó, visszafejthetetlen azonosító, amelyet az IP-címből és a böngésző adataiból számolunk – magát az IP-címet nem tároljuk, és másnap ugyanaz a látogató már nem ismerhető fel</td><td>jogos érdek – (1) f): az oldal használatának és terhelésének megértése, fejlesztése</td><td>400 nap. A „Ne kövess” (Do Not Track) vagy Global Privacy Control beállítású böngészőket nem mérjük – így tiltakozhatsz.</td></tr>
 <tr><td>Fiók, bejelentkezés</td><td>e-mail, név, jelszó (csak titkosított ujjlenyomatként – scrypt), telefonszám (ha megadod), Google-azonosító (Google-belépésnél), regisztráció és utolsó belépés ideje, a feltételek elfogadásának ideje, értesítési beállítás; bejelentkezési azonosító (sütiben; nálunk csak titkosítva)</td><td>szerződés teljesítése – (1) b)</td><td>A fiók törléséig; a bejelentkezés 60 nap után vagy kilépéskor lejár.</td></tr>
 <tr><td>Hirdetések feladása és megjelenítése</td><td>a hirdetés adatai, leírása, fotói, az ingatlan helye; a hirdető neve; irodai hirdetésnél az iroda és az ügynök neve, telefonszáma, e-mail címe – <b>ezek nyilvánosak</b></td><td>szerződés – (1) b)</td><td>A hirdetés vagy a fiók törléséig. Az ár-, méret- és helyadatok névtelenített statisztikákban tovább megmaradhatnak.</td></tr>
 <tr><td>Kedvencek, mentett keresések, e-mail értesítések</td><td>a kiválasztott hirdetések, a keresés szűrői, az utolsó értesítés ideje</td><td>szerződés – (1) b)</td><td>A törlésig / a fiók törléséig. Az e-mail értesítések a Fiókomban kikapcsolhatók.</td></tr>
@@ -219,6 +220,7 @@ ${c.ai ? "<li><b>Anthropic PBC</b> (USA) – az átvett hirdetések szövegének
 <ul>
 <li>Az IngatlanPro <b>nem használ</b> statisztikai (analitikai), reklám- vagy követő sütiket.</li>
 <li>Csak a működéshez szükséges sütiket és tárolót használjuk.</li>
+<li>A látogatottságot <b>sütik nélkül</b>, a böngésződben semmit nem tárolva mérjük (részletek az ${c.link("adatvedelem", "Adatvédelmi tájékoztatóban")}).</li>
 <li>A Google-belépés gomb a Google saját sütijeit használja – ezt <b>csak a hozzájárulásoddal</b> töltjük be.</li>
 </ul>
 
@@ -391,6 +393,7 @@ ${c.ceg ? `<li>Pentru reclamații ale consumatorilor vă puteți adresa ANPC (<a
 <thead><tr><th>Scop</th><th>Date</th><th>Temei (GDPR art. 6)</th><th>Durată</th></tr></thead>
 <tbody>
 <tr><td>Funcționarea Site-ului, securitate, prevenirea abuzurilor</td><td>adresa IP, date despre browser, ora și adresa cererii (jurnalele furnizorului de găzduire); adresa IP pentru numărarea încercărilor de autentificare și de sesizare</td><td>interes legitim – alin. (1) lit. f)</td><td>Contorul doar în memoria serverului, maximum 24 de ore; jurnalele de găzduire conform setărilor furnizorului, pe termen scurt. Nu stocăm adrese IP în baza de date.</td></tr>
+<tr><td>Statistici de vizitare (fără cookie-uri)</td><td>pagina vizitată (la anunțuri, numărul acestuia), ora, tipul dispozitivului (telefon / tabletă / calculator), limba, domeniul site-ului de proveniență; un identificator ireversibil, care se schimbă zilnic, calculat din adresa IP și datele browserului – adresa IP în sine nu este stocată, iar a doua zi același vizitator nu mai poate fi recunoscut</td><td>interes legitim – lit. f): înțelegerea și îmbunătățirea utilizării și a încărcării site-ului</td><td>400 de zile. Browserele cu „Do Not Track” sau Global Privacy Control nu sunt măsurate – astfel vă puteți opune.</td></tr>
 <tr><td>Cont, autentificare</td><td>e-mail, nume, parolă (doar ca amprentă criptată – scrypt), telefon (dacă îl furnizați), identificator Google (la autentificarea cu Google), data înregistrării și a ultimei autentificări, data acceptării termenilor, setarea notificărilor; identificatorul de sesiune (în cookie; la noi doar criptat)</td><td>executarea contractului – lit. b)</td><td>Până la ștergerea contului; sesiunea expiră după 60 de zile sau la deconectare.</td></tr>
 <tr><td>Publicarea și afișarea anunțurilor</td><td>datele, descrierea și fotografiile anunțului, locația imobilului; numele celui care publică; la anunțurile agențiilor, numele, telefonul și e-mailul agenției și al agentului – <b>acestea sunt publice</b></td><td>contract – lit. b)</td><td>Până la ștergerea anunțului sau a contului. Prețul, suprafața și locația pot rămâne în statistici anonimizate.</td></tr>
 <tr><td>Favorite, căutări salvate, notificări prin e-mail</td><td>anunțurile alese, filtrele căutării, data ultimei notificări</td><td>contract – lit. b)</td><td>Până la ștergere / ștergerea contului. Notificările pot fi dezactivate în Contul meu.</td></tr>
@@ -456,6 +459,7 @@ ${c.ai ? "<li><b>Anthropic PBC</b> (SUA) – verificarea textului anunțurilor p
 <ul>
 <li>IngatlanPro <b>nu folosește</b> cookie-uri de statistică (analiză), publicitate sau urmărire.</li>
 <li>Folosim doar cookie-uri și stocare strict necesare funcționării.</li>
+<li>Numărul vizitelor îl măsurăm <b>fără cookie-uri</b>, fără a stoca nimic în browserul dvs. (detalii în ${c.link("adatvedelem", "Politica de confidențialitate")}).</li>
 <li>Butonul de autentificare Google folosește cookie-urile proprii ale Google – îl încărcăm <b>doar cu consimțământul dvs.</b></li>
 </ul>
 
@@ -628,6 +632,7 @@ ${c.ceg ? `<li>For consumer complaints you may also contact ANPC (<a href="https
 <thead><tr><th>Purpose</th><th>Data</th><th>Legal basis (GDPR Art. 6)</th><th>Retention</th></tr></thead>
 <tbody>
 <tr><td>Running the Site, security, preventing abuse</td><td>IP address, browser data, time and address of the request (hosting provider logs); IP address for counting login and report attempts</td><td>legitimate interest – (1)(f)</td><td>The counter only in server memory, at most 24 hours; hosting logs per the provider's settings, briefly. We do not store IP addresses in the database.</td></tr>
+<tr><td>Visit statistics (without cookies)</td><td>page visited (for listings, its number), time, device type (phone / tablet / computer), language, referring site's domain; an irreversible identifier that changes daily, computed from the IP address and browser data – the IP address itself is not stored, and the next day the same visitor can no longer be recognised</td><td>legitimate interest – (1)(f): understanding and improving the use and load of the Site</td><td>400 days. Browsers with “Do Not Track” or Global Privacy Control are not measured – this is how you can object.</td></tr>
 <tr><td>Account, login</td><td>e-mail, name, password (only as an encrypted hash – scrypt), phone (if provided), Google ID (Google sign-in), registration and last login time, time of accepting the terms, notification setting; session identifier (in a cookie; stored by us only hashed)</td><td>performance of contract – (1)(b)</td><td>Until the account is deleted; the session expires after 60 days or at logout.</td></tr>
 <tr><td>Publishing and displaying listings</td><td>listing data, description, photos, property location; the advertiser's name; for agency listings, the agency's and agent's name, phone and e-mail – <b>these are public</b></td><td>contract – (1)(b)</td><td>Until the listing or account is deleted. Price, size and location may remain in anonymised statistics.</td></tr>
 <tr><td>Favourites, saved searches, e-mail alerts</td><td>chosen listings, search filters, time of last alert</td><td>contract – (1)(b)</td><td>Until deleted / the account is deleted. E-mail alerts can be switched off in My account.</td></tr>
@@ -693,6 +698,7 @@ ${c.ai ? "<li><b>Anthropic PBC</b> (USA) – AI-assisted checking of the text of
 <ul>
 <li>IngatlanPro <b>does not use</b> statistics (analytics), advertising or tracking cookies.</li>
 <li>We only use cookies and storage strictly necessary for the site to work.</li>
+<li>We measure visits <b>without cookies</b> and without storing anything in your browser (details in the ${c.link("adatvedelem", "Privacy policy")}).</li>
 <li>The Google sign-in button uses Google's own cookies – we load it <b>only with your consent</b>.</li>
 </ul>
 

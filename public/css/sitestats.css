@@ -1,0 +1,106 @@
+/* ==========================================================================
+   ADMIN – LÁTOGATOTTSÁG (js/admin/siteStats.js)
+   ========================================================================== */
+
+.ssToolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.ssChart { position: relative; width: 100%; }
+
+/* Rangsor: címke · arány-sáv · szám · százalék */
+.ssRank {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.ssRank td {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--ip-border);
+    vertical-align: middle;
+}
+
+.ssRank tr:last-child td { border-bottom: 0; }
+
+.ssRankLabel {
+    max-width: 0;
+    width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 0.75rem !important;
+}
+
+.ssRankBar { width: 35%; padding-right: 0.75rem !important; }
+
+.ssRankBar span {
+    display: block;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--ip-accent);
+    opacity: 0.85;
+}
+
+.ssRankNum,
+.ssRankPct {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.ssRankNum { font-weight: 600; padding-left: 0.5rem !important; }
+.ssRankPct { color: var(--ip-muted); width: 3.6rem; padding-left: 0.6rem !important; }
+
+/* Kulcs – érték lista */
+.ssKV { width: 100%; font-size: 0.9rem; }
+
+.ssKV th,
+.ssKV td {
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--ip-border);
+}
+
+.ssKV tr:last-child th,
+.ssKV tr:last-child td { border-bottom: 0; }
+
+.ssKV th { font-weight: 400; color: var(--ip-muted); }
+
+.ssKV td {
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Adatbázis telítettség */
+.ssDbPct {
+    font-size: 2rem;
+    font-weight: 750;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+
+.ssMeter {
+    height: 12px;
+    border-radius: 6px;
+    background: var(--ip-surface-2);
+    overflow: hidden;
+}
+
+.ssMeter span {
+    display: block;
+    height: 100%;
+    border-radius: 6px;
+    background: var(--ip-accent);
+}
+
+.ssMeter.warn span { background: var(--ip-warn); }
+.ssMeter.full span { background: var(--ip-danger); }
+
+.ssDbState { font-weight: 600; font-size: 0.9rem; }
+.ssDbState.ok { color: var(--ip-accent); }
+.ssDbState.warn { color: var(--ip-warn); }
+.ssDbState.full { color: var(--ip-danger); }

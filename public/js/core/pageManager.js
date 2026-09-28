@@ -115,6 +115,9 @@ class PageManager {
 
         document.body.dataset.page = page;
 
+        // Látogatottsági statisztika (sütik nélkül)
+        if (typeof VisitTracker !== "undefined") VisitTracker.pv(page, param);
+
         window.scrollTo({ top: 0 });
 
         // Oldal-specifikus teendők
