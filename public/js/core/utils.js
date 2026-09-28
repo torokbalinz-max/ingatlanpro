@@ -46,7 +46,10 @@ class Utils {
 
     static eurNm(value) {
         if (value === null || value === undefined || isNaN(value)) return "-";
-        return Utils.num(Math.round(value)) + " €/m²";
+        // Bérleti díjnál (pl. 7,4 €/m²) egy tizedes, egyébként egész szám
+        return Math.abs(value) < 20
+            ? Utils.num(Math.round(value * 10) / 10, 1) + " €/m²"
+            : Utils.num(Math.round(value)) + " €/m²";
     }
 
     // Ár a hirdetés ügylete szerint (kiadónál havidíj)
