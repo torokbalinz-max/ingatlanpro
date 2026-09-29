@@ -81,6 +81,7 @@
                 <li><a class="dropdown-item" href="#favorites" data-page="favorites"><i class="fa-solid fa-star"></i><span><b data-i18n="menuKedvencek">Kedvencek</b><small data-i18n="menuKedvencekDesc">Elmentett ingatlanok</small></span></a></li>
                 <li><a class="dropdown-item" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="menuIgenyekDesc">Vevők keresései – válaszolj rájuk</small></span></a></li>
                 <li><a class="dropdown-item" href="#new" data-page="new"><i class="fa-solid fa-circle-plus"></i><span><b data-i18n="menuUj">Új ingatlan</b><small data-i18n="menuUjDesc">Hirdetés feltöltése</small></span></a></li>
+                <li><a class="dropdown-item" href="#sugo" data-page="sugo"><i class="fa-solid fa-circle-question"></i><span><b data-i18n="menuSugo">Súgó</b><small data-i18n="menuSugoDesc">Használati útmutató, kérdések</small></span></a></li>
                 <li class="admin-only" hidden><hr class="dropdown-divider"></li>
                 <li class="admin-only" hidden><a class="dropdown-item" href="#admin" data-page="admin"><i class="fa-solid fa-user-shield"></i><span><b data-i18n="menuAdmin">Admin</b><small data-i18n="menuAdminDesc">Import, jóváhagyás, duplikátumok</small></span></a></li>
                 <li><hr class="dropdown-divider"></li>
@@ -99,6 +100,10 @@
             <a class="navIconBtn navAdminBtn admin-only" hidden href="#admin" data-page="admin" data-i18n-title="menuAdmin" title="Admin">
                 <i class="fa-solid fa-user-shield"></i>
                 <span class="navAdminCount" id="navAdminCount" hidden></span>
+            </a>
+
+            <a class="navIconBtn navHelpBtn" href="#sugo" data-page="sugo" data-i18n-title="menuSugo" title="Súgó" aria-label="Súgó">
+                <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
             </a>
 
             <span class="navSep"></span>
@@ -376,6 +381,14 @@
 </section>
 
 <!-- =====================================================================
+     SÚGÓ
+     ===================================================================== -->
+
+<section id="page-sugo" class="page" style="display:none;">
+    <div id="sugoContent"></div>
+</section>
+
+<!-- =====================================================================
      INGATLANOK
      ===================================================================== -->
 
@@ -500,6 +513,12 @@
                             <button id="btnBulkAddKerulet" class="btn btn-outline-secondary btn-sm" type="button" data-i18n-title="newAddKerulet" title="Új kerület hozzáadása">➕</button>
 
                             <button id="btnBulkApply" class="btn btn-primary btn-sm" data-i18n="bulkApplyBtn">Kerület alkalmazása</button>
+
+                            <span class="ms-3 me-1" data-i18n="bulkAllapotLabel">Állapot:</span>
+
+                            <select id="bulkAllapot" class="form-select form-select-sm" style="max-width:180px;" aria-label="Állapot"></select>
+
+                            <button id="btnBulkAllapot" class="btn btn-primary btn-sm" type="button" data-i18n="bulkAllapotBtn">Állapot alkalmazása</button>
 
                             <button id="btnBulkCancel" class="btn btn-outline-secondary btn-sm ms-auto" data-i18n="bulkCancelBtn">Kijelölés törlése</button>
 
@@ -930,15 +949,9 @@
                 </button>
             </li>
             <li class="nav-item">
-                <button class="nav-link" id="btnCompareStatistics" type="button">
-                    <i class="fa-solid fa-scale-balanced"></i>
-                    <span data-i18n="statsCompare">Összehasonlítás</span>
-                </button>
-            </li>
-            <li class="nav-item">
                 <button class="nav-link" id="btnTrend" type="button">
                     <i class="fa-solid fa-chart-line"></i>
-                    <span data-i18n="statsTrend">Ártrend</span>
+                    <span data-i18n="statsTrend2">Ártrend és összevetés</span>
                 </button>
             </li>
         </ul>
@@ -1023,7 +1036,11 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label" for="valEmelet" data-i18n="newEmelet">Emelet</label>
-                            <input id="valEmelet" type="number" min="0" class="form-control">
+                            <div class="input-group">
+                                <input id="valEmelet" type="number" min="0" class="form-control">
+                                <span class="input-group-text px-2">/</span>
+                                <input id="valEmeletOssz" type="number" min="0" class="form-control" data-i18n-placeholder="valFloorsPh" placeholder="össz." data-i18n-title="valFloorsTitle" title="Az épület emeleteinek száma (nem kötelező)">
+                            </div>
                         </div>
                         <div class="col-6">
                             <label class="form-label" for="valAllapot" data-i18n="newAllapot">Állapot</label>
@@ -1089,6 +1106,7 @@
                 <div class="adminNavGroup" data-i18n="adminGroupListings">Hirdetések</div>
                 <button class="adminNavItem" data-tab="review" type="button"><i class="fa-solid fa-list-check"></i><span data-i18n="adminTabReview">Ellenőrzésre vár</span><span class="navCount warn" id="pendingCount" hidden></span></button>
                 <button class="adminNavItem" data-tab="unavailable" type="button"><i class="fa-solid fa-ban"></i><span data-i18n="adminTabUnavailable">Nem elérhető</span><span class="navCount" id="unavailableCount" hidden></span></button>
+                <button class="adminNavItem" data-tab="allapot" type="button"><i class="fa-solid fa-screwdriver-wrench"></i><span data-i18n="adminTabAllapot">Állapot beállítása</span><span class="navCount" id="allapotCount" hidden></span></button>
                 <button class="adminNavItem" data-tab="dups" type="button"><i class="fa-solid fa-clone"></i><span data-i18n="adminTabDups">Duplikátumok</span></button>
 
                 <div class="adminNavGroup" data-i18n="adminGroupImport">Beolvasás</div>
@@ -1174,6 +1192,7 @@
             </div>
         </div>
         <nav class="appFooterLinks" aria-label="Legal">
+            <a href="#sugo" data-i18n="menuSugo">Súgó</a>
             <a href="#jogi/impresszum" data-legal-link="impresszum" data-i18n="legalImpresszum">Impresszum</a>
             <a href="#jogi/aszf" data-legal-link="aszf" data-i18n="legalAszf">Felhasználási feltételek</a>
             <a href="#jogi/adatvedelem" data-legal-link="adatvedelem" data-i18n="legalAdatvedelem">Adatvédelem</a>
@@ -1212,6 +1231,7 @@
 <script src="js/core/i18n-extra.js"></script>
 <script src="js/core/i18n-accounts.js"></script>
 <script src="js/core/i18n-agency.js"></script>
+<script src="js/core/i18n-v3.js"></script>
 <script src="js/core/telepulesek.js"></script>
 <script src="js/core/utils.js"></script>
 <script src="js/core/districts.js"></script>
@@ -1256,6 +1276,7 @@
 <script src="js/admin/overview.js"></script>
 <script src="js/admin/review.js"></script>
 <script src="js/admin/unavailable.js"></script>
+<script src="js/admin/conditions.js"></script>
 <script src="js/admin/import.js"></script>
 <script src="js/admin/duplicates.js"></script>
 <script src="js/admin/places.js"></script>
@@ -1270,6 +1291,8 @@
 <script src="js/requests/requestsPage.js"></script>
 <script src="js/agency/agencyPage.js"></script>
 <script src="js/core/homePage.js"></script>
+<script src="js/help/helpContent.js"></script>
+<script src="js/help/helpPage.js"></script>
 <!-- Jogi: adatok, szövegek, süti-hozzájárulás, jogi oldalak -->
 <script src="js/legal/legalConfig.js"></script>
 <script src="js/legal/i18n-legal.js"></script>

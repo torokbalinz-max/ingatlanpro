@@ -1,7 +1,7 @@
 // ============================================================
 //  Oldalak (a fejléc menüpontjai) + címsor (#hash) kezelés
 //  #properties, #market, #new, #favorites, #valuation, #admin,
-//  #user, #listing/123, #jogi/aszf
+//  #user, #listing/123, #jogi/aszf, #sugo/piac
 // ============================================================
 
 class PageManager {
@@ -23,7 +23,8 @@ class PageManager {
         iroda: { icon: "fa-solid fa-briefcase", label: "agMenu", login: true },
         irodak: { icon: "fa-solid fa-briefcase", label: "agLabel" },
         listing: { icon: "fa-solid fa-rectangle-list", label: "menuHirdetes" },
-        jogi: { icon: "fa-solid fa-scale-balanced", label: "legalPageTitle" }
+        jogi: { icon: "fa-solid fa-scale-balanced", label: "legalPageTitle" },
+        sugo: { icon: "fa-solid fa-circle-question", label: "menuSugo" }
     };
 
     // Régi nevek (más modulok még ezeket hívhatják)
@@ -109,7 +110,7 @@ class PageManager {
         // A hirdetés oldal a lista része (a menüben az Ingatlanok marad kiemelve)
         const menuPage = page === "listing" ? PageManager.lastListPage : page;
 
-        document.querySelectorAll(".navMenu .dropdown-item, .navLink, .navAdminBtn, .navPostBtn").forEach(a => {
+        document.querySelectorAll(".navMenu .dropdown-item, .navLink, .navAdminBtn, .navPostBtn, .navHelpBtn").forEach(a => {
             a.classList.toggle("active", a.dataset.page === menuPage);
         });
 
@@ -164,6 +165,10 @@ class PageManager {
         // Jogi oldalak (impresszum, feltételek, adatvédelem, sütik, bejelentés)
         if (page === "jogi" && typeof LegalPage !== "undefined") {
             LegalPage.show(param);
+        }
+
+        if (page === "sugo") {
+            HelpPage.show(param);
         }
 
         if (page === "igenyek") {

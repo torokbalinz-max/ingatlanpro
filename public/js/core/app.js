@@ -92,7 +92,6 @@ document.addEventListener("DOMContentLoaded", () => {
             UIManager.showDetails(UIManager.selectedIngatlan);
         } else {
             UIManager.showNoSelection();
-    HelpManager.init();
         }
 
         DashboardManager.load(DataManager.szurtIngatlanok);
@@ -109,6 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
         NewPropertyManager.renderPhotos();
 
         BulkEditManager.loadKeruletOptions();
+        BulkEditManager.renderAllapotOptions();
 
         StatisticsManager.rerender();
         ValuationManager.rerender();
@@ -121,6 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
         AgencyProfile.rerender();
         AuthManager.apply();
         if (PageManager.current === "home") HomePage.render();
+        HelpPage.rerender();
 
         darkBtn.title = I18n.t(document.documentElement.getAttribute("data-bs-theme") === "dark" ? "darkModeOff" : "darkModeOn");
 

@@ -3880,14 +3880,14 @@ a.typeTab { text-decoration: none; }
 .dupKeep input { margin: 0; }
 .dupGroup kbd, .dupKeep kbd { font-size: 0.7rem; padding: 0.05rem 0.3rem; }
 
-/* A fejléc 7 menüponttal: közepes képernyőn ikon nélkül, kisebben a lenyíló menü */
-@media (max-width: 1599.98px) {
+/* A fejléc 7 menüponttal + súgó gomb: közepes képernyőn ikon nélkül, kisebben a lenyíló menü */
+@media (max-width: 1799.98px) {
     .navLink i { display: none; }
     .navLink { padding: 0 0.6rem; }
     .navLink.active::after { left: 0.6rem; right: 0.6rem; }
 }
 
-@media (max-width: 1279.98px) {
+@media (max-width: 1499.98px) {
     .navLinks, .navSep { display: none; }
     .navDropdown { display: block; }
 }
@@ -4110,3 +4110,308 @@ button.agStat:hover { border-color: var(--ip-accent); }
     border-color: var(--ip-border); font-weight: 600;
 }
 .agFolders .list-group-item.active .badge { background: var(--ip-accent) !important; color: var(--ip-accent-contrast) !important; }
+
+/* =====================================================================
+   ÁRTREND ÉS ÖSSZEVETÉS
+   ===================================================================== */
+
+.filterChipAccent { background: var(--ip-accent); color: var(--ip-accent-contrast); }
+
+.trendHow summary { cursor: pointer; color: var(--ip-muted); font-size: 0.9rem; }
+.trendHow summary:hover { color: var(--ip-accent); }
+.trendHow li { margin-bottom: 0.25rem; }
+
+.trendHeadline { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 1.05rem; }
+
+.trendSameBox {
+    display: grid;
+    gap: 0.3rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-surface-2);
+}
+
+/* =====================================================================
+   ADMIN – ÁLLAPOT GYORS BEÁLLÍTÁSA
+   ===================================================================== */
+
+.condToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+.condToolbar .form-select { width: auto; max-width: 220px; }
+
+.condProgress { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.condProgress .progress { flex: 1; height: 6px; }
+
+.condOne { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+
+.condPhoto {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--ip-radius);
+    overflow: hidden;
+    background: var(--ip-surface-2);
+    border: 1px solid var(--ip-border);
+}
+.condPhoto img { width: 100%; height: 100%; object-fit: contain; background: #111; }
+
+.condNav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+}
+.condNav.prev { left: 10px; }
+.condNav.next { right: 10px; }
+.condNav:hover, .condNav:focus-visible { background: rgba(0, 0, 0, 0.8); }
+
+.condCounter {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 0.8rem;
+}
+
+.condNoPhoto {
+    height: 100%;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    color: var(--ip-muted);
+    font-size: 0.9rem;
+}
+.condNoPhoto i { font-size: 2rem; }
+
+.condThumbs { display: flex; gap: 0.4rem; overflow-x: auto; padding: 0.5rem 0; }
+.condThumb {
+    flex: 0 0 72px;
+    height: 54px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    overflow: hidden;
+    background: none;
+}
+.condThumb img { width: 100%; height: 100%; object-fit: cover; }
+.condThumb.active { border-color: var(--ip-accent); }
+
+.condSuggest {
+    margin-bottom: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-accent-soft);
+}
+
+.condBtns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+.condBtns.small { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.25rem; }
+.condBtns.small .condBtn { padding: 0.2rem 0.3rem; font-size: 0.75rem; }
+
+.condBtn {
+    border: 1px solid var(--ip-border);
+    background: var(--ip-surface);
+    color: var(--ip-text);
+    text-align: left;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+.condBtns.small .condBtn { text-align: center; hyphens: auto; }
+.condBtn kbd { font-size: 0.7rem; margin-right: 0.25rem; }
+.condBtn:hover { border-color: var(--ip-accent); }
+.condBtn.active { background: var(--ip-accent); border-color: var(--ip-accent); color: var(--ip-accent-contrast); }
+.condBtn.suggested:not(.active) { border-color: var(--ip-accent); box-shadow: inset 0 0 0 1px var(--ip-accent); }
+
+.condDesc { max-height: 240px; overflow: auto; white-space: pre-line; margin-top: 0.4rem; }
+
+.condBulkBar {
+    position: sticky;
+    top: calc(var(--ip-nav-h) + 0.5rem);
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-surface);
+    box-shadow: var(--ip-shadow);
+}
+.condBulkBar .condBtns { min-width: 280px; }
+.condBulkBar:not(.active) .condBtns { opacity: 0.5; }
+
+.condGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.85rem; }
+
+.condCard {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius-sm);
+    overflow: hidden;
+    background: var(--ip-surface);
+    transition: opacity 0.2s;
+}
+.condCard.done { opacity: 0.55; }
+.condCard.done:hover { opacity: 1; }
+
+.condCardSel {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 2;
+    padding: 2px 4px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.9);
+}
+.condCardPhoto { position: relative; display: block; aspect-ratio: 4 / 3; background: var(--ip-surface-2); }
+.condCardPhoto img { width: 100%; height: 100%; object-fit: cover; }
+.condCardCount {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 0.75rem;
+}
+.condCardBody { display: grid; gap: 0.3rem; padding: 0.55rem; }
+.condSuggestMini { color: var(--ip-accent); }
+
+@media (max-width: 991.98px) {
+    .condOne { grid-template-columns: 1fr; }
+}
+
+/* Kerület-ellenőrzés a határ-szerkesztőben */
+.deCheckList { max-height: 180px; overflow: auto; padding-left: 1.1rem; margin: 0.25rem 0 0; }
+
+/* Értékbecslő: hogyan számoltuk */
+.valMethodList { padding-left: 1.1rem; }
+.valMethodList li { margin-bottom: 0.15rem; }
+
+/* =====================================================================
+   SÚGÓ
+   ===================================================================== */
+
+.helpLayout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 1.5rem; align-items: start; margin-top: 1.25rem; }
+
+.helpNav { position: sticky; top: calc(var(--ip-nav-h) + 1rem); display: grid; gap: 0.75rem; }
+
+.helpSearch { position: relative; }
+.helpSearch i { position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--ip-muted); pointer-events: none; }
+.helpSearch input { padding-left: 2.2rem; }
+
+.helpNavSelect { display: none; }
+
+.helpNavList { display: grid; gap: 2px; }
+.helpNavItem {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: var(--ip-radius-sm);
+    color: var(--ip-text);
+    text-decoration: none;
+    font-size: 0.93rem;
+}
+.helpNavItem i { width: 1.1rem; text-align: center; color: var(--ip-muted); }
+.helpNavItem:hover { background: var(--ip-surface-2); }
+.helpNavItem.active { background: var(--ip-accent-soft); color: var(--ip-accent); font-weight: 600; }
+.helpNavItem.active i { color: var(--ip-accent); }
+.helpNavItem.admin { border-top: 1px dashed var(--ip-border); margin-top: 0.25rem; }
+
+.helpBody .card-body { padding: 1.5rem 1.75rem; }
+.helpTopicTitle { font-size: 1.4rem; margin-bottom: 0.75rem; }
+.helpTopicTitle i { color: var(--ip-accent); margin-right: 0.3rem; }
+.helpIntro { font-size: 1.02rem; color: var(--ip-muted); }
+.helpSection { margin-top: 1.25rem; }
+.helpSection h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+.helpSection li { margin-bottom: 0.35rem; line-height: 1.55; }
+.helpSection ul li::marker { color: var(--ip-accent); }
+
+.helpSteps { counter-reset: lepes; list-style: none; padding-left: 0; }
+.helpSteps li { counter-increment: lepes; position: relative; padding-left: 2.2rem; min-height: 1.6rem; }
+.helpSteps li::before {
+    content: counter(lepes);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 50%;
+    background: var(--ip-accent);
+    color: var(--ip-accent-contrast);
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.helpTip {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1.25rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-warn-soft);
+}
+.helpTip i { color: var(--ip-warn); margin-top: 0.2rem; }
+
+.helpGood { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem 1.25rem; margin: 0; }
+.helpGood dt { font-weight: 600; }
+.helpGood dd { margin: 0.15rem 0 0; color: var(--ip-muted); font-size: 0.92rem; }
+
+.helpResults { list-style: none; padding: 0; display: grid; gap: 0.85rem; }
+.helpResults a { text-decoration: none; }
+
+@media (max-width: 991.98px) {
+    .helpLayout { grid-template-columns: 1fr; }
+    .helpNav { position: static; }
+    .helpNavList { display: none; }
+    .helpNavSelect { display: block; }
+    .helpBody .card-body { padding: 1.1rem; }
+}
+
+/* Kezdőlap: súgó-sáv (a részletes leírások helyett) */
+.homeHelpStrip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin: 2rem 0;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius);
+    background: var(--ip-surface);
+}
+.homeHelpStrip > div { flex: 1; min-width: 220px; display: grid; }
+.homeHelpStrip span { color: var(--ip-muted); }
+.homeHelpIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent) !important;
+    font-size: 1.3rem;
+}
+.homeFooter a { color: inherit; }
+
+/* Súgó gomb a fejlécben */
+.navHelpBtn { text-decoration: none; }
+.navHelpBtn.active { border-color: var(--ip-accent); color: var(--ip-accent); background: var(--ip-accent-soft); }

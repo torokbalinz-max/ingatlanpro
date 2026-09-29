@@ -115,12 +115,12 @@
             help_market: [
                 "The numbers always follow the filters on the left.",
                 "Current market: averages by district, rooms, floor and condition.",
-                "History and trend: how prices changed between saved snapshots.",
+                "History: monthly snapshots saved automatically. Price trend & comparison: month-by-month change computed from the listings, e.g. only 2-room flats, or April vs. August.",
                 "Only verified listings are counted."
             ],
             help_valuation: [
                 "Fill in at least the city and the floor area.",
-                "The estimate is based on the most similar verified listings.",
+                "The estimate combines the most similar verified listings with a price-ratio model learned from the whole city.",
                 "Enter the asking price to see whether it is cheap or expensive."
             ],
             help_favorites: [
@@ -233,12 +233,12 @@
             help_market: [
                 "A számok mindig a bal oldali szűrést követik.",
                 "Jelenlegi piac: átlagok kerület, szobák, emelet és állapot szerint.",
-                "Előzmények és ártrend: hogyan változtak az árak a mentett állapotok között.",
+                "Előzmények: havonta automatikusan mentett állapotok. Ártrend és összevetés: hónapról hónapra a hirdetésekből számolva, pl. csak a 2 szobásak, vagy április és augusztus összevetése.",
                 "Csak az ellenőrzött hirdetések számítanak bele."
             ],
             help_valuation: [
                 "Legalább a várost és az alapterületet add meg.",
-                "A becslés a leginkább hasonló, ellenőrzött hirdetéseken alapul.",
+                "A becslés a leghasonlóbb ellenőrzött hirdetéseket és a város összes hirdetéséből tanult árarány-modellt kombinálja.",
                 "Ha megadod a kért árat, megmutatjuk, olcsó-e vagy drága."
             ],
             help_favorites: [
@@ -351,12 +351,12 @@
             help_market: [
                 "Cifrele urmează mereu filtrele din stânga.",
                 "Piața actuală: medii pe cartier, camere, etaj și stare.",
-                "Istoric și trend: cum s-au schimbat prețurile între stările salvate.",
+                "Istoric: capturi salvate automat lunar. Evoluție și comparație: lună de lună, calculat din anunțuri, de ex. doar apartamentele cu 2 camere, sau aprilie vs. august.",
                 "Sunt luate în calcul doar anunțurile verificate."
             ],
             help_valuation: [
                 "Completează cel puțin orașul și suprafața.",
-                "Estimarea se bazează pe cele mai asemănătoare anunțuri verificate.",
+                "Estimarea combină cele mai asemănătoare anunțuri verificate cu un model al raporturilor de preț învățat din tot orașul.",
                 "Dacă introduci prețul cerut, îți arătăm dacă e ieftin sau scump."
             ],
             help_favorites: [

@@ -9,7 +9,6 @@ class StatisticsManager {
     static TABS = {
         current: { btn: "btnCurrentStatistics", load: () => CurrentStatistics.load() },
         history: { btn: "btnHistoryStatistics", load: () => HistoryStatistics.load() },
-        compare: { btn: "btnCompareStatistics", load: () => CompareStatistics.load() },
         trend: { btn: "btnTrend", load: () => TrendStatistics.load() }
     };
 
@@ -45,7 +44,8 @@ class StatisticsManager {
         if (StatisticsManager.tab === "current") {
             CurrentStatistics.load();
         } else if (StatisticsManager.tab === "trend" && document.getElementById("trendChart")) {
-            TrendStatistics.draw();
+            TrendStatistics.refresh();
+            TrendStatistics.compare();
         } else if (StatisticsManager.tab === "history") {
             HistoryStatistics.load();
         }

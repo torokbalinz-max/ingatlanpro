@@ -7,9 +7,11 @@ const db = require("../db/database");
 const { hiba, csakAdmin } = require("../lib/http");
 const location = require("../services/location");
 const districts = require("../services/districts");
-const { TIPUS_MEZOK } = require("../services/listing");
 
 const router = express.Router();
+
+// A város hirdetéseinek újra besorolása a kerülethatárok alapján (services/districts.js)
+const besorol = varos => districts.besorol(varos);
 
 router.get("/api/varosok", async (req, res) => {
 
@@ -245,76 +247,14 @@ router.post("/api/keruletek/besorol", csakAdmin, async (req, res) => {
     }
 });
 
-//  1) Pontos / utca szintű helynél a határ dönti el a kerületet
-//  2) Közelítő helynél (csak a kerületet tudjuk): a kerület közepére tesszük,
-//     a kör a kerület méretéhez igazodik – így nem gyűlik minden a város közepén
-//  3) Hely nélküli, de kerülettel ismert hirdetés: közelítő hely a kerületben
-//  Amit ember tett le a térképen (hely_kezi), azt nem mozgatjuk.
-async function besorol(varos) {
-
-    const e = { keruletValtozott: 0, athelyezve: 0, ujHely: 0 };
-
-    if (!varos || !(await districts.vanHatar(varos))) return e;
-
-    const keruletes = Object.keys(TIPUS_MEZOK).filter(t => TIPUS_MEZOK[t].kerulet);
-
-    const r = await db.query(`
-        SELECT id, x, y, kerulet, hely_pontossag, hely_kezi, hely_forras, telepules
-        FROM ingatlanok WHERE varos = $1 AND tipus = ANY($2::text[])
-    `, [varos, keruletes]);
-
-    for (const i of r.rows) {
-
-        const vanHely = !!(i.x && i.y);
-        const szint = i.hely_pontossag || (vanHely ? "pontos" : "nincs");
-
-        if (vanHely && (szint === "pontos" || szint === "utca")) {
-
-            const k = await districts.keruletPontbol(varos, Number(i.x), Number(i.y));
-
-            if (k && k !== i.kerulet) {
-                await db.query("UPDATE ingatlanok SET kerulet = $1, updated_at = NOW() WHERE id = $2", [k, i.id]);
-                e.keruletValtozott++;
-            }
-
-            continue;
-
-        }
-
-        if (!i.kerulet || i.hely_kezi || i.telepules) continue;
-
-        const kozep = await districts.keruletKozep(varos, i.kerulet);
-        if (!kozep) continue;
-
-        if (vanHely && szint === "kozelito") {
-
-            const kint = !districts.bennVan(Number(i.x), Number(i.y),
-                (await districts.varosKeruletei(varos)).find(k => k.nev === i.kerulet).hatar);
-
-            const mashol = Math.abs(Number(i.x) - kozep.x) > 1e-6 || Math.abs(Number(i.y) - kozep.y) > 1e-6;
-
-            if (mashol && (kint || i.hely_forras === "kerulet" || !i.hely_forras)) {
-                await db.query(
-                    "UPDATE ingatlanok SET x = $1, y = $2, hely_sugar = $3, hely_forras = 'kerulet', updated_at = NOW() WHERE id = $4",
-                    [kozep.x, kozep.y, kozep.sugar, i.id]
-                );
-                e.athelyezve++;
-            }
-
-        } else if (!vanHely) {
-
-            await db.query(
-                "UPDATE ingatlanok SET x = $1, y = $2, hely_pontossag = 'kozelito', hely_sugar = $3, hely_forras = 'kerulet', updated_at = NOW() WHERE id = $4",
-                [kozep.x, kozep.y, kozep.sugar, i.id]
-            );
-            e.ujHely++;
-
-        }
-
+// Kerület-ellenőrzés: pontos helyű hirdetések, amelyek kerülete eltér a térképtől
+router.get("/api/keruletek/ellenorzes", csakAdmin, async (req, res) => {
+    try {
+        districts.cacheUrit();
+        res.json(await districts.ellenorzes(String(req.query.varos || "")));
+    } catch (err) {
+        hiba(res, err);
     }
-
-    return e;
-
-}
+});
 
 module.exports = router;

@@ -60,6 +60,8 @@ router.get("/api/admin/counts", csakAdmin, async (req, res) => {
                 COUNT(*) FILTER (WHERE statusz = 'aktiv' AND (jsonb_array_length(COALESCE(kulso_kepek, '[]'::jsonb)) > 0
                     OR EXISTS (SELECT 1 FROM ingatlan_kepek k WHERE k.ingatlan_id = ingatlanok.id)))::int AS fotos,
                 COUNT(DISTINCT varos) FILTER (WHERE statusz = 'aktiv')::int AS varosok,
+                COUNT(*) FILTER (WHERE statusz IN ('aktiv', 'fuggo') AND tipus IN ('lakas', 'haz', 'kereskedelmi', 'iroda')
+                    AND COALESCE(TRIM(allapot), '') = '')::int AS allapot_hianyzo,
                 MAX(utolso_ellenorzes) AS utolso_ellenorzes
             FROM ingatlanok
         `);

@@ -38,6 +38,12 @@ AdminManager.renderOverview = function () {
             tab: "unavailable", btn: I18n.t("ovOpen")
         });
 
+        if (c.allapot_hianyzo) teendok.push({
+            icon: "fa-solid fa-screwdriver-wrench", color: "purple",
+            text: I18n.f("ovTodoAllapot", { n: c.allapot_hianyzo }),
+            tab: "allapot", btn: I18n.t("ovOpen")
+        });
+
         if (!c.figyelt) teendok.push({
             icon: "fa-solid fa-binoculars", color: "cyan",
             text: I18n.t("ovTodoWatch"),
@@ -113,6 +119,14 @@ AdminManager.renderOverview = function () {
 
                                 <div class="quickItem">
                                     <div>
+                                        <b>${I18n.t("valTestTitle")}</b>
+                                        <p class="sectionNote mb-0">${I18n.t("valTestSub")}</p>
+                                    </div>
+                                    <button class="btn btn-outline-primary btn-sm text-nowrap" id="ovValTest"><i class="fa-solid fa-bullseye"></i> ${I18n.t("valTestBtn")}</button>
+                                </div>
+
+                                <div class="quickItem">
+                                    <div>
                                         <b>${I18n.t("adminTabDups")}</b>
                                         <p class="sectionNote mb-0">${I18n.t("ovDupsSub")}</p>
                                     </div>
@@ -127,6 +141,7 @@ AdminManager.renderOverview = function () {
 
             </div>
 
+            <div id="ovValTestResult" class="mt-4" aria-live="polite"></div>
             <div id="ovAutofixStatus" class="mt-4" aria-live="polite"></div>
             <div id="ovJobStatus" class="mt-4"></div>`;
 
@@ -147,6 +162,34 @@ AdminManager.renderOverview = function () {
         fetch("/api/admin/autofix").then(r => r.json()).then(v => {
             if (v.allapot === "fut" || v.allapot === "indul") AdminManager.pollAutofix();
         }).catch(() => { });
+
+        // Értékbecslő pontossága a valós adatokon (régi vs. új módszer)
+        document.getElementById("ovValTest").onclick = () => {
+            const box = document.getElementById("ovValTestResult");
+            const q = new URLSearchParams({ varos: DataManager.currentCity, tipus: FilterManager.tipus, ugylet: FilterManager.ugylet });
+            box.innerHTML = `<div class="spinner-border spinner-border-sm text-primary"></div>`;
+            fetch("/api/admin/ertekbecslo-teszt?" + q).then(r => r.json()).then(v => {
+                if (v.error) { box.innerHTML = `<div class="alert alert-warning">${I18n.t("valNotEnough")}</div>`; return; }
+                const regi = v.eredmeny.regi, uj = v.eredmeny["uj_" + v.modellSuly] || v.eredmeny.uj_1;
+                const sor = (l, a, b) => `<tr><td>${l}</td><td class="text-end">${a.medianHiba} %</td><td class="text-end">${a.atlagHiba} %</td><td class="text-end">${a.tizSzazalekonBelul} %</td>
+                    <td class="text-end fw-semibold">${b.medianHiba} %</td><td class="text-end fw-semibold">${b.atlagHiba} %</td><td class="text-end fw-semibold">${b.tizSzazalekonBelul} %</td></tr>`;
+                const cs = v.csoportok || {};
+                box.innerHTML = `
+                    <div class="card"><div class="card-body">
+                        <h6>${I18n.t("valTestTitle")} – ${Utils.escape(CityManager.displayName(v.varos))} · ${Types.label(v.tipus)} (${v.hirdetesek} ${I18n.t("pcsWord")})</h6>
+                        <p class="sectionNote">${I18n.t("valTestNote")}</p>
+                        <div class="table-responsive"><table class="table table-sm statTable mb-0">
+                            <thead><tr><th></th><th class="text-end" colspan="3">${I18n.t("valTestOld")}</th><th class="text-end" colspan="3">${I18n.t("valTestNew")}</th></tr>
+                            <tr><th></th>${[1, 2].map(() => `<th class="text-end">${I18n.t("valTestMedian")}</th><th class="text-end">${I18n.t("valTestMean")}</th><th class="text-end">${I18n.t("valTestWithin")}</th>`).join("")}</tr></thead>
+                            <tbody>
+                                ${sor(I18n.t("valTestAll"), regi, uj)}
+                                ${cs.ritka ? sor(I18n.t("valTestRare"), cs.ritka.regi, cs.ritka.uj) : ""}
+                                ${cs.gyakori ? sor(I18n.t("valTestCommon"), cs.gyakori.regi, cs.gyakori.uj) : ""}
+                            </tbody>
+                        </table></div>
+                    </div></div>`;
+            }).catch(() => { box.innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`; });
+        };
 
         document.getElementById("ovRecheck").onclick = () => {
             fetch("/api/admin/recheck", {

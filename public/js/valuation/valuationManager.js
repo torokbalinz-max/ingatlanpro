@@ -81,6 +81,8 @@ class ValuationManager {
 
         const e = Utils.emeletSzam(i.emelet);
         document.getElementById("valEmelet").value = e === null ? "" : e;
+        const ossz = parseInt(String(i.emelet || "").split("/")[1], 10);
+        document.getElementById("valEmeletOssz").value = isNaN(ossz) ? "" : ossz;
 
         document.getElementById("valAllapot").value = Utils.normAllapot(i.allapot);
         document.getElementById("valAskingPrice").value = i.ar || "";
@@ -101,6 +103,7 @@ class ValuationManager {
             nm: document.getElementById("valNm").value,
             szobak: document.getElementById("valSzobak").value,
             emelet: document.getElementById("valEmelet").value,
+            emeletOssz: document.getElementById("valEmeletOssz").value,
             allapot: document.getElementById("valAllapot").value
         };
 
@@ -213,6 +216,7 @@ class ValuationManager {
                 <td class="text-end fw-semibold">${Utils.eur(c.ar)}</td>
                 <td class="text-end">${Utils.num(c.nm)} m²</td>
                 <td class="text-end">${Utils.eurNm(c.arNm)}</td>
+                <td class="text-end text-body-secondary" title="${Utils.escape(I18n.t("valAdjustedHelp"))}">${c.adjusted ? Utils.eur(c.adjusted) : "-"}</td>
                 <td class="text-center">${c.szobak || "-"}</td>
                 <td>${Utils.escape(c.emelet || "-")}</td>
                 <td>${Utils.escape(Utils.allapotLabel(c.allapot))}</td>
@@ -252,7 +256,7 @@ class ValuationManager {
                         </div>
                         <div class="col-md-6">
                             <h6>${I18n.t("valHowTitle")}</h6>
-                            <p class="small text-body-secondary mb-0">${I18n.f("valMethod", { n: d.comparables.length })}</p>
+                            ${ValuationManager.methodHtml(d, params)}
                         </div>
                     </div>
 
@@ -273,6 +277,7 @@ class ValuationManager {
                                     <th class="text-end">${I18n.t("colAr")}</th>
                                     <th class="text-end">${I18n.t("colNm")}</th>
                                     <th class="text-end">${I18n.t("colArNm")}</th>
+                                    <th class="text-end" title="${Utils.escape(I18n.t("valAdjustedHelp"))}">${I18n.t("valAdjusted")}</th>
                                     <th class="text-center">${I18n.t("colSzoba")}</th>
                                     <th>${I18n.t("colEmelet")}</th>
                                     <th>${I18n.t("colAllapot")}</th>
@@ -286,6 +291,36 @@ class ValuationManager {
                     <p class="sectionNote mt-3 mb-0">${I18n.t("valDisclaimer")}</p>
                 </div>
             </div>`;
+
+    }
+
+    // Hogyan jött ki a becslés: hasonlók + árarány-modell, és a fő arányok
+    static methodHtml(d, params) {
+
+        const m = d.method;
+
+        if (!m) {
+            return `<p class="small text-body-secondary mb-0">${I18n.f("valMethod", { n: d.comparables.length })}</p>`;
+        }
+
+        const ar = v => Utils.price({ ar: v, ugylet: params.ugylet });
+
+        const tenyezok = (m.factors || [])
+            .sort((a, b) => Math.abs(b.szorzo - 1) - Math.abs(a.szorzo - 1))
+            .map(t => {
+                const pct = (t.szorzo - 1) * 100;
+                return `<li>${I18n.t("valF_" + t.csoport)}: <b class="${pct >= 0 ? "text-success" : "text-danger"}">${Utils.pct(pct, 0)}</b></li>`;
+            }).join("");
+
+        return `
+            <ul class="small mb-2 valMethodList">
+                <li>${I18n.t("valByComparables")}: <b>${ar(m.comparableEstimate)}</b> <span class="text-body-secondary">(${m.comparableWeight}%)</span></li>
+                ${m.modelEstimate ? `<li>${I18n.t("valByModel")}: <b>${ar(m.modelEstimate)}</b> <span class="text-body-secondary">(${m.modelWeight}%)</span></li>` : ""}
+            </ul>
+            ${tenyezok ? `
+                <div class="small text-body-secondary mb-1">${I18n.f("valFactorsTitle", { base: Utils.eurNm(m.baseArNm) })}</div>
+                <ul class="small mb-2 valMethodList">${tenyezok}</ul>` : ""}
+            <p class="small text-body-secondary mb-0">${I18n.f("valMethod2", { n: d.comparables.length })}</p>`;
 
     }
 

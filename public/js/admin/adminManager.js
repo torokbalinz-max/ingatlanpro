@@ -6,6 +6,7 @@
 //    overview.js     áttekintés, teendők, gyors műveletek
 //    review.js       ellenőrzésre váró hirdetések
 //    unavailable.js  nem elérhető (eladott / törölt) hirdetések
+//    conditions.js   állapot gyors beállítása (fényképek alapján)
 //    import.js       beolvasás linkről + figyelt oldalak
 //    duplicates.js   duplikátumok, hibás adatsorok
 //    places.js       városok, kerületek
@@ -35,6 +36,7 @@ class AdminManager {
         sitestats:   { title: "adminTabSiteStats",   desc: "adminDescSiteStats",   render: () => AdminManager.renderSiteStats() },
         review:      { title: "adminTabReview",      desc: "adminDescReview",      render: () => AdminManager.renderReview() },
         unavailable: { title: "adminTabUnavailable", desc: "adminDescUnavailable", render: () => AdminManager.renderUnavailable() },
+        allapot:     { title: "adminTabAllapot",     desc: "adminDescAllapot",     render: () => AdminManager.renderConditions() },
         dups:        { title: "adminTabDups",        desc: "adminDescDups",        render: () => AdminManager.renderDups() },
         import:      { title: "adminTabImport",      desc: "adminDescImport",      render: () => AdminManager.renderImport() },
         watch:       { title: "adminTabWatch",       desc: "adminDescWatch",       render: () => AdminManager.renderWatch() },
@@ -115,6 +117,7 @@ class AdminManager {
                 AdminManager.aiElerheto = !!c.ai;
                 AdminManager.setCount("pendingCount", c.review);
                 AdminManager.setCount("unavailableCount", c.unavailable);
+                AdminManager.setCount("allapotCount", c.allapot_hianyzo);
                 AdminManager.setCount("navAdminCount", c.review);
                 return c;
             })

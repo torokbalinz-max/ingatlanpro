@@ -61,6 +61,7 @@ app.use(require("./routes/favorites"));
 app.use(require("./routes/statistics"));
 app.use(require("./routes/valuation"));
 app.use(require("./routes/admin"));
+app.use(require("./routes/allapot"));
 app.use(require("./routes/searches"));
 app.use(require("./routes/requests"));
 app.use(require("./routes/messages"));
@@ -83,5 +84,12 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Szerver elindult a ${PORT} porton.`);
     // A meglévő hirdetések automatikus javítása – csak egyszer, az első indításkor
-    setTimeout(() => require("./services/autofix").indulaskor(), 5000);
+    setTimeout(() => {
+        const autofix = require("./services/autofix");
+        autofix.indulaskor().then(() => autofix.keruletIgazitas());
+    }, 5000);
+    // Havi automatikus piaci mentés (ha ebben a hónapban még nem volt) – induláskor és naponta
+    const havonta = () => require("./routes/statistics").havontaMent().catch(() => { });
+    setTimeout(havonta, 60 * 1000);
+    setInterval(havonta, 12 * 3600 * 1000).unref();
 });

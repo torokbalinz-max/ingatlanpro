@@ -13,7 +13,8 @@ class HistoryStatistics {
         });
         const varos = s.varos ? CityManager.displayName(s.varos) : I18n.t("allCities");
         const tipus = s.tipus ? ` · ${Types.label(s.tipus)} (${Types.ugyletLabel(s.ugylet)})` : "";
-        return `${datum} · ${varos}${tipus} · ${s.property_count} ${I18n.t("pcsWord")}`;
+        const auto = s.note === "auto" ? ` · ${I18n.t("histAuto")}` : "";
+        return `${datum} · ${varos}${tipus} · ${s.property_count} ${I18n.t("pcsWord")}${auto}`;
     }
 
     static fetchList() {
@@ -119,17 +120,33 @@ class HistoryStatistics {
                     <select id="snapshotSelect" class="form-select" style="max-width:480px;">
                         ${lista.map(s => `<option value="${s.id}">${Utils.escape(HistoryStatistics.label(s))}</option>`).join("")}
                     </select>
-                    <button id="btnDeleteSnapshot" class="btn btn-outline-danger" ${AuthManager.isAdmin() ? "" : "hidden"} title="${I18n.t("historyDelete")}">
+                    <button id="btnDeleteSnapshot" class="btn btn-outline-danger" ${AuthManager.isAdmin() ? "" : "hidden"} title="${I18n.t("historyDelete")}" aria-label="${I18n.t("historyDelete")}">
                         <i class="fa-solid fa-trash"></i>
                     </button>
+                    <select id="snapshotCompare" class="form-select" style="max-width:480px;" aria-label="${Utils.escape(I18n.t("histCompareWith"))}">
+                        <option value="">${I18n.t("histCompareWith")}</option>
+                        ${lista.map(s => `<option value="${s.id}">${Utils.escape(HistoryStatistics.label(s))}</option>`).join("")}
+                    </select>
                 </div>
+                <p class="sectionNote">${I18n.t("histAutoNote")}</p>
                 <div id="snapshotContent"></div>`;
 
             container.innerHTML = html;
 
             HistoryStatistics.bindSave();
 
-            document.getElementById("snapshotSelect").onchange = e => HistoryStatistics.loadSnapshot(e.target.value);
+            const mutat = () => {
+                const a = document.getElementById("snapshotSelect").value;
+                const b = document.getElementById("snapshotCompare").value;
+                if (b && b !== a) {
+                    CompareStatistics.renderInto(a, b, document.getElementById("snapshotContent"));
+                } else {
+                    HistoryStatistics.loadSnapshot(a);
+                }
+            };
+
+            document.getElementById("snapshotSelect").onchange = mutat;
+            document.getElementById("snapshotCompare").onchange = mutat;
 
             document.getElementById("btnDeleteSnapshot").onclick = () => {
 

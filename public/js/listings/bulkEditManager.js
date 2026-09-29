@@ -64,6 +64,57 @@ class BulkEditManager {
 
         BulkEditManager.loadKeruletOptions();
 
+        // Állapot tömegesen (pl. egy fotók alapján átnézett csoportra)
+        BulkEditManager.renderAllapotOptions();
+
+        const btnAllapot = document.getElementById("btnBulkAllapot");
+        if (btnAllapot) btnAllapot.onclick = () => BulkEditManager.applyAllapot();
+
+    }
+
+    static renderAllapotOptions() {
+        const sel = document.getElementById("bulkAllapot");
+        if (!sel) return;
+        const keep = sel.value;
+        sel.innerHTML = Utils.allapotOptions(keep, "bulkAllapotChoose");
+        sel.setAttribute("aria-label", I18n.t("allapot"));
+    }
+
+    static applyAllapot() {
+
+        const allapot = document.getElementById("bulkAllapot").value;
+
+        if (!allapot) {
+            alert(I18n.t("bulkAlertNoAllapot"));
+            return;
+        }
+
+        if (!BulkEditManager.selectedRows.length) return;
+
+        const ids = BulkEditManager.selectedRows.map(r => r.id);
+
+        if (!confirm(I18n.f("bulkAllapotConfirm", { n: ids.length, a: Utils.allapotLabel(allapot) }))) return;
+
+        fetch("/api/admin/allapot", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids, allapot })
+        })
+            .then(r => r.json())
+            .then(v => {
+                if (!v.siker) throw new Error("bulk allapot failed");
+                const idSet = new Set(ids);
+                DataManager.ingatlanok.forEach(i => { if (idSet.has(i.id)) i.allapot = allapot; });
+                FilterManager.apply();
+                if (TableManager.grid) TableManager.grid.deselectAll();
+                BulkEditManager.updateBar([]);
+                AdminManager.refreshPendingCount();
+            })
+            .catch(err => {
+                console.error(err);
+                alert(I18n.t("bulkAlertError"));
+            });
+
     }
 
     static loadKeruletOptions(selectNev) {

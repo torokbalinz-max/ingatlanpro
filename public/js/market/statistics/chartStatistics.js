@@ -73,6 +73,63 @@ class ChartStatistics {
 
     }
 
+    // Több vonal (pl. szobaszám szerinti bontás). datasets: [{ label, data, darab, fo }]
+    // A tooltip a hirdetések számát is mutatja; 5-nél kevesebb hirdetésnél üres a pont.
+    static multiLine(canvasId, labels, datasets, format) {
+
+        const el = document.getElementById(canvasId);
+        if (!el) return;
+
+        ChartStatistics.applyTheme();
+
+        const tobb = datasets.length > 1;
+
+        const chart = new Chart(el, {
+            type: "line",
+            data: {
+                labels,
+                datasets: datasets.map((d, idx) => {
+                    const szin = idx === 0 ? Utils.accent() : ChartStatistics.PALETTE[idx % ChartStatistics.PALETTE.length];
+                    return {
+                        label: d.label,
+                        data: d.data,
+                        borderColor: szin,
+                        backgroundColor: szin,
+                        fill: false,
+                        borderWidth: d.fo ? 3 : 2,
+                        borderDash: d.fo && tobb ? [6, 4] : [],
+                        tension: 0.25,
+                        spanGaps: true,
+                        pointRadius: (d.darab || []).map(n => n > 0 && n < 5 ? 3 : 4),
+                        pointBackgroundColor: (d.darab || []).map(n => n > 0 && n < 5 ? "transparent" : szin),
+                        darab: d.darab
+                    };
+                })
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: {
+                    legend: { display: tobb, position: "bottom", labels: { boxWidth: 14, usePointStyle: true } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const n = ctx.dataset.darab ? ctx.dataset.darab[ctx.dataIndex] : null;
+                                const v = format ? format(ctx.raw) : ctx.raw;
+                                return `${ctx.dataset.label}: ${v}${n !== null && n !== undefined ? ` (${n} ${I18n.t("pcsWord")})` : ""}`;
+                            }
+                        }
+                    }
+                },
+                scales: { y: { beginAtZero: false } }
+            }
+        });
+
+        ChartStatistics.charts.push(chart);
+
+    }
+
     static line(canvasId, labels, values, label, format) {
 
         const el = document.getElementById(canvasId);

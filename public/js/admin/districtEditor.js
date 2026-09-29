@@ -60,6 +60,7 @@ AdminManager.districtEditor = function (varos) {
                         </div>
                     </div>
                     <div class="deFoot">
+                        <button class="btn btn-sm btn-outline-secondary w-100 mb-2" id="deCheck"><i class="fa-solid fa-list-check"></i> ${I18n.t("deCheck")}</button>
                         <button class="btn btn-sm btn-outline-primary w-100" id="deClassify"><i class="fa-solid fa-arrows-rotate"></i> ${I18n.t("deClassify")}</button>
                         <div class="small mt-2" id="deResult"></div>
                     </div>
@@ -327,6 +328,28 @@ AdminManager.districtEditor = function (varos) {
             .then(r => r.json())
             .then(v => { eredmeny(v); MapManager.dirty = true; DataManager.init(); })
             .catch(() => alert(I18n.t("alertSaveError")))
+            .finally(() => { b.disabled = false; });
+    };
+
+    // Ellenőrzés: pontos helyű hirdetések, ahol a kerület nem egyezik a térképpel
+    document.getElementById("deCheck").onclick = () => {
+        const b = document.getElementById("deCheck");
+        const box = document.getElementById("deResult");
+        b.disabled = true;
+        fetch("/api/keruletek/ellenorzes?varos=" + encodeURIComponent(varos))
+            .then(r => r.json())
+            .then(v => {
+                if (!v.vanHatar) { box.innerHTML = I18n.t("deCheckNoBorders"); return; }
+                const nev = n => n ? esc(CityManager.keruletLabel(n, varos)) : "–";
+                const sor = x => `<li><a href="#listing/${x.id}" target="_blank" rel="noopener">#${x.id}</a> ${esc((x.cim || "").slice(0, 40))}: ${nev(x.kerulet)}${x.terkep ? ` → <b>${nev(x.terkep)}</b>` : ""}</li>`;
+                box.innerHTML = `
+                    <div class="${v.elteres.length ? "text-warning-emphasis" : "text-success"}">
+                        ${I18n.f("deCheckResult", { n: v.osszes, e: v.elteres.length, k: v.kivulDb })}
+                    </div>
+                    ${v.elteres.length ? `<div class="small mt-1">${I18n.t("deCheckMismatch")}</div><ul class="small deCheckList">${v.elteres.slice(0, 30).map(sor).join("")}</ul>` : ""}
+                    ${v.kivulDb ? `<div class="small mt-1">${I18n.t("deCheckOutside")}</div><ul class="small deCheckList">${v.kivul.slice(0, 15).map(sor).join("")}</ul>` : ""}`;
+            })
+            .catch(() => { box.innerHTML = I18n.t("alertLoadError"); })
             .finally(() => { b.disabled = false; });
     };
 

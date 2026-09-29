@@ -386,6 +386,90 @@ async function createSchema(db) {
         )
     `);
 
+    // ---------- Ártrend: árváltozások és piacon töltött idő ----------
+    //
+    // Minden hirdetésnél megjegyezzük:
+    //  - az ár (és alapterület) minden változását (ar_elozmenyek),
+    //  - mikor került le a piacról (piacrol_le: nem elérhető, eladva, archivált, törölt).
+    // Így bármelyik múltbeli hónapra kiszámolható, milyen hirdetések voltak
+    // akkor fent és mennyiért – az ártrend ebből számol, nem csak a kézi mentésekből.
+    // Adatbázis-trigger végzi, így MINDEN módosítás (kézi, import, automatikus
+    // javítás, iroda) bekerül, a kód többi részét nem kell hozzá módosítani.
+
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS piacrol_le TIMESTAMP`);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS ar_elozmenyek (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            ar DOUBLE PRECISION,
+            nm DOUBLE PRECISION,
+            datum TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ar_elozmenyek ON ar_elozmenyek (ingatlan_id, datum)`);
+
+    // Mióta naplózzuk az árváltozásokat (a Piaci elemzés kiírja)
+    await db.query(`INSERT INTO beallitasok (kulcs, ertek) VALUES ('arnaplo_kezdet', NOW()::text) ON CONFLICT (kulcs) DO NOTHING`);
+
+    // Lekerült-e a piacról (a sor mentése ELŐTT állítjuk)
+    await db.query(`
+        CREATE OR REPLACE FUNCTION ingatlan_piac_allapot() RETURNS trigger AS $fn$
+        BEGIN
+            IF NEW.statusz = 'aktiv' AND NOT COALESCE(NEW.eladva, false) THEN
+                NEW.piacrol_le := NULL;
+            ELSIF NEW.piacrol_le IS NULL THEN
+                NEW.piacrol_le := NOW();
+            END IF;
+            RETURN NEW;
+        END;
+        $fn$ LANGUAGE plpgsql
+    `);
+
+    // Árváltozás naplózása (a sor mentése UTÁN)
+    await db.query(`
+        CREATE OR REPLACE FUNCTION ingatlan_ar_naplo() RETURNS trigger AS $fn$
+        BEGIN
+            IF COALESCE(NEW.ar, 0) > 0 AND (TG_OP = 'INSERT'
+                OR NEW.ar IS DISTINCT FROM OLD.ar
+                OR NEW.nm IS DISTINCT FROM OLD.nm) THEN
+                INSERT INTO ar_elozmenyek (ingatlan_id, ar, nm, datum)
+                VALUES (NEW.id, NEW.ar, NEW.nm,
+                        CASE WHEN TG_OP = 'INSERT' THEN COALESCE(NEW.created_at, NOW()) ELSE NOW() END);
+            END IF;
+            RETURN NULL;
+        END;
+        $fn$ LANGUAGE plpgsql
+    `);
+
+    await db.query(`DROP TRIGGER IF EXISTS trg_ingatlan_piac ON ingatlanok`);
+    await db.query(`
+        CREATE TRIGGER trg_ingatlan_piac BEFORE INSERT OR UPDATE OF statusz, eladva ON ingatlanok
+        FOR EACH ROW EXECUTE FUNCTION ingatlan_piac_allapot()
+    `);
+
+    await db.query(`DROP TRIGGER IF EXISTS trg_ingatlan_ar ON ingatlanok`);
+    await db.query(`
+        CREATE TRIGGER trg_ingatlan_ar AFTER INSERT OR UPDATE OF ar, nm ON ingatlanok
+        FOR EACH ROW EXECUTE FUNCTION ingatlan_ar_naplo()
+    `);
+
+    // Kezdőértékek a már meglévő hirdetésekhez (csak ahol még hiányzik – gyors)
+    await db.query(`
+        INSERT INTO ar_elozmenyek (ingatlan_id, ar, nm, datum)
+        SELECT i.id, i.ar, i.nm, COALESCE(i.created_at, NOW())
+        FROM ingatlanok i
+        WHERE COALESCE(i.ar, 0) > 0
+          AND NOT EXISTS (SELECT 1 FROM ar_elozmenyek e WHERE e.ingatlan_id = i.id)
+    `);
+
+    await db.query(`
+        UPDATE ingatlanok
+        SET piacrol_le = GREATEST(COALESCE(utolso_ellenorzes, updated_at, NOW()), COALESCE(created_at, NOW()))
+        WHERE piacrol_le IS NULL AND (statusz <> 'aktiv' OR COALESCE(eladva, false))
+    `);
+
     // ---------- Jogi ----------
 
     // Tartalom-bejelentések (EU DSA 16. cikk: bárki jelezheti a jogellenes

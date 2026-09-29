@@ -46,14 +46,45 @@ class Districts {
         }, 0));
     }
 
-    // A kerület (az objektum), amiben a pont van – egymásba lógóknál a kisebbik
+    // A pont távolsága a sokszög szélétől, méterben
+    static edgeDist(x, y, hatar) {
+        const kx = 111320 * Math.cos(y * Math.PI / 180), ky = 110570;
+        let min = Infinity;
+        for (let i = 0, j = hatar.length - 1; i < hatar.length; j = i++) {
+            const ax = (hatar[j][0] - x) * kx, ay = (hatar[j][1] - y) * ky;
+            const bx = (hatar[i][0] - x) * kx, by = (hatar[i][1] - y) * ky;
+            const dx = bx - ax, dy = by - ay;
+            const l = dx * dx + dy * dy;
+            const t = Math.max(0, Math.min(1, l ? -(ax * dx + ay * dy) / l : 0));
+            min = Math.min(min, Math.hypot(ax + t * dx, ay + t * dy));
+        }
+        return min;
+    }
+
+    // A kerület (az objektum), amiben a pont van. Ugyanaz a szabály, mint a
+    // szerveren (server/services/districts.js):
+    //  - átfedésnél: beágyazott kerületnél a kisebbik, különben ahol a pont
+    //    mélyebben van (távolabb a széltől)
+    //  - két határ közötti résben (80 m-en belül): a legközelebbi
     static findObj(varos, x, y) {
         x = Number(x); y = Number(y);
         if (!varos || !x || !y) return null;
-        const talalt = Districts.list(varos).filter(k => Districts.inside(x, y, k.hatar));
-        if (!talalt.length) return null;
-        talalt.sort((a, b) => Districts.area(a.hatar) - Districts.area(b.hatar));
-        return talalt[0];
+        const lista = Districts.list(varos);
+        const talalt = lista.filter(k => Districts.inside(x, y, k.hatar));
+        if (talalt.length === 1) return talalt[0];
+        if (talalt.length > 1) {
+            const rend = [...talalt].sort((a, b) => Districts.area(a.hatar) - Districts.area(b.hatar));
+            const kicsi = rend[0];
+            const beagyazott = (a, b) => a.filter(p => Districts.inside(p[0], p[1], b)).length >= a.length * 0.9;
+            if (rend.slice(1).every(k => beagyazott(kicsi.hatar, k.hatar))) return kicsi;
+            return rend.map(k => ({ k, d: Districts.edgeDist(x, y, k.hatar) })).sort((a, b) => b.d - a.d)[0].k;
+        }
+        let legjobb = null;
+        lista.forEach(k => {
+            const d = Districts.edgeDist(x, y, k.hatar);
+            if (d <= 80 && (!legjobb || d < legjobb.d)) legjobb = { k, d };
+        });
+        return legjobb ? legjobb.k : null;
     }
 
     static find(varos, x, y) {

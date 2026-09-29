@@ -146,6 +146,21 @@ async function javaslat(i, extra = {}) {
         if (kerulet) v.kerulet = kerulet;
     }
 
+    // A végső pont és a kerület egyezzen: ha a hely pontos (vagy utca szintű),
+    // és egy megrajzolt kerülethatáron belül van, az a kerület – akkor is, ha
+    // a forrásoldal szövege mást írt, vagy a hely-ellenőrzés közben áthelyezte
+    // a pontot (különben a térképen A kerületben látszana, de B-nek számítana).
+    if (mezok.kerulet && i.varos) {
+        const x = "x" in v ? v.x : i.x;
+        const y = "y" in v ? v.y : i.y;
+        const szint = "hely_pontossag" in v ? v.hely_pontossag : i.hely_pontossag;
+        if (x && y && districts.pontosSzint(szint)) {
+            const k = await districts.keruletPontbol(i.varos, Number(x), Number(y)).catch(() => null);
+            const most = "kerulet" in v ? v.kerulet : i.kerulet;
+            if (k && k !== most) v.kerulet = k;
+        }
+    }
+
     return v;
 
 }
@@ -316,4 +331,15 @@ async function indulaskor() {
 
 }
 
-module.exports = { javaslat, helyKeres, indit, allapot, indulaskor, beallitas, VERZIO };
+// Induláskor (a javítás után): a kerületek igazítása a megrajzolt határokhoz
+async function keruletIgazitas() {
+    try {
+        await db.ready;
+        await districts.besorolMind();
+    } catch (e) {
+        console.error("Automatikus javítás hiba:", e.message);
+    }
+
+}
+
+module.exports = { javaslat, helyKeres, indit, allapot, indulaskor, keruletIgazitas, beallitas, VERZIO };

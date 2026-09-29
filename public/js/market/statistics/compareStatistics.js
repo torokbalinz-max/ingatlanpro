@@ -1,64 +1,10 @@
 // ============================================================
-//  Piaci elemzés – Két mentett piaci állapot összehasonlítása
+//  Piaci elemzés – Két mentett piaci állapot összevetése (Előzmények fül)
+//  + közös segédek (változás %, jelvény). Az időszakok összevetése a
+//  hirdetésekből az Ártrend fülön van (trendStatistics.js).
 // ============================================================
 
 class CompareStatistics {
-
-    static load() {
-
-        const container = document.getElementById("statisticsContainer");
-
-        HistoryStatistics.fetchList().then(lista => {
-
-            if (lista.length < 2) {
-
-                container.innerHTML = `
-                    <div class="emptyState">
-                        <i class="fa-solid fa-scale-balanced"></i>
-                        <h5>${I18n.t("compareNeedTwo")}</h5>
-                        <p class="text-body-secondary">${I18n.t("historyEmpty")}</p>
-                    </div>`;
-
-                return;
-
-            }
-
-            const options = lista
-                .map(s => `<option value="${s.id}">${Utils.escape(HistoryStatistics.label(s))}</option>`)
-                .join("");
-
-            container.innerHTML = `
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <p class="sectionNote">${I18n.t("compareNote")}</p>
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-5">
-                                <label class="form-label">${I18n.t("compareFrom")}</label>
-                                <select id="compareFrom" class="form-select">${options}</select>
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label">${I18n.t("compareTo")}</label>
-                                <select id="compareTo" class="form-select">${options}</select>
-                            </div>
-                            <div class="col-md-2 d-grid">
-                                <button id="btnCompare" class="btn btn-primary">${I18n.t("compareBtn")}</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div id="compareResult"></div>`;
-
-            // Alapból: legrégebbi -> legújabb
-            document.getElementById("compareFrom").value = lista[lista.length - 1].id;
-            document.getElementById("compareTo").value = lista[0].id;
-
-            document.getElementById("btnCompare").onclick = () => CompareStatistics.compare();
-
-            CompareStatistics.compare();
-
-        });
-
-    }
 
     static change(regi, uj) {
         if (!regi || !uj) return null;
@@ -72,10 +18,9 @@ class CompareStatistics {
         return `<span class="changeBadge ${cls}"><i class="fa-solid ${icon}"></i> ${Utils.pct(d)}</span>`;
     }
 
-    static compare() {
-
-        const from = document.getElementById("compareFrom").value;
-        const to = document.getElementById("compareTo").value;
+    // Két mentett piaci állapot összevetése a megadott dobozba
+    // (az Előzmények fülön: "Összevetés másik mentéssel")
+    static renderInto(from, to, target) {
 
         Promise.all([
             fetch("/api/statistics/" + from).then(r => r.json()),
@@ -158,7 +103,12 @@ class CompareStatistics {
 
             });
 
-            document.getElementById("compareResult").innerHTML = html;
+            // A régebbi legyen elöl
+            if (a && b && new Date(a.created_at) > new Date(b.created_at)) {
+                return CompareStatistics.renderInto(to, from, target);
+            }
+
+            target.innerHTML = html;
 
         });
 

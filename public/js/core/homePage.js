@@ -1,5 +1,5 @@
 // ============================================================
-//  Kezdőlap: mit tud az oldal, élő számok, valódi hirdetésképek
+//  Kezdőlap: kereső, élő számok, kategóriák (a részletes leírás a Súgó oldalon)
 //  + oldal-súgók ("Hogyan működik?" gomb az oldalak fejlécében)
 // ============================================================
 
@@ -15,23 +15,6 @@ class HomePage {
         telek: "photo-1625866529727-67ec4c3245d0",      // zöld dombok
         kereskedelmi: "photo-1528698827591-e19ccd7bc23d" // üzletportál
     };
-
-    static FEATURES = [
-        { key: "Props", page: "properties", icon: "fa-solid fa-house", cls: "featWide", bullets: ["homeFeatPropsB1", "homeFeatPropsB2", "homeFeatPropsB3"] },
-        { key: "Map", page: "map", icon: "fa-solid fa-map-location-dot", cls: "featWide featTint" },
-        { key: "Market", page: "market", icon: "fa-solid fa-chart-line", cls: "featThird" },
-        { key: "Val", page: "valuation", icon: "fa-solid fa-calculator", cls: "featThird" },
-        { key: "New", page: "new", icon: "fa-solid fa-circle-plus", cls: "featThird featTint" }
-    ];
-
-    static GOOD = [
-        { n: 1, icon: "fa-solid fa-globe" },
-        { n: 2, icon: "fa-solid fa-hourglass-half" },
-        { n: 3, icon: "fa-solid fa-location-dot" },
-        { n: 4, icon: "fa-solid fa-location-crosshairs" },
-        { n: 5, icon: "fa-solid fa-map" },
-        { n: 6, icon: "fa-solid fa-language" }
-    ];
 
     static stats() {
 
@@ -170,31 +153,13 @@ class HomePage {
                 </div>
             </section>
 
-            <section class="homeSection">
-                <h2 class="homeH2">${t("homeFeaturesTitle")}</h2>
-                <div class="featGrid">
-                    ${HomePage.FEATURES.map(f => `
-                        <a class="featCell ${f.cls}" href="#${f.page}">
-                            <span class="featBody">
-                                <span class="featIcon"><i class="${f.icon}" aria-hidden="true"></i></span>
-                                <span class="featTitle">${t("homeFeat" + f.key + "Title")}</span>
-                                <span class="featText">${t("homeFeat" + f.key + "Text")}</span>
-                                ${f.bullets ? `<ul class="featList">${f.bullets.map(b => `<li><i class="fa-solid fa-check" aria-hidden="true"></i>${t(b)}</li>`).join("")}</ul>` : ""}
-                                <span class="featMore">${t("homeOpen")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
-                            </span>
-                        </a>`).join("")}
+            <section class="homeHelpStrip">
+                <span class="homeHelpIcon"><i class="fa-solid fa-circle-question" aria-hidden="true"></i></span>
+                <div>
+                    <b>${t("homeHelpTitle")}</b>
+                    <span>${t("homeHelpText")}</span>
                 </div>
-            </section>
-
-            <section class="homeSection">
-                <h2 class="homeH2">${t("homeGoodTitle")}</h2>
-                <dl class="goodGrid">
-                    ${HomePage.GOOD.map(g => `
-                        <div class="goodItem">
-                            <dt><i class="${g.icon}" aria-hidden="true"></i>${t("homeGood" + g.n + "Title")}</dt>
-                            <dd>${t("homeGood" + g.n + "Text")}</dd>
-                        </div>`).join("")}
-                </dl>
+                <a class="btn btn-outline-primary btn-sm" href="#sugo">${t("homeHelpBtn")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
             </section>
 
             <footer class="homeFooter">
@@ -265,7 +230,9 @@ class HelpManager {
         const panel = document.getElementById("help-" + key);
         const pontok = I18n.t("help_" + key);
         if (!panel || !Array.isArray(pontok)) return;
-        panel.innerHTML = `<ul>${pontok.map(p => `<li>${Utils.escape(p)}</li>`).join("")}</ul>`;
+        const tema = typeof HelpPage !== "undefined" ? HelpPage.OLDAL_TEMA[key] : null;
+        panel.innerHTML = `<ul>${pontok.map(p => `<li>${Utils.escape(p)}</li>`).join("")}</ul>` +
+            (tema ? `<a class="small" href="#sugo/${tema}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> ${I18n.t("helpMoreLink")}</a>` : "");
     }
 
 }

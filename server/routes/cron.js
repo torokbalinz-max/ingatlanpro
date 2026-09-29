@@ -28,6 +28,7 @@ router.post("/api/cron/run", async (req, res) => {
         .then(() => importer.figyelesIndit({ limit: 150 }).promise)
         .then(() => { const j = imagehash.indit(300); return j && j.promise; })
         .then(() => napiErtesito(req))
+        .then(() => require("./statistics").havontaMent())
         .catch(err => console.error("Cron hiba:", err));
 
 });
