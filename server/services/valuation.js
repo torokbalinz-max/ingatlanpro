@@ -28,29 +28,20 @@ const db = require("../db/database");
 
 // ---------- Állapot, emelet ----------
 
-// Fél lépések: a "közepes" a felújítandó és a részben felújított között van
-const ALLAPOT_RANG = {
-    "felújítandó": 0,
-    "közepes": 0.5,
-    "átlagos": 0.5,
-    "részbenfel": 1,
-    "részben felújított": 1,
-    "jó": 2,
-    "újszerű": 3,
-    "új": 3,
-    "luxus": 4
-};
+// Az állapotok listája és adatai (szint, kiinduló arány) az admin kezelésében
+// vannak (services/allapotok.js, Admin → Állapotok). A szint a hasonló
+// hirdetések kereséséhez kell (fél lépések: a "közepes" a felújítandó és a
+// részben felújított között van), a kiinduló arány a modellhez.
+const allapotok = require("./allapotok");
 
 function allapotRang(a) {
-    const kulcs = String(a || "").toLowerCase().replace(/\*/g, "").trim();
-    return ALLAPOT_RANG[kulcs] !== undefined ? ALLAPOT_RANG[kulcs] : null;
+    return allapotok.rang(a);
 }
 
-// Egységes állapot-kulcs a modellhez
+// Egységes állapot-kulcs a modellhez (ismeretlen / régi szabad szöveg: null)
 function allapotKulcs(a) {
-    const r = allapotRang(a);
-    if (r === null) return null;
-    return { 0: "felujitando", 0.5: "kozepes", 1: "reszben", 2: "jo", 3: "ujszeru", 4: "luxus" }[r];
+    const k = allapotok.norm(a);
+    return k && allapotok.ervenyes(k) ? k : null;
 }
 
 function emeletSzam(e) {
@@ -175,8 +166,8 @@ function celAdat(params) {
 // Józan piaci arányok (ha kevés az adat, ezek felé húzunk).
 // Az értékek szorzók a "jó" állapotú, közbülső emeleti, városátlag
 // fekvésű lakáshoz képest.
+//  Az állapotok kiinduló arányai az állapotok listájában vannak (szorzo).
 const ELOZETES = {
-    allapot: { felujitando: 0.80, kozepes: 0.89, reszben: 0.94, jo: 1.00, ujszeru: 1.10, luxus: 1.22 },
     foldszint: 0.95,
     legfelso: 0.96,
     // a €/m² a mérettel csökken: eladónál nm^-0.15, bérletnél nm^-0.4
@@ -197,11 +188,13 @@ function jellemzok(pool, tipus, ugylet) {
     // Méret (log, 60 m²-re középre igazítva)
     add("meret", "meret", i => Math.log(i.nm / 60), ELOZETES.meret[ugylet] ?? -0.15, ERO.meret);
 
-    // Állapot ("jó" a viszonyítás; ismeretlen állapot = 0 mindenhol, vagyis "átlagos piaci")
+    // Állapot ("jó" a viszonyítás; ismeretlen állapot = 0 mindenhol, vagyis "átlagos piaci").
+    // Minden állapotnak saját tényezője van; ahol kevés a hirdetés, ott az
+    // admin által megadott kiinduló arány (pl. újépítésű 1,12) számít.
     if (tipus !== "telek") {
-        ["felujitando", "kozepes", "reszben", "ujszeru", "luxus"].forEach(k => {
-            add("allapot_" + k, "allapot", i => i._allapot === k ? 1 : 0,
-                Math.log(ELOZETES.allapot[k]), ERO.allapot);
+        allapotok.osszes().filter(a => a.kulcs !== "jó").forEach(a => {
+            add("allapot_" + a.kulcs, "allapot", i => i._allapot === a.kulcs ? 1 : 0,
+                Math.log(a.szorzo > 0 ? a.szorzo : 1), ERO.allapot);
         });
     }
 
@@ -597,6 +590,8 @@ function szamolRegi(pool, params) {
 
 async function becsles(params) {
 
+    await allapotok.kesz();
+
     const varos = String(params.varos || "").trim();
     const nm = Number(params.nm);
 
@@ -619,6 +614,8 @@ async function becsles(params) {
 // becslünk meg (a sajátja kimarad), és összevetjük a hirdetési árral.
 //  -> hiba-mutatók a régi és az új módszerre, a modell-súly több értékére
 async function teszt(varos, tipus = "lakas", ugylet = "elado") {
+
+    await allapotok.kesz();
 
     const rows = tisztitPool(await adatok(varos, tipus, ugylet), null);
 

@@ -11,6 +11,9 @@
 //    duplicates.js   duplikátumok, hibás adatsorok
 //    places.js       városok, kerületek
 //    siteStats.js    látogatottság, fiókok, forgalmas órák, adatbázis mérete
+//    conditionList.js az állapotok listája (új állapot, átnevezés, szín, kulcsszavak)
+//    siteSettings.js  a webhely / üzemeltető adatai (a jogi oldalakhoz)
+//    agencies.js      ingatlanirodák jóváhagyása (ANAF-adatokkal)
 // ============================================================
 
 class AdminManager {
@@ -40,7 +43,10 @@ class AdminManager {
         dups:        { title: "adminTabDups",        desc: "adminDescDups",        render: () => AdminManager.renderDups() },
         import:      { title: "adminTabImport",      desc: "adminDescImport",      render: () => AdminManager.renderImport() },
         watch:       { title: "adminTabWatch",       desc: "adminDescWatch",       render: () => AdminManager.renderWatch() },
-        places:      { title: "adminTabPlaces",      desc: "adminDescPlaces",      render: () => AdminManager.renderPlaces() }
+        irodak:      { title: "adminTabAgencies",    desc: "adminDescAgencies",    render: () => AdminManager.renderAgencies() },
+        places:      { title: "adminTabPlaces",      desc: "adminDescPlaces",      render: () => AdminManager.renderPlaces() },
+        allapotok:   { title: "adminTabConditions",  desc: "adminDescConditions",  render: () => AdminManager.renderConditionList() },
+        webhely:     { title: "adminTabSite",        desc: "adminDescSite",        render: () => AdminManager.renderSiteSettings() }
     };
 
     static init() {
@@ -118,7 +124,8 @@ class AdminManager {
                 AdminManager.setCount("pendingCount", c.review);
                 AdminManager.setCount("unavailableCount", c.unavailable);
                 AdminManager.setCount("allapotCount", c.allapot_hianyzo);
-                AdminManager.setCount("navAdminCount", c.review);
+                AdminManager.setCount("irodaCount", c.iroda_fuggo);
+                AdminManager.setCount("navAdminCount", (c.review || 0) + (c.iroda_fuggo || 0));
                 return c;
             })
             .catch(() => { });

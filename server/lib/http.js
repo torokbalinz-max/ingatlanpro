@@ -5,6 +5,8 @@
 // Szerverhiba: naplózás + egységes válasz
 function hiba(res, err) {
     if (err && err.kod) return res.status(400).json({ error: err.kod });
+    // Hibás azonosító / szám a kérésben (pl. /api/ingatlanok/abc) – nem szerverhiba
+    if (err && (err.code === "22P02" || err.code === "22003")) return res.status(400).json({ error: "bad_request" });
     console.error(err);
     res.status(500).json({ error: "server_error", message: err.message });
 }

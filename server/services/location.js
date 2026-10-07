@@ -197,7 +197,8 @@ async function helyKeres(d, szoveg, extra = {}) {
     }
 
     if (d.forras_kerulet) kornyekek.push(d.forras_kerulet);
-    textParse.helyTippek(szoveg).filter(t => t.szint === "kozelito").forEach(t => kornyekek.push(t.szoveg));
+    const tippek = textParse.helyTippek(szoveg);
+    tippek.filter(t => t.szint === "kozelito" && !t.nevezetes).forEach(t => kornyekek.push(t.szoveg));
 
     // A megrajzolt kerülethatár közepe – ez pontosabb, mint a névre keresés
     // (a "Centru" típusú nevekre a kereső a város közepét adja)
@@ -218,8 +219,28 @@ async function helyKeres(d, szoveg, extra = {}) {
         }
     }
 
+    // 4) Nevezetes hely a közelben ("lângă Kaufland", "a kórház mellett") – csak a
+    //    városban, és csak ha ott egyértelmű (egy Kaufland van, nem több)
+    if (!d.telepules) {
+        for (const t of tippek.filter(x => x.nevezetes).slice(0, 2)) {
+            const h = await nevezetesKeres(d.varos, t.szoveg);
+            if (h) return { x: h.x, y: h.y, szint: "kozelito", sugar: 700, forras: "szoveg", nev: t.szoveg };
+        }
+    }
+
     return null;
 
+}
+
+// Nevezetes hely a város területén – ha több is van (pl. két Kaufland), nem
+// tudjuk, melyikről van szó, ezért nem használjuk
+async function nevezetesKeres(varos, nev) {
+    const v = await varosAdat(varos);
+    if (!v) return null;
+    const lista = await geo.keresLista(nev, { kozep: [v.x, v.y], sugarKm: v.sugar_km + 1, varosRo: v.nev_ro, fajta: "kornyek" });
+    if (!lista.length) return null;
+    if (lista.length > 1 && geo.km(lista[0].x, lista[0].y, lista[1].x, lista[1].y) > 0.7) return null;
+    return lista[0];
 }
 
 // Egy kerület "közepe": a pontos helyű hirdetések átlaga

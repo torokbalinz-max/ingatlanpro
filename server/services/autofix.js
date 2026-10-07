@@ -23,12 +23,14 @@ const textParse = require("./textParse");
 const { VAROS_RO } = require("./geocode");
 const location = require("./location");
 const { TIPUS_MEZOK } = require("./listing");
+const allapotok = require("./allapotok");
 const Telepulesek = require("../../public/js/core/telepulesek");
 
 // Ha a javítás szabályai bővülnek, a szám emelésével a következő
 // induláskor minden hirdetésen újra lefut (2: ár, belterület/külterület, kerület a helyből;
-// 3: hely-ellenőrzés – a forrásoldal rossz pontjai, hasonló nevű falvak)
-const VERZIO = 3;
+// 3: hely-ellenőrzés – a forrásoldal rossz pontjai, hasonló nevű falvak;
+// 4: állapot a leírásból / az építés évéből, pontosabb emelet, terület, évszám, nevezetes helyek)
+const VERZIO = 4;
 
 const ures = v => v === null || v === undefined || v === "" || (typeof v === "number" && !(v > 0));
 
@@ -60,6 +62,18 @@ async function javaslat(i, extra = {}) {
 
     // Telek: belterület / külterület
     if (k.telek_jelleg && mezok.jelleg && !i.telek_jelleg) v.telek_jelleg = k.telek_jelleg;
+
+    // Állapot a szövegből (pl. "necesită renovare", "bloc nou", "újépítésű") vagy az
+    // építés évéből – csak ha még nincs. "Bizonytalan" jelölést kap (allapot_forras),
+    // az Admin → Állapot beállítása oldalon gyorsan átnézhető.
+    if (mezok.allapot && ures(i.allapot)) {
+        await allapotok.kesz();
+        const a = allapotok.felismer(szoveg, { evszam: v.evszam || i.evszam });
+        if (a) {
+            v.allapot = a.ertek;
+            v.allapot_forras = a.forras;
+        }
+    }
 
     const nm = v.nm || i.nm;
     const ar = "ar" in v ? v.ar : i.ar;
@@ -253,7 +267,7 @@ async function futtat(job, opts) {
                     params
                 );
 
-                const mit = kulcsok.filter(k => !["hianyzo", "problemak", "ellenorzott", "arnm", "hely_forras", "hely_sugar", "y", "hely_pontossag"].includes(k))
+                const mit = kulcsok.filter(k => !["hianyzo", "problemak", "ellenorzott", "arnm", "hely_forras", "hely_sugar", "y", "hely_pontossag", "allapot_forras"].includes(k))
                     .map(k => k === "x" ? "hely" : k);
 
                 if (mit.length) {

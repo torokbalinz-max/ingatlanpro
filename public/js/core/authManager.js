@@ -19,6 +19,7 @@ class AuthManager {
     static olvasatlan = 0;
     static adminNezet = false;      // az admin a felhasználói nézetet próbálja
     static irodak = [];             // az ingatlanirodák, amelyeknek tagja
+    static irodaMeghivasok = [];    // ingatlanirodák, ahová meghívták (még nem fogadta el)
     static varakozok = [];
     static modal = null;
     static mod = "login";
@@ -60,6 +61,13 @@ class AuthManager {
         ]).then(([config, me]) => {
 
             AuthManager.config = config || {};
+
+            // Az admin által kezelt állapotlista (Admin → Állapotok)
+            if (Array.isArray(AuthManager.config.allapotok)) Utils.setAllapotok(AuthManager.config.allapotok);
+
+            // Az üzemeltető adatai (Admin → Webhely adatai) a láblécbe
+            if (typeof LegalPage !== "undefined") LegalPage.labLec();
+
             AuthManager.setMe(me);
 
             if (AuthManager.resetToken) {
@@ -84,6 +92,7 @@ class AuthManager {
         AuthManager.olvasatlan = me.olvasatlan || 0;
         AuthManager.adminNezet = !!me.adminNezet;
         AuthManager.irodak = Array.isArray(me.irodak) ? me.irodak : [];
+        AuthManager.irodaMeghivasok = Array.isArray(me.irodaMeghivasok) ? me.irodaMeghivasok : [];
 
         AuthManager.apply();
 
@@ -123,6 +132,13 @@ class AuthManager {
 
         const nev = document.getElementById("navUserName");
         if (nev) nev.innerText = bent ? AuthManager.user.nev : I18n.t("authLoginBtn");
+
+        // Ingatlaniroda-meghívás: jelzés a menüben
+        document.querySelectorAll(".navInviteCount").forEach(badge => {
+            const n = AuthManager.irodaMeghivasok.length;
+            badge.hidden = !n;
+            badge.innerText = n;
+        });
 
         document.querySelectorAll("#navMsgCount, .navMsgCount2, .accMsgCount").forEach(badge => {
             badge.hidden = !(AuthManager.olvasatlan > 0);

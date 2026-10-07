@@ -36,6 +36,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/legal.css">
     <link rel="stylesheet" href="css/sitestats.css">
+    <link rel="stylesheet" href="css/v4.css">
 </head>
 
 <body>
@@ -62,6 +63,7 @@
             <a class="navLink" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span data-i18n="menuErtekbecslo">Értékbecslő</span></a>
             <a class="navLink" href="#favorites" data-page="favorites"><i class="fa-solid fa-star"></i><span data-i18n="menuKedvencek">Kedvencek</span></a>
             <a class="navLink" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i><span data-i18n="menuIgenyek">Keresek</span></a>
+            <a class="navLink" href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase" aria-hidden="true"></i><span data-i18n="agDirNav">Irodák</span></a>
         </div>
 
         <!-- Főmenü (kis képernyőn lenyíló) -->
@@ -80,13 +82,14 @@
                 <li><a class="dropdown-item" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a></li>
                 <li><a class="dropdown-item" href="#favorites" data-page="favorites"><i class="fa-solid fa-star"></i><span><b data-i18n="menuKedvencek">Kedvencek</b><small data-i18n="menuKedvencekDesc">Elmentett ingatlanok</small></span></a></li>
                 <li><a class="dropdown-item" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="menuIgenyekDesc">Vevők keresései – válaszolj rájuk</small></span></a></li>
+                <li><a class="dropdown-item" href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a></li>
                 <li><a class="dropdown-item" href="#new" data-page="new"><i class="fa-solid fa-circle-plus"></i><span><b data-i18n="menuUj">Új ingatlan</b><small data-i18n="menuUjDesc">Hirdetés feltöltése</small></span></a></li>
                 <li><a class="dropdown-item" href="#sugo" data-page="sugo"><i class="fa-solid fa-circle-question"></i><span><b data-i18n="menuSugo">Súgó</b><small data-i18n="menuSugoDesc">Használati útmutató, kérdések</small></span></a></li>
                 <li class="admin-only" hidden><hr class="dropdown-divider"></li>
                 <li class="admin-only" hidden><a class="dropdown-item" href="#admin" data-page="admin"><i class="fa-solid fa-user-shield"></i><span><b data-i18n="menuAdmin">Admin</b><small data-i18n="menuAdminDesc">Import, jóváhagyás, duplikátumok</small></span></a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="#fiok" data-page="fiok"><i class="fa-solid fa-circle-user"></i><span><b data-i18n="menuFiok">Fiókom</b><small data-i18n="menuFiokDesc">Hirdetéseim, keresések, üzenetek</small></span></a></li>
-                <li><a class="dropdown-item" href="#iroda" data-page="iroda"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agMenu">Ingatlaniroda</b><small data-i18n="agMenuDesc">Az iroda hirdetései, ügynökei</small></span></a></li>
+                <li><a class="dropdown-item" href="#iroda" data-page="iroda"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agMyAgency">Irodám kezelése</b><small data-i18n="agMenuDesc">Az iroda hirdetései, ügynökei</small></span> <span class="badge text-bg-danger ms-1 navInviteCount" hidden></span></a></li>
             </ul>
 
         </div>
@@ -138,7 +141,7 @@
                     <li><a class="dropdown-item" href="#fiok/igenyek"><i class="fa-solid fa-bullhorn"></i> <span data-i18n="accTabRequests">Keresési igényeim</span></a></li>
                     <li><a class="dropdown-item" href="#fiok/uzenetek"><i class="fa-solid fa-envelope"></i> <span data-i18n="accTabMessages">Üzenetek</span> <span class="badge text-bg-danger ms-1 navMsgCount2" hidden></span></a></li>
                     <li><a class="dropdown-item" href="#favorites"><i class="fa-solid fa-star"></i> <span data-i18n="menuKedvencek">Kedvencek</span></a></li>
-                    <li><a class="dropdown-item" href="#iroda"><i class="fa-solid fa-briefcase"></i> <span data-i18n="agMenu">Ingatlaniroda</span></a></li>
+                    <li><a class="dropdown-item" href="#iroda"><i class="fa-solid fa-briefcase"></i> <span data-i18n="agMyAgency">Irodám kezelése</span> <span class="badge text-bg-danger ms-1 navInviteCount" hidden></span></a></li>
                     <li class="adminView-only" hidden><hr class="dropdown-divider"></li>
                     <li class="adminView-only" hidden><button class="dropdown-item" type="button" id="navViewToggle"><i class="fa-solid fa-eye"></i> <span id="navViewLabel" data-i18n="viewAsUser">Felhasználói nézet</span></button></li>
                     <li class="navDarkItem"><button class="dropdown-item" type="button" id="navDarkItem"><i class="fa-solid fa-circle-half-stroke"></i> <span data-i18n="darkModeToggle">Sötét mód</span></button></li>
@@ -301,14 +304,8 @@
 
                         <div data-field="allapot">
                             <label class="form-label" for="allapot" data-i18n="allapot">Állapot</label>
-                            <select id="allapot" class="form-select mb-3">
+                            <select id="allapot" class="form-select mb-3" data-allapot-select="allapotMindegy">
                                 <option value="" data-i18n="allapotMindegy">Mindegy</option>
-                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
-                                <option value="közepes" data-i18n="allapotKozepes">közepes</option>
-                                <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
-                                <option value="jó" data-i18n="allapotJo">jó</option>
-                                <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
-                                <option value="luxus" data-i18n="allapotLuxus">luxus</option>
                             </select>
                         </div>
 
@@ -824,14 +821,8 @@
 
                         <div class="col-12" data-field="allapot">
                             <label class="form-label req" for="ujAllapot" data-i18n="newAllapot">Állapot</label>
-                            <select id="ujAllapot" class="form-select">
+                            <select id="ujAllapot" class="form-select" data-allapot-select="chooseOne">
                                 <option value="" data-i18n="chooseOne">— válassz —</option>
-                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
-                                <option value="közepes" data-i18n="allapotKozepes">közepes</option>
-                                <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
-                                <option value="jó" data-i18n="allapotJo">jó</option>
-                                <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
-                                <option value="luxus" data-i18n="allapotLuxus">luxus</option>
                             </select>
                         </div>
 
@@ -1044,14 +1035,8 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label" for="valAllapot" data-i18n="newAllapot">Állapot</label>
-                            <select id="valAllapot" class="form-select">
+                            <select id="valAllapot" class="form-select" data-allapot-select="allapotMindegy">
                                 <option value="" data-i18n="allapotMindegy">Mindegy</option>
-                                <option value="felújítandó" data-i18n="allapotFelujitando">felújítandó</option>
-                                <option value="közepes" data-i18n="allapotKozepes">közepes</option>
-                                <option value="részbenfel" data-i18n="allapotReszben">részben felújított</option>
-                                <option value="jó" data-i18n="allapotJo">jó</option>
-                                <option value="újszerű" data-i18n="allapotUjszeru">újszerű</option>
-                                <option value="luxus" data-i18n="allapotLuxus">luxus</option>
                             </select>
                         </div>
                     </div>
@@ -1113,8 +1098,13 @@
                 <button class="adminNavItem" data-tab="import" type="button"><i class="fa-solid fa-file-import"></i><span data-i18n="adminTabImport">Beolvasás</span></button>
                 <button class="adminNavItem" data-tab="watch" type="button"><i class="fa-solid fa-binoculars"></i><span data-i18n="adminTabWatch">Figyelt oldalak</span></button>
 
+                <div class="adminNavGroup" data-i18n="adminGroupPartners">Partnerek</div>
+                <button class="adminNavItem" data-tab="irodak" type="button"><i class="fa-solid fa-briefcase"></i><span data-i18n="adminTabAgencies">Ingatlanirodák</span><span class="navCount warn" id="irodaCount" hidden></span></button>
+
                 <div class="adminNavGroup" data-i18n="adminGroupSettings">Beállítások</div>
                 <button class="adminNavItem" data-tab="places" type="button"><i class="fa-solid fa-city"></i><span data-i18n="adminTabPlaces">Városok, kerületek</span></button>
+                <button class="adminNavItem" data-tab="allapotok" type="button"><i class="fa-solid fa-sliders"></i><span data-i18n="adminTabConditions">Állapotok</span></button>
+                <button class="adminNavItem" data-tab="webhely" type="button"><i class="fa-solid fa-id-card"></i><span data-i18n="adminTabSite">Webhely adatai</span></button>
 
             </nav>
 
@@ -1232,6 +1222,7 @@
 <script src="js/core/i18n-accounts.js"></script>
 <script src="js/core/i18n-agency.js"></script>
 <script src="js/core/i18n-v3.js"></script>
+<script src="js/core/i18n-v4.js"></script>
 <script src="js/core/telepulesek.js"></script>
 <script src="js/core/utils.js"></script>
 <script src="js/core/districts.js"></script>
@@ -1282,6 +1273,9 @@
 <script src="js/admin/places.js"></script>
 <script src="js/admin/districtEditor.js"></script>
 <script src="js/admin/siteStats.js"></script>
+<script src="js/admin/conditionList.js"></script>
+<script src="js/admin/siteSettings.js"></script>
+<script src="js/admin/agencies.js"></script>
 
 <!-- Oldalak, indítás -->
 <script src="js/core/locationPicker.js"></script>
@@ -1289,7 +1283,9 @@
 <script src="js/account/messages.js"></script>
 <script src="js/account/accountPage.js"></script>
 <script src="js/requests/requestsPage.js"></script>
+<script src="js/agency/anaf.js"></script>
 <script src="js/agency/agencyPage.js"></script>
+<script src="js/agency/agencyDirectory.js"></script>
 <script src="js/core/homePage.js"></script>
 <script src="js/help/helpContent.js"></script>
 <script src="js/help/helpPage.js"></script>

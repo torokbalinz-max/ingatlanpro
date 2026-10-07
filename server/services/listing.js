@@ -2,10 +2,11 @@
 //  Hirdetések: típusok, kötelező mezők, bemenet tisztítása
 // ============================================================
 
+const allapotok = require("./allapotok");
+
 const TIPUSOK = ["lakas", "haz", "telek", "kereskedelmi", "iroda"];
 const UGYLETEK = ["elado", "kiado"];
-// Hat fokozat, a legrosszabbtól a legjobbig
-const ALLAPOTOK = ["felújítandó", "közepes", "részbenfel", "jó", "újszerű", "luxus"];
+// Az állapotok listáját az admin kezeli (services/allapotok.js, Admin → Állapotok)
 
 // Típusonként mely mezők értelmesek
 //  kerulet:   a városon belüli kerület (lakásnál, üzlethelyiségnél, irodánál)
@@ -36,6 +37,29 @@ function szoveg(v, max = 20000) {
     return s ? s.slice(0, max) : null;
 }
 
+// Rövid adatmező (pl. emelet: "3/10", "parter"): HTML-be illő jelek nélkül
+function rovid(v, max) {
+    const s = szoveg(v, max * 2);
+    return s ? (s.replace(/[<>"'`\\]/g, "").trim().slice(0, max) || null) : null;
+}
+
+// Külső link: csak http(s) cím ("javascript:" és hasonlók nem kerülhetnek
+// a hirdetésre). A protokoll nélkül beírt domaint https-sel egészítjük ki.
+function linkNorm(v) {
+    let s = szoveg(v, 2000);
+    if (!s) return null;
+    if (!/^https?:\/\//i.test(s)) {
+        if (!/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$|\?)/i.test(s)) return null;
+        s = "https://" + s;
+    }
+    try {
+        const u = new URL(s);
+        return u.protocol === "http:" || u.protocol === "https:" ? s : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 // A kérésből érkező adatok egységes formára hozása
 function normalize(b) {
 
@@ -58,14 +82,14 @@ function normalize(b) {
         ugylet,
         cim: szoveg(b.cim, 200),
         leiras: szoveg(b.leiras),
-        link: szoveg(b.link, 2000),
+        link: linkNorm(b.link),
         ar,
         nm,
         arnm: ar > 0 && nm > 0 ? ar / nm : null,
         telek_nm: mezok.telek ? szam(b.telek_nm) : null,
         szobak: mezok.szobak ? szam(b.szobak) : null,
-        emelet: mezok.emelet ? szoveg(b.emelet, 20) : null,
-        allapot: mezok.allapot && ALLAPOTOK.includes(b.allapot) ? b.allapot : (mezok.allapot ? szoveg(b.allapot, 40) : null),
+        emelet: mezok.emelet ? rovid(b.emelet, 20) : null,
+        allapot: mezok.allapot ? allapotok.normalizal(b.allapot) : null,
         eladva: !!b.eladva,
         x: vanHely ? x : null,
         y: vanHely ? y : null,
@@ -168,4 +192,4 @@ function normLink(l) {
 
 }
 
-module.exports = { ALLAPOTOK, TIPUSOK, UGYLETEK, TIPUS_MEZOK, HELY_SZINTEK, normalize, hianyzoMezok, parseKepek, normLink, szam, szoveg };
+module.exports = { TIPUSOK, UGYLETEK, TIPUS_MEZOK, HELY_SZINTEK, normalize, hianyzoMezok, parseKepek, normLink, szam, szoveg };

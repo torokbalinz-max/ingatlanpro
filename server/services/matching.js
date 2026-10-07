@@ -16,16 +16,9 @@ function emeletSzam(e) {
     return isNaN(n) ? null : n;
 }
 
+// Egységes állapot-kulcs (services/allapotok.js – ugyanaz, mint a weboldalon)
 function normAllapot(a) {
-    const v = String(a || "").toLowerCase().replace(/\*/g, "").trim();
-    if (!v) return "";
-    if (v === "új" || v === "uj" || v.startsWith("újsz") || v.startsWith("ujsz")) return "újszerű";
-    if (v.startsWith("részben") || v.startsWith("reszben")) return "részbenfel";
-    if (v.startsWith("felúj") || v.startsWith("feluj")) return "felújítandó";
-    if (v.startsWith("közep") || v.startsWith("kozep") || v === "átlagos" || v === "lakható") return "közepes";
-    if (v === "jó" || v === "jo") return "jó";
-    if (v.startsWith("lux")) return "luxus";
-    return v;
+    return require("./allapotok").norm(a);
 }
 
 // Mentett keresés szűrői -> illik-e a hirdetés

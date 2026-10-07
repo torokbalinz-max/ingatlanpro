@@ -132,6 +132,8 @@ async function elokeszit(d, alap) {
     adat.forras_kerulet = d.kerulet || null;
     adat.forras_szoveg = d.forrasSzoveg || null;
     adat.evszam = d.evszam || null;
+    // A forrásoldal szövegéből felismert állapot "bizonytalan" (az admin átnézheti)
+    adat.allapot_forras = adat.allapot ? "szoveg" : null;
 
     Object.assign(adat, await autofix.javaslat(adat, { utca: d.utca, varosForras: d.varosForras }));
 
@@ -179,10 +181,10 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
          tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
          kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, forras_kerulet, evszam,
          tovabbi_linkek, telepules, telek_jelleg, hely_sugar, utolso_ellenorzes, auto_javitva, auto_javitva_v,
-         hely_forras, hely_eredeti)
+         hely_forras, hely_eredeti, allapot_forras)
         VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$12,$13,$14,$15,$16,'aktiv','import',$17,
                 $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,$26,$27,$28,NOW(),NOW(),$29,
-                $30,$31::jsonb)
+                $30,$31::jsonb,$32)
         RETURNING id
     `, [
         d.link, adat.ar, adat.nm, adat.arnm, adat.szobak, adat.emelet, adat.allapot,
@@ -192,7 +194,8 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         q.ellenorzott, adat.forras_szoveg, adat.forras_kerulet, adat.evszam,
         JSON.stringify(d.tovabbi_linkek || []), adat.telepules, adat.telek_jelleg || null, adat.hely_sugar || null,
         autofix.VERZIO, adat.hely_forras || (adat.x && adat.y ? "forras" : null),
-        adat.hely_eredeti ? JSON.stringify(adat.hely_eredeti) : null
+        adat.hely_eredeti ? JSON.stringify(adat.hely_eredeti) : null,
+        adat.allapot ? (adat.allapot_forras || "szoveg") : null
     ]);
 
     const uj = { id: r.rows[0].id, link: d.link, ar: adat.ar };
@@ -331,12 +334,21 @@ async function futtat(job, urls, alap, opts = {}) {
         }
 
         const lattam = new Set();
-        const egyedi = feladatok.filter(f => {
+        let egyedi = feladatok.filter(f => {
             const k = normLink(f.url);
             if (lattam.has(k)) return false;
             lattam.add(k);
             return true;
-        }).slice(0, MAX_HIRDETES);
+        });
+
+        // Csak a meglévő hirdetések frissítése (a forrásoldal ellenőrzésénél):
+        // a listában lévő, nálunk még nem szereplő hirdetéseket NEM vesszük fel
+        // (az a beolvasás dolga), és nem is számoljuk bele a feladatba
+        if (opts.csakMeglevo) {
+            egyedi = egyedi.filter(f => keresMeglevo(meglevo, f.kesz ? elemKulcsok(f.kesz) : linkKulcsok(f.url)));
+        }
+
+        egyedi = egyedi.slice(0, MAX_HIRDETES);
 
         job.osszes += egyedi.length;
         job.allapot = "fut";
@@ -344,11 +356,7 @@ async function futtat(job, urls, alap, opts = {}) {
         for (const f of egyedi) {
 
             try {
-                if (f.kesz && opts.csakMeglevo && !keresMeglevo(meglevo, elemKulcsok(f.kesz))) {
-                    job.kihagyott++;
-                } else {
-                    await egyHirdetes(f.url, f.alap, job, meglevo, f.kesz);
-                }
+                await egyHirdetes(f.url, f.alap, job, meglevo, f.kesz);
             } catch (e) {
                 job.hibak++;
                 naplo(job, { url: f.url, eredmeny: "hiba", uzenet: /HTTP 403/.test(e.message) ? tiltasUzenet(f.url, 403) : e.message });
@@ -442,7 +450,7 @@ async function frissitAdatbol(i, d, job) {
     if (ures(i.nm) && d.nm) potol.nm = d.nm;
     if (ures(i.szobak) && d.szobak) potol.szobak = d.szobak;
     if (ures(i.emelet) && d.emelet) potol.emelet = d.emelet;
-    if (ures(i.allapot) && d.allapot) potol.allapot = d.allapot;
+    if (ures(i.allapot) && d.allapot) { potol.allapot = d.allapot; potol.allapot_forras = "szoveg"; }
     if (ures(i.cim) && d.cim) potol.cim = d.cim;
     if (ures(i.leiras) && d.leiras) potol.leiras = d.leiras;
     if (ures(i.telek_nm) && d.telek_nm) potol.telek_nm = d.telek_nm;
@@ -599,9 +607,13 @@ async function figyelesFuttat(job, opts) {
             });
 
             job.allapot = "fut";
-            await varosSzinkron([...csoportok.values()], job, { csakMeglevo: !!(opts.ids && opts.ids.length) });
 
-            await db.query("UPDATE ingatlanok SET utolso_ellenorzes = NOW() WHERE id = ANY($1::int[])", [imo.map(i => i.id)]);
+            // FONTOS: itt csak a meglévő hirdetéseket frissítjük (ár, képek,
+            // elérhetőség) – új hirdetést a város listájából NEM veszünk fel.
+            // (Korábban a teljes ellenőrzés a listában talált új hirdetéseket is
+            // beolvasta, vagyis ugyanazt csinálta, mint a sima beolvasás.)
+            // Az ellenőrzés idejét a frissítés / a "nem elérhető" jelölés állítja be.
+            await varosSzinkron([...csoportok.values()], job, { csakMeglevo: true });
 
             lista = lista.filter(i => !/imobiliare\.ro/i.test(i.link));
 

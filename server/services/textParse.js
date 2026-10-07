@@ -34,7 +34,7 @@ function szamSzovegbol(s) {
 
 // ---------- Területek ----------
 
-const MERTEK = "(?:mp|m²|m2|m\\.p\\.|metri\\s*p[aă]tra[tț]i|nm|n\\.m\\.|n[eé]gyzetm[eé]ter|sqm|ari|a\\b|ar\\b|ha\\b|hectare?|hectar|hekt[aá]r)";
+const MERTEK = "(?:mpu\\b|mp|m²|m2|m\\.p\\.|metri\\s*p[aă]tra[tț]i|nm|n\\.m\\.|n[eé]gyzetm[eé]ter|sqm|ari|a\\b|ar\\b|ha\\b|hectare?|hectar|hekt[aá]r)";
 
 const TERULET_RE = new RegExp(
     "(\\d{1,3}(?:[., ]\\d{3})+|\\d+(?:[.,]\\d{1,2})?)\\s*" + MERTEK,
@@ -88,11 +88,14 @@ function teruletek(szoveg) {
         let telek = fold || (tPoz >= 0 && tPoz > hPoz);
         let hasznos = !fold && hPoz >= 0 && hPoz > tPoz;
 
-        // Utána álló címke ("120 mp utili", "600 mp teren")
-        if (!telek && !hasznos) {
-            if (/^\s*(?:de\s+)?(?:teren|telek|curte)/i.test(utana)) telek = true;
-            else if (/^\s*(?:util|utili|construit|hasznos|lak[oó]ter)/i.test(utana)) hasznos = true;
-        }
+        // Közvetlenül utána álló címke ("120 mp utili", "400 m² telek") – ez erősebb,
+        // mint egy távolabbi előtte álló ("52 m² hasznos alapterület, 400 m² telek")
+        const utanaTelek = /^\s*(?:de\s+)?(?:teren|telek|telket|curte|gr[aă]din|kert)/i.test(utana);
+        const utanaHasznos = /^\s*(?:util|utili|hasznos|lak[oó]ter)/i.test(utana) || /^mpu/i.test(egyseg);
+
+        if (!fold && utanaTelek) { telek = true; hasznos = false; }
+        else if (!fold && utanaHasznos) { hasznos = true; telek = false; }
+        else if (!telek && !hasznos && /^\s*(?:construit|be[eé]p[ií]tett)/i.test(utana)) hasznos = true;
 
         lista.push({
             ertek: Math.round(ertek * 100) / 100,
@@ -118,6 +121,13 @@ function szobakSzovegbol(t) {
 
     const s = ekezetNelkul(t).toLowerCase();
 
+    // "2+1 szobás", "2 + 1 félszobás" (a fél szoba is szoba)
+    const plusz = s.match(/\b(\d)\s*\+\s*(\d)\s*(?:fel)?\s*-?\s*szob/);
+    if (plusz) {
+        const n = Number(plusz[1]) + Number(plusz[2]);
+        if (n >= 1 && n <= 20) return n;
+    }
+
     let m = s.match(/nr\.?\s*cam(?:ere)?\.?\s*:?\s*(\d{1,2})/)
         || s.match(/\b(\d{1,2})\s*[- ]?\s*camer[ei]\b/)
         || s.match(/\b(\d{1,2})\s*[- ]?\s*szob[aá]s/)
@@ -139,23 +149,59 @@ function szobakSzovegbol(t) {
 
 // ---------- Emelet ----------
 
+// Az emelet és (ha kiderül) az épület emeleteinek száma: "2/4", "0/4", "3".
+// Felismeri: "Etaj 2/4", "et. 2/4", "etajul 3 (din 4)", "parter din 4", "P/4",
+// "bloc P+4", "ultimul etaj", "mansardă", "3. emeleti", "2/4 emeleten",
+// "a 4 emeletes tömb 2. emeletén", "földszinti".
 function emeletSzovegbol(t) {
 
     const s = ekezetNelkul(t).toLowerCase();
 
-    let m = s.match(/etaj(?:ul)?\s*:?\s*(parter|p|demisol|mansarda|\d{1,2})\s*(?:\/|din|din\s+|\s+din\s+)\s*(\d{1,2})/);
+    const emSzam = e => /^(p|parter)$/.test(e) ? 0 : /^(d|demisol|subsol)$/.test(e) ? -1 : /^(m|mansarda)$/.test(e) ? "M" : Number(e);
 
-    if (m) {
-        const e = /^(p|parter)$/.test(m[1]) ? "0" : m[1] === "demisol" ? "-1" : m[1] === "mansarda" ? m[2] : m[1];
-        return `${e}/${m[2]}`;
+    let emelet = null, ossz = null;
+
+    // Az épület emeleteinek száma: "P+4", "P+4+M", "4 etaje", "4 emeletes"
+    {
+        const p = s.match(/\b(?:p|parter)\s*\+\s*(\d{1,2})(\s*\+\s*(?:m|mansarda|e|etaj retras))?\b/);
+        const etaje = s.match(/\b(?:bloc|imobil|cladire)\w*\s+(?:cu\s+)?(\d{1,2})\s+etaje\b/) || s.match(/\b(\d{1,2})\s+etaje\b/);
+        const emeletes = s.match(/\b(\d{1,2})\s*-?\s*emeletes\b/);
+        if (p) ossz = Number(p[1]) + (p[2] ? 1 : 0);
+        else if (etaje) ossz = Number(etaje[1]);
+        else if (emeletes) ossz = Number(emeletes[1]);
     }
 
-    m = s.match(/\bla\s+etajul\s+(\d{1,2})\b/) || s.match(/\betaj(?:ul)?\s*:?\s*(\d{1,2})\b/) || s.match(/\b(\d{1,2})\.\s*emelet/);
-    if (m) return m[1];
+    // "Etaj 2/4", "et. 2/4", "etajul 3 (din 4)", "Etaj: Parter / 4", "etaj 3 din 4"
+    let m = s.match(/\b(?:etaj(?:ul)?|et\.?)\s*:?\s*(parter|p|demisol|mansarda|\d{1,2})\s*(?:\/|\(\s*din|din)\s*(\d{1,2})\b/);
 
-    if (/\b(la|situat la|situata la)\s+parter\b|\betaj\s*:?\s*parter\b|f[oö]ldszint/.test(s)) return "0";
+    // "parter din 4", "P/4", "parter/4"
+    if (!m) m = s.match(/\b(parter|p)\s*(?:\/|din)\s*(\d{1,2})\b/);
 
-    return null;
+    // "ultimul etaj (4/4)", "etaj intermediar 2/4"
+    if (!m) m = s.match(/\betaj\w*[^0-9.,;]{0,18}\(?\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\)?/);
+
+    // "2/4 emeleten", "2/4 etaj"
+    if (!m) m = s.match(/\b(\d{1,2})\s*\/\s*(\d{1,2})\s*(?:-?\s*(?:emelet|etaj))/);
+
+    if (m) {
+        const e = emSzam(m[1]);
+        const o = Number(m[2]);
+        emelet = e === "M" ? o : e;
+        ossz = o;
+    }
+
+    if (emelet === null) {
+        const e = s.match(/\bla\s+etajul\s+(\d{1,2})\b/) || s.match(/\betaj(?:ul)?\s*:?\s*(\d{1,2})\b/) || s.match(/\b(\d{1,2})\.\s*emelet\w*/);
+        if (e) emelet = Number(e[1]);
+        else if (/\b(la|situat\w* la)\s+parter\b|\betaj\s*:?\s*parter\b|\bparter\b(?!\s*\+)|\bf[oö]ldszint\w*|\bground floor\b/.test(s)) emelet = 0;
+        else if (/\bultimul etaj\b|\blegfels[oő] emelet\w*|\btop floor\b/.test(s) && ossz !== null) emelet = ossz;
+        else if (/\bmansard[aă]\b|\btet[oö]t[eé]r\w*/.test(s) && ossz !== null) emelet = ossz;
+    }
+
+    if (emelet === null || isNaN(emelet) || emelet > 40 || emelet < -1) return null;
+    if (ossz !== null && (isNaN(ossz) || ossz > 40 || ossz < Math.max(emelet, 0))) ossz = null;
+
+    return ossz !== null ? `${emelet}/${ossz}` : String(emelet);
 
 }
 
@@ -164,12 +210,26 @@ function emeletSzovegbol(t) {
 function evszamSzovegbol(t) {
 
     const s = ekezetNelkul(t).toLowerCase();
+    const EV = "(1[89]\\d{2}|20[0-3]\\d)";
 
-    const m = s.match(/an(?:ul)?\s*(?:de\s*)?constr(?:uctie|\.)?\s*:?\s*(1[89]\d{2}|20[0-3]\d)/)
-        || s.match(/construit[aă]?\s+(?:in|în)\s+(?:anul\s+)?(1[89]\d{2}|20[0-3]\d)/)
-        || s.match(/(?:epites|épités|épült|epult)[^0-9]{0,15}(1[89]\d{2}|20[0-3]\d)/);
+    const minta = [
+        new RegExp(`\\ban(?:ul)?\\s*(?:de\\s*)?constr\\w*\\.?\\s*:?\\s*${EV}`),                       // An construcție: 1985, anul construcției: 1972
+        new RegExp(`\\bconstruit[aă]?\\s+(?:in\\s+)?(?:anul\\s+)?${EV}`),                                // construit în 2008
+        new RegExp(`\\b(?:bloc|imobil|cladire|casa|vila|constructie)\\w*\\s+(?:din|construit\\w*\\s+in)\\s+(?:anul\\s+)?${EV}`), // bloc din 1978
+        new RegExp(`(?:epites|epult|epitett)[^0-9]{0,15}${EV}`),                                            // épült 1975-ben, építés éve: 1980
+        new RegExp(`${EV}\\s*-?\\s*(?:as|es|os|ban|ben)\\s+(?:epitesu|epult|epitett)`),                    // 1980-as építésű, 1975-ben épült
+        new RegExp(`\\b(?:built|year built|construction year)\\s*(?:in|:)?\\s*${EV}`)                      // built in 2005
+    ];
 
-    return m ? Number(m[1]) : null;
+    for (const re of minta) {
+        const m = s.match(re);
+        if (m) {
+            const ev = Number(m[1]);
+            if (ev >= 1850 && ev <= new Date().getFullYear() + 3) return ev;
+        }
+    }
+
+    return null;
 
 }
 
@@ -215,6 +275,12 @@ function helyTippek(t) {
         if (nev) tippek.push({ szoveg: nev + " utca", szint: "utca" });
     }
 
+    // Magyar rövidítés: "Gábor Áron u. 12"
+    for (const m of s.matchAll(new RegExp(NEV + " u\\.(?=\\s*\\d|\\s*,|\\s*$|\\s+sz)", "g"))) {
+        const nev = tisztit(m[1]);
+        if (nev) tippek.push({ szoveg: nev + " utca", szint: "utca" });
+    }
+
     for (const m of s.matchAll(new RegExp("(?<![\\wăâîșțáéíóöőúüű])(?:zona|zon[aă]|cartier(?:ul)?) " + NEV, "gi"))) {
         const nev = tisztit(m[1]);
         if (nev && !NEM_NEV.test(nev)) tippek.push({ szoveg: nev, szint: "kozelito" });
@@ -225,6 +291,10 @@ function helyTippek(t) {
         if (nev) tippek.push({ szoveg: nev, szint: "kozelito" });
     }
 
+    // Nevezetes helyek a közelben ("lângă Kaufland", "a kórház mellett") – csak
+    // közelítő helynek jók, és csak ha a városban egyértelmű (location.js)
+    tippek.push(...nevezetesHelyek(s));
+
     const lattam = new Set();
     return tippek.filter(x => {
         const k = x.szoveg.toLowerCase();
@@ -232,6 +302,35 @@ function helyTippek(t) {
         lattam.add(k);
         return true;
     }).slice(0, 5);
+
+}
+
+// ---------- Nevezetes helyek ----------
+
+// [minta (ékezet nélkül), a kereséshez használt név]
+const NEVEZETES = [
+    ["kaufland", "Kaufland"], ["lidl", "Lidl"], ["penny(?: market)?", "Penny"], ["profi", "Profi"],
+    ["carrefour", "Carrefour"], ["auchan", "Auchan"], ["mega image", "Mega Image"], ["billa", "Billa"],
+    ["dedeman", "Dedeman"], ["hornbach", "Hornbach"], ["(?:shopping\\s+)?mall(?:ul)?", "Mall"],
+    ["spital(?:ul)?(?: judetean| municipal)?", "Spitalul"], ["korhaz(?:at)?", "Spitalul"],
+    ["autogara", "Autogara"], ["gara|vasutallomas|allomas", "Gara"],
+    ["piata centrala|piata|piac(?:ot)?", "Piața"], ["primaria|polgarmesteri hivatal", "Primăria"],
+    ["stadion(?:ul)?", "Stadionul"], ["catedrala", "Catedrala"]
+];
+
+function nevezetesHelyek(szoveg) {
+
+    const s = ekezetNelkul(szoveg).toLowerCase();
+    const ki = [];
+
+    for (const [minta, nev] of NEVEZETES) {
+        const ro = new RegExp(`\\b(?:langa|aproape de|in apropiere(?:a)? de|vis-a-vis de|vizavi de|peste drum de|in spatele|in fata|la (?:\\d+ )?(?:m|metri|minute) de)\\s+(?:${minta})\\b`);
+        const hu = new RegExp(`\\b(?:a\\s+|az\\s+)?(?:${minta})\\s+(?:mellett|kozeleben|kozelben|szomszedsagaban|mogott|szemben|elott|kozvetlen kozeleben)\\b`);
+        const en = new RegExp(`\\b(?:near|next to|close to|opposite)\\s+(?:the\\s+)?(?:${minta})\\b`);
+        if (ro.test(s) || hu.test(s) || en.test(s)) ki.push({ szoveg: nev, szint: "kozelito", nevezetes: true });
+    }
+
+    return ki;
 
 }
 

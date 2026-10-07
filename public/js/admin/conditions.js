@@ -88,6 +88,7 @@ AdminManager.drawConditions = function () {
                 <button type="button" class="btn ${A.nezet === "egyes" ? "btn-secondary" : "btn-outline-secondary"}" data-cond-view="egyes"><i class="fa-solid fa-square"></i> ${I18n.t("condViewOne")}</button>
                 <button type="button" class="btn ${A.nezet === "racs" ? "btn-secondary" : "btn-outline-secondary"}" data-cond-view="racs"><i class="fa-solid fa-table-cells"></i> ${I18n.t("condViewGrid")}</button>
             </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-go-tab="allapotok"><i class="fa-solid fa-sliders" aria-hidden="true"></i> ${I18n.t("clManage")}</button>
         </div>`;
 
     let tartalom;
@@ -106,6 +107,7 @@ AdminManager.drawConditions = function () {
 
     box.innerHTML = fej + tartalom;
 
+    box.querySelectorAll("[data-go-tab]").forEach(b => b.onclick = () => AdminManager.open(b.dataset.goTab));
     box.querySelectorAll("[data-cond-mod]").forEach(b => b.onclick = () => { A.mod = b.dataset.condMod; AdminManager.renderConditions(); });
     box.querySelectorAll("[data-cond-view]").forEach(b => b.onclick = () => { A.nezet = b.dataset.condView; AdminManager.drawConditions(); });
     document.getElementById("condCity").onchange = e => { A.varos = e.target.value; AdminManager.renderConditions(); };
@@ -122,8 +124,8 @@ AdminManager.drawConditions = function () {
 
 AdminManager.condButtons = function (aktualis, javasolt, kicsi) {
     return Utils.ALLAPOTOK.map((a, n) => `
-        <button type="button" class="btn ${kicsi ? "btn-sm" : ""} condBtn cond-${n} ${Utils.normAllapot(aktualis) === a ? "active" : ""} ${javasolt === a ? "suggested" : ""}" data-allapot="${a}">
-            ${kicsi ? "" : `<kbd>${n + 1}</kbd>`} ${Utils.escape(Utils.allapotLabel(a))}
+        <button type="button" class="btn ${kicsi ? "btn-sm" : ""} condBtn ${Utils.normAllapot(aktualis) === a ? "active" : ""} ${javasolt === a ? "suggested" : ""}" data-allapot="${Utils.escape(a)}" style="--cond:${Utils.allapotSzin(a)}">
+            ${kicsi || n > 8 ? "" : `<kbd>${n + 1}</kbd>`} ${Utils.escape(Utils.allapotLabel(a))}
         </button>`).join("");
 };
 
@@ -185,7 +187,7 @@ AdminManager.condOneHtml = function () {
                 <div class="text-body-secondary small mb-2">${adatok}</div>
                 <div class="mb-3"><b>${Utils.price(i)}</b>${i.ar && i.nm ? ` <span class="text-body-secondary">· ${Utils.eurNm(i.ar / i.nm)}</span>` : ""}</div>
 
-                ${i.allapot ? `<div class="small mb-2">${I18n.t("condCurrent")}: <b>${esc(Utils.allapotLabel(i.allapot))}</b>${String(i.allapot).includes("*") ? ` <span class="badge text-bg-warning">${I18n.t("condGuessedBadge")}</span>` : ""}</div>` : ""}
+                ${i.allapot ? `<div class="small mb-2">${I18n.t("condCurrent")}: <b>${esc(Utils.allapotLabel(i.allapot))}</b>${Utils.allapotBecsult(i) ? ` <span class="badge text-bg-warning">${I18n.t(i.allapot_forras === "szoveg" ? "condFromText" : i.allapot_forras === "ev" ? "condFromYear" : "condGuessedBadge")}</span>` : ""}</div>` : ""}
 
                 ${jav ? `
                     <div class="condSuggest">
@@ -241,10 +243,12 @@ AdminManager.bindCondOne = function () {
 
     const beallit = allapot => {
         const regi = i.allapot;
+        const regiForras = i.allapot_forras;
         AdminManager.condSave([i.id], allapot).then(ok => {
             if (!ok) return;
-            A.elozmeny.push({ id: i.id, regi, uj: allapot, idx: A.idx });
+            A.elozmeny.push({ id: i.id, regi, regiForras, uj: allapot, idx: A.idx });
             i.allapot = allapot;
+            i.allapot_forras = "kezi";
             A.idx++;
             A.kep = 0;
             AdminManager.drawConditions();
@@ -258,7 +262,7 @@ AdminManager.bindCondOne = function () {
         if (!u) return;
         AdminManager.condSave([u.id], u.regi ? Utils.normAllapot(u.regi) : null).then(() => {
             const x = A.lista.find(l => l.id === u.id);
-            if (x) x.allapot = u.regi;
+            if (x) { x.allapot = u.regi; x.allapot_forras = u.regiForras; }
             A.idx = u.idx;
             A.kep = 0;
             AdminManager.drawConditions();
@@ -277,7 +281,7 @@ AdminManager.bindCondOne = function () {
         if (PageManager.current !== "admin" || AdminManager.tab !== "allapot") return;
         if (e.target.closest("input, textarea, select") || e.ctrlKey || e.metaKey || e.altKey) return;
         const k = e.key;
-        if (/^[1-6]$/.test(k)) { e.preventDefault(); beallit(Utils.ALLAPOTOK[Number(k) - 1]); }
+        if (/^[1-9]$/.test(k) && Utils.ALLAPOTOK[Number(k) - 1]) { e.preventDefault(); beallit(Utils.ALLAPOTOK[Number(k) - 1]); }
         else if (k === "Enter" && i.javaslat) { e.preventDefault(); beallit(i.javaslat.ertek); }
         else if (k === "ArrowRight") { e.preventDefault(); kepre(A.kep + 1); }
         else if (k === "ArrowLeft") { e.preventDefault(); kepre(A.kep - 1); }
@@ -398,7 +402,7 @@ AdminManager.condSave = function (ids, allapot) {
             if (!v.siker) throw new Error(v.error || "save failed");
             // A betöltött hirdetéslista is frissüljön (szűrés, statisztika)
             const idSet = new Set(ids);
-            DataManager.ingatlanok.forEach(i => { if (idSet.has(i.id)) i.allapot = allapot; });
+            DataManager.ingatlanok.forEach(i => { if (idSet.has(i.id)) { i.allapot = allapot; i.allapot_forras = allapot ? "kezi" : null; } });
             AdminManager.refreshPendingCount();
             return true;
         })

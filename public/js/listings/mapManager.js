@@ -23,18 +23,9 @@ class MapManager {
 
     static opts = { hatarok: true, kozelito: true };
 
-    static COLORS = {
-        "felújítandó": "#b91c1c",
-        "közepes": "#ea580c",
-        "részbenfel": "#ca8a04",
-        "jó": "#15803d",
-        "újszerű": "#2563eb",
-        "luxus": "#7c3aed",
-        "": "#6b7280"
-    };
-
+    // A jelölő színe az állapot szerint (a színeket az admin állítja: Admin → Állapotok)
     static color(allapot) {
-        return MapManager.COLORS[Utils.normAllapot(allapot)] || MapManager.COLORS[""];
+        return Utils.allapotSzin(allapot);
     }
 
     static loadOpts() {
@@ -133,7 +124,7 @@ class MapManager {
             const div = L.DomUtil.create("div", "mapLegend");
 
             div.innerHTML = Utils.ALLAPOTOK
-                .map(a => `<span><i style="background:${MapManager.COLORS[a]}"></i>${Utils.allapotLabel(a)}</span>`)
+                .map(a => `<span><i style="background:${Utils.allapotSzin(a)}"></i>${Utils.escape(Utils.allapotLabel(a))}</span>`)
                 .join("") +
                 `<span class="mapLegendSep"><i class="legendApprox"></i>${I18n.t("hely_kozelito")}</span>`;
 

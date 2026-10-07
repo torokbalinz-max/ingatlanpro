@@ -67,8 +67,9 @@ router.get("/api/admin/counts", csakAdmin, async (req, res) => {
         `);
 
         const w = await db.query("SELECT COUNT(*)::int AS figyelt, MAX(utolso_futas) AS utolso_futas FROM figyelt_oldalak");
+        const ir = await db.query("SELECT COUNT(*) FILTER (WHERE statusz = 'fuggo')::int AS iroda_fuggo, COUNT(*)::int AS iroda_osszes FROM irodak");
 
-        res.json({ ...r.rows[0], ...w.rows[0], ai: ai.elerheto() });
+        res.json({ ...r.rows[0], ...w.rows[0], ...ir.rows[0], ai: ai.elerheto() });
     } catch (err) {
         hiba(res, err);
     }

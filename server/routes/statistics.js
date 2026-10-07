@@ -60,7 +60,7 @@ async function pillanatkepMent(varos, tipus, ugylet, note = null) {
         END`;
 
     const groups = {
-        allapot: "COALESCE(NULLIF(allapot,''), 'Ismeretlen')",
+        allapot: "COALESCE(NULLIF(TRIM(REPLACE(allapot, '*', '')), ''), 'Ismeretlen')",
         szobak: "COALESCE(szobak, 0)::text",
         emelet: floorExpr,
         kerulet: "COALESCE(NULLIF(kerulet,''), 'Nincs megadva')"

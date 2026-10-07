@@ -1,12 +1,18 @@
 // ============================================================
-//  JOGI ADATOK – EZT KELL KITÖLTENED (egyszer)
+//  JOGI ADATOK – alapértékek
 //
-//  Ezek jelennek meg az Impresszumban, az ÁSZF-ben és az
-//  Adatvédelmi tájékoztatóban. A román e-kereskedelmi törvény
+//  Az üzemeltető adatait (név / cégnév, cím, e-mail, telefon,
+//  cégjegyzékszám, adószám) MOSTANTÓL AZ ADMIN FELÜLETEN kell
+//  megadni: Admin → Webhely adatai. Onnan minden jogi oldal
+//  (Impresszum, Felhasználási feltételek, Adatvédelem, Sütik) és
+//  a lábléc magától átveszi – ezt a fájlt nem kell módosítani.
+//  Az e-mail, ha ott üres, az admin e-mail címe lesz.
+//
+//  Az itteni "uzemelteto" mezők csak tartalékok (ha az admin
+//  felületen üresen maradnak). A román e-kereskedelmi törvény
 //  (365/2002, 5. cikk) szerint az üzemeltető nevének, címének és
-//  elérhetőségének az oldalon mindig láthatónak kell lennie.
-//
-//  Amíg egy mező üres, a jogi oldalakon egy sárga „kitöltendő”
+//  elérhetőségének az oldalon mindig láthatónak kell lennie –
+//  amíg egy mező üres, a jogi oldalakon egy sárga „kitöltendő”
 //  jelzés látszik a helyén.
 // ============================================================
 

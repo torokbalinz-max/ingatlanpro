@@ -28,6 +28,15 @@ const PUBLIC = path.join(__dirname, "..", "public");
 
 console.log("Server indul...");
 
+// Alap biztonsági fejlécek: a böngésző ne "találgassa" a fájltípust,
+// más oldal ne ágyazhassa be (clickjacking), a hivatkozó cím csak domainnel
+app.use((req, res, next) => {
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("X-Frame-Options", "SAMEORIGIN");
+    res.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+});
+
 // ===================== ÉLETJEL, IDŐZÍTÉS (jelszó nélkül) =====================
 
 app.get("/healthz", (req, res) => {
@@ -69,6 +78,7 @@ app.use(require("./routes/location"));
 app.use(require("./routes/irodak"));
 app.use(require("./routes/legal"));
 app.use(require("./routes/sitestats"));
+app.use(require("./routes/beallitasok"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {
@@ -83,6 +93,8 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`Szerver elindult a ${PORT} porton.`);
+    // Az állapotok listája (Admin → Állapotok) a gyorstárba
+    require("./services/allapotok").kesz();
     // A meglévő hirdetések automatikus javítása – csak egyszer, az első indításkor
     setTimeout(() => {
         const autofix = require("./services/autofix");

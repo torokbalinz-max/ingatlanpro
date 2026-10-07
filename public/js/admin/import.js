@@ -145,7 +145,7 @@ AdminManager.pollJob = function (jobId, boxId) {
                     <div class="d-flex flex-wrap gap-2 mb-3">
                         <span class="badge text-bg-success">${job.uj} ${I18n.t("importResNew")}</span>
                         <span class="badge text-bg-info">${job.frissitett} ${I18n.t("importResUpdated")}</span>
-                        <span class="badge text-bg-secondary">${job.kihagyott} ${I18n.t("importResExists")}</span>
+                        <span class="badge text-bg-secondary">${job.kihagyott} ${I18n.t(job.tipus === "figyeles" || job.tipus === "egy" ? "importResOk" : "importResExists")}</span>
                         ${job.nemElerheto ? `<span class="badge text-bg-dark">${job.nemElerheto} ${I18n.t("importResUnavailable")}</span>` : ""}
                         <span class="badge text-bg-danger">${job.hibak} ${I18n.t("importResError")}</span>
                     </div>

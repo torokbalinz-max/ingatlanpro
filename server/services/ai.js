@@ -4,6 +4,8 @@
 //  és javaslatot ad a javításra. Hirdetésenként kb. 0,1–0,3 cent.
 // ============================================================
 
+const allapotok = require("./allapotok");
+
 const MODEL = process.env.AI_MODEL || "claude-haiku-4-5";
 
 function elerheto() {
@@ -31,7 +33,7 @@ ${JSON.stringify(adatok, null, 2)}
 
 Szabályok:
 - tipus: lakas | haz | telek | kereskedelmi | iroda ; ugylet: elado | kiado
-- allapot: felújítandó | közepes | részbenfel | jó | újszerű | luxus  (közepes = lakható, de régi / átlagos állapot)
+- allapot: ${allapotok.kulcsok().join(" | ")}  (közepes = lakható, de régi / átlagos állapot; félkész = la roșu / la gri; újépítésű = új építés, fejlesztőtől)
 - emelet formátum: "emelet/összes", pl. "4/4", földszint = "0"
 - Az "alapterulet_m2" a hasznos (utilă) terület.
 - Csak akkor javasolj módosítást, ha a szöveg egyértelműen mást mond, vagy az érték hiányzik és a szövegben szerepel.

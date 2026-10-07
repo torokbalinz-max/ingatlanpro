@@ -204,10 +204,17 @@ const HELP_CONTENT = {
         {
             id: "iroda", icon: "fa-solid fa-briefcase", title: "Ingatlanirodáknak",
             sections: [
-                { h: "Iroda létrehozása", steps: [
-                    "Fiók menü → Ingatlaniroda → Új iroda.",
-                    "Add meg az iroda adatait (név, telefon, e-mail, weboldal, cím).",
-                    "Hívd meg a munkatársakat, és vedd fel az ügynököket (ügynökhöz nem kötelező fiók)."
+                { h: "Ingatlanirodák listája", p: "A fejlécben az <a href=\"#irodak\">Irodák</a> oldalon látható minden ellenőrzött iroda. Név és város szerint kereshetsz; egy irodára kattintva megnyílik a profilja: weboldal, elérhetőségek, ügynökök és az iroda aktív hirdetései." },
+                { h: "Iroda regisztrálása (ellenőrzéssel)", steps: [
+                    "Irodák oldal → Iroda regisztrálása (vagy a menüben: Irodám kezelése → Új iroda).",
+                    "Add meg a cég adószámát (CUI). A rendszer lekérdezi a román adóhatóság (ANAF) nyilvános adatbázisából a hivatalos nevet, a cégjegyzékszámot és a székhelyet. Nem létező, inaktív vagy megszűnt cég nem regisztrálható.",
+                    "Töltsd ki a többi adatot: megjelenő név, telefon, e-mail, weboldal, logó.",
+                    "Az admin jóváhagyása után az iroda megjelenik az irodák listájában és a hirdetéseken. Addig is kezelheted a hirdetéseket, de az iroda neve csak a jóváhagyás után látszik mások számára."
+                ] },
+                { tip: "Ha az iroda neve vagy adószáma megváltozik, újra jóvá kell hagyni – így nem lehet egy elfogadott irodát utólag kitalált névre átírni." },
+                { h: "Munkatársak és ügynökök", ul: [
+                    "Munkatársat e-mail címmel hívhatsz meg; a meghívást neki kell elfogadnia (a menüben jelzi a piros szám). Elfogadás előtt nem fér hozzá az irodához.",
+                    "Ügynököket fiók nélkül is felvehetsz (név, telefon, e-mail): ők a hirdetéseken kapcsolattartóként jelennek meg."
                 ] },
                 { h: "Hirdetések kezelése", ul: [
                     "Hirdetésfeladáskor válaszd ki, hogy az iroda nevében hirdetsz, és melyik ügynök a felelős.",
@@ -233,14 +240,31 @@ const HELP_CONTENT = {
                 { h: "Ellenőrzésre vár", p: "A hiányos vagy gyanús adatú hirdetések. Billentyűkkel gyorsan végigmehetsz rajtuk; az AI-ellenőrzés (ha be van kapcsolva) javaslatot ad a javításra." },
                 { h: "Állapot beállítása", ul: [
                     "Az állapot nélküli (vagy csak becsült, *-os) hirdetések egymás után, nagy képekkel.",
-                    "<b>1–6</b> billentyű = állapot (felújítandó … luxus), és jön a következő. <b>←/→</b> a képek, <b>S</b> kihagyás, <b>Z</b> visszavonás, <b>Enter</b> = a szövegből adott javaslat elfogadása.",
+                    "<b>1–9</b> billentyű = állapot (az Állapotok lista sorrendjében), és jön a következő. <b>←/→</b> a képek, <b>S</b> kihagyás, <b>Z</b> visszavonás, <b>Enter</b> = a szövegből adott javaslat elfogadása.",
                     "<b>Rács nézet</b>: sok hirdetés egyszerre; kijelölheted őket, és egy kattintással mindre ugyanazt állíthatod.",
                     "A hirdetések táblázatában is: jelöld ki a sorokat, és a felső sávban állíthatsz állapotot."
                 ] },
                 { h: "Beolvasás, figyelt oldalak, duplikátumok", ul: [
                     "Beolvasás: egy hirdetés vagy egy teljes találati lista linkje.",
                     "Figyelt oldalak: időzítve újra átnézzük őket, az új hirdetések maguktól bekerülnek.",
+                    "<b>Meglévő hirdetések ellenőrzése</b>: csak a már bent lévő hirdetéseket nézi meg a forrásoldalon (ár, elérhetőség, hiányzó adatok) – új hirdetést nem olvas be.",
                     "Duplikátumok: ugyanaz az ingatlan több oldalon – összevonhatod, vagy jelölheted, hogy nem ugyanaz."
+                ] },
+                { h: "Állapotok", ul: [
+                    "Admin → Állapotok: az állapotok listája kód nélkül bővíthető (pl. újépítésű, félkész).",
+                    "Minden állapotnak van magyar, román és angol neve, színe, szintje (sorrend és összehasonlítás), árszorzója (az értékbecsléshez) és kulcsszavai – ezekből ismeri fel a hirdetés szövegéből.",
+                    "A beépített állapotok kikapcsolhatók, a sajátok törölhetők (a hirdetéseik ilyenkor másik állapotba sorolhatók).",
+                    "A <b>Felismerés kipróbálása</b> mezőben megnézheted, mit ismer fel egy szövegből; a <b>Kitöltés a leírásokból</b> pótolja az állapot nélküli hirdetések állapotát (bizonytalan, *-os jelöléssel, hogy átnézhesd)."
+                ] },
+                { h: "Ingatlanirodák", ul: [
+                    "Admin → Ingatlanirodák: az új és a módosított irodák jóváhagyásra várnak (az Áttekintésben teendőként is megjelennek).",
+                    "Látod az ANAF-adatokat (hivatalos név, székhely, fő tevékenység, aktív-e); újra le is kérdezheted.",
+                    "Jóváhagyás, elutasítás (indokkal) vagy felfüggesztés – az iroda vezetője látja a döntést és az indokot."
+                ] },
+                { h: "Webhely adatai", ul: [
+                    "Admin → Webhely adatai: az üzemeltető adatai (név / cégnév, adószám, cím, kapcsolati e-mail, telefon).",
+                    "Ezek jelennek meg automatikusan az Impresszumban, a Felhasználási feltételekben, az Adatvédelmi és a Süti-tájékoztatóban.",
+                    "Cégnél az adószámból az ANAF-adatok egy gombnyomással kitölthetők. Ha a kapcsolati e-mail üres, az admin e-mail címe látszik."
                 ] },
                 { h: "Városok, kerületek, kerülethatárok", ul: [
                     "A kerületeknek magyar és román nevük, és más oldalakon használt neveik (aliasok) vannak.",
@@ -460,10 +484,17 @@ const HELP_CONTENT = {
         {
             id: "iroda", icon: "fa-solid fa-briefcase", title: "For real estate agencies",
             sections: [
-                { h: "Creating an agency", steps: [
-                    "Account menu → Real estate agency → New agency.",
-                    "Enter the agency's details (name, phone, e-mail, website, address).",
-                    "Invite colleagues and add agents (an agent does not need an account)."
+                { h: "List of agencies", p: "The <a href=\"#irodak\">Agencies</a> page in the header shows every verified agency. Search by name and city; click an agency to open its profile: website, contact details, agents and the agency's active listings." },
+                { h: "Registering an agency (with verification)", steps: [
+                    "Agencies page → Register your agency (or in the menu: Manage my agency → New agency).",
+                    "Enter the company's tax ID (CUI). The site looks up the official name, trade register number and registered office in the public database of the Romanian tax authority (ANAF). Non-existent, inactive or dissolved companies cannot be registered.",
+                    "Fill in the rest: display name, phone, e-mail, website, logo.",
+                    "Once the admin approves it, the agency appears in the agency list and on its listings. Until then you can already manage listings, but the agency name is shown to others only after approval."
+                ] },
+                { tip: "If the agency's name or tax ID changes, it has to be approved again – so an approved agency cannot later be renamed to something made up." },
+                { h: "Colleagues and agents", ul: [
+                    "Invite a colleague by e-mail; they have to accept the invitation (a red number in the menu shows it). Before accepting they have no access to the agency.",
+                    "Agents can be added without an account (name, phone, e-mail): they appear as contacts on the listings."
                 ] },
                 { h: "Managing listings", ul: [
                     "When posting, choose to post on behalf of the agency and which agent is responsible.",
@@ -489,14 +520,31 @@ const HELP_CONTENT = {
                 { h: "Needs review", p: "Listings with missing or suspicious data. Go through them quickly with the keyboard; the AI check (if enabled) suggests fixes." },
                 { h: "Set condition", ul: [
                     "Listings without condition (or only estimated, with *) one after another, with large photos.",
-                    "<b>1–6</b> keys = condition (needs renovation … luxury), then the next one comes. <b>←/→</b> photos, <b>S</b> skip, <b>Z</b> undo, <b>Enter</b> = accept the suggestion from the text.",
+                    "<b>1–9</b> keys = condition (in the order of the Conditions list), then the next one comes. <b>←/→</b> photos, <b>S</b> skip, <b>Z</b> undo, <b>Enter</b> = accept the suggestion from the text.",
                     "<b>Grid view</b>: many listings at once; select them and set the same condition for all with one click.",
                     "Also in the listings table: select rows and set the condition in the bar above."
                 ] },
                 { h: "Import, watched sites, duplicates", ul: [
                     "Import: the link of one listing or of a whole results page.",
                     "Watched sites: checked again on a schedule, new listings are added automatically.",
+                    "<b>Check existing listings</b>: only looks at listings already in the database on their source site (price, availability, missing data) – it does not import new ones.",
                     "Duplicates: the same property on several sites – merge, or mark as different."
+                ] },
+                { h: "Conditions", ul: [
+                    "Admin → Conditions: the list of conditions can be extended without code (e.g. new build, unfinished).",
+                    "Each condition has a Hungarian, Romanian and English name, a colour, a level (order and comparison), a price multiplier (for the valuation) and keywords – these are used to recognise it in the listing text.",
+                    "Built-in conditions can be switched off, your own ones deleted (their listings can be moved to another condition).",
+                    "<b>Try the detection</b> shows what is recognised from a text; <b>Fill in from descriptions</b> fills in the condition of listings that have none (marked as uncertain, with *, so you can review them)."
+                ] },
+                { h: "Real estate agencies", ul: [
+                    "Admin → Real estate agencies: new and changed agencies wait for approval (also shown as a to-do on the Overview).",
+                    "You see the ANAF data (official name, registered office, main activity, active or not) and can look it up again.",
+                    "Approve, reject (with a reason) or suspend – the agency manager sees the decision and the reason."
+                ] },
+                { h: "Website details", ul: [
+                    "Admin → Website details: the operator's details (name / company name, tax ID, address, contact e-mail, phone).",
+                    "They appear automatically in the Legal notice, the Terms of use, the Privacy and the Cookie policy.",
+                    "For a company, the ANAF data can be filled in from the tax ID with one click. If the contact e-mail is empty, the admin's e-mail address is shown."
                 ] },
                 { h: "Cities, districts, district borders", ul: [
                     "Districts have a Hungarian and a Romanian name, plus names used on other sites (aliases).",
@@ -716,10 +764,17 @@ const HELP_CONTENT = {
         {
             id: "iroda", icon: "fa-solid fa-briefcase", title: "Pentru agenții imobiliare",
             sections: [
-                { h: "Crearea unei agenții", steps: [
-                    "Meniul contului → Agenție imobiliară → Agenție nouă.",
-                    "Introdu datele agenției (nume, telefon, e-mail, site, adresă).",
-                    "Invită colegii și adaugă agenții (un agent nu are nevoie de cont)."
+                { h: "Lista agențiilor", p: "Pagina <a href=\"#irodak\">Agenții</a> din antet arată toate agențiile verificate. Cauți după nume și oraș; cu un clic pe o agenție se deschide profilul ei: site, date de contact, agenți și anunțurile active ale agenției." },
+                { h: "Înregistrarea unei agenții (cu verificare)", steps: [
+                    "Pagina Agenții → Înregistrează agenția (sau din meniu: Gestionarea agenției mele → Agenție nouă).",
+                    "Introdu codul fiscal (CUI) al firmei. Site-ul preia din baza de date publică a ANAF denumirea oficială, numărul de înregistrare la Registrul Comerțului și sediul. Firmele inexistente, inactive sau radiate nu pot fi înregistrate.",
+                    "Completează restul: nume afișat, telefon, e-mail, site, logo.",
+                    "După aprobarea administratorului, agenția apare în lista agențiilor și pe anunțuri. Până atunci poți gestiona deja anunțurile, dar numele agenției apare pentru ceilalți doar după aprobare."
+                ] },
+                { tip: "Dacă se schimbă numele sau codul fiscal al agenției, trebuie aprobată din nou – astfel o agenție aprobată nu poate fi redenumită ulterior într-una inventată." },
+                { h: "Colegi și agenți", ul: [
+                    "Inviți un coleg prin e-mail; el trebuie să accepte invitația (un număr roșu în meniu o semnalează). Până nu acceptă, nu are acces la agenție.",
+                    "Agenții pot fi adăugați și fără cont (nume, telefon, e-mail): apar ca persoane de contact pe anunțuri."
                 ] },
                 { h: "Gestionarea anunțurilor", ul: [
                     "La publicare alegi să publici în numele agenției și ce agent răspunde.",
@@ -745,14 +800,31 @@ const HELP_CONTENT = {
                 { h: "De verificat", p: "Anunțurile cu date lipsă sau suspecte. Le parcurgi rapid cu tastatura; verificarea AI (dacă e activă) propune corecturi." },
                 { h: "Setarea stării", ul: [
                     "Anunțurile fără stare (sau doar estimată, cu *) unul după altul, cu fotografii mari.",
-                    "Tastele <b>1–6</b> = starea (de renovat … lux), apoi vine următorul. <b>←/→</b> fotografiile, <b>S</b> sari peste, <b>Z</b> anulare, <b>Enter</b> = acceptă sugestia din text.",
+                    "Tastele <b>1–9</b> = starea (în ordinea listei de stări), apoi vine următorul. <b>←/→</b> fotografiile, <b>S</b> sari peste, <b>Z</b> anulare, <b>Enter</b> = acceptă sugestia din text.",
                     "<b>Vizualizare grilă</b>: multe anunțuri odată; le selectezi și setezi aceeași stare pentru toate cu un clic.",
                     "Și în tabelul anunțurilor: selectează rândurile și setează starea din bara de sus."
                 ] },
                 { h: "Import, site-uri urmărite, duplicate", ul: [
                     "Import: linkul unui anunț sau al unei pagini întregi de rezultate.",
                     "Site-uri urmărite: reverificate periodic, anunțurile noi se adaugă automat.",
+                    "<b>Verificarea anunțurilor existente</b>: verifică pe site-ul sursă doar anunțurile deja existente (preț, disponibilitate, date lipsă) – nu importă anunțuri noi.",
                     "Duplicate: aceeași proprietate pe mai multe site-uri – le unești sau marchezi că nu sunt la fel."
+                ] },
+                { h: "Stări", ul: [
+                    "Admin → Stări: lista stărilor poate fi extinsă fără cod (de ex. construcție nouă, nefinalizat).",
+                    "Fiecare stare are nume în maghiară, română și engleză, culoare, nivel (ordine și comparație), multiplicator de preț (pentru evaluare) și cuvinte cheie – după acestea este recunoscută în textul anunțului.",
+                    "Stările predefinite pot fi dezactivate, cele proprii șterse (anunțurile lor pot fi mutate la altă stare).",
+                    "<b>Testarea detectării</b> arată ce stare recunoaște dintr-un text; <b>Completare din descrieri</b> completează starea anunțurilor care nu au (marcate ca nesigure, cu *, ca să le poți verifica)."
+                ] },
+                { h: "Agenții imobiliare", ul: [
+                    "Admin → Agenții imobiliare: agențiile noi și cele modificate așteaptă aprobarea (apar și ca sarcină în Prezentare).",
+                    "Vezi datele ANAF (denumire oficială, sediu, activitate principală, activă sau nu) și le poți interoga din nou.",
+                    "Aprobare, respingere (cu motiv) sau suspendare – managerul agenției vede decizia și motivul."
+                ] },
+                { h: "Datele site-ului", ul: [
+                    "Admin → Datele site-ului: datele operatorului (nume / denumire, cod fiscal, adresă, e-mail de contact, telefon).",
+                    "Apar automat în Datele de identificare, Termeni și condiții, Politica de confidențialitate și Politica de cookie-uri.",
+                    "Pentru o firmă, datele ANAF se completează din codul fiscal cu un clic. Dacă e-mailul de contact este gol, apare adresa de e-mail a administratorului."
                 ] },
                 { h: "Orașe, cartiere, limite", ul: [
                     "Cartierele au nume maghiar și românesc, plus nume folosite pe alte site-uri (aliasuri).",

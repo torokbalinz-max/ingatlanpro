@@ -53,4 +53,40 @@ class ImageTools {
 
     }
 
+    // Logó: legfeljebb 400 pixel; az átlátszó (PNG / WebP) logó átlátszó marad
+    static logo(file) {
+
+        return new Promise((resolve, reject) => {
+
+            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+                reject(new Error("bad_type"));
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const arany = Math.min(1, 400 / Math.max(img.width, img.height));
+                    const canvas = document.createElement("canvas");
+                    canvas.width = Math.max(1, Math.round(img.width * arany));
+                    canvas.height = Math.max(1, Math.round(img.height * arany));
+                    const ctx = canvas.getContext("2d");
+                    const atlatszo = file.type !== "image/jpeg";
+                    if (!atlatszo) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(atlatszo ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.9));
+                };
+                img.onerror = () => reject(new Error("bad_image"));
+                img.src = reader.result;
+            };
+
+            reader.onerror = () => reject(new Error("read_error"));
+            reader.readAsDataURL(file);
+
+        });
+
+    }
+
 }

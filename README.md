@@ -10,7 +10,7 @@ Romániai ingatlanhirdetések egy helyen: keresés, térkép, piaci elemzés, é
 ingatlanpro/
 ├── public/                  A weboldal – ezt kapja a böngésző
 │   ├── index.html           Az egyetlen HTML oldal (minden „oldal” ebben van)
-│   ├── css/style.css        Minden megjelenés
+│   ├── css/                 Megjelenés (style.css az alap, v4.css az újabb részek)
 │   └── js/
 │       ├── core/            Alap: nyelvek, segédek, típusok, belépés, oldalváltás, indítás
 │       ├── listings/        Ingatlanok: adatok, kereső, kártyák, táblázat, térkép, hirdetés oldal
@@ -64,7 +64,7 @@ A Render a push után magától újraindul az új kóddal (pár perc).
 - A belépés a weboldal belépő ablakában történik (süti, 60 napig bent marad). A régi `ADMIN_USER` / `APP_USER` belépés ugyanott működik.
 - Az oldal alapból **nyilvános**: belépés nélkül is lehet böngészni. `NYILVANOS=0`: csak belépve látszik.
 - **Felhasználói nézet**: az admin a fejléc menüjében átválthat, és úgy látja az oldalt, mint egy sima felhasználó (az admin felület ilyenkor rejtve van). Ugyanott lehet visszaváltani.
-- **Ingatlanirodák** (`#iroda`): bármelyik felhasználó létrehozhat egy irodát (Fiókom → Ingatlaniroda). Az iroda hirdetései egy helyen kezelhetők: ügynökök, belső hivatkozási szám, mappák, archiválás, tömeges műveletek. A hirdetésen látszik az iroda és az ügynök elérhetősége.
+- **Ingatlanirodák** (`#irodak` a nyilvános lista és az irodák profiljai, `#iroda` a saját iroda kezelése): bármelyik felhasználó regisztrálhat irodát, de csak valódi céggel – az adószámot (CUI) a szerver az ANAF nyilvános adatbázisában ellenőrzi (nem létező / inaktív / megszűnt cég nem regisztrálható), és az irodát az admin hagyja jóvá (Admin → Ingatlanirodák). Jóváhagyás előtt az iroda neve nem látszik másoknak; név- vagy adószám-változás után újra jóvá kell hagyni. Munkatárs csak elfogadott meghívással kerül be. Az iroda hirdetései egy helyen kezelhetők: ügynökök, belső hivatkozási szám, mappák, archiválás, tömeges műveletek.
 - **Kerülethatárok** (Admin → Városok, kerületek → Határok rajzolása): a kerületek határa a térképen. Pontos helyű hirdetésnél ebből dől el a kerület; a csak kerülettel ismert hirdetések a kerület közepére kerülnek.
 - `MEGHIVO_KOD`: ha be van állítva, csak ezzel a kóddal lehet regisztrálni.
 
@@ -76,7 +76,16 @@ A Render a push után magától újraindul az új kóddal (pár perc).
 - **Duplikátumok fotókkal** (`server/services/imagehash.js`): a képek ujjlenyomatából ismeri fel ugyanazt az ingatlant más oldalakon. Kell hozzá a `sharp` csomag (`npm install`).
 - **E-mail** (`server/services/mail.js`): Brevo vagy Resend API-val, ha be van állítva (lásd `.env.example`).
 - **Ártrend és összevetés** (`server/services/piactrend.js`): a trend a hirdetésekből számol (mikor volt fent, milyen áron). Az árváltozásokat és a piacról lekerülést egy adatbázis-trigger naplózza (`ar_elozmenyek` tábla, `piacrol_le` oszlop – a `schema.js` magától létrehozza). Havonta automatikus piaci mentés is készül.
-- **Állapot gyors beállítása** (Admin → Állapot beállítása, `server/routes/allapot.js`): képek alapján, 1–6 billentyűvel vagy rácsban tömegesen.
+- **Állapot gyors beállítása** (Admin → Állapot beállítása, `server/routes/allapot.js`): képek alapján, 1–9 billentyűvel (az Állapotok lista sorrendjében) vagy rácsban tömegesen.
 - **Kerülethatárok** (`server/services/districts.js`): átfedésnél / résnél is a helyes kerület; induláskor a kerületek a határokhoz igazodnak; Ellenőrzés gomb a határ-szerkesztőben.
 - **Értékbecslő** (`server/services/valuation.js`): hasonló hirdetések + árarány-modell keverve. Pontosság mérése: Admin → Áttekintés → Értékbecslő pontossága.
 - **Súgó** (`#sugo`, `public/js/help/`): részletes, témákra bontott útmutató három nyelven.
+- **Állapotok** (Admin → Állapotok, `server/services/allapotok.js`, `allapotok` tábla): az állapotlista kód nélkül bővíthető (név HU/RO/EN, szín, szint, árszorzó, kulcsszavak). A hirdetés szövegéből a kulcsszavak és beépített szabályok alapján ismeri fel az állapotot (`allapot_forras`: kezi / forras / szoveg / ev – a becsültek *-gal látszanak).
+- **Webhely adatai** (Admin → Webhely adatai, `server/services/oldalAdatok.js`): az üzemeltető adatai (név / cégnév, adószám, cím, e-mail, telefon) – az Impresszum, a Felhasználási feltételek, az Adatvédelmi és a Süti-tájékoztató és a lábléc innen veszi. Üres e-mailnél az `ADMIN_EMAILS` első címe (vagy az admin fiók e-mailje) látszik.
+- **ANAF-lekérdezés** (`server/services/anaf.js`): a román adóhatóság ingyenes, nyilvános API-ja (kulcs nem kell), gyorstárral és másodpercenkénti korláttal.
+- **Biztonság**: a szerver külső oldalt / képet csak nyilvános internetes címről kér le (a belső hálózat tiltott – `server/lib/biztonsagosFetch.js`), a hirdetések linkje csak http(s) lehet, alap biztonsági fejlécek (nosniff, beágyazás tiltása).
+
+## Később (ötletek – még nincs kész)
+
+- **Reklámfelületek**: Google Ads, és saját reklámhelyek, amelyeket cégeknek lehet kiadni – mindkettő az admin felületről kezelve (hol jelenjen meg, mettől meddig, kinek a hirdetése).
+- **AI-asszisztens a weboldalon**: egy chat, ami válaszol a látogatók kérdéseire (keresés, piaci adatok, hogyan működik az oldal).

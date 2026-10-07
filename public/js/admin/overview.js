@@ -38,6 +38,12 @@ AdminManager.renderOverview = function () {
             tab: "unavailable", btn: I18n.t("ovOpen")
         });
 
+        if (c.iroda_fuggo) teendok.push({
+            icon: "fa-solid fa-briefcase", color: "orange",
+            text: I18n.f("ovTodoAgencies", { n: c.iroda_fuggo }),
+            tab: "irodak", btn: I18n.t("ovOpen")
+        });
+
         if (c.allapot_hianyzo) teendok.push({
             icon: "fa-solid fa-screwdriver-wrench", color: "purple",
             text: I18n.f("ovTodoAllapot", { n: c.allapot_hianyzo }),

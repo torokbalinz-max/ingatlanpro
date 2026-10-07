@@ -45,8 +45,17 @@ class LegalPage {
         return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     }
 
+    // A jogi adatok: az admin felületen megadott üzemeltetői adatok (Admin →
+    // Webhely adatai, a /api/config-ból), ahol ott üres, a legalConfig.js értéke
     static cfg() {
-        return (typeof LEGAL_CONFIG !== "undefined" && LEGAL_CONFIG) || { uzemelteto: {} };
+        const alap = (typeof LEGAL_CONFIG !== "undefined" && LEGAL_CONFIG) || { uzemelteto: {} };
+        const szerver = (typeof AuthManager !== "undefined" && AuthManager.config && AuthManager.config.uzemelteto) || null;
+        if (!szerver) return alap;
+        const op = { ...(alap.uzemelteto || {}) };
+        Object.entries(szerver).forEach(([k, v]) => {
+            if (k !== "emailAlap" && v !== "" && v !== null && v !== undefined) op[k] = v;
+        });
+        return { ...alap, uzemelteto: op };
     }
 
     // A szövegekhez adott környezet (üzemeltető adatai, bekapcsolt szolgáltatások)
@@ -59,7 +68,7 @@ class LegalPage {
 
         const v = (x, cimke) => x
             ? e(x)
-            : `<span class="legalTodo" title="public/js/legal/legalConfig.js"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${e(I18n.t("legalTodo"))}: ${e(cimke)}</span>`;
+            : `<span class="legalTodo" title="Admin → ${e(I18n.t("adminTabSite"))}"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${e(I18n.t("legalTodo"))}: ${e(cimke)}</span>`;
 
         return {
             op,
@@ -554,7 +563,9 @@ class LegalPage {
                                 <p class="mb-2">
                                     ${b.ingatlan_id
                                         ? `<a href="#listing/${b.ingatlan_id}">#${b.ingatlan_id} ${e(b.ingatlan_cim || "")}</a>${b.ingatlan_statusz === "tiltott" ? ` <span class="badge text-bg-dark">${I18n.t("rvListingHidden")}</span>` : ""}`
-                                        : `<a href="${e(b.url)}" target="_blank" rel="noopener nofollow">${e(b.url)}</a>`}
+                                        : (/^https?:\/\//i.test(b.url || "")
+                                            ? `<a href="${e(b.url)}" target="_blank" rel="noopener nofollow">${e(b.url)}</a>`
+                                            : `<span class="text-break">${e(b.url || "–")}</span>`)}
                                 </p>
                                 <p class="reportText mb-2">${e(b.leiras)}</p>
                                 <p class="small text-body-secondary mb-3">${I18n.t("rvReporter")}: ${e(b.nev || "–")} ${b.email ? `&lt;<a href="mailto:${e(b.email)}">${e(b.email)}</a>&gt;` : ""}</p>

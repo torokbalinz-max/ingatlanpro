@@ -46,13 +46,14 @@ class ListingPage {
         }
     }
 
-    static fact(icon, label, value) {
+    // Egy adat-doboz (az érték szöveg – mindig "escape"-elve, mert a hirdetésből jön)
+    static fact(icon, label, value, megjegyzes) {
         if (value === null || value === undefined || value === "" || value === "-") return "";
         return `
             <div class="col-6 col-md-4">
                 <div class="factBox">
                     <i class="${icon}"></i>
-                    <div><small>${label}</small><b>${value}</b></div>
+                    <div><small>${label}</small><b>${Utils.escape(value)}</b>${megjegyzes ? `<span class="allapotBecsult d-block ms-0">${Utils.escape(megjegyzes)}</span>` : ""}</div>
                 </div>
             </div>`;
     }
@@ -135,12 +136,13 @@ class ListingPage {
                 <div class="card-body">
                     <div class="small text-body-secondary mb-1">${I18n.t("lpListedBy")}</div>
                     <a class="d-flex align-items-center gap-2 mb-3 agContactHead" href="#irodak/${i.iroda.id}">
-                        <span class="agLogo sm">${Utils.escape((i.iroda.nev || "?").slice(0, 1).toUpperCase())}</span>
+                        ${AgencyUI.logo(i.iroda, "sm")}
                         <span class="min-w-0">
-                            <b class="d-block text-truncate">${Utils.escape(i.iroda.nev)} ${i.iroda.ellenorzott ? `<i class="fa-solid fa-circle-check text-primary" title="${Utils.escape(I18n.t("agVerified"))}"></i>` : ""}</b>
-                            <span class="small text-body-secondary">${I18n.t("agLabel")}</span>
+                            <b class="d-block text-truncate">${Utils.escape(i.iroda.nev)} ${AgencyUI.verifiedBadge(i.iroda)}</b>
+                            <span class="small text-body-secondary">${I18n.t(i.iroda.statusz === "jovahagyva" ? "agLabel" : "agPendingLabel")}</span>
                         </span>
                     </a>
+                    ${i.iroda.weboldal ? `<a class="btn btn-outline-secondary btn-sm w-100 mb-2 text-start text-truncate" href="${Utils.escape(i.iroda.weboldal)}" target="_blank" rel="noopener nofollow"><i class="fa-solid fa-globe"></i> ${Utils.escape(AgencyUI.weboldalNev(i.iroda.weboldal))}</a>` : ""}
                     ${i.ugynok ? `
                         <div class="agAgentLine mb-2"><i class="fa-regular fa-user"></i> <span class="small text-body-secondary">${I18n.t("agAgent")}:</span> <b>${Utils.escape(i.ugynok.nev)}</b></div>
                         ${i.ugynok.telefon ? tel(i.ugynok.telefon) : ""}
@@ -220,7 +222,7 @@ class ListingPage {
                         ${t.fields.telek ? ListingPage.fact("fa-solid fa-tree", I18n.t("newTelekNm"), i.telek_nm ? Utils.num(i.telek_nm) + " m²" : "") : ""}
                         ${t.fields.szobak ? ListingPage.fact("fa-solid fa-bed", I18n.t("detailSzoba"), i.szobak || "") : ""}
                         ${t.fields.emelet ? ListingPage.fact("fa-solid fa-stairs", I18n.t("detailEmelet"), i.emelet || "") : ""}
-                        ${t.fields.allapot ? ListingPage.fact("fa-solid fa-screwdriver-wrench", I18n.t("detailAllapot"), i.allapot ? Utils.allapotLabel(i.allapot) : "") : ""}
+                        ${t.fields.allapot ? ListingPage.fact("fa-solid fa-screwdriver-wrench", I18n.t("detailAllapot"), i.allapot ? Utils.allapotLabel(i.allapot) : "", Utils.allapotBecsult(i) ? I18n.t("condFromTextShort") : "") : ""}
                         ${ListingPage.fact("fa-solid fa-euro-sign", I18n.t("detailArNm"), Utils.arNm(i) ? Utils.eurNm(Utils.arNm(i)) : "")}
                     </div>
 

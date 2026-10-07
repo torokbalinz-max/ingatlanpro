@@ -4,6 +4,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ===================== MODULOK =====================
 
+    // Az állapot-választók (a végleges listát a /api/config adja, lásd AuthManager.load)
+    Utils.fillAllapotSelects();
+
     UIManager.init();
     FilterManager.init();
     CardsView.init();
@@ -109,6 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         BulkEditManager.loadKeruletOptions();
         BulkEditManager.renderAllapotOptions();
+        Utils.fillAllapotSelects();
 
         StatisticsManager.rerender();
         ValuationManager.rerender();
@@ -118,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (PageManager.current === "igenyek") RequestsPage.rerender();
         if (PageManager.current === "fiok") AccountPage.rerender();
         AgencyPage.rerender();
-        AgencyProfile.rerender();
+        AgencyDirectory.rerender();
         AuthManager.apply();
         if (PageManager.current === "home") HomePage.render();
         HelpPage.rerender();

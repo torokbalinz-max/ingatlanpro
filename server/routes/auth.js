@@ -9,11 +9,22 @@ const mail = require("../services/mail");
 const { nyilvanosMod } = require("../middleware/auth");
 const { hiba, csakBelepve } = require("../lib/http");
 const { ASZF_VERZIO } = require("../lib/jogi");
+const allapotok = require("../services/allapotok");
+const oldalAdatok = require("../services/oldalAdatok");
 
 const router = express.Router();
 
-// Mit tud a belépő ablak (Google gomb, meghívókód, e-mail)
-router.get("/api/config", (req, res) => {
+// Mit tud a belépő ablak (Google gomb, meghívókód, e-mail), az állapotok
+// listája és az üzemeltető adatai (a jogi oldalakhoz) – az admin felületen
+// módosíthatók, a weboldal induláskor innen kapja meg őket
+router.get("/api/config", async (req, res) => {
+
+    let uzemelteto = null;
+    let allapotLista = [];
+
+    try { uzemelteto = await oldalAdatok.nyilvanos(); } catch (e) { /* az alapértékek maradnak */ }
+    try { await allapotok.kesz(); allapotLista = allapotok.nyilvanos(); } catch (e) { /* a beépített lista marad */ }
+
     res.json({
         nyilvanos: nyilvanosMod(),
         googleClientId: process.env.GOOGLE_CLIENT_ID || null,
@@ -27,9 +38,12 @@ router.get("/api/config", (req, res) => {
             google: !!process.env.GOOGLE_CLIENT_ID,
             ai: !!process.env.ANTHROPIC_API_KEY
         },
+        allapotok: allapotLista,
+        uzemelteto,
         // Hibakereséshez: ha induláskor egy táblát nem sikerült létrehozni
         dbHibak: (db.schemaHibak || []).map(h => h.slice(0, 200))
     });
+
 });
 
 router.get("/api/me", async (req, res) => {
@@ -38,11 +52,13 @@ router.get("/api/me", async (req, res) => {
 
         let olvasatlan = 0;
         let irodak = [];
+        let irodaMeghivasok = [];
 
         if (req.user) {
             const r = await db.query("SELECT COUNT(*)::int AS n FROM uzenetek WHERE cimzett_id = $1 AND NOT olvasva", [req.user.id]);
             olvasatlan = r.rows[0].n;
             irodak = await require("./irodak").sajatIrodak(req.user.id).catch(() => []);
+            irodaMeghivasok = await require("./irodak").meghivasok(req.user.id).catch(() => []);
         }
 
         res.json({
@@ -55,6 +71,7 @@ router.get("/api/me", async (req, res) => {
             nyilvanos: nyilvanosMod(),
             olvasatlan,
             irodak,
+            irodaMeghivasok,
             // Az ÁSZF (új változatát) még nem fogadta el -> a weboldal megkérdezi
             aszfKell: !!(req.user && req.valodiSzerep !== "admin" && req.user.aszf_verzio !== ASZF_VERZIO)
         });

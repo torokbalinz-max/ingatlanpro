@@ -5,6 +5,7 @@
 const express = require("express");
 const db = require("../db/database");
 const { hiba } = require("../lib/http");
+const { biztonsagosFetch } = require("../lib/biztonsagosFetch");
 
 const router = express.Router();
 
@@ -29,9 +30,11 @@ router.get("/api/kepek/:id", async (req, res) => {
 // Más oldalak képeinek továbbítása (így a forrásoldal nem tilthatja le,
 // és nem kell a böngészőnek közvetlenül oda fordulnia). Kis memóriás
 // gyorstárral, hogy ugyanazt a képet ne kérjük le újra és újra.
+// Csak nyilvános internetes cím kérhető le (a belső hálózat tiltott).
 const kepCache = new Map();
 let kepCacheMeret = 0;
 const KEP_CACHE_MAX = 60 * 1024 * 1024;
+const KEP_MAX = 8 * 1024 * 1024;
 
 router.get("/api/img", async (req, res) => {
 
@@ -39,21 +42,20 @@ router.get("/api/img", async (req, res) => {
 
         const u = String(req.query.u || "");
 
-        if (!/^https:\/\//i.test(u) || u.length > 2000) return res.status(400).end();
-
-        const host = new URL(u).hostname;
-
-        if (/^(localhost|127\.|10\.|192\.168\.|169\.254\.)/.test(host)) return res.status(400).end();
+        if (!/^https?:\/\//i.test(u) || u.length > 2000) return res.status(400).end();
 
         const cached = kepCache.get(u);
 
         if (cached) {
             res.set("Content-Type", cached.type);
             res.set("Cache-Control", "private, max-age=604800");
+            res.set("X-Content-Type-Options", "nosniff");
             return res.send(cached.buf);
         }
 
-        const valasz = await fetch(u, {
+        const host = new URL(u).hostname;
+
+        const valasz = await biztonsagosFetch(u, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
                 "Referer": "https://" + host.split(".").slice(-2).join(".") + "/",
@@ -64,11 +66,14 @@ router.get("/api/img", async (req, res) => {
 
         const type = valasz.headers.get("content-type") || "";
 
-        if (!valasz.ok || !type.startsWith("image/")) return res.status(404).end();
+        // Csak valódi kép (SVG nem: abban szkript is lehetne)
+        if (!valasz.ok || !type.startsWith("image/") || /svg/i.test(type)) return res.status(404).end();
+
+        if (Number(valasz.headers.get("content-length")) > KEP_MAX) return res.status(413).end();
 
         const buf = Buffer.from(await valasz.arrayBuffer());
 
-        if (buf.length > 8 * 1024 * 1024) return res.status(413).end();
+        if (buf.length > KEP_MAX) return res.status(413).end();
 
         kepCache.set(u, { type, buf });
         kepCacheMeret += buf.length;
@@ -81,11 +86,12 @@ router.get("/api/img", async (req, res) => {
 
         res.set("Content-Type", type);
         res.set("Cache-Control", "private, max-age=604800");
+        res.set("X-Content-Type-Options", "nosniff");
         res.send(buf);
 
     } catch (err) {
 
-        res.status(502).end();
+        res.status(err.code === "blocked_url" ? 400 : 502).end();
 
     }
 

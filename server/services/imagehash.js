@@ -12,6 +12,7 @@
 // ============================================================
 
 const db = require("../db/database");
+const { biztonsagosFetch } = require("../lib/biztonsagosFetch");
 
 let sharp = null;
 try { sharp = require("sharp"); } catch (e) { console.warn("A 'sharp' csomag hiányzik – a képes duplikátum-keresés ki van kapcsolva (npm install)."); }
@@ -59,7 +60,8 @@ function hasznalhato(h) {
 
 async function letolt(url) {
     const host = new URL(url).hostname;
-    const res = await fetch(url, {
+    // Csak nyilvános internetes cím (belső hálózat nem – SSRF-védelem)
+    const res = await biztonsagosFetch(url, {
         headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
             "Referer": "https://" + host.split(".").slice(-2).join(".") + "/",

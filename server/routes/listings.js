@@ -8,10 +8,12 @@ const { normalize, hianyzoMezok, parseKepek, TIPUS_MEZOK } = require("../service
 const { scrape } = require("../services/scraper");
 const autofix = require("../services/autofix");
 const quality = require("../services/quality");
+const allapotok = require("../services/allapotok");
 const location = require("../services/location");
 const districts = require("../services/districts");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
 const { LISTA_MEZOK } = require("../lib/sql");
+const acc = require("../services/accounts");
 const irodak = require("./irodak");
 
 const router = express.Router();
@@ -62,16 +64,23 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
 
         if (i.iroda_id) {
 
-            const ir = await db.query("SELECT id, nev, telefon, email, weboldal, cim, ellenorzott FROM irodak WHERE id = $1", [i.iroda_id]);
-            iroda = ir.rows[0] || null;
+            const tag = (await irodak.jog(req, i.iroda_id)).tag;
 
-            if (i.ugynok_id) {
+            const ir = await db.query(
+                "SELECT id, nev, telefon, email, weboldal, cim, ellenorzott, statusz, (logo IS NOT NULL) AS van_logo FROM irodak WHERE id = $1",
+                [i.iroda_id]);
+
+            // A még nem jóváhagyott iroda neve / elérhetősége csak a tagoknak
+            // látszik – mindenki más magánhirdetésként látja
+            iroda = ir.rows[0] && (ir.rows[0].statusz === "jovahagyva" || tag) ? ir.rows[0] : null;
+
+            if (iroda && i.ugynok_id) {
                 const u = await db.query("SELECT id, nev, telefon, email, user_id IS NOT NULL AS van_fiok FROM iroda_ugynokok WHERE id = $1 AND aktiv", [i.ugynok_id]);
                 ugynok = u.rows[0] || null;
             }
 
             // A belső adatok csak az iroda tagjainak
-            if ((await irodak.jog(req, i.iroda_id)).tag) {
+            if (tag) {
                 const b = await db.query("SELECT iroda_mappa, iroda_megjegyzes FROM ingatlanok WHERE id = $1", [i.id]);
                 belso = b.rows[0] || {};
             }
@@ -228,9 +237,9 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
             (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
              tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
              kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, telepules, telek_jelleg, hely_sugar,
-             owner_id, hely_forras, hely_kezi)
+             owner_id, hely_forras, hely_kezi, allapot_forras)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22,$23,$24,$25,
-                    $26,$27,$28)
+                    $26,$27,$28,$29)
             RETURNING id
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva, d.x, d.y,
@@ -238,7 +247,8 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
             JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.problemak), q.ellenorzott,
             req.body.forras_szoveg ? String(req.body.forras_szoveg).slice(0, 5000) : null,
             d.telepules, d.telek_jelleg, d.hely_sugar,
-            req.user.id, d.x && d.y ? "kezi" : null, !!(d.x && d.y)
+            req.user.id, d.x && d.y ? "kezi" : null, !!(d.x && d.y),
+            d.allapot ? "kezi" : null
         ]);
 
         const id = r.rows[0].id;
@@ -282,7 +292,7 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 
         client = await db.connect();
 
-        const regi = await client.query("SELECT statusz, forras_tipus, jovahagyva, forras_kerulet, kerulet, x, y, hely_kezi, hely_forras FROM ingatlanok WHERE id = $1", [id]);
+        const regi = await client.query("SELECT statusz, forras_tipus, jovahagyva, forras_kerulet, kerulet, x, y, hely_kezi, hely_forras, allapot, allapot_forras FROM ingatlanok WHERE id = $1", [id]);
 
         if (!regi.rowCount) return res.status(404).json({ error: "not_found" });
 
@@ -328,6 +338,11 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 
         const helyGond = helyKezi || !importalt ? await location.helyTavol(d) : false;
 
+        // Az állapot forrása: ha kézzel módosították (vagy az admin jóváhagyta), "kezi";
+        // különben marad, ahonnan jött (pl. a leírásból felismert)
+        const allapotForras = !d.allapot ? null
+            : (req.body.jovahagy || allapotok.norm(d.allapot) !== allapotok.norm(elozo.allapot) ? "kezi" : (elozo.allapot_forras || "kezi"));
+
         const q = await quality.ertekel(d, {
             mod: importalt ? "import" : (d.link ? "link" : "kezi"),
             kepDb,
@@ -352,7 +367,7 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
                 telek_nm=$17, hely_pontossag=$18, kulso_kepek=$19::jsonb, statusz=$20,
                 hianyzo=$21::jsonb, tovabbi_linkek=COALESCE($22::jsonb, tovabbi_linkek),
                 problemak=$23::jsonb, ellenorzott=$24, jovahagyva=$25, telepules=$27,
-                telek_jelleg=$28, hely_sugar=$29, hely_kezi=$30, hely_forras=$31, updated_at=NOW()
+                telek_jelleg=$28, hely_sugar=$29, hely_kezi=$30, hely_forras=$31, allapot_forras=$32, updated_at=NOW()
             WHERE id=$26
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva,
@@ -360,7 +375,7 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
             d.telek_nm, d.hely_pontossag, JSON.stringify(d.kulso_kepek || []), statusz,
             JSON.stringify(hianyzo), d.tovabbi_linkek ? JSON.stringify(d.tovabbi_linkek) : null,
             JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id, d.telepules, d.telek_jelleg, d.hely_sugar,
-            helyKezi, helyForras
+            helyKezi, helyForras, allapotForras
         ]);
 
         if (torlendo.length) {
@@ -453,6 +468,11 @@ router.post("/api/scrape", csakBelepve, async (req, res) => {
             return res.status(400).json({ error: "bad_url" });
         }
 
+        // Egy felhasználó óránként legfeljebb 60 linket olvastathat be (az admin korlátlanul)
+        if (req.valodiSzerep !== "admin" && acc.korlat("scrape:" + req.user.id, 60, 60 * 60 * 1000)) {
+            return res.status(429).json({ error: "too_many" });
+        }
+
         const d = await scrape(url);
 
         // A hiányzó adatok a hirdetés szövegéből: telek mérete, szobák,
@@ -474,6 +494,9 @@ router.post("/api/scrape", csakBelepve, async (req, res) => {
         res.json(d);
 
     } catch (err) {
+
+        // Belső hálózati / nem http(s) cím: nem kérjük le
+        if (err.code === "blocked_url") return res.status(400).json({ error: "bad_url" });
 
         console.error("Scrape hiba:", err.message);
         res.status(502).json({ error: "scrape_failed", message: err.message });

@@ -247,7 +247,10 @@ ${c.ai ? "<li><b>Anthropic PBC</b> (USA) – az átvett hirdetések szövegének
 <p>A térkép (OpenStreetMap), a programkönyvtárak (jsDelivr, cdnjs) és a kezdőlap fotói (Unsplash) külső szerverről töltődnek be; ezek a szolgáltatók a betöltéshez látják az IP-címedet, de mi nem helyezünk el általuk sütit. Lásd: ${c.link("adatvedelem", "Adatvédelmi tájékoztató")}.</p>
 
 <h3>A választásod módosítása</h3>
-<p>A választásodat bármikor megváltoztathatod vagy visszavonhatod: <button type="button" class="btn btn-sm btn-outline-primary" data-consent-open>Süti-beállítások</button>. A böngésződben is törölheted a sütiket és a helyi tárolót; a már elhelyezett Google-sütiket a Google-fiókodban vagy a böngésződben törölheted.</p>`
+<p>A választásodat bármikor megváltoztathatod vagy visszavonhatod: <button type="button" class="btn btn-sm btn-outline-primary" data-consent-open>Süti-beállítások</button>. A böngésződben is törölheted a sütiket és a helyi tárolót; a már elhelyezett Google-sütiket a Google-fiókodban vagy a böngésződben törölheted.</p>
+
+<h3>Kapcsolat</h3>
+<p>A sütikkel és az adatkezeléssel kapcsolatos kérdéseidet a ${c.mailto(c.op.email)} címre küldheted${c.op.nev ? ` (üzemeltető: ${c.e(c.op.nev)})` : ""}. Az üzemeltető további adatai az ${c.link("impresszum", "Impresszumban")} találhatók.</p>`
 
     },
 
@@ -486,7 +489,10 @@ ${c.ai ? "<li><b>Anthropic PBC</b> (SUA) – verificarea textului anunțurilor p
 <p>Harta (OpenStreetMap), bibliotecile de programe (jsDelivr, cdnjs) și fotografiile de pe pagina principală (Unsplash) se încarcă de pe servere externe; acești furnizori văd adresa dvs. IP la încărcare, dar noi nu plasăm cookie-uri prin intermediul lor. Vezi: ${c.link("adatvedelem", "Politica de confidențialitate")}.</p>
 
 <h3>Modificarea alegerii</h3>
-<p>Vă puteți modifica sau retrage oricând alegerea: <button type="button" class="btn btn-sm btn-outline-primary" data-consent-open>Setări cookie-uri</button>. Puteți șterge cookie-urile și stocarea locală și din browser; cookie-urile Google deja plasate le puteți șterge din contul Google sau din browser.</p>`
+<p>Vă puteți modifica sau retrage oricând alegerea: <button type="button" class="btn btn-sm btn-outline-primary" data-consent-open>Setări cookie-uri</button>. Puteți șterge cookie-urile și stocarea locală și din browser; cookie-urile Google deja plasate le puteți șterge din contul Google sau din browser.</p>
+
+<h3>Contact</h3>
+<p>Întrebările despre cookie-uri și prelucrarea datelor le puteți trimite la ${c.mailto(c.op.email)}${c.op.nev ? ` (operator: ${c.e(c.op.nev)})` : ""}. Celelalte date ale operatorului se găsesc în pagina ${c.link("impresszum", "Date de identificare")}.</p>`
 
     },
 
@@ -725,7 +731,10 @@ ${c.ai ? "<li><b>Anthropic PBC</b> (USA) – AI-assisted checking of the text of
 <p>The map (OpenStreetMap), program libraries (jsDelivr, cdnjs) and home page photos (Unsplash) load from external servers; these providers see your IP address when loading, but we do not set cookies through them. See the ${c.link("adatvedelem", "Privacy policy")}.</p>
 
 <h3>Changing your choice</h3>
-<p>You can change or withdraw your choice at any time: <button type="button" class="btn btn-sm btn-outline-primary" data-consent-open>Cookie settings</button>. You can also delete cookies and local storage in your browser; Google cookies already set can be deleted in your Google account or browser.</p>`
+<p>You can change or withdraw your choice at any time: <button type="button" class="btn btn-sm btn-outline-primary" data-consent-open>Cookie settings</button>. You can also delete cookies and local storage in your browser; Google cookies already set can be deleted in your Google account or browser.</p>
+
+<h3>Contact</h3>
+<p>Questions about cookies and data processing: ${c.mailto(c.op.email)}${c.op.nev ? ` (operator: ${c.e(c.op.nev)})` : ""}. Further details about the operator are in the ${c.link("impresszum", "Legal notice")}.</p>`
 
     }
 

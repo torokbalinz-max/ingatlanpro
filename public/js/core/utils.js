@@ -109,7 +109,8 @@ class Utils {
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
     }
 
     // ----- Statisztika -----
@@ -138,45 +139,106 @@ class Utils {
     }
 
     // ----- Állapot -----
+    //
+    // Az állapotok listáját az admin kezeli (Admin → Állapotok); a weboldal
+    // induláskor a /api/config-ból kapja meg (AuthManager.load). Amíg nem
+    // érkezett meg, ez a beépített lista érvényes.
 
-    // Az adatokban előforduló változatokat (pl. "jó*", "új") egységesíti
+    static ALAP_ALLAPOTOK = [
+        { kulcs: "félkész", nev_hu: "félkész (szerkezetkész)", nev_ro: "nefinisat (la roșu / la gri)", nev_en: "unfinished (shell)", szin: "#92400e", sorrend: 5 },
+        { kulcs: "felújítandó", nev_hu: "felújítandó", nev_ro: "necesită renovare", nev_en: "needs renovation", szin: "#b91c1c", sorrend: 10 },
+        { kulcs: "közepes", nev_hu: "közepes", nev_ro: "medie", nev_en: "average", szin: "#ea580c", sorrend: 20 },
+        { kulcs: "részbenfel", nev_hu: "részben felújított", nev_ro: "parțial renovat", nev_en: "partly renovated", szin: "#ca8a04", sorrend: 30 },
+        { kulcs: "jó", nev_hu: "jó", nev_ro: "bună", nev_en: "good", szin: "#15803d", sorrend: 40 },
+        { kulcs: "újszerű", nev_hu: "újszerű", nev_ro: "ca nou", nev_en: "like new", szin: "#2563eb", sorrend: 50 },
+        { kulcs: "újépítésű", nev_hu: "újépítésű", nev_ro: "construcție nouă", nev_en: "new build", szin: "#0891b2", sorrend: 60 },
+        { kulcs: "luxus", nev_hu: "luxus", nev_ro: "lux", nev_en: "luxury", szin: "#7c3aed", sorrend: 70 }
+    ];
+
+    static allapotLista = Utils.ALAP_ALLAPOTOK.map(a => ({ ...a, aktiv: true }));
+
+    // A szerver listája (a kikapcsoltak is benne vannak, hogy a régi hirdetések címkéje megjelenjen)
+    static setAllapotok(lista) {
+        if (!Array.isArray(lista) || !lista.length) return;
+        Utils.allapotLista = lista.slice().sort((a, b) => (a.sorrend || 0) - (b.sorrend || 0));
+        Utils.fillAllapotSelects();
+    }
+
+    static ekezetNelkul(s) {
+        return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    }
+
+    // Az adatokban előforduló változatokat (pl. "jó*", "új", "Lux") a kulcsra egységesíti
     static normAllapot(a) {
-        const v = String(a || "").toLowerCase().replace(/\*/g, "").trim();
+        const v = String(a || "").replace(/\*/g, "").trim().toLowerCase();
         if (!v) return "";
-        if (v === "új" || v === "uj" || v.startsWith("újsz") || v.startsWith("ujsz")) return "újszerű";
-        if (v.startsWith("részben") || v.startsWith("reszben")) return "részbenfel";
-        if (v.startsWith("felúj") || v.startsWith("feluj")) return "felújítandó";
-        if (v.startsWith("közep") || v.startsWith("kozep") || v === "átlagos" || v === "lakható") return "közepes";
-        if (v === "jó" || v === "jo") return "jó";
-        if (v.startsWith("lux")) return "luxus";
+        const L = Utils.allapotLista;
+        const pontos = L.find(x => x.kulcs === v);
+        if (pontos) return pontos.kulcs;
+        const e = Utils.ekezetNelkul(v);
+        const nevrol = L.find(x => [x.kulcs, x.nev_hu, x.nev_ro, x.nev_en].some(n => n && Utils.ekezetNelkul(n) === e));
+        if (nevrol) return nevrol.kulcs;
+        if (e === "uj" || e.startsWith("ujsz")) return "újszerű";
+        if (e.startsWith("ujep") || e.startsWith("uj ep") || e === "new build") return "újépítésű";
+        if (e.startsWith("reszben")) return "részbenfel";
+        if (e.startsWith("feluj")) return "felújítandó";
+        if (e.startsWith("felkesz") || e.startsWith("szerkezetkesz")) return "félkész";
+        if (e.startsWith("kozep") || e === "atlagos" || e === "lakhato") return "közepes";
+        if (e === "jo") return "jó";
+        if (e.startsWith("lux")) return "luxus";
         return v;
     }
 
-    // A hat állapot a legrosszabbtól a legjobbig (űrlapok, jelmagyarázat)
-    static ALLAPOTOK = ["felújítandó", "közepes", "részbenfel", "jó", "újszerű", "luxus"];
+    static allapotAdat(a) {
+        const k = Utils.normAllapot(a);
+        return Utils.allapotLista.find(x => x.kulcs === k) || null;
+    }
+
+    // A választható (bekapcsolt) állapotok kulcsai, a legrosszabbtól a legjobbig
+    static get ALLAPOTOK() {
+        return Utils.allapotLista.filter(a => a.aktiv !== false).map(a => a.kulcs);
+    }
 
     // <option> elemek az állapot-választókhoz
     static allapotOptions(selected, ures) {
+        const sel = Utils.normAllapot(selected);
+        const lista = Utils.ALLAPOTOK.slice();
+        // A kikapcsolt, de a hirdetésen még meglévő állapot is választható maradjon
+        if (sel && !lista.includes(sel) && Utils.allapotAdat(sel)) lista.push(sel);
         return (ures ? `<option value="">${I18n.t(ures)}</option>` : "") +
-            Utils.ALLAPOTOK.map(a => `<option value="${a}" ${Utils.normAllapot(selected) === a ? "selected" : ""}>${Utils.allapotLabel(a)}</option>`).join("");
+            lista.map(a => `<option value="${Utils.escape(a)}" ${sel === a ? "selected" : ""}>${Utils.escape(Utils.allapotLabel(a))}</option>`).join("");
+    }
+
+    // A [data-allapot-select] választók feltöltése (a data érték: az üres sor szövege)
+    static fillAllapotSelects() {
+        document.querySelectorAll("select[data-allapot-select]").forEach(sel => {
+            const keep = sel.value;
+            sel.innerHTML = Utils.allapotOptions(keep, sel.dataset.allapotSelect || null);
+            if (keep && ![...sel.options].some(o => o.value === keep)) sel.value = "";
+        });
     }
 
     static allapotLabel(a) {
-        const key = {
-            "felújítandó": "allapotFelujitando",
-            "közepes": "allapotKozepes",
-            "részbenfel": "allapotReszben",
-            "jó": "allapotJo",
-            "újszerű": "allapotUjszeru",
-            "luxus": "allapotLuxus"
-        }[Utils.normAllapot(a)];
-        return key ? I18n.t(key) : (a ? String(a) : I18n.t("unknownLabel"));
+        const x = Utils.allapotAdat(a);
+        if (x) return x["nev_" + I18n.current] || x.nev_hu || x.kulcs;
+        return a ? String(a).replace(/\*/g, "") : I18n.t("unknownLabel");
+    }
+
+    static allapotSzin(a) {
+        const x = Utils.allapotAdat(a);
+        return x && x.szin ? x.szin : "#6b7280";
+    }
+
+    // Automatikusan (a hirdetés szövegéből / az építés évéből) kitöltött állapot
+    static allapotBecsult(i) {
+        return !!(i && i.allapot && (String(i.allapot).includes("*") || i.allapot_forras === "szoveg" || i.allapot_forras === "ev"));
     }
 
     // Sorrend a táblázatokban / grafikonokon
     static allapotRank(a) {
-        const r = { "felújítandó": 0, "közepes": 1, "részbenfel": 2, "jó": 3, "újszerű": 4, "luxus": 5 }[Utils.normAllapot(a)];
-        return r === undefined ? 9 : r;
+        const k = Utils.normAllapot(a);
+        const n = Utils.allapotLista.findIndex(x => x.kulcs === k);
+        return n === -1 ? 99 : n;
     }
 
     // ----- Emelet -----

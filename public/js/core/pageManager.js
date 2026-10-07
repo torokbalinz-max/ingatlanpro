@@ -1,7 +1,7 @@
 // ============================================================
 //  Oldalak (a fejléc menüpontjai) + címsor (#hash) kezelés
 //  #properties, #market, #new, #favorites, #valuation, #admin,
-//  #user, #listing/123, #jogi/aszf, #sugo/piac
+//  #user, #listing/123, #jogi/aszf, #sugo/piac, #irodak, #irodak/5
 // ============================================================
 
 class PageManager {
@@ -21,7 +21,7 @@ class PageManager {
         igenyek: { icon: "fa-solid fa-bullhorn", label: "menuIgenyek" },
         fiok: { icon: "fa-solid fa-circle-user", label: "menuFiok", login: true },
         iroda: { icon: "fa-solid fa-briefcase", label: "agMenu", login: true },
-        irodak: { icon: "fa-solid fa-briefcase", label: "agLabel" },
+        irodak: { icon: "fa-solid fa-briefcase", label: "agDirTitle" },
         listing: { icon: "fa-solid fa-rectangle-list", label: "menuHirdetes" },
         jogi: { icon: "fa-solid fa-scale-balanced", label: "legalPageTitle" },
         sugo: { icon: "fa-solid fa-circle-question", label: "menuSugo" }
@@ -183,8 +183,10 @@ class PageManager {
             AgencyPage.show(param);
         }
 
-        if (page === "irodak" && param) {
-            AgencyProfile.show(Number(param));
+        // Ingatlanirodák: a lista, vagy egy iroda adatlapja
+        if (page === "irodak") {
+            if (param) AgencyProfile.show(Number(param));
+            else { AgencyProfile.current = null; AgencyDirectory.show(); }
         }
 
     }

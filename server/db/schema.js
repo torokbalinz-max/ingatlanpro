@@ -4,6 +4,8 @@
 //  scripts/import-backup.js a saját futásakor használja.
 // ============================================================
 
+const { ALAP_ALLAPOTOK } = require("../lib/allapotAlap");
+
 async function createSchema(db) {
 
     // Ingatlanok
@@ -65,6 +67,7 @@ async function createSchema(db) {
         "iroda_ref TEXT",                        // az iroda saját hivatkozási száma
         "iroda_mappa TEXT",                      // az iroda saját rendszerezése (mappa / címke)
         "iroda_megjegyzes TEXT",                 // belső megjegyzés (csak az iroda látja)
+        "allapot_forras TEXT",                   // honnan jön az állapot: kezi | forras | szoveg (a leírásból) | ev (az építés évéből)
         "updated_at TIMESTAMP DEFAULT NOW()"
     ];
 
@@ -343,6 +346,76 @@ async function createSchema(db) {
     `);
 
     await db.query(`CREATE INDEX IF NOT EXISTS idx_iroda_ugynokok ON iroda_ugynokok (iroda_id)`);
+
+    // Az iroda ellenőrzése (a kamu irodák kiszűrésére):
+    //  - a cég adószáma (CUI), cégjegyzékszáma; az ANAF nyilvános adatai
+    //    (hivatalos név, cím, fő tevékenység, aktív-e) – automatikusan lekérve
+    //  - statusz: fuggo (jóváhagyásra vár) | jovahagyva | elutasitva | felfuggesztve
+    //    Csak a jóváhagyott iroda látszik nyilvánosan (irodák listája,
+    //    adatlap, a hirdetéseken az iroda neve).
+    const irodaOszlopok = [
+        "cui TEXT",
+        "reg_com TEXT",
+        "hivatalos_nev TEXT",
+        "hivatalos_cim TEXT",
+        "caen TEXT",
+        "anaf_adat JSONB",
+        "anaf_ido TIMESTAMP",
+        "anaf_hiba TEXT",
+        "dontes_ok TEXT",
+        "dontes_ido TIMESTAMP",
+        "logo BYTEA",
+        "logo_mime TEXT"
+    ];
+
+    for (const o of irodaOszlopok) {
+        await db.query(`ALTER TABLE irodak ADD COLUMN IF NOT EXISTS ${o}`);
+    }
+
+    // A meglévő irodák: ami eddig "ellenőrzött" volt, az jóváhagyott, a többi jóváhagyásra vár
+    await db.query(`ALTER TABLE irodak ADD COLUMN IF NOT EXISTS statusz TEXT`);
+    await db.query(`UPDATE irodak SET statusz = CASE WHEN ellenorzott THEN 'jovahagyva' ELSE 'fuggo' END WHERE statusz IS NULL`);
+    await db.query(`ALTER TABLE irodak ALTER COLUMN statusz SET DEFAULT 'fuggo'`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_irodak_statusz ON irodak (statusz)`);
+
+    // Egy adószámmal csak egy (nem elutasított) iroda lehet
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS irodak_cui_egyedi ON irodak (cui) WHERE cui IS NOT NULL AND statusz <> 'elutasitva'`);
+
+    // Tagság: a vezető meghívja a kollégát, aki a saját fiókjában elfogadja
+    // (amíg el nem fogadta, nem kezelheti a hirdetéseket, és a neve sem látszik)
+    await db.query(`ALTER TABLE iroda_tagok ADD COLUMN IF NOT EXISTS statusz TEXT DEFAULT 'aktiv'`);
+    await db.query(`ALTER TABLE iroda_tagok ADD COLUMN IF NOT EXISTS meghivta INTEGER`);
+
+    // ===================== ÁLLAPOTOK =====================
+    // Az ingatlanok állapotai (felújítandó, jó, újépítésű...) – az admin
+    // bővítheti, átnevezheti, átrendezheti (Admin → Állapotok).
+    // A kulcs kerül az ingatlanok.allapot oszlopba.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS allapotok (
+            kulcs TEXT PRIMARY KEY,
+            nev_hu TEXT NOT NULL,
+            nev_ro TEXT,
+            nev_en TEXT,
+            szin TEXT,
+            szint DOUBLE PRECISION,
+            szorzo DOUBLE PRECISION,
+            kulcsszavak TEXT,
+            sorrend INTEGER DEFAULT 0,
+            aktiv BOOLEAN DEFAULT true,
+            beepitett BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    // A beépített állapotok – csak a hiányzók kerülnek be, az admin módosításai megmaradnak
+    for (const a of ALAP_ALLAPOTOK) {
+        await db.query(
+            `INSERT INTO allapotok (kulcs, nev_hu, nev_ro, nev_en, szin, szint, szorzo, sorrend, aktiv, beepitett)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,true) ON CONFLICT (kulcs) DO NOTHING`,
+            [a.kulcs, a.nev_hu, a.nev_ro, a.nev_en, a.szin, a.szint, a.szorzo, a.sorrend]
+        );
+    }
 
     // Egyszerű beállítások / jelzők (pl. lefutott-e már az automatikus javítás)
     await db.query(`
@@ -624,7 +697,8 @@ const TABLES = [
     "igenyek",
     "uzenetek",
     "market_snapshots",
-    "market_snapshot_groups"
+    "market_snapshot_groups",
+    "allapotok"
 ];
 
 module.exports = { createSchema, seedDefaults, TABLES, VAROS_ADAT };

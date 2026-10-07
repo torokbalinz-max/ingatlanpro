@@ -1,0 +1,247 @@
+/* ==========================================================================
+   INGATLANPRO – 4. változat: állapotok kezelése, ingatlanirodák listája és
+   adatlapja, irodák jóváhagyása, webhely adatai
+   ========================================================================== */
+
+/* ---------- Állapot: színes pötty a gombokon ---------- */
+
+.condBtn::before {
+    content: "";
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    margin-right: 0.35rem;
+    vertical-align: 0.05rem;
+    background: var(--cond, transparent);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.condBtn.active::before { box-shadow: 0 0 0 2px var(--ip-accent-contrast); }
+
+/* ---------- Admin → Állapotok ---------- */
+
+.clList .clRow {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 0.85rem 1rem;
+}
+
+.clList .clRow.open { display: block; background: var(--ip-surface-2); }
+.clList .clRow.inactive .clName, .clList .clRow.inactive .clSwatch { opacity: 0.55; }
+
+.clOrder { display: flex; flex-direction: column; line-height: 1; }
+.clOrder .btn { color: var(--ip-muted); }
+.clOrder .btn:hover:not(:disabled) { color: var(--ip-accent); }
+
+.clSwatch {
+    display: inline-block;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+    flex: none;
+    vertical-align: middle;
+}
+
+.clName { min-width: 0; }
+.clName .badge { font-weight: 500; margin-left: 0.25rem; }
+.clStats { text-align: right; white-space: nowrap; }
+.clActions { display: flex; align-items: center; gap: 0.5rem; }
+
+.clTestHit { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.clTestHit > div { flex-basis: 100%; }
+
+@media (max-width: 767.98px) {
+    .clList .clRow { grid-template-columns: auto auto minmax(0, 1fr); }
+    .clStats { grid-column: 3; text-align: left; }
+    .clActions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+/* ---------- Becsült (a leírásból felismert) állapot jelzése ---------- */
+
+.allapotBecsult {
+    font-size: 0.75em;
+    color: var(--ip-muted);
+    margin-left: 0.35rem;
+    white-space: nowrap;
+}
+
+/* ---------- Ingatlanirodák: logó ---------- */
+
+.agLogo.img { background: #fff; padding: 4px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--ip-border); }
+.agLogo.img img { width: 100%; height: 100%; object-fit: contain; display: block; }
+[data-bs-theme="dark"] .agLogo.img { background: #f4f5f3; }
+
+/* ---------- Ingatlanirodák listája (#irodak) ---------- */
+
+.agDirToolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) minmax(160px, 220px);
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 767.98px) {
+    .agDirToolbar { grid-template-columns: 1fr 1fr; }
+    .agDirToolbar .input-group { grid-column: 1 / -1; }
+}
+
+.agDirCard { transition: box-shadow 0.15s ease, border-color 0.15s ease; }
+.agDirCard:hover { box-shadow: var(--ip-shadow-lift); border-color: var(--ip-accent); }
+
+.agDirCardMain {
+    display: block;
+    padding: 1.1rem 1.1rem 0.6rem;
+    color: inherit;
+    text-decoration: none;
+    flex: 1 1 auto;
+}
+
+.agDirName { font-size: 1.05rem; margin: 0 0 0.15rem; line-height: 1.3; }
+.agDirName .fa-circle-check { font-size: 0.9rem; }
+
+.agDirAbout {
+    color: var(--ip-muted);
+    margin: 0.75rem 0 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.agDirCount { margin-top: 0.75rem; font-size: 0.9rem; color: var(--ip-muted); }
+.agDirCount b { font-size: 1.25rem; color: var(--ip-text); margin-right: 0.15rem; }
+
+.agTypeChips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+
+.agTypeChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    background: var(--ip-surface-2);
+    color: var(--ip-text);
+    border: 1px solid transparent;
+    line-height: 1.5;
+}
+
+.agTypeChip b { font-weight: 600; }
+button.agTypeChip { cursor: pointer; }
+button.agTypeChip:hover { border-color: var(--ip-accent); }
+button.agTypeChip.active { background: var(--ip-accent); color: var(--ip-accent-contrast); }
+
+.agTypeFilter { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+.agDirActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.6rem 1.1rem 1rem;
+}
+
+.agDirActions .btn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.agDirAside { position: sticky; top: calc(var(--ip-nav-h) + 16px); }
+
+.agSteps { list-style: none; counter-reset: lepes; padding: 0; margin: 0 0 1rem; }
+.agSteps li { counter-increment: lepes; position: relative; padding-left: 2.1rem; margin-bottom: 0.85rem; }
+.agSteps li::before {
+    content: counter(lepes);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent);
+}
+.agSteps b { display: block; }
+.agSteps span { color: var(--ip-muted); }
+
+/* ---------- Az iroda adatlapja ---------- */
+
+.agProfileStats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--ip-border);
+}
+.agProfileStats > div { display: flex; flex-direction: column; min-width: 0; }
+.agProfileStats b { font-size: 1.35rem; line-height: 1.2; }
+.agProfileStats span { font-size: 0.8rem; color: var(--ip-muted); overflow: hidden; text-overflow: ellipsis; }
+
+.agVerifiedBadge { font-size: 0.8rem; vertical-align: middle; font-weight: 500; }
+
+/* ---------- ANAF cégadatok ---------- */
+
+.anafBox {
+    border: 1px solid var(--ip-border);
+    border-left-width: 4px;
+    border-radius: var(--ip-radius-sm);
+    padding: 0.75rem 0.9rem;
+    background: var(--ip-surface);
+    font-size: 0.9rem;
+}
+.anafBox.ok { border-left-color: #15803d; }
+.anafBox.bad { border-left-color: var(--ip-danger); }
+.anafBox.warn { border-left-color: var(--ip-warn); }
+.anafBox > .fa-solid { margin-right: 0.35rem; }
+.anafBox.bad > .fa-solid { color: var(--ip-danger); }
+.anafBox.warn > .fa-solid { color: var(--ip-warn); }
+
+.anafHead { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+.anafBox.ok .anafHead .fa-solid { color: #15803d; }
+.anafBox.bad .anafHead .fa-solid { color: var(--ip-danger); }
+
+.anafList { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.2rem 0.9rem; margin: 0; }
+.anafList dt { font-weight: 500; color: var(--ip-muted); }
+.anafList dd { margin: 0; overflow-wrap: anywhere; }
+
+.anafNote { margin-top: 0.5rem; color: var(--ip-warn); }
+
+@media (max-width: 575.98px) {
+    .anafList { grid-template-columns: 1fr; }
+    .anafList dd { margin-bottom: 0.3rem; }
+}
+
+/* Keskeny oszlopban (az iroda oldalsávjában) a címke az érték fölé kerül */
+.agCompanyCard .anafList { grid-template-columns: 1fr; gap: 0; }
+.agCompanyCard .anafList dt { font-size: 0.78rem; }
+.agCompanyCard .anafList dd { margin-bottom: 0.5rem; }
+.agCompanyCard .anafList dd:last-child { margin-bottom: 0; }
+
+/* ---------- Meghívások, állapotsáv ---------- */
+
+.agInviteCard { border-color: var(--ip-accent); background: var(--ip-accent-soft); }
+.agInviteRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.5rem 0; }
+.agInviteRow + .agInviteRow { border-top: 1px solid var(--ip-border); }
+.agStatusBar { border-radius: var(--ip-radius); }
+
+/* ---------- Admin: irodák jóváhagyása ---------- */
+
+.agaCol { height: 100%; padding: 0.85rem 1rem; border-radius: var(--ip-radius-sm); background: var(--ip-surface-2); }
+.agaCol h6 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ip-muted); margin-bottom: 0.6rem; }
+.agaCol.anaf { background: var(--ip-accent-soft); }
+
+.agaSignals { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.agaSignal { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.8rem; background: var(--ip-surface-2); }
+.agaSignal.ok { color: #15803d; background: rgba(21, 128, 61, 0.1); }
+.agaSignal.warn { color: var(--ip-warn); background: var(--ip-warn-soft); }
+.agaSignal.bad { color: var(--ip-danger); background: rgba(180, 35, 24, 0.1); }
+[data-bs-theme="dark"] .agaSignal.ok { color: #5fd38d; }
+
+.agaActions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+#wsAnafResult:empty, #agAnafResult:empty { display: none; }

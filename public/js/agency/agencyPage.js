@@ -3,8 +3,13 @@
 //
 //   #iroda                 az irodám kezelése (ha több van: az első)
 //   #iroda/<id>            egy adott irodám
-//   #iroda/uj              új iroda létrehozása
-//   #irodak/<id>           az iroda nyilvános oldala (bárki)
+//   #iroda/uj              új iroda regisztrálása (a cég adószámával –
+//                          az ANAF-adatokat azonnal megmutatjuk), és a
+//                          meghívások elfogadása
+//   #irodak, #irodak/<id>  a nyilvános irodalista és adatlap (agencyDirectory.js)
+//
+//  Az új iroda jóváhagyásra vár (az admin az ANAF-adatok alapján hagyja
+//  jóvá); addig is kezelhető, de nyilvánosan nem látszik.
 //
 //  Kezelés fülei:
 //   Hirdetések  mappák, szűrők, tömeges műveletek, belső adatok
@@ -113,36 +118,87 @@ class AgencyPage {
         AuthManager.refresh().then(() => AgencyPage.show(String(AgencyPage.iroda ? AgencyPage.iroda.id : "")));
     }
 
+    // ---------- meghívások ----------
+
+    static meghivasHtml(lista) {
+        const esc = Utils.escape;
+        if (!lista || !lista.length) return "";
+        return `
+            <div class="card agInviteCard mb-4">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="fa-solid fa-envelope-open-text" aria-hidden="true"></i> ${I18n.t("agInvitesTitle")}</h6>
+                    ${lista.map(m => `
+                        <div class="agInviteRow">
+                            <div class="min-w-0">
+                                <b>${esc(m.nev)}</b>
+                                <div class="small text-body-secondary">${I18n.f("agInvitedBy", { nev: esc(m.meghivta_nev || "?"), szerep: I18n.t(m.szerep === "vezeto" ? "agRoleManager" : "agRoleMember") })}</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-primary" data-invite-ok="${m.id}"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("agInviteAccept")}</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-invite-no="${m.id}">${I18n.t("agInviteDecline")}</button>
+                            </div>
+                        </div>`).join("")}
+                </div>
+            </div>`;
+    }
+
+    static meghivasKotes(root) {
+        const valasz = (id, elfogad) => AgencyPage.api(`/api/irodak/${id}/meghivas`, "POST", { elfogad })
+            .then(() => AuthManager.refresh())
+            .then(() => { location.hash = elfogad ? "#iroda/" + id : "#iroda"; AgencyPage.show(elfogad ? String(id) : ""); })
+            .catch(e => alert(AgencyPage.hibaSzoveg(e)));
+        root.querySelectorAll("[data-invite-ok]").forEach(b => b.onclick = () => valasz(Number(b.dataset.inviteOk), true));
+        root.querySelectorAll("[data-invite-no]").forEach(b => b.onclick = () => {
+            if (confirm(I18n.t("agInviteDeclineConfirm"))) valasz(Number(b.dataset.inviteNo), false);
+        });
+    }
+
     // ---------- új iroda ----------
 
     static letrehozas() {
 
         AgencyPage.iroda = null;
+        const esc = Utils.escape;
 
         AgencyPage.box().innerHTML = `
             <div class="pageHeader">
                 <div class="pageHeaderRow">
                     <div>
                         <h2 class="mb-0"><i class="fa-solid fa-briefcase"></i> ${I18n.t("agCreateTitle")}</h2>
-                        <p class="text-body-secondary mb-0">${I18n.t("agCreateSub")}</p>
+                        <p class="text-body-secondary mb-0">${I18n.t("agCreateSub2")}</p>
                     </div>
+                    <a class="btn btn-outline-secondary btn-sm" href="#irodak"><i class="fa-solid fa-list" aria-hidden="true"></i> ${I18n.t("agDirTitle")}</a>
                 </div>
             </div>
+            ${AgencyPage.meghivasHtml(AuthManager.irodaMeghivasok)}
             <div class="row g-4">
                 <div class="col-lg-7">
-                    <form class="card" id="agCreate">
-                        <div class="card-body">
-                            ${AgencyPage.adatUrlap({})}
+                    <form class="card" id="agCreate" novalidate>
+                        <div class="card-body stepForm">
+                            <div class="stepBlock">
+                                <div class="stepHead"><span class="stepNo">1</span> ${I18n.t("agCreateStep1")}</div>
+                                <p class="small text-body-secondary mb-2">${I18n.t("agCreateStep1Help")}</p>
+                                <label class="form-label req" for="agCui">${I18n.t("anafCui")}</label>
+                                <div class="input-group">
+                                    <input class="form-control" id="agCui" name="cui" maxlength="20" required placeholder="RO12345678" autocomplete="off">
+                                    <button class="btn btn-outline-primary" type="button" id="agCuiCheck"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> ${I18n.t("agCuiCheck")}</button>
+                                </div>
+                                <div id="agAnafResult" class="mt-2" aria-live="polite"></div>
+                            </div>
+                            <div class="stepBlock">
+                                <div class="stepHead"><span class="stepNo">2</span> ${I18n.t("agCreateStep2")}</div>
+                                ${AgencyPage.adatUrlap({}, true)}
+                            </div>
                             <div class="accMsg alert alert-danger small py-2 mt-3" hidden></div>
                             <div class="d-flex gap-2 justify-content-end mt-3">
                                 ${AuthManager.irodak.length ? `<a class="btn btn-outline-secondary" href="#iroda">${I18n.t("cancel")}</a>` : ""}
-                                <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> ${I18n.t("agCreateBtn")}</button>
+                                <button class="btn btn-primary" type="submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t("agCreateBtn2")}</button>
                             </div>
                         </div>
                     </form>
                 </div>
                 <div class="col-lg-5">
-                    <div class="card agBenefits">
+                    <div class="card agBenefits mb-4">
                         <div class="card-body">
                             <h6>${I18n.t("agWhatTitle")}</h6>
                             <ul class="small mb-0">
@@ -150,29 +206,85 @@ class AgencyPage {
                                 <li>${I18n.t("agWhat2")}</li>
                                 <li>${I18n.t("agWhat3")}</li>
                                 <li>${I18n.t("agWhat4")}</li>
+                                <li>${I18n.t("agWhat5")}</li>
                             </ul>
+                        </div>
+                    </div>
+                    <div class="card helpCard">
+                        <div class="card-body small">
+                            <h6><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ${I18n.t("agVerifyHowTitle")}</h6>
+                            <ol class="mb-0 ps-3">
+                                <li>${I18n.t("agVerifyHow1")}</li>
+                                <li>${I18n.t("agVerifyHow2")}</li>
+                                <li>${I18n.t("agVerifyHow3")}</li>
+                            </ol>
                         </div>
                     </div>
                 </div>
             </div>`;
 
-        document.getElementById("agCreate").onsubmit = e => {
+        AgencyPage.meghivasKotes(AgencyPage.box());
+
+        const form = document.getElementById("agCreate");
+        const msg = form.querySelector(".accMsg");
+        const eredmeny = document.getElementById("agAnafResult");
+
+        // Cégadatok az ANAF-ból: a hivatalos név, cím, cégjegyzékszám kitöltése
+        const ellenoriz = () => {
+            const cui = document.getElementById("agCui").value.trim();
+            if (!cui) { document.getElementById("agCui").focus(); return Promise.resolve(null); }
+            eredmeny.innerHTML = `<div class="spinner-border spinner-border-sm text-primary"></div> <span class="small text-body-secondary">${I18n.t("agCuiChecking")}</span>`;
+            return AgencyAnaf.lekerdez(cui).then(v => {
+                eredmeny.innerHTML = AgencyAnaf.html(v);
+                if (v.talalt && v.adat) {
+                    const d = v.adat;
+                    const tolt = (nev, ertek) => { const el = form.querySelector(`[name="${nev}"]`); if (el && !el.value.trim() && ertek) el.value = ertek; };
+                    tolt("nev", d.nev);
+                    tolt("cim", d.cim);
+                    tolt("reg_com", d.regCom);
+                }
+                return v;
+            }).catch(err => {
+                eredmeny.innerHTML = `<div class="anafBox warn"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${esc(AgencyAnaf.hibaSzoveg(err))}</div>`;
+                return null;
+            });
+        };
+
+        document.getElementById("agCuiCheck").onclick = ellenoriz;
+        document.getElementById("agCui").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); ellenoriz(); } };
+
+        form.onsubmit = e => {
             e.preventDefault();
-            const msg = e.target.querySelector(".accMsg");
-            AgencyPage.api("/api/irodak", "POST", AgencyPage.urlapAdat(e.target))
+            msg.hidden = true;
+            const adat = { ...AgencyPage.urlapAdat(form), cui: document.getElementById("agCui").value.trim() };
+            const gomb = form.querySelector('button[type="submit"]');
+            gomb.disabled = true;
+            AgencyPage.api("/api/irodak", "POST", adat)
                 .then(ir => AuthManager.refresh().then(() => { location.hash = "#iroda/" + ir.id; }))
-                .catch(err => { msg.hidden = false; msg.innerText = AgencyPage.hibaSzoveg(err); });
+                .catch(err => { msg.hidden = false; msg.innerText = AgencyPage.hibaSzoveg(err); })
+                .finally(() => { gomb.disabled = false; });
         };
 
     }
 
-    static adatUrlap(ir) {
+    // Az iroda adatai (új irodánál és a szerkesztésnél ugyanaz)
+    static adatUrlap(ir, uj) {
         const esc = Utils.escape;
         return `
             <div class="row g-3">
                 <div class="col-12">
                     <label class="form-label req" for="agNev">${I18n.t("agName")}</label>
                     <input class="form-control" id="agNev" name="nev" maxlength="120" required value="${esc(ir.nev || "")}">
+                    <div class="form-text">${I18n.t(uj ? "agNameHelpNew" : "agNameHelp")}</div>
+                </div>
+                ${uj ? "" : `
+                <div class="col-md-6">
+                    <label class="form-label" for="agCuiEd">${I18n.t("anafCui")}</label>
+                    <input class="form-control" id="agCuiEd" name="cui" maxlength="20" value="${esc(ir.cui || "")}" placeholder="RO12345678">
+                </div>`}
+                <div class="col-md-6">
+                    <label class="form-label" for="agRegCom">${I18n.t("anafRegCom")}</label>
+                    <input class="form-control" id="agRegCom" name="reg_com" maxlength="40" value="${esc(ir.reg_com || "")}" placeholder="J14/123/2020">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label" for="agTel">${I18n.t("accPhone")}</label>
@@ -199,14 +311,14 @@ class AgencyPage {
                 </div>
                 <div class="col-12">
                     <label class="form-label" for="agLeiras">${I18n.t("agAbout")}</label>
-                    <textarea class="form-control" id="agLeiras" name="leiras" rows="4" maxlength="3000">${esc(ir.leiras || "")}</textarea>
+                    <textarea class="form-control" id="agLeiras" name="leiras" rows="4" maxlength="3000" placeholder="${esc(I18n.t("agAboutPh"))}">${esc(ir.leiras || "")}</textarea>
                 </div>
             </div>`;
     }
 
     static urlapAdat(form) {
         const o = {};
-        ["nev", "telefon", "email", "weboldal", "varos", "cim", "leiras"].forEach(k => {
+        ["nev", "telefon", "email", "weboldal", "varos", "cim", "leiras", "reg_com", "cui"].forEach(k => {
             const el = form.querySelector(`[name="${k}"]`);
             if (el) o[k] = el.value.trim();
         });
@@ -222,13 +334,25 @@ class AgencyPage {
         const tobb = AuthManager.irodak.length > 1;
         const szerep = (AuthManager.irodak.find(x => x.id === ir.id) || {}).szerep || (AuthManager.isAdmin() ? "vezeto" : "tag");
 
+        const statusz = ir.statusz || "fuggo";
+
         AgencyPage.box().innerHTML = `
+            ${AgencyPage.meghivasHtml(AuthManager.irodaMeghivasok)}
+            ${statusz !== "jovahagyva" ? `
+            <div class="alert ${statusz === "fuggo" ? "alert-warning" : "alert-danger"} agStatusBar d-flex gap-3 align-items-start">
+                <i class="fa-solid ${statusz === "fuggo" ? "fa-hourglass-half" : "fa-ban"} fs-4" aria-hidden="true"></i>
+                <div>
+                    <b>${I18n.t("agStatusTitle_" + statusz)}</b>
+                    <div class="small">${I18n.t("agStatusText_" + statusz)}</div>
+                    ${ir.dontes_ok ? `<div class="small mt-1"><b>${I18n.t("agReason")}:</b> ${esc(ir.dontes_ok)}</div>` : ""}
+                </div>
+            </div>` : ""}
             <div class="pageHeader">
                 <div class="pageHeaderRow">
                     <div class="d-flex align-items-center gap-3 min-w-0">
-                        <span class="agLogo">${esc((ir.nev || "?").slice(0, 1).toUpperCase())}</span>
+                        ${AgencyUI.logo(ir)}
                         <div class="min-w-0">
-                            <h2 class="mb-0 text-truncate">${esc(ir.nev)} ${ir.ellenorzott ? `<i class="fa-solid fa-circle-check text-primary fs-5" title="${esc(I18n.t("agVerified"))}"></i>` : ""}</h2>
+                            <h2 class="mb-0 text-truncate">${esc(ir.nev)} ${AgencyUI.verifiedBadge(ir)}</h2>
                             <p class="text-body-secondary mb-0 small">
                                 ${I18n.t(szerep === "vezeto" ? "agRoleManager" : "agRoleMember")}
                                 · <a href="#irodak/${ir.id}">${I18n.t("agPublicPage")} <i class="fa-solid fa-arrow-up-right-from-square small"></i></a>
@@ -257,6 +381,8 @@ class AgencyPage {
 
         const sw = document.getElementById("agSwitch");
         if (sw) sw.onchange = () => { location.hash = "#iroda/" + sw.value; };
+
+        AgencyPage.meghivasKotes(AgencyPage.box());
 
         document.getElementById("agNewListing").onclick = () => {
             NewPropertyManager.prefIroda = ir.id;
@@ -786,8 +912,9 @@ class AgencyPage {
                                     <b class="d-block text-truncate">${esc(t.nev || "")}</b>
                                     <span class="small text-body-secondary text-truncate d-block">${esc(t.email || "")}</span>
                                 </div>
+                                ${t.statusz === "meghivott" ? `<span class="badge text-bg-warning">${I18n.t("agInvitedBadge")}</span>` : ""}
                                 <span class="badge ${t.szerep === "vezeto" ? "text-bg-primary" : "text-bg-light"}">${I18n.t(t.szerep === "vezeto" ? "agRoleManager" : "agRoleMember")}</span>
-                                ${vezeto || t.id === AuthManager.user.id ? `<button class="btn btn-sm btn-outline-danger" data-mdel="${t.id}" title="${esc(I18n.t(t.id === AuthManager.user.id ? "agLeave" : "agRemove"))}" aria-label="${esc(I18n.t(t.id === AuthManager.user.id ? "agLeave" : "agRemove"))}"><i class="fa-solid ${t.id === AuthManager.user.id ? "fa-right-from-bracket" : "fa-user-minus"}"></i></button>` : ""}
+                                ${vezeto || t.id === AuthManager.user.id ? `<button class="btn btn-sm btn-outline-danger" data-mdel="${t.id}" data-meghivott="${t.statusz === "meghivott" ? 1 : 0}" title="${esc(I18n.t(t.statusz === "meghivott" ? "agInviteCancel" : t.id === AuthManager.user.id ? "agLeave" : "agRemove"))}" aria-label="${esc(I18n.t(t.statusz === "meghivott" ? "agInviteCancel" : t.id === AuthManager.user.id ? "agLeave" : "agRemove"))}"><i class="fa-solid ${t.statusz === "meghivott" ? "fa-xmark" : t.id === AuthManager.user.id ? "fa-right-from-bracket" : "fa-user-minus"}"></i></button>` : ""}
                             </li>`).join("")}
                     </ul>
                 </div>
@@ -804,9 +931,9 @@ class AgencyPage {
                                     <option value="vezeto">${I18n.t("agRoleManager")}</option>
                                 </select>
                             </div>
-                            <div class="col-md-3 d-grid"><button class="btn btn-primary" type="submit">${I18n.t("agAdd")}</button></div>
+                            <div class="col-md-3 d-grid"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t("agInviteBtn")}</button></div>
                         </div>
-                        <div class="form-text">${I18n.t("agAddMemberHelp")}</div>
+                        <div class="form-text">${I18n.t("agAddMemberHelp2")}</div>
                         <div class="accMsg alert alert-danger small py-2 mt-2" hidden></div>
                     </div>
                 </form>` : ""}`;
@@ -816,13 +943,14 @@ class AgencyPage {
                 e.preventDefault();
                 const msg = add.querySelector(".accMsg");
                 AgencyPage.api(`/api/irodak/${ir.id}/tagok`, "POST", { email: add.email.value, szerep: add.szerep.value })
-                    .then(() => AgencyPage.show(String(ir.id)))
+                    .then(v => { Utils.toast(I18n.t(v.mar_tag ? "alertSaveSuccess" : "agInviteSent")); AgencyPage.tagTab(el, vezeto); })
                     .catch(err => { msg.hidden = false; msg.innerText = AgencyPage.hibaSzoveg(err); });
             };
 
             el.querySelectorAll("[data-mdel]").forEach(b => b.onclick = () => {
                 const sajat = Number(b.dataset.mdel) === AuthManager.user.id;
-                if (!confirm(I18n.t(sajat ? "agLeaveConfirm" : "agRemoveConfirm"))) return;
+                const meghivott = b.dataset.meghivott === "1";
+                if (!confirm(I18n.t(meghivott ? "agInviteCancelConfirm" : sajat ? "agLeaveConfirm" : "agRemoveConfirm"))) return;
                 AgencyPage.api(`/api/irodak/${ir.id}/tagok/${b.dataset.mdel}`, "DELETE")
                     .then(() => sajat ? AuthManager.refresh().then(() => { location.hash = "#fiok"; }) : AgencyPage.tagTab(el, vezeto))
                     .catch(err => alert(AgencyPage.hibaSzoveg(err)));
@@ -849,12 +977,41 @@ class AgencyPage {
                     <form class="card" id="agEdit">
                         <div class="card-body">
                             ${AgencyPage.adatUrlap(ir)}
+                            ${ir.statusz === "jovahagyva" ? `<p class="small text-body-secondary mt-3 mb-0"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${I18n.t("agReapproveNote")}</p>` : ""}
                             <div class="accMsg alert small py-2 mt-3" hidden></div>
                             <div class="text-end mt-3"><button class="btn btn-primary" type="submit">${I18n.t("save")}</button></div>
                         </div>
                     </form>
                 </div>
                 <div class="col-lg-4">
+                    <div class="card mb-4">
+                        <div class="card-header"><h6 class="mb-0"><i class="fa-regular fa-image" aria-hidden="true"></i> ${I18n.t("agLogoTitle")}</h6></div>
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div id="agLogoPreview">${AgencyUI.logo(ir, "lg")}</div>
+                                <p class="small text-body-secondary mb-0">${I18n.t("agLogoHelp")}</p>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <label class="btn btn-outline-primary btn-sm mb-0">
+                                    <i class="fa-solid fa-upload" aria-hidden="true"></i> ${I18n.t("agLogoUpload")}
+                                    <input type="file" accept="image/png,image/jpeg,image/webp" id="agLogoFile" hidden>
+                                </label>
+                                ${ir.van_logo ? `<button type="button" class="btn btn-outline-secondary btn-sm" id="agLogoDel">${I18n.t("agLogoRemove")}</button>` : ""}
+                            </div>
+                        </div>
+                    </div>
+                    ${ir.cui || ir.hivatalos_nev ? `
+                    <div class="card mb-4">
+                        <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> ${I18n.t("agCompanyInfo")}</h6></div>
+                        <div class="card-body small">
+                            <dl class="anafList mb-0">
+                                ${ir.hivatalos_nev ? `<dt>${I18n.t("agOfficialName")}</dt><dd>${Utils.escape(ir.hivatalos_nev)}</dd>` : ""}
+                                ${ir.cui ? `<dt>${I18n.t("anafCui")}</dt><dd>${Utils.escape(ir.cui)}</dd>` : ""}
+                                ${ir.hivatalos_cim ? `<dt>${I18n.t("anafAddress")}</dt><dd>${Utils.escape(ir.hivatalos_cim)}</dd>` : ""}
+                                ${ir.caen ? `<dt>${I18n.t("anafCaen")}</dt><dd>${Utils.escape(ir.caen)}${AgencyAnaf.caenNev(ir.caen) ? " – " + Utils.escape(AgencyAnaf.caenNev(ir.caen)) : ""}</dd>` : ""}
+                            </dl>
+                        </div>
+                    </div>` : ""}
                     <div class="card">
                         <div class="card-body small">
                             <p class="mb-2">${I18n.t("agDeleteHelp")}</p>
@@ -864,12 +1021,34 @@ class AgencyPage {
                 </div>
             </div>`;
 
+        // Logó feltöltése / törlése
+        const logoMent = kep => AgencyPage.api(`/api/irodak/${ir.id}/logo`, "PUT", { kep })
+            .then(() => {
+                ir.van_logo = !!kep;
+                ir._logoV = Date.now();
+                AuthManager.refresh();
+                AgencyPage.adatTab(el, vezeto);
+            })
+            .catch(e => alert(e.kod === "bad_image" ? I18n.t("agLogoBad") : AgencyPage.hibaSzoveg(e)));
+        document.getElementById("agLogoFile").onchange = e => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            ImageTools.logo(file).then(logoMent).catch(() => alert(I18n.t("agLogoBad")));
+        };
+        const logoDel = document.getElementById("agLogoDel");
+        if (logoDel) logoDel.onclick = () => { if (confirm(I18n.t("agLogoRemoveConfirm"))) logoMent(null); };
+
         document.getElementById("agEdit").onsubmit = e => {
             e.preventDefault();
             const msg = e.target.querySelector(".accMsg");
             AgencyPage.api("/api/irodak/" + ir.id, "PUT", AgencyPage.urlapAdat(e.target))
                 .then(v => {
                     Object.assign(ir, v);
+                    if (v.ujraJovahagyas) {
+                        alert(I18n.t("agReapproveDone"));
+                        AuthManager.refresh().then(() => AgencyPage.render());
+                        return;
+                    }
                     msg.hidden = false;
                     msg.className = "accMsg alert alert-success small py-2 mt-3";
                     msg.innerText = I18n.t("alertSaveSuccess");
@@ -888,115 +1067,6 @@ class AgencyPage {
                 .then(() => AuthManager.refresh())
                 .then(() => { AgencyPage.iroda = null; DataManager.init(); location.hash = "#fiok"; });
         };
-
-    }
-
-}
-
-
-// ============================================================
-//  Az iroda nyilvános oldala (#irodak/<id>)
-// ============================================================
-
-class AgencyProfile {
-
-    static current = null;
-
-    static show(id) {
-
-        const box = document.getElementById("irodaProfilContent");
-        box.innerHTML = `<div class="emptyState"><div class="spinner-border text-primary"></div></div>`;
-
-        fetch("/api/irodak/" + Number(id))
-            .then(AgencyPage.json)
-            .then(ir => {
-                DataManager.prepare(ir.hirdetesek);
-                AgencyProfile.current = ir;
-                AgencyProfile.render(ir);
-            })
-            .catch(() => {
-                box.innerHTML = `<div class="emptyState"><i class="fa-solid fa-circle-exclamation"></i><h5>${I18n.t("listingNotFound")}</h5></div>`;
-            });
-
-    }
-
-    static rerender() {
-        if (PageManager.current === "irodak" && AgencyProfile.current) AgencyProfile.render(AgencyProfile.current);
-    }
-
-    static render(ir) {
-
-        const esc = Utils.escape;
-        const box = document.getElementById("irodaProfilContent");
-
-        box.innerHTML = `
-            <div class="card agProfileHead mb-4">
-                <div class="card-body">
-                    <div class="d-flex flex-wrap align-items-start gap-3">
-                        <span class="agLogo lg">${esc((ir.nev || "?").slice(0, 1).toUpperCase())}</span>
-                        <div class="flex-fill min-w-0">
-                            <h2 class="mb-1">${esc(ir.nev)} ${ir.ellenorzott ? `<span class="badge text-bg-primary fs-6 align-middle"><i class="fa-solid fa-circle-check"></i> ${I18n.t("agVerified")}</span>` : ""}</h2>
-                            <div class="text-body-secondary small mb-2">
-                                <i class="fa-solid fa-briefcase"></i> ${I18n.t("agLabel")}
-                                ${ir.varos ? ` · <i class="fa-solid fa-location-dot"></i> ${esc(CityManager.displayName(ir.varos))}` : ""}
-                                ${ir.cim ? ` · ${esc(ir.cim)}` : ""}
-                            </div>
-                            ${ir.leiras ? `<p class="mb-2 agAboutText">${esc(ir.leiras)}</p>` : ""}
-                            <div class="d-flex flex-wrap gap-2">
-                                ${ir.telefon ? `<a class="btn btn-primary btn-sm" href="tel:${esc(ir.telefon.replace(/\s/g, ""))}"><i class="fa-solid fa-phone"></i> ${esc(ir.telefon)}</a>` : ""}
-                                ${ir.email ? `<a class="btn btn-outline-primary btn-sm" href="mailto:${esc(ir.email)}"><i class="fa-regular fa-envelope"></i> ${esc(ir.email)}</a>` : ""}
-                                ${ir.weboldal ? `<a class="btn btn-outline-secondary btn-sm" href="${esc(ir.weboldal)}" target="_blank" rel="noopener nofollow"><i class="fa-solid fa-globe"></i> ${I18n.t("agWebsite")}</a>` : ""}
-                            </div>
-                        </div>
-                        <div class="d-flex flex-column gap-2">
-                            ${ir.jog && ir.jog.tag ? `<a class="btn btn-outline-secondary btn-sm" href="#iroda/${ir.id}"><i class="fa-solid fa-gear"></i> ${I18n.t("agManage")}</a>` : ""}
-                            ${AuthManager.isAdmin() ? `
-                                <div class="form-check form-switch small">
-                                    <input class="form-check-input" type="checkbox" id="agVerifySw" ${ir.ellenorzott ? "checked" : ""}>
-                                    <label class="form-check-label" for="agVerifySw">${I18n.t("agVerified")} (admin)</label>
-                                </div>` : ""}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            ${ir.ugynokok.length ? `
-            <h5 class="mb-3">${I18n.t("agTabAgents")}</h5>
-            <div class="row g-3 mb-4">
-                ${ir.ugynokok.filter(u => u.aktiv !== false).map(u => `
-                    <div class="col-sm-6 col-lg-4 col-xl-3">
-                        <div class="card h-100"><div class="card-body d-flex gap-3 align-items-center">
-                            <span class="accAvatar small">${esc((u.nev || "?").slice(0, 1).toUpperCase())}</span>
-                            <div class="min-w-0 small">
-                                <b class="d-block text-truncate">${esc(u.nev)}</b>
-                                ${u.telefon ? `<a class="d-block" href="tel:${esc(u.telefon.replace(/\s/g, ""))}"><i class="fa-solid fa-phone"></i> ${esc(u.telefon)}</a>` : ""}
-                                ${u.email ? `<a class="d-block text-truncate" href="mailto:${esc(u.email)}"><i class="fa-regular fa-envelope"></i> ${esc(u.email)}</a>` : ""}
-                            </div>
-                        </div></div>
-                    </div>`).join("")}
-            </div>` : ""}
-
-            <h5 class="mb-3">${I18n.f("agListingsCount", { n: ir.hirdetesek.length })}</h5>
-            <div class="row g-3" id="agProfileCards">
-                ${ir.hirdetesek.length ? ir.hirdetesek.map(CardsView.cardHtml).join("") : `<div class="col-12"><div class="emptyState"><i class="fa-solid fa-house"></i><h5>${I18n.t("agNoPublicListings")}</h5></div></div>`}
-            </div>`;
-
-        box.querySelectorAll("#agProfileCards .listingCard").forEach(card => {
-            card.addEventListener("click", e => {
-                const favBtn = e.target.closest("[data-fav]");
-                if (favBtn) {
-                    e.stopPropagation();
-                    DataManager.toggleFavorite(Number(favBtn.dataset.fav));
-                    return;
-                }
-                ListingPage.open(Number(card.dataset.id));
-            });
-        });
-
-        const sw = document.getElementById("agVerifySw");
-        if (sw) sw.onchange = () => fetch(`/api/irodak/${ir.id}/ellenorzott`, {
-            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ellenorzott: sw.checked })
-        }).then(() => { ir.ellenorzott = sw.checked; AgencyProfile.render(ir); });
 
     }
 

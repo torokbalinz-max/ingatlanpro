@@ -9,6 +9,7 @@
 
 const cheerio = require("cheerio");
 const { arHiheto } = require("./textParse");
+const { biztonsagosFetch } = require("../lib/biztonsagosFetch");
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
@@ -32,21 +33,22 @@ function isRoam(url) {
     return /(?:imobiliare|imoradar24)\.ro/i.test(url);
 }
 
+// Csak nyilvános internetes oldal kérhető le (belső hálózat nem – SSRF-védelem),
+// az átirányításokat is ellenőrizve követjük
 async function fetchPage(url) {
 
-    const res = await fetch(url, {
+    const res = await biztonsagosFetch(url, {
         headers: {
             "User-Agent": UA,
             "Accept": "text/html,application/xhtml+xml",
             "Accept-Language": "ro-RO,ro;q=0.9,hu;q=0.8,en;q=0.7"
         },
-        redirect: "follow",
         signal: AbortSignal.timeout(25000)
     });
 
     const html = await res.text();
 
-    return { status: res.status, finalUrl: res.url || url, html };
+    return { status: res.status, finalUrl: res.vegsoUrl || res.url || url, html };
 
 }
 
@@ -145,15 +147,13 @@ function guessUgylet(text) {
     return null;
 }
 
+// Állapot a hirdetés saját szövegéből (cím, jellemzők, leírás) – a felismerés
+// szabályai és az admin kulcsszavai a services/allapotok.js-ben vannak.
+// FONTOS: csak a hirdetés saját szövegét adjuk át, ne az egész oldalt (az oldal
+// alján lévő "hasonló hirdetések" szövege rossz állapotot adna).
 function guessAllapot(text) {
-    const t = text.toLowerCase();
-    if (/necesit[aă] renovare|de renovat|stare de renovare|necesită renovare/.test(t)) return "felújítandó";
-    if (/renovat par[tț]ial|par[tț]ial renovat/.test(t)) return "részbenfel";
-    if (/stare medie|stare satisf[aă]c[aă]toare|\(medie\)|locuibil[aă]? imediat f[aă]r[aă] renov/.test(t)) return "közepes";
-    if (/\blux\b|finisaje de lux|premium/.test(t)) return "luxus";
-    if (/bloc nou|construc[tț]ie nou[aă]|imobil nou|\bnou\b.{0,20}\(foarte bun|finalizat 202[3-9]/.test(t)) return "újszerű";
-    if (/renovat|foarte bun|bine între[tț]inut|\(bun[aă]\)|stare bun[aă]/.test(t)) return "jó";
-    return null;
+    const r = require("./allapotok").felismer(text);
+    return r ? r.ertek : null;
 }
 
 // "Nem elérhető" jelzések a szövegben
@@ -389,7 +389,13 @@ function extract(html, url, finalUrl) {
 
     set("tipus", guessTipus(cimEsLink) || guessTipus(text.slice(0, 3000)), "text");
     set("ugylet", guessUgylet(cimEsLink) || guessUgylet(text.slice(0, 3000)), "text");
-    set("allapot", guessAllapot(`${d.leiras || ""} ${text.slice(0, 30000)}`), "text");
+
+    // A hirdetés jellemzői (Imobiliare / Imoradar: "Nr. camere: ...", "Suprafață utilă totală ...")
+    const jellemzok = (text.match(/Nr\.?\s*cam(?:ere)?\.?\s*:.{0,220}/i) || [""])[0];
+    const reszletek = (text.match(/Suprafa[tț][aă] util[aă] total[aă].{0,600}/i) || [""])[0]
+        .split(/Similar|Anun[tț]uri similare|Alte anun[tț]uri|Recomand/i)[0];
+
+    set("allapot", guessAllapot([d.cim, jellemzok, reszletek, d.leiras].filter(Boolean).join(" \n ")), "text");
 
     // Környék a címből, ha a JSON-LD nem adta: "... în zona Lenin, Sfântu Gheorghe"
     if (!d.kerulet) {
@@ -401,9 +407,6 @@ function extract(html, url, finalUrl) {
 
     // A lényeg egy helyen, az admin ellenőrzéséhez
     {
-        const jellemzok = (text.match(/Nr\.?\s*cam(?:ere)?\.?\s*:.{0,220}/i) || [""])[0];
-        const reszletek = (text.match(/Suprafa[tț][aă] util[aă] total[aă].{0,600}/i) || [""])[0]
-            .split(/Similar|Anun[tț]uri similare|Alte anun[tț]uri|Recomand/i)[0];
         d.forrasSzoveg = [
             d.cim,
             jellemzok,
@@ -548,7 +551,7 @@ function keresesiElem(o) {
         emelet: em.emelet,
         osszEmelet: ossz || null,
         evszam: ev && ev > 1700 && ev < 2100 ? ev : null,
-        allapot: guessAllapot(o.descriptionPreview || ""),
+        allapot: guessAllapot([o.title, o.heading, o.descriptionPreview, ...Object.values(hl)].filter(Boolean).join(" \n ")),
         tipus: tipusAngolbol(ga.item_category2) || tipusAngolbol(ga.item_category) || guessTipus(`${o.title || ""} ${link}`),
         ugylet: /rent|inchiri/i.test(`${o.offerType || ""} ${ga.propertyStatus || ""}`) ? "kiado"
             : /sell|sale|vanz/i.test(`${o.offerType || ""} ${ga.propertyStatus || ""}`) ? "elado" : guessUgylet(link),
