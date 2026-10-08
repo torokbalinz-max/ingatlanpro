@@ -77,7 +77,7 @@ class TableManager {
                 field: "nm",
                 headerName: I18n.t("colNm"),
                 width: 95,
-                valueFormatter: p => Utils.num(p.value) + " m²"
+                valueFormatter: p => Utils.nm(p.value)
             },
 
             {

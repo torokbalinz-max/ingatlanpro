@@ -7,6 +7,7 @@ const db = require("../db/database");
 const { hiba, csakAdmin } = require("../lib/http");
 const location = require("../services/location");
 const districts = require("../services/districts");
+const kornyek = require("../services/kornyek");
 
 const router = express.Router();
 
@@ -16,8 +17,39 @@ const besorol = varos => districts.besorol(varos);
 router.get("/api/varosok", async (req, res) => {
 
     try {
-        const result = await db.query("SELECT id, nev, nev_ro, megye, x, y, sugar_km FROM varosok ORDER BY nev");
+        // anyavaros: ha ez egy "<város> és környéke" város, melyik város környéke
+        // db: az aktív hirdetések száma (a keresőben a környék-város ajánlásához)
+        await kornyek.osszekapcsol().catch(() => 0);
+        const result = await db.query(`
+            SELECT v.id, v.nev, v.nev_ro, v.megye, v.x, v.y, v.sugar_km, v.anyavaros,
+                   (SELECT COUNT(*) FROM ingatlanok i WHERE i.varos = v.nev AND i.statusz = 'aktiv')::int AS db
+            FROM varosok v ORDER BY v.nev`);
         res.json(result.rows);
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
+// "<város> és környéke" város létrehozása (vagy a meglévő) egy városhoz
+router.post("/api/varosok/:id/kornyek", csakAdmin, async (req, res) => {
+
+    try {
+
+        const r = await db.query("SELECT nev FROM varosok WHERE id = $1", [req.params.id]);
+        if (!r.rowCount) return res.status(404).json({ error: "not_found" });
+
+        const k = await kornyek.letrehoz(r.rows[0].nev);
+        if (!k) return res.status(400).json({ error: "bad_request" });
+
+        location.cacheUrit();
+        kornyek.cacheUrit();
+
+        // A biztosan környékbeli hirdetések áthelyezése (háttérben)
+        kornyek.rendez({ varos: r.rows[0].nev }).catch(err => console.error("Környék rendezés:", err.message));
+
+        res.json(k);
+
     } catch (err) {
         hiba(res, err);
     }
@@ -36,15 +68,18 @@ router.post("/api/varosok", csakAdmin, async (req, res) => {
         // találja meg (sok a hasonló nevű település)
         const nevRo = String(req.body.nev_ro || "").trim() || null;
         const megye = String(req.body.megye || "").trim() || null;
+        const anyavaros = String(req.body.anyavaros || "").trim() || null;
 
         const result = await db.query(
-            `INSERT INTO varosok (nev, nev_ro, megye) VALUES ($1, $2, $3)
-             ON CONFLICT (nev) DO UPDATE SET nev_ro = COALESCE(EXCLUDED.nev_ro, varosok.nev_ro), megye = COALESCE(EXCLUDED.megye, varosok.megye)
-             RETURNING id, nev, nev_ro, megye, x, y, sugar_km`,
-            [nev, nevRo, megye]
+            `INSERT INTO varosok (nev, nev_ro, megye, anyavaros) VALUES ($1, $2, $3, $4)
+             ON CONFLICT (nev) DO UPDATE SET nev_ro = COALESCE(EXCLUDED.nev_ro, varosok.nev_ro), megye = COALESCE(EXCLUDED.megye, varosok.megye),
+                 anyavaros = COALESCE(EXCLUDED.anyavaros, varosok.anyavaros)
+             RETURNING id, nev, nev_ro, megye, x, y, sugar_km, anyavaros`,
+            [nev, nevRo, megye, anyavaros && anyavaros !== nev ? anyavaros : null]
         );
 
         location.cacheUrit();
+        kornyek.cacheUrit();
 
         // A város közepét rögtön megkeressük (háttérben)
         location.varosAdat(nev).catch(() => { });
@@ -74,17 +109,22 @@ router.put("/api/varosok/:id", csakAdmin, async (req, res) => {
             megye: b.megye !== undefined ? (String(b.megye).trim() || null) : v.megye,
             x: szam(b.x, v.x),
             y: szam(b.y, v.y),
-            sugar_km: szam(b.sugar_km, v.sugar_km)
+            sugar_km: szam(b.sugar_km, v.sugar_km),
+            // Melyik város környéke. Üres szöveg = az admin szerint önálló város
+            // (a "… és környéke" nevű várost se kösse magától senkihez)
+            anyavaros: b.anyavaros !== undefined ? (String(b.anyavaros || "").trim()) : v.anyavaros
         };
 
         if (uj.sugar_km !== null && !(uj.sugar_km >= 1 && uj.sugar_km <= 40)) return res.status(400).json({ error: "bad_radius" });
+        if (uj.anyavaros === v.nev) uj.anyavaros = "";
 
         await db.query(
-            "UPDATE varosok SET nev_ro = $1, megye = $2, x = $3, y = $4, sugar_km = $5 WHERE id = $6",
-            [uj.nev_ro, uj.megye, uj.x, uj.y, uj.sugar_km, v.id]
+            "UPDATE varosok SET nev_ro = $1, megye = $2, x = $3, y = $4, sugar_km = $5, anyavaros = $6 WHERE id = $7",
+            [uj.nev_ro, uj.megye, uj.x, uj.y, uj.sugar_km, uj.anyavaros, v.id]
         );
 
         location.cacheUrit();
+        kornyek.cacheUrit();
 
         res.json({ siker: true, ...uj });
 

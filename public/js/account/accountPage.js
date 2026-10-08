@@ -270,7 +270,7 @@ class AccountPage {
                     </div>
                     <div class="small text-body-secondary">${Utils.escape(CityManager.helyLabel(i))} · #${i.id} · ${Utils.ago(i.created_at)}</div>
                     ${i.iroda_nev ? `<div class="small"><i class="fa-solid fa-briefcase"></i> <a href="#iroda/${i.iroda_id}">${Utils.escape(i.iroda_nev)}</a></div>` : ""}
-                    <div class="fw-bold mt-1">${Utils.price(i)} <span class="small fw-normal text-body-secondary">${i.nm ? Utils.num(i.nm) + " m²" : ""}</span></div>
+                    <div class="fw-bold mt-1">${Utils.price(i)} <span class="small fw-normal text-body-secondary">${i.nm ? Utils.nm(i.nm) : ""}</span></div>
                     <div class="d-flex gap-2 mt-2">
                         <button class="btn btn-sm btn-outline-secondary" data-edit="${i.id}"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
                         <button class="btn btn-sm btn-outline-danger" data-del="${i.id}"><i class="fa-solid fa-trash"></i></button>

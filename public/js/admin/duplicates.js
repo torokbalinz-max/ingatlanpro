@@ -56,7 +56,7 @@ AdminManager.dupTag = function (g, t, idx) {
                 </div>
                 <div class="dupPrice">${Utils.price(t)}</div>
                 <div class="dupFacts">
-                    <span>${t.nm ? Utils.num(t.nm, t.nm % 1 ? 1 : 0) + " m²" : "–"}</span>
+                    <span>${t.nm ? Utils.nm(t.nm) : "–"}</span>
                     ${t.szobak ? `<span>${t.szobak} ${I18n.t("colSzoba").toLowerCase()}</span>` : ""}
                     ${t.emelet ? `<span>${I18n.t("floorWordCap")} ${Utils.escape(t.emelet)}</span>` : ""}
                     ${CityManager.helyReszLabel(t) ? `<span>${Utils.escape(CityManager.helyReszLabel(t))}</span>` : ""}

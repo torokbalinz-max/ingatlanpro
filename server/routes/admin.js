@@ -69,7 +69,10 @@ router.get("/api/admin/counts", csakAdmin, async (req, res) => {
         const w = await db.query("SELECT COUNT(*)::int AS figyelt, MAX(utolso_futas) AS utolso_futas FROM figyelt_oldalak");
         const ir = await db.query("SELECT COUNT(*) FILTER (WHERE statusz = 'fuggo')::int AS iroda_fuggo, COUNT(*)::int AS iroda_osszes FROM irodak");
 
-        res.json({ ...r.rows[0], ...w.rows[0], ...ir.rows[0], ai: ai.elerheto() });
+        // Város és környéke: ennyi bizonytalan hirdetésről kell dönteni
+        const kornyek = await require("../services/kornyek").javaslatDb().catch(() => 0);
+
+        res.json({ ...r.rows[0], ...w.rows[0], ...ir.rows[0], kornyek_javaslat: kornyek, ai: ai.elerheto() });
     } catch (err) {
         hiba(res, err);
     }

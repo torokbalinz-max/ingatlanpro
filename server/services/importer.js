@@ -20,6 +20,7 @@ const { scrape, fetchPage, extractListingLinks, extractSearchItems, isListingUrl
 const { normalize, normLink } = require("./listing");
 const quality = require("./quality");
 const autofix = require("./autofix");
+const kornyek = require("./kornyek");
 
 const jobs = new Map();
 let jobSzamlalo = 0;
@@ -132,10 +133,14 @@ async function elokeszit(d, alap) {
     adat.forras_kerulet = d.kerulet || null;
     adat.forras_szoveg = d.forrasSzoveg || null;
     adat.evszam = d.evszam || null;
+    adat.forras_tipus = "import";
     // A forrásoldal szövegéből felismert állapot "bizonytalan" (az admin átnézheti)
     adat.allapot_forras = adat.allapot ? "szoveg" : null;
 
     Object.assign(adat, await autofix.javaslat(adat, { utca: d.utca, varosForras: d.varosForras }));
+
+    // Faluban van (pl. Uzon)? -> a "<város> és környéke" városba
+    await kornyek.helyreTesz(adat, { varosForras: d.varosForras }).catch(() => null);
 
     return adat;
 
@@ -181,10 +186,10 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
          tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
          kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, forras_kerulet, evszam,
          tovabbi_linkek, telepules, telek_jelleg, hely_sugar, utolso_ellenorzes, auto_javitva, auto_javitva_v,
-         hely_forras, hely_eredeti, allapot_forras)
+         hely_forras, hely_eredeti, allapot_forras, varos_ok, varos_eredeti)
         VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$12,$13,$14,$15,$16,'aktiv','import',$17,
                 $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,$26,$27,$28,NOW(),NOW(),$29,
-                $30,$31::jsonb,$32)
+                $30,$31::jsonb,$32,$33,$34)
         RETURNING id
     `, [
         d.link, adat.ar, adat.nm, adat.arnm, adat.szobak, adat.emelet, adat.allapot,
@@ -195,7 +200,8 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         JSON.stringify(d.tovabbi_linkek || []), adat.telepules, adat.telek_jelleg || null, adat.hely_sugar || null,
         autofix.VERZIO, adat.hely_forras || (adat.x && adat.y ? "forras" : null),
         adat.hely_eredeti ? JSON.stringify(adat.hely_eredeti) : null,
-        adat.allapot ? (adat.allapot_forras || "szoveg") : null
+        adat.allapot ? (adat.allapot_forras || "szoveg") : null,
+        adat.varos_ok || null, adat.varos_eredeti || null
     ]);
 
     const uj = { id: r.rows[0].id, link: d.link, ar: adat.ar };
@@ -274,9 +280,11 @@ async function hianyzokJelol(latottKulcsok, alap, job, elemDb) {
 
     if (!alap.varos || !alap.tipus || !alap.ugylet || elemDb < 10) return;
 
+    // A városból a "<város> és környéke" városba áthelyezett hirdetések is ennek
+    // a városnak a listájában vannak a forrásoldalon
     const r = await db.query(`
         SELECT id, link, tovabbi_linkek FROM ingatlanok
-        WHERE statusz = 'aktiv' AND varos = $1
+        WHERE statusz = 'aktiv' AND (varos = $1 OR varos_eredeti = $1)
           AND COALESCE(tipus, 'lakas') = $2 AND COALESCE(ugylet, 'elado') = $3
           AND link ILIKE '%imobiliare.ro/%oferta/%'
     `, [alap.varos, alap.tipus, alap.ugylet]);
@@ -375,6 +383,9 @@ async function futtat(job, urls, alap, opts = {}) {
             await hianyzokJelol(kulcsok, l.alap, job, l.elemek.length);
         }
 
+        // A falvakban lévő (új) hirdetések a "<város> és környéke" városba
+        if (job.uj || job.frissitett) await kornyek.rendez().catch(e => console.error("Környék rendezés:", e.message));
+
         job.allapot = "kesz";
 
     } catch (e) {
@@ -421,7 +432,8 @@ async function frissitForrasbol(i, job) {
         // Az imobiliare.ro letiltja a szervert: a város Imoradar24-es listájából frissítünk
         if (/HTTP 403/.test(e.message) && /imobiliare\.ro/i.test(i.link)) {
             const volt = job.frissitett + job.kihagyott + job.nemElerheto;
-            await varosSzinkron([{ varos: i.varos, tipus: i.tipus || "lakas", ugylet: i.ugylet || "elado" }], job, { csakMeglevo: true });
+            const varos = (await kornyek.anyaVarosa(i.varos).catch(() => null)) || i.varos;
+            await varosSzinkron([{ varos, tipus: i.tipus || "lakas", ugylet: i.ugylet || "elado" }], job, { csakMeglevo: true });
             await db.query("UPDATE ingatlanok SET utolso_ellenorzes = NOW() WHERE id = $1", [i.id]);
             if (job.frissitett + job.kihagyott + job.nemElerheto === volt) throw new Error(tiltasUzenet(i.link, 403));
             return;
@@ -601,10 +613,12 @@ async function figyelesFuttat(job, opts) {
         if (imo.length) {
 
             const csoportok = new Map();
-            imo.forEach(i => {
-                const c = { varos: i.varos, tipus: i.tipus || "lakas", ugylet: i.ugylet || "elado" };
+            for (const i of imo) {
+                // A környék-város hirdetései az anyaváros listájában vannak a forrásoldalon
+                const varos = (await kornyek.anyaVarosa(i.varos).catch(() => null)) || i.varos;
+                const c = { varos, tipus: i.tipus || "lakas", ugylet: i.ugylet || "elado" };
                 csoportok.set(`${c.varos}|${c.tipus}|${c.ugylet}`, c);
-            });
+            }
 
             job.allapot = "fut";
 

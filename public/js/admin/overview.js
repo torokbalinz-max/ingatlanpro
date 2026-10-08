@@ -176,23 +176,34 @@ AdminManager.renderOverview = function () {
             box.innerHTML = `<div class="spinner-border spinner-border-sm text-primary"></div>`;
             fetch("/api/admin/ertekbecslo-teszt?" + q).then(r => r.json()).then(v => {
                 if (v.error) { box.innerHTML = `<div class="alert alert-warning">${I18n.t("valNotEnough")}</div>`; return; }
-                const regi = v.eredmeny.regi, uj = v.eredmeny["uj_" + v.modellSuly] || v.eredmeny.uj_1;
-                const sor = (l, a, b) => `<tr><td>${l}</td><td class="text-end">${a.medianHiba} %</td><td class="text-end">${a.atlagHiba} %</td><td class="text-end">${a.tizSzazalekonBelul} %</td>
-                    <td class="text-end fw-semibold">${b.medianHiba} %</td><td class="text-end fw-semibold">${b.atlagHiba} %</td><td class="text-end fw-semibold">${b.tizSzazalekonBelul} %</td></tr>`;
+                // Három módszer: az első, az előző (2.) és a mostani (3.) – a csoportok szerint is
+                const e = v.eredmeny || {};
+                const modszerek = [["regi", "valTestFirst"], ["elozo", "valTestPrev"], ["uj", "valTestNew"]].filter(([k]) => e[k]);
+                const cella = (o, vastag) => o
+                    ? `<td class="text-end ${vastag ? "fw-semibold" : ""}">${o.medianHiba} %</td><td class="text-end ${vastag ? "fw-semibold" : ""}">${o.atlagHiba} %</td><td class="text-end ${vastag ? "fw-semibold" : ""}">${o.tizSzazalekonBelul} %</td>`
+                    : `<td colspan="3"></td>`;
+                const sor = (l, g) => g ? `<tr><td>${l}${g.uj && g.uj.n !== undefined ? ` <small class="text-body-secondary">(${g.uj.n})</small>` : ""}</td>${modszerek.map(([k]) => cella(g[k], k === "uj")).join("")}</tr>` : "";
                 const cs = v.csoportok || {};
+                const st = v.stabilitas || {};
                 box.innerHTML = `
                     <div class="card"><div class="card-body">
                         <h6>${I18n.t("valTestTitle")} – ${Utils.escape(CityManager.displayName(v.varos))} · ${Types.label(v.tipus)} (${v.hirdetesek} ${I18n.t("pcsWord")})</h6>
                         <p class="sectionNote">${I18n.t("valTestNote")}</p>
                         <div class="table-responsive"><table class="table table-sm statTable mb-0">
-                            <thead><tr><th></th><th class="text-end" colspan="3">${I18n.t("valTestOld")}</th><th class="text-end" colspan="3">${I18n.t("valTestNew")}</th></tr>
-                            <tr><th></th>${[1, 2].map(() => `<th class="text-end">${I18n.t("valTestMedian")}</th><th class="text-end">${I18n.t("valTestMean")}</th><th class="text-end">${I18n.t("valTestWithin")}</th>`).join("")}</tr></thead>
+                            <thead><tr><th></th>${modszerek.map(([, l]) => `<th class="text-end" colspan="3">${I18n.t(l)}</th>`).join("")}</tr>
+                            <tr><th></th>${modszerek.map(() => `<th class="text-end">${I18n.t("valTestMedian")}</th><th class="text-end">${I18n.t("valTestMean")}</th><th class="text-end">${I18n.t("valTestWithin")}</th>`).join("")}</tr></thead>
                             <tbody>
-                                ${sor(I18n.t("valTestAll"), regi, uj)}
-                                ${cs.ritka ? sor(I18n.t("valTestRare"), cs.ritka.regi, cs.ritka.uj) : ""}
-                                ${cs.gyakori ? sor(I18n.t("valTestCommon"), cs.gyakori.regi, cs.gyakori.uj) : ""}
+                                ${sor(I18n.t("valTestAll"), e)}
+                                ${sor(I18n.t("valTestExisting"), cs.meglevo)}
+                                ${sor(I18n.t("valTestNewBuild"), cs.ujepitesu)}
+                                ${sor(I18n.t("valTestRare"), cs.ritka)}
+                                ${sor(I18n.t("valTestCommon"), cs.gyakori)}
                             </tbody>
                         </table></div>
+                        ${st.uj ? `<p class="small mt-3 mb-0"><i class="fa-solid fa-ruler-combined" aria-hidden="true"></i> ${I18n.f("valTestStability", {
+                            elozo: Utils.num(st.elozo ? st.elozo.atlag : 0, 2), elozoMax: Utils.num(st.elozo ? st.elozo.max : 0, 1),
+                            uj: Utils.num(st.uj.atlag, 2), ujMax: Utils.num(st.uj.max, 1)
+                        })}</p>` : ""}
                     </div></div>`;
             }).catch(() => { box.innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`; });
         };

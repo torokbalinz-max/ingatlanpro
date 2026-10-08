@@ -1,11 +1,18 @@
 // ============================================================
 //  Ingatlan értékbecslő oldal
+//
+//  Ha egy hirdetésről indul ("Értékbecslés erre"), a becslés ahhoz a
+//  hirdetéshez kötött: a hirdetés saját ára (és a más oldalon lévő
+//  példánya) akkor sem számít bele, ha közben átírod a méretet, az
+//  állapotot... A kötés csak akkor szűnik meg, ha másik várost, típust,
+//  ügyletet választasz, vagy a × gombbal leveszed.
 // ============================================================
 
 class ValuationManager {
 
     static last = null;
     static excludeId = null;
+    static linked = null;           // { id, x, y, hely_pontossag, kerulet, telepules }
 
     static renderTypeOptions() {
 
@@ -32,10 +39,78 @@ class ValuationManager {
             });
         });
 
-        // Kézi módosítás után már nem egy konkrét ingatlanról van szó
-        document.querySelectorAll("#page-valuation input:not(#valAskingPrice), #page-valuation select").forEach(el => {
-            el.addEventListener("change", () => { ValuationManager.excludeId = null; });
+        // Másik város, típus vagy ügylet: már nem ugyanarról az ingatlanról van szó.
+        // (A méret, állapot... átírása után a hirdetés saját ára továbbra sem számít bele.)
+        document.getElementById("valVaros").addEventListener("change", () => {
+            ValuationManager.unlink();
+            ValuationManager.applyLocationFields();
         });
+        document.getElementById("valTipus").addEventListener("change", () => ValuationManager.unlink());
+        document.querySelectorAll('input[name="valUgylet"]').forEach(r => r.addEventListener("change", () => ValuationManager.unlink()));
+
+        ValuationManager.applyLocationFields();
+        ValuationManager.renderLinked();
+
+    }
+
+    // A "<város> és környéke" városban kerület helyett a falu (település) számít
+    static applyLocationFields() {
+
+        const varos = document.getElementById("valVaros").value;
+        const kornyek = typeof CityManager !== "undefined" && CityManager.isKornyek(varos);
+
+        const ker = document.getElementById("valKeruletBox");
+        const tel = document.getElementById("valTelepulesBox");
+        if (ker) ker.hidden = kornyek;
+        if (tel) tel.hidden = !kornyek;
+
+        const dl = document.getElementById("valTelepulesLista");
+        if (dl && kornyek) {
+            const regio = CityManager.parentOf(varos);
+            dl.innerHTML = Telepulesek.regio(regio).map(t => `<option value="${Utils.escape(I18n.current === "hu" ? t.hu : t.ro)}">`).join("");
+        }
+
+    }
+
+    static link(i) {
+        ValuationManager.excludeId = i.id;
+        ValuationManager.linked = {
+            id: i.id,
+            x: i.x || null,
+            y: i.y || null,
+            hely_pontossag: i.hely_pontossag || null,
+            kerulet: i.kerulet || "",
+            telepules: i.telepules || ""
+        };
+        ValuationManager.renderLinked();
+    }
+
+    static unlink() {
+        if (!ValuationManager.excludeId && !ValuationManager.linked) return;
+        ValuationManager.excludeId = null;
+        ValuationManager.linked = null;
+        ValuationManager.renderLinked();
+    }
+
+    // "A #69 hirdetés becslése – a saját ára nem számít bele  ×"
+    static renderLinked() {
+
+        const box = document.getElementById("valLinked");
+        if (!box) return;
+
+        const l = ValuationManager.linked;
+        box.hidden = !l;
+        if (!l) { box.innerHTML = ""; return; }
+
+        box.innerHTML = `
+            <i class="fa-solid fa-link" aria-hidden="true"></i>
+            <div class="flex-fill">
+                <b>${I18n.f("valLinkedTo", { id: l.id })}</b>
+                <small>${I18n.t("valLinkedHelp")}</small>
+            </div>
+            <button type="button" class="btn-close" id="valUnlink" title="${Utils.escape(I18n.t("valUnlink"))}" aria-label="${Utils.escape(I18n.t("valUnlink"))}"></button>`;
+
+        document.getElementById("valUnlink").onclick = () => ValuationManager.unlink();
 
     }
 
@@ -63,7 +138,10 @@ class ValuationManager {
                     </ol>
                     <p class="sectionNote mb-0">${I18n.t("valDisclaimer")}</p>
                 </div>
-            </div>`;
+            </div>
+            ${typeof AdSlots !== "undefined" && AdSlots.enabled() ? `<div class="mt-4">${AdSlots.html("valuation")}</div>` : ""}`;
+
+        if (typeof AdSlots !== "undefined") AdSlots.bind(document.getElementById("valResult"));
 
     }
 
@@ -76,7 +154,9 @@ class ValuationManager {
         document.getElementById("valTipus").value = Types.becsulheto(i.tipus) ? i.tipus : "lakas";
         document.getElementById(i.ugylet === "kiado" ? "valUgyletKiado" : "valUgyletElado").checked = true;
 
-        document.getElementById("valNm").value = i.nm || "";
+        // A pontos alapterület (48,8 m² is) – magyarul, románul tizedes vesszővel
+        const nm = i.nm ? String(Math.round(Number(i.nm) * 100) / 100) : "";
+        document.getElementById("valNm").value = I18n.current === "en" ? nm : nm.replace(".", ",");
         document.getElementById("valSzobak").value = i.szobak || "";
 
         const e = Utils.emeletSzam(i.emelet);
@@ -87,34 +167,64 @@ class ValuationManager {
         document.getElementById("valAllapot").value = Utils.normAllapot(i.allapot);
         document.getElementById("valAskingPrice").value = i.ar || "";
 
-        ValuationManager.excludeId = i.id;
+        const ev = document.getElementById("valEvszam");
+        if (ev) ev.value = i.evszam || "";
+
+        const tel = document.getElementById("valTelepules");
+        if (tel) tel.value = i.telepules ? CityManager.telepulesLabel(i.telepules) : "";
+
+        ValuationManager.applyLocationFields();
+        ValuationManager.link(i);
 
         return CityManager.loadKeruletekInto("valKerulet", valVaros.value, i.kerulet || "", "allapotMindegy");
 
     }
 
-    static run() {
+    static params() {
+
+        const v = id => { const el = document.getElementById(id); return el ? el.value : ""; };
+        const varos = v("valVaros");
+        const kornyek = CityManager.isKornyek(varos);
 
         const params = {
-            tipus: document.getElementById("valTipus").value,
+            tipus: v("valTipus"),
             ugylet: document.querySelector('input[name="valUgylet"]:checked').value,
-            varos: document.getElementById("valVaros").value,
-            kerulet: document.getElementById("valKerulet").value,
-            nm: document.getElementById("valNm").value,
-            szobak: document.getElementById("valSzobak").value,
-            emelet: document.getElementById("valEmelet").value,
-            emeletOssz: document.getElementById("valEmeletOssz").value,
-            allapot: document.getElementById("valAllapot").value
+            varos,
+            kerulet: kornyek ? "" : v("valKerulet"),
+            nm: String(v("valNm")).replace(",", "."),
+            szobak: v("valSzobak"),
+            emelet: v("valEmelet"),
+            emeletOssz: v("valEmeletOssz"),
+            allapot: v("valAllapot"),
+            evszam: v("valEvszam")
         };
+
+        if (kornyek) params.telepules = NewPropertyManager.telepulesErtek(v("valTelepules").trim());
+
+        // Egy konkrét hirdetés becslése: a saját ára nem számít bele; ha a helye nem
+        // változott, a pontos helyét is figyelembe vesszük (a közelebbi hasonlóbb)
+        const l = ValuationManager.linked;
+        if (ValuationManager.excludeId) params.exclude = ValuationManager.excludeId;
+        if (l && l.x && l.y && (kornyek ? (params.telepules || "") === (l.telepules || "") : params.kerulet === (l.kerulet || ""))) {
+            params.x = l.x;
+            params.y = l.y;
+            if (l.hely_pontossag) params.hely_pontossag = l.hely_pontossag;
+        }
+
+        // Üres mezőket nem küldünk
+        Object.keys(params).forEach(k => { if (params[k] === "" || params[k] === null || params[k] === undefined) delete params[k]; });
+
+        return params;
+
+    }
+
+    static run() {
+
+        const params = ValuationManager.params();
 
         if (!(Number(params.nm) > 0)) {
             alert(I18n.t("valAlertNm"));
             return;
-        }
-
-        // Ha egy meglévő ingatlanra kértük a becslést, saját magát ne vegye hasonlónak
-        if (ValuationManager.excludeId) {
-            params.exclude = ValuationManager.excludeId;
         }
 
         const box = document.getElementById("valResult");
@@ -145,6 +255,8 @@ class ValuationManager {
     }
 
     static rerender() {
+        ValuationManager.renderLinked();
+        ValuationManager.applyLocationFields();
         if (ValuationManager.last) {
             ValuationManager.render(ValuationManager.last.params, ValuationManager.last.data);
         } else if (document.getElementById("valResult").innerHTML.trim() !== "") {
@@ -158,7 +270,9 @@ class ValuationManager {
             high: ["success", "valConfHigh"],
             medium: ["warning", "valConfMedium"],
             low: ["danger", "valConfLow"]
-        }[d.confidence];
+        }[d.confidence] || ["secondary", "valConfMedium"];
+
+        const nm = d.nm || Number(params.nm);
 
         // Kért ár összevetése
         const kert = Number(document.getElementById("valAskingPrice").value);
@@ -198,12 +312,28 @@ class ValuationManager {
                 <span>${Utils.eur(d.high)}</span>
             </div>`;
 
-        // Piaci háttér
+        // Piaci háttér: mediánok (a kilógó árak nem húzzák el), a keresett ingatlan szegmensében
+        const uj = d.segment === "uj";
+        const helyNev = d.helySzerint === "telepules" ? I18n.t("valVillageMedian") : I18n.t(uj ? "valDistrictMedianNew" : "valDistrictMedianOld");
         const hatter = [
-            `${I18n.t("valCityAvg")}: <b>${Utils.eurNm(d.cityAvgArNm)}</b>`,
-            d.districtAvgArNm ? `${I18n.t("valDistrictAvg")}: <b>${Utils.eurNm(d.districtAvgArNm)}</b> (${d.districtCount} ${I18n.t("pcsWord")})` : null,
+            `${I18n.t(uj ? "valCityMedianNew" : "valCityMedianOld")}: <b>${Utils.eurNm(d.cityMedianArNm || d.cityAvgArNm)}</b>`,
+            (d.districtMedianArNm || d.districtAvgArNm) ? `${helyNev}: <b>${Utils.eurNm(d.districtMedianArNm || d.districtAvgArNm)}</b> (${d.districtCount} ${I18n.t("pcsWord")})` : null,
             `${I18n.t("valPool")}: <b>${d.poolCount}</b>`
         ].filter(Boolean).map(x => `<li>${x}</li>`).join("");
+
+        // Új építésű / meglévő: külön piac (az újépítésűek nem húzzák fel a régi lakások becslését)
+        let szegmensHtml = "";
+        if (d.version >= 3) {
+            if (uj) {
+                szegmensHtml = `<div class="valSegment uj"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i> <span>${I18n.f("valSegmentNew", { n: d.segmentCount })}</span></div>`;
+            } else if (d.districtOtherCount > 0 && d.districtOtherMedianArNm) {
+                szegmensHtml = `<div class="valSegment"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> <span>${I18n.f(d.helySzerint === "telepules" ? "valSegmentOldVillage" : "valSegmentOld", { n: d.districtOtherCount, ar: Utils.eurNm(d.districtOtherMedianArNm) })}</span></div>`;
+            }
+        }
+
+        const linkHtml = d.excluded && d.excluded.id
+            ? `<div class="small text-body-secondary mt-1"><i class="fa-solid fa-link" aria-hidden="true"></i> ${I18n.f(d.excluded.ikrek ? "valExcludedTwins" : "valExcluded", { id: d.excluded.id, n: d.excluded.ikrek })}</div>`
+            : "";
 
         // Hasonló ingatlanok
         const sorok = d.comparables.map(c => `
@@ -212,15 +342,15 @@ class ValuationManager {
                     <div class="simBar"><span style="width:${c.similarity}%"></span></div>
                     <small>${c.similarity}%</small>
                 </td>
-                <td>#${c.id}</td>
+                <td><a href="#listing/${Number(c.id)}" class="text-reset">#${c.id}</a>${c.uj ? ` <span class="badge text-bg-info valNewBadge" title="${Utils.escape(I18n.t("valNewBuildHint"))}">${I18n.t("valNewBuild")}</span>` : ""}</td>
                 <td class="text-end fw-semibold">${Utils.eur(c.ar)}</td>
-                <td class="text-end">${Utils.num(c.nm)} m²</td>
+                <td class="text-end">${Utils.nm(c.nm)}</td>
                 <td class="text-end">${Utils.eurNm(c.arNm)}</td>
                 <td class="text-end text-body-secondary" title="${Utils.escape(I18n.t("valAdjustedHelp"))}">${c.adjusted ? Utils.eur(c.adjusted) : "-"}</td>
                 <td class="text-center">${c.szobak || "-"}</td>
                 <td>${Utils.escape(c.emelet || "-")}</td>
                 <td>${Utils.escape(Utils.allapotLabel(c.allapot))}</td>
-                <td>${Utils.escape(CityManager.helyReszLabel(c) || "-")}</td>
+                <td>${Utils.escape(CityManager.helyReszLabel({ ...c, varos: params.varos, tipus: params.tipus }) || "-")}</td>
                 <td>${c.link && Sources.fromLink(c.link) !== "other" && Sources.fromLink(c.link) !== "local"
                         ? `<a href="${Utils.escape(c.link)}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
                         : ""}</td>
@@ -235,7 +365,8 @@ class ValuationManager {
                         <div>
                             <small class="text-body-secondary">${I18n.t("valEstimate")}</small>
                             <div class="valEstimate">${Utils.price({ ar: d.estimate, ugylet: params.ugylet })}</div>
-                            <div class="text-body-secondary">≈ ${Utils.eurNm(d.arNm)} · ${Utils.num(params.nm)} m²</div>
+                            <div class="text-body-secondary">≈ ${Utils.eurNm(d.arNm)} · ${Utils.nm(nm)}</div>
+                            ${linkHtml}
                         </div>
                         <span class="badge text-bg-${conf[0]} fs-6">${I18n.t(conf[1])}</span>
                     </div>
@@ -246,6 +377,8 @@ class ValuationManager {
                     </div>
 
                     ${kertHtml}
+
+                    ${szegmensHtml}
 
                     <hr>
 
@@ -262,6 +395,8 @@ class ValuationManager {
 
                 </div>
             </div>
+
+            ${typeof AdSlots !== "undefined" && AdSlots.enabled() ? `<div class="mb-4">${AdSlots.html("valuation")}</div>` : ""}
 
             <div class="card">
                 <div class="card-header">
@@ -281,7 +416,7 @@ class ValuationManager {
                                     <th class="text-center">${I18n.t("colSzoba")}</th>
                                     <th>${I18n.t("colEmelet")}</th>
                                     <th>${I18n.t("colAllapot")}</th>
-                                    <th>${I18n.t("colKerulet")}</th>
+                                    <th>${I18n.t(d.helySzerint === "telepules" ? "telepulesLabel" : "colKerulet")}</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -291,6 +426,8 @@ class ValuationManager {
                     <p class="sectionNote mt-3 mb-0">${I18n.t("valDisclaimer")}</p>
                 </div>
             </div>`;
+
+        if (typeof AdSlots !== "undefined") AdSlots.bind(document.getElementById("valResult"));
 
     }
 
@@ -305,18 +442,25 @@ class ValuationManager {
 
         const ar = v => Utils.price({ ar: v, ugylet: params.ugylet });
 
+        // A fő arányok (az 1,5%-nál kisebb hatás csak zaj – nem mutatjuk)
         const tenyezok = (m.factors || [])
+            .filter(t => Math.abs(t.szorzo - 1) >= 0.015)
             .sort((a, b) => Math.abs(b.szorzo - 1) - Math.abs(a.szorzo - 1))
             .map(t => {
                 const pct = (t.szorzo - 1) * 100;
                 return `<li>${I18n.t("valF_" + t.csoport)}: <b class="${pct >= 0 ? "text-success" : "text-danger"}">${Utils.pct(pct, 0)}</b></li>`;
             }).join("");
 
+        const igazitas = m.conditionAdjustment && Math.abs(m.conditionAdjustment) >= 0.5
+            ? `<p class="small text-body-secondary mb-2"><i class="fa-solid fa-arrow-up-wide-short" aria-hidden="true"></i> ${I18n.f("valCondAdjusted", { pct: Utils.pct(m.conditionAdjustment, 1) })}</p>`
+            : "";
+
         return `
             <ul class="small mb-2 valMethodList">
                 <li>${I18n.t("valByComparables")}: <b>${ar(m.comparableEstimate)}</b> <span class="text-body-secondary">(${m.comparableWeight}%)</span></li>
                 ${m.modelEstimate ? `<li>${I18n.t("valByModel")}: <b>${ar(m.modelEstimate)}</b> <span class="text-body-secondary">(${m.modelWeight}%)</span></li>` : ""}
             </ul>
+            ${igazitas}
             ${tenyezok ? `
                 <div class="small text-body-secondary mb-1">${I18n.f("valFactorsTitle", { base: Utils.eurNm(m.baseArNm) })}</div>
                 <ul class="small mb-2 valMethodList">${tenyezok}</ul>` : ""}

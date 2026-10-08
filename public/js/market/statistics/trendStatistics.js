@@ -204,7 +204,12 @@ class TrendStatistics {
         tesz("varos", f.varos || DataManager.currentCity);
         tesz("tipus", FilterManager.tipus);
         tesz("ugylet", FilterManager.ugylet);
-        ["kerulet", "telepules", "allapot", "jelleg", "minNm", "maxNm", "minEmelet", "maxEmelet", "minSzoba", "maxSzoba"].forEach(k => tesz(k, f[k]));
+        // Több kerület / település: "a|b|c"
+        const keruletek = Array.isArray(f.keruletek) && f.keruletek.length ? f.keruletek : (f.kerulet ? [f.kerulet] : []);
+        const telepulesek = Array.isArray(f.telepulesek) && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
+        if (keruletek.length) p.set("keruletek", keruletek.join("|"));
+        if (telepulesek.length) p.set("telepulesek", telepulesek.join("|"));
+        ["allapot", "jelleg", "minNm", "maxNm", "minEmelet", "maxEmelet", "minSzoba", "maxSzoba"].forEach(k => tesz(k, f[k]));
 
         const szoba = document.getElementById("trendRooms") ? document.getElementById("trendRooms").value : "";
         if (szoba) {

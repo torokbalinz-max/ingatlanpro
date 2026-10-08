@@ -24,6 +24,7 @@ const { VAROS_RO } = require("./geocode");
 const location = require("./location");
 const { TIPUS_MEZOK } = require("./listing");
 const allapotok = require("./allapotok");
+const kornyek = require("./kornyek");
 const Telepulesek = require("../../public/js/core/telepulesek");
 
 // Ha a javítás szabályai bővülnek, a szám emelésével a következő
@@ -84,9 +85,13 @@ async function javaslat(i, extra = {}) {
         v.arnm = null;
     }
 
+    // A "<város> és környéke" városban nincs kerület: minden hirdetésnél a
+    // település (melyik faluban van) a lényeg
+    const kornyekAnya = i.varos ? await kornyek.anyaVarosa(i.varos).catch(() => null) : null;
+
     // ---- 2) Kerület (lakás, üzlet, iroda): a forrás / cím szerinti név,
     //         aztán a hely (térkép), végül a leírás
-    let keruletKell = mezok.kerulet && ures(i.kerulet) && i.varos;
+    let keruletKell = mezok.kerulet && ures(i.kerulet) && i.varos && !kornyekAnya;
 
     if (keruletKell) {
 
@@ -102,16 +107,18 @@ async function javaslat(i, extra = {}) {
 
     }
 
-    // ---- 3) Település (ház, telek)
-    if (mezok.telepules && ures(i.telepules)) {
+    // ---- 3) Település (ház, telek; a környék-városban minden típusnál)
+    if ((mezok.telepules || kornyekAnya) && ures(i.telepules)) {
 
+        const regio = kornyekAnya || i.varos;
         const va = await location.varosAdat(i.varos).catch(() => null);
-        const varosRo = (va && va.nev_ro) || VAROS_RO[i.varos] || i.varos || "";
+        const varosRo = (va && va.nev_ro) || VAROS_RO[regio] || regio || "";
 
         const t = textParse.telepulesKeres(
             varosRo,
             [extra.varosForras, i.forras_kerulet, i.cim].filter(Boolean),
-            [i.leiras, i.forras_szoveg].filter(Boolean)
+            [i.leiras, i.forras_szoveg].filter(Boolean),
+            { varos: regio, varosNevek: await kornyek.varosNevek(regio).catch(() => []) }
         );
 
         if (t) v.telepules = t;

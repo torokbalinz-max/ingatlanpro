@@ -60,6 +60,13 @@ async function varosAdat(varos) {
 
     if (!v) return null;
 
+    // "<város> és környéke": a falvakat az anyaváros körül keressük
+    // (a saját neve – pl. "Sepsiszentgyörgy és környéke" – nem található a térképen)
+    if (!(v.x && v.y)) {
+        const k = await require("./kornyek").helyAdat(varos).catch(() => null);
+        if (k && k.x && k.y) return { ...v, ...k, kornyek: true };
+    }
+
     if (!(v.x && v.y)) {
 
         const nev = v.nev_ro || geo.VAROS_RO[varos] || varos;
@@ -167,8 +174,9 @@ async function helyKeres(d, szoveg, extra = {}) {
 
     const v = await varosAdat(d.varos);
 
-    // 1) Utca a forrásból / a leírásból (csak ha nem faluban van)
-    if (!d.telepules) {
+    // 1) Utca a forrásból / a leírásból (csak ha nem faluban van; a környék-városban
+    //    falu nélkül nem tudjuk, melyik település utcája)
+    if (!d.telepules && !(v && v.kornyek)) {
 
         const utcak = [];
         if (extra.utca) utcak.push(extra.utca);
@@ -221,7 +229,7 @@ async function helyKeres(d, szoveg, extra = {}) {
 
     // 4) Nevezetes hely a közelben ("lângă Kaufland", "a kórház mellett") – csak a
     //    városban, és csak ha ott egyértelmű (egy Kaufland van, nem több)
-    if (!d.telepules) {
+    if (!d.telepules && !(v && v.kornyek)) {
         for (const t of tippek.filter(x => x.nevezetes).slice(0, 2)) {
             const h = await nevezetesKeres(d.varos, t.szoveg);
             if (h) return { x: h.x, y: h.y, szint: "kozelito", sugar: 700, forras: "szoveg", nev: t.szoveg };

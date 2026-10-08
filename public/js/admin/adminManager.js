@@ -14,6 +14,7 @@
 //    conditionList.js az állapotok listája (új állapot, átnevezés, szín, kulcsszavak)
 //    siteSettings.js  a webhely / üzemeltető adatai (a jogi oldalakhoz)
 //    agencies.js      ingatlanirodák jóváhagyása (ANAF-adatokkal)
+//    kornyek.js       város és környéke: a falvakban lévő hirdetések rendezése
 // ============================================================
 
 class AdminManager {
@@ -41,6 +42,7 @@ class AdminManager {
         unavailable: { title: "adminTabUnavailable", desc: "adminDescUnavailable", render: () => AdminManager.renderUnavailable() },
         allapot:     { title: "adminTabAllapot",     desc: "adminDescAllapot",     render: () => AdminManager.renderConditions() },
         dups:        { title: "adminTabDups",        desc: "adminDescDups",        render: () => AdminManager.renderDups() },
+        kornyek:     { title: "adminTabKornyek",     desc: "adminDescKornyek",     render: () => AdminManager.renderKornyek() },
         import:      { title: "adminTabImport",      desc: "adminDescImport",      render: () => AdminManager.renderImport() },
         watch:       { title: "adminTabWatch",       desc: "adminDescWatch",       render: () => AdminManager.renderWatch() },
         irodak:      { title: "adminTabAgencies",    desc: "adminDescAgencies",    render: () => AdminManager.renderAgencies() },
@@ -125,6 +127,7 @@ class AdminManager {
                 AdminManager.setCount("unavailableCount", c.unavailable);
                 AdminManager.setCount("allapotCount", c.allapot_hianyzo);
                 AdminManager.setCount("irodaCount", c.iroda_fuggo);
+                AdminManager.setCount("kornyekCount", c.kornyek_javaslat);
                 AdminManager.setCount("navAdminCount", (c.review || 0) + (c.iroda_fuggo || 0));
                 return c;
             })

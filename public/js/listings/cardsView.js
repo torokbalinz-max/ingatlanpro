@@ -62,10 +62,10 @@ class CardsView {
         const f = Types.get(i.tipus).fields;
         const out = [];
 
-        if (i.nm) out.push(`<span><i class="fa-solid fa-ruler-combined"></i> ${Utils.num(i.nm)} m²</span>`);
+        if (i.nm) out.push(`<span><i class="fa-solid fa-ruler-combined"></i> ${Utils.nm(i.nm)}</span>`);
         if (f.szobak && i.szobak) out.push(`<span><i class="fa-solid fa-bed"></i> ${I18n.f("roomsLabel", { n: i.szobak })}</span>`);
         if (f.emelet && i.emelet) out.push(`<span><i class="fa-solid fa-stairs"></i> ${Utils.escape(Utils.emeletLabel(i.emelet))}</span>`);
-        if (f.telek && i.telek_nm) out.push(`<span><i class="fa-solid fa-tree"></i> ${Utils.num(i.telek_nm)} m²</span>`);
+        if (f.telek && i.telek_nm) out.push(`<span><i class="fa-solid fa-tree"></i> ${Utils.nm(i.telek_nm)}</span>`);
         if (i.tipus === "telek" && i.telek_jelleg) out.push(`<span><i class="fa-solid fa-signs-post" aria-hidden="true"></i> ${I18n.t("jelleg_" + i.telek_jelleg)}</span>`);
 
         return out.join("");
@@ -119,14 +119,26 @@ class CardsView {
         if (!grid) return;
 
         const rendezett = CardsView.sorted(lista);
-        const oldalak = Math.max(1, Math.ceil(rendezett.length / CardsView.PAGE_SIZE));
+
+        // Ha a kártyák között reklámfelület is van, egy hirdetéssel kevesebb fér
+        // egy oldalra – így a rács sorai teliek maradnak (24 cella)
+        const reklam = typeof AdSlots !== "undefined" && AdSlots.enabled() && rendezett.length >= AdSlots.FEED_MIN;
+        const meret = reklam ? CardsView.PAGE_SIZE - 1 : CardsView.PAGE_SIZE;
+        const oldalak = Math.max(1, Math.ceil(rendezett.length / meret));
 
         CardsView.page = Math.min(CardsView.page, oldalak - 1);
 
-        const resz = rendezett.slice(CardsView.page * CardsView.PAGE_SIZE, (CardsView.page + 1) * CardsView.PAGE_SIZE);
+        const resz = rendezett.slice(CardsView.page * meret, (CardsView.page + 1) * meret);
+
+        // Bérelhető reklámfelület a kártyák között (oldalanként egy, a 6. kártya után,
+        // csak ha elég találat van – a hirdetések sorrendjét nem változtatja)
+        const kartyak = resz.map(CardsView.cardHtml);
+        if (reklam && resz.length >= AdSlots.FEED_MIN) {
+            kartyak.splice(AdSlots.FEED_UTAN, 0, AdSlots.feedCol());
+        }
 
         grid.innerHTML = resz.length
-            ? resz.map(CardsView.cardHtml).join("")
+            ? kartyak.join("")
             : `<div class="col-12"><div class="emptyState"><i class="fa-solid fa-magnifying-glass"></i><h5>${I18n.t("currentNoResults")}</h5></div></div>`;
 
         grid.querySelectorAll(".listingCard").forEach(card => {

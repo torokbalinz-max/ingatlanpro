@@ -37,6 +37,7 @@
     <link rel="stylesheet" href="css/legal.css">
     <link rel="stylesheet" href="css/sitestats.css">
     <link rel="stylesheet" href="css/v4.css">
+    <link rel="stylesheet" href="css/v5.css">
 </head>
 
 <body>
@@ -212,20 +213,20 @@
                 <div class="searchSectionTitle" data-i18n="searchSecWhere">Hol?</div>
 
                 <label class="form-label" for="citySelect" data-i18n="searchVaros">Város</label>
-                <select id="citySelect" class="form-select mb-3"></select>
+                <select id="citySelect" class="form-select mb-2"></select>
 
-                <div data-field="kerulet">
-                    <label class="form-label" for="keresoKerulet" data-i18n="kerulet">Kerület</label>
-                    <select id="keresoKerulet" class="form-select mb-3">
-                        <option value="" data-i18n="allapotMindegy">Mindegy</option>
-                    </select>
+                <!-- A környező falvak hirdetései: "<város> és környéke" (FilterManager.renderKornyekHint) -->
+                <div class="kornyekHint mb-3" id="kornyekHint" hidden></div>
+
+                <!-- Több kerület / település is kiválasztható (js/core/multiSelect.js) -->
+                <div data-field="kerulet" class="mb-3">
+                    <label class="form-label" for="keresoKerulet"><span data-i18n="kerulet">Kerület</span> <small class="text-body-secondary fw-normal" data-i18n="msMultiHint">(több is választható)</small></label>
+                    <div id="keresoKeruletMS"></div>
                 </div>
 
-                <div data-field="telepules">
-                    <label class="form-label" for="keresoTelepules" data-i18n="telepulesLabel">Hol van?</label>
-                    <select id="keresoTelepules" class="form-select mb-3">
-                        <option value="" data-i18n="allapotMindegy">Mindegy</option>
-                    </select>
+                <div data-field="telepules" class="mb-3">
+                    <label class="form-label" for="keresoTelepules"><span data-i18n="telepulesLabel">Hol van?</span> <small class="text-body-secondary fw-normal" data-i18n="msMultiHint">(több is választható)</small></label>
+                    <div id="keresoTelepulesMS"></div>
                 </div>
 
                 <label class="form-label" for="keresoHely" data-i18n="filterHely">Hely pontossága</label>
@@ -364,6 +365,9 @@
     </div>
 
     </div>
+
+    <!-- Bérelhető reklámfelület a kereső alatt (csak széles képernyőn; js/core/ads.js) -->
+    <div class="adSideBox d-none d-lg-block" id="adSearchSide" hidden></div>
 
 </aside>
 
@@ -671,6 +675,9 @@
         </div>
     </div>
 
+    <!-- Ami a szűrésben benne van, de a térképen nem látszik (MapManager.renderNotes) -->
+    <div class="mapHiddenNote" id="mapHiddenNote" hidden></div>
+
     <div class="mapPageBox">
         <div id="map"></div>
     </div>
@@ -783,7 +790,7 @@
 
                         <div class="col-6">
                             <label class="form-label req" for="ujNm" id="ujNmLabel" data-i18n="newNm">Alapterület (m²)</label>
-                            <input id="ujNm" type="number" min="0" class="form-control">
+                            <input id="ujNm" type="number" min="0" step="any" class="form-control">
                         </div>
 
                         <div class="col-12">
@@ -792,7 +799,7 @@
 
                         <div class="col-6" data-field="telek">
                             <label class="form-label req" for="ujTelekNm" data-i18n="newTelekNm">Telek mérete (m²)</label>
-                            <input id="ujTelekNm" type="number" min="0" class="form-control">
+                            <input id="ujTelekNm" type="number" min="0" step="any" class="form-control">
                         </div>
 
                         <div class="col-4" data-field="szobak">
@@ -952,6 +959,9 @@
 
     <div id="statisticsContainer"></div>
 
+    <!-- Bérelhető reklámfelület az oldal alján (js/core/ads.js) -->
+    <div class="mt-4" id="adMarketBottom" hidden></div>
+
 </section>
 
 <section id="page-favorites" class="page" style="display:none;">
@@ -998,6 +1008,9 @@
             <div class="card">
                 <div class="card-body">
 
+                    <!-- Ha egy hirdetésről indult: a hirdetés saját ára nem számít bele (ValuationManager.renderLinked) -->
+                    <div class="valLinked mb-3" id="valLinked" hidden></div>
+
                     <div class="btn-group w-100 mb-3 ugyletSwitch" role="group">
                         <input type="radio" class="btn-check" name="valUgylet" id="valUgyletElado" value="elado" checked>
                         <label class="btn btn-outline-primary btn-sm" for="valUgyletElado" data-i18n="ugyletElado">Eladó</label>
@@ -1011,15 +1024,25 @@
                     <label class="form-label" for="valVaros" data-i18n="newVaros">Város</label>
                     <select id="valVaros" class="form-select mb-3"></select>
 
-                    <label class="form-label" for="valKerulet" data-i18n="newKerulet">Kerület / városrész</label>
-                    <select id="valKerulet" class="form-select mb-3">
-                        <option value="" data-i18n="allapotMindegy">Mindegy</option>
-                    </select>
+                    <div id="valKeruletBox">
+                        <label class="form-label" for="valKerulet" data-i18n="newKerulet">Kerület / városrész</label>
+                        <select id="valKerulet" class="form-select mb-3">
+                            <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                        </select>
+                    </div>
+
+                    <!-- A "<város> és környéke" városban: melyik faluban -->
+                    <div id="valTelepulesBox" hidden>
+                        <label class="form-label" for="valTelepules" data-i18n="valVillage">Település (falu)</label>
+                        <input id="valTelepules" type="text" class="form-control mb-3" list="valTelepulesLista" autocomplete="off" data-i18n-placeholder="valVillagePh" placeholder="pl. Uzon">
+                        <datalist id="valTelepulesLista"></datalist>
+                    </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-6">
                             <label class="form-label" for="valNm" data-i18n="newNm">Alapterület (m²)</label>
-                            <input id="valNm" type="number" min="1" class="form-control">
+                            <!-- Szöveges mező: a tizedes vessző és pont is jó (48,8) -->
+                            <input id="valNm" type="text" inputmode="decimal" autocomplete="off" class="form-control">
                         </div>
                         <div class="col-6">
                             <label class="form-label" for="valSzobak" data-i18n="newSzobak">Szobák</label>
@@ -1038,6 +1061,11 @@
                             <select id="valAllapot" class="form-select" data-allapot-select="allapotMindegy">
                                 <option value="" data-i18n="allapotMindegy">Mindegy</option>
                             </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="valEvszam"><span data-i18n="valYearBuilt">Építés éve</span> <small class="text-body-secondary fw-normal" data-i18n="optionalWord">(nem kötelező)</small></label>
+                            <input id="valEvszam" type="number" min="1800" max="2100" inputmode="numeric" class="form-control">
+                            <div class="form-text" data-i18n="valYearBuiltHelp">Új építésű lakásnál (az elmúlt ~6 évben épült) a becslés az új lakásokhoz hasonlít, a régiek a régiekhez.</div>
                         </div>
                     </div>
 
@@ -1093,6 +1121,7 @@
                 <button class="adminNavItem" data-tab="unavailable" type="button"><i class="fa-solid fa-ban"></i><span data-i18n="adminTabUnavailable">Nem elérhető</span><span class="navCount" id="unavailableCount" hidden></span></button>
                 <button class="adminNavItem" data-tab="allapot" type="button"><i class="fa-solid fa-screwdriver-wrench"></i><span data-i18n="adminTabAllapot">Állapot beállítása</span><span class="navCount" id="allapotCount" hidden></span></button>
                 <button class="adminNavItem" data-tab="dups" type="button"><i class="fa-solid fa-clone"></i><span data-i18n="adminTabDups">Duplikátumok</span></button>
+                <button class="adminNavItem" data-tab="kornyek" type="button"><i class="fa-solid fa-tree-city"></i><span data-i18n="adminTabKornyek">Város és környéke</span><span class="navCount warn" id="kornyekCount" hidden></span></button>
 
                 <div class="adminNavGroup" data-i18n="adminGroupImport">Beolvasás</div>
                 <button class="adminNavItem" data-tab="import" type="button"><i class="fa-solid fa-file-import"></i><span data-i18n="adminTabImport">Beolvasás</span></button>
@@ -1223,8 +1252,11 @@
 <script src="js/core/i18n-agency.js"></script>
 <script src="js/core/i18n-v3.js"></script>
 <script src="js/core/i18n-v4.js"></script>
+<script src="js/core/i18n-v5.js"></script>
 <script src="js/core/telepulesek.js"></script>
 <script src="js/core/utils.js"></script>
+<script src="js/core/multiSelect.js"></script>
+<script src="js/core/ads.js"></script>
 <script src="js/core/districts.js"></script>
 <script src="js/core/types.js"></script>
 <script src="js/core/sources.js"></script>
@@ -1276,6 +1308,7 @@
 <script src="js/admin/conditionList.js"></script>
 <script src="js/admin/siteSettings.js"></script>
 <script src="js/admin/agencies.js"></script>
+<script src="js/admin/kornyek.js"></script>
 
 <!-- Oldalak, indítás -->
 <script src="js/core/locationPicker.js"></script>

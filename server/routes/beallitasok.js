@@ -5,6 +5,7 @@
 
 const express = require("express");
 const oldalAdatok = require("../services/oldalAdatok");
+const reklam = require("../services/reklam");
 const anaf = require("../services/anaf");
 const acc = require("../services/accounts");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
@@ -23,6 +24,24 @@ router.put("/api/admin/oldal-adatok", csakAdmin, async (req, res) => {
     try {
         res.json({ siker: true, adat: await oldalAdatok.ment(req.body || {}) });
     } catch (err) {
+        hiba(res, err);
+    }
+});
+
+// Reklámfelületek: ki-be kapcsolás, az érdeklődők e-mail címe
+router.get("/api/admin/reklam", csakAdmin, async (req, res) => {
+    try {
+        res.json({ adat: await reklam.olvas() });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
+router.put("/api/admin/reklam", csakAdmin, async (req, res) => {
+    try {
+        res.json({ siker: true, adat: await reklam.ment(req.body || {}) });
+    } catch (err) {
+        if (err.kod === "bad_email") return res.status(400).json({ error: "bad_email" });
         hiba(res, err);
     }
 });

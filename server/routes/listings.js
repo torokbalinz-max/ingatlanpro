@@ -14,6 +14,8 @@ const districts = require("../services/districts");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
 const { LISTA_MEZOK } = require("../lib/sql");
 const acc = require("../services/accounts");
+const kornyek = require("../services/kornyek");
+const Telepulesek = require("../../public/js/core/telepulesek");
 const irodak = require("./irodak");
 
 const router = express.Router();
@@ -97,8 +99,23 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
 
 async function vannakKeruletek(varos) {
     if (!varos) return false;
+    // A "<város> és környéke" városban a település számít, nem a kerület
+    if (await kornyek.isKornyek(varos)) return false;
     const r = await db.query("SELECT 1 FROM keruletek WHERE varos = $1 LIMIT 1", [varos]);
     return r.rowCount > 0;
+}
+
+// A környék-városban minden típusnál megmarad a település (melyik faluban van),
+// kerület nincs
+async function kornyekMezok(d, body) {
+    if (!d.varos || !(await kornyek.isKornyek(d.varos))) return false;
+    if (!d.telepules && body && body.telepules) {
+        const t = String(body.telepules).trim().slice(0, 100);
+        const ismert = Telepulesek.keres(t);
+        d.telepules = ismert ? ismert.ro : (t || null);
+    }
+    d.kerulet = null;
+    return true;
 }
 
 // Szerkesztheti / törölheti-e: az admin mindent, a felhasználó a sajátját,
@@ -174,6 +191,7 @@ router.get("/api/sajat-hirdetesek", csakBelepve, async (req, res) => {
 async function keruletPotlas(d) {
     if (!d.varos || !(d.x && d.y)) return;
     if (!(TIPUS_MEZOK[d.tipus] || TIPUS_MEZOK.lakas).kerulet) return;
+    if (await kornyek.isKornyek(d.varos)) return;
     if (["pontos", "utca"].includes(d.hely_pontossag)) {
         try {
             const k = await districts.keruletPontbol(d.varos, d.x, d.y);
@@ -212,6 +230,11 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
         const kepek = parseKepek(req.body.kepek);
         const iroda = await irodaMezok(req, req.body);
 
+        // Ha a város egy faluja (pl. Uzon) van megadva, a "<város> és környéke" városba kerül
+        d.forras_tipus = "kezi";
+        const at = await kornyek.helyreTesz(d);
+        await kornyekMezok(d, req.body);
+
         await keruletPotlas(d);
 
         const hianyzo = hianyzoMezok(d, {
@@ -237,9 +260,9 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
             (link, ar, nm, arnm, szobak, emelet, allapot, eladva, x, y, varos, kerulet,
              tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
              kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, telepules, telek_jelleg, hely_sugar,
-             owner_id, hely_forras, hely_kezi, allapot_forras)
+             owner_id, hely_forras, hely_kezi, allapot_forras, varos_ok, varos_eredeti)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'aktiv','kezi',$18,$19::jsonb,'[]'::jsonb,$20::jsonb,$21,$22,$23,$24,$25,
-                    $26,$27,$28,$29)
+                    $26,$27,$28,$29,$30,$31)
             RETURNING id
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva, d.x, d.y,
@@ -248,7 +271,8 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
             req.body.forras_szoveg ? String(req.body.forras_szoveg).slice(0, 5000) : null,
             d.telepules, d.telek_jelleg, d.hely_sugar,
             req.user.id, d.x && d.y ? "kezi" : null, !!(d.x && d.y),
-            d.allapot ? "kezi" : null
+            d.allapot ? "kezi" : null,
+            at.athelyezve ? d.varos_ok : null, at.athelyezve ? d.varos_eredeti : null
         ]);
 
         const id = r.rows[0].id;
@@ -258,7 +282,7 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
 
         await client.query("COMMIT");
 
-        res.json({ siker: true, id });
+        res.json({ siker: true, id, varos: d.varos, athelyezve: !!at.athelyezve, telepules: d.telepules });
 
     } catch (err) {
 
@@ -292,13 +316,36 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 
         client = await db.connect();
 
-        const regi = await client.query("SELECT statusz, forras_tipus, jovahagyva, forras_kerulet, kerulet, x, y, hely_kezi, hely_forras, allapot, allapot_forras FROM ingatlanok WHERE id = $1", [id]);
+        const regi = await client.query("SELECT statusz, forras_tipus, jovahagyva, forras_kerulet, kerulet, x, y, hely_kezi, hely_forras, allapot, allapot_forras, varos, varos_kezi, varos_ok, varos_eredeti FROM ingatlanok WHERE id = $1", [id]);
 
         if (!regi.rowCount) return res.status(404).json({ error: "not_found" });
 
         const elozo = regi.rows[0];
 
         const d = normalize(req.body);
+
+        // Város és környéke: ha a városát kézzel átírták, az a döntés (az automatika
+        // többé nem mozgatja); különben ha a megadott település egy falu, a
+        // "<város> és környéke" városba kerül
+        let varosKezi = !!elozo.varos_kezi;
+        let varosOk = elozo.varos_ok || null;
+        let varosEredeti = elozo.varos_eredeti || null;
+        let athelyezve = false;
+
+        if (d.varos && elozo.varos && d.varos !== elozo.varos) {
+            varosKezi = true;
+            varosOk = (await kornyek.isKornyek(d.varos)) ? "kezi" : null;
+        } else if (!varosKezi) {
+            d.forras_tipus = elozo.forras_tipus;
+            const at = await kornyek.helyreTesz(d);
+            if (at.athelyezve) {
+                athelyezve = true;
+                varosOk = d.varos_ok;
+                varosEredeti = d.varos_eredeti;
+            }
+        }
+
+        await kornyekMezok(d, req.body);
         await keruletPotlas(d);
         const iroda = await irodaMezok(req, req.body);
         const ujKepek = parseKepek(req.body.kepek);
@@ -367,7 +414,8 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
                 telek_nm=$17, hely_pontossag=$18, kulso_kepek=$19::jsonb, statusz=$20,
                 hianyzo=$21::jsonb, tovabbi_linkek=COALESCE($22::jsonb, tovabbi_linkek),
                 problemak=$23::jsonb, ellenorzott=$24, jovahagyva=$25, telepules=$27,
-                telek_jelleg=$28, hely_sugar=$29, hely_kezi=$30, hely_forras=$31, allapot_forras=$32, updated_at=NOW()
+                telek_jelleg=$28, hely_sugar=$29, hely_kezi=$30, hely_forras=$31, allapot_forras=$32,
+                varos_kezi=$33, varos_ok=$34, varos_eredeti=$35, updated_at=NOW()
             WHERE id=$26
         `, [
             d.link, d.ar, d.nm, d.arnm, d.szobak, d.emelet, d.allapot, d.eladva,
@@ -375,7 +423,8 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
             d.telek_nm, d.hely_pontossag, JSON.stringify(d.kulso_kepek || []), statusz,
             JSON.stringify(hianyzo), d.tovabbi_linkek ? JSON.stringify(d.tovabbi_linkek) : null,
             JSON.stringify(q.problemak), q.ellenorzott, jovahagyva, id, d.telepules, d.telek_jelleg, d.hely_sugar,
-            helyKezi, helyForras, allapotForras
+            helyKezi, helyForras, allapotForras,
+            varosKezi, varosOk, varosEredeti
         ]);
 
         if (torlendo.length) {
@@ -390,7 +439,7 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 
         await client.query("COMMIT");
 
-        res.json({ siker: true, hianyzo, problemak: q.problemak, ellenorzott: q.ellenorzott, statusz });
+        res.json({ siker: true, hianyzo, problemak: q.problemak, ellenorzott: q.ellenorzott, statusz, varos: d.varos, athelyezve, telepules: d.telepules });
 
     } catch (err) {
 

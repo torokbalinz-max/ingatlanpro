@@ -336,33 +336,107 @@ function nevezetesHelyek(szoveg) {
 
 // ---------- Település (háznál, teleknél: nem a városban, hanem mellette) ----------
 
-// erős szövegek: cím, forrás szerinti város / környék – ha benne van a név, elhisszük
-// gyenge szöveg: leírás – csak "în X", "sat X", "comuna X" formában
-function telepulesKeres(varosRo, eros, gyenge) {
+// A hirdetési oldalak gyakran "Város (Megye)" formában írják a helyet:
+// "Sfantu Gheorghe (Covasna)", "Arcus, Covasna", "Covasna (judet)". A megye
+// neve NEM település – különben minden ilyen hirdetés Kovászna városba
+// kerülne. Ezeket a felismerés előtt kivesszük a szövegből.
+const MEGYE_RO = "(?:covasna|harghita|brasov|mures|cluj|hunedoara|alba|sibiu)";
 
-    const varosKulcs = Telepulesek.kulcs(varosRo);
-    const nevek = Telepulesek.LISTA
-        .flatMap(t => [{ t, k: Telepulesek.kulcs(t.ro) }, { t, k: Telepulesek.kulcs(t.hu) }])
-        .filter(x => x.k && x.k !== varosKulcs)
+function megyeNelkul(s) {
+
+    let t = " " + s + " ";
+
+    t = t.replace(new RegExp(`\\(\\s*(?:jud(?:etul|et)?\\.?\\s*)?${MEGYE_RO}\\s*\\)`, "g"), " ");
+    t = t.replace(new RegExp(`(?:^|[^a-z])(?:jud(?:etul|et)?\\.?|judet(?:ul)?|county|megye)\\s+${MEGYE_RO}(?=[^a-z]|$)`, "g"), " ");
+    t = t.replace(new RegExp(`(?:^|[^a-z])${MEGYE_RO}\\s*\\(?\\s*(?:jud(?:etul|et)?|judet(?:ul)?|county)(?=[^a-z]|$)\\.?\\)?`, "g"), " ");
+    t = t.replace(/(?:^|[^a-z])(?:kovaszna|hargita|brasso|maros|kolozs)\s+megye\w*/g, " ");
+    // "Arcus, Covasna" / "Sfantu Gheorghe/covasna" / "Belin - Covasna": a megye a hely után
+    t = t.replace(new RegExp(`([a-z])\\s*[,/]\\s*${MEGYE_RO}(?=[^a-z]|$)`, "g"), "$1 ");
+    t = t.replace(new RegExp(`([a-z])\\s+-\\s+${MEGYE_RO}(?=[^a-z]|$)`, "g"), "$1 ");
+
+    return t;
+
+}
+
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Helyre utaló szó a név előtt ("în Ozun", "comuna Reci", "satul Bita", "la Arcuș")
+const HELY_ELOTAG = "(?:in|la|din|spre|sat(?:ul)?|comuna|com\\.?|localitatea|localitate|loc\\.?|statiunea|orasul|oras)\\s+";
+
+// Magyar ragok a falu neve után ("Uzonban", "Illyefalván", "Kilyénben", "Árkoson")
+const HU_RAG = "(?:ban|ben|on|en|n|ba|be|ra|re|rol|tol|hoz|hez|nal|nel|i)";
+
+//  Település a szövegből (háznál, teleknél; a "... és környéke" városokban minden típusnál).
+//   varosRo:  a hirdetés városának román neve (a város maga nem "település")
+//   eros:     cím, forrás szerinti város / környék – ha benne van a név, elhisszük
+//   gyenge:   leírás – csak "în X", "sat X", "comuna X" (vagy magyar raggal: "Uzonban") formában
+//   opts.varos: a mi városkulcsunk (pl. "Sepsiszentgyorgy") – először a környékbeli falvakat nézzük
+//   opts.varosNevek: a város további nevei (magyar név, rövidítés), ezek sem települések
+//  -> a település román neve, vagy null
+// A nevek mintái egyszer készülnek el (sok hirdetésen fut végig)
+const NEV_MINTAK = new Map();
+
+function nevMinta(n) {
+    let m = NEV_MINTAK.get(n.k + (n.hu ? "|hu" : ""));
+    if (!m) {
+        const k = reEsc(n.k);
+        m = {
+            elotaggal: new RegExp(`(?:^|[^a-z])${HELY_ELOTAG}${k}(?=[^a-z]|$)`),
+            raggal: n.hu ? new RegExp(`(?:^|[^a-z])${k}${HU_RAG}(?=[^a-z]|$)`) : null,
+            megyevel: new RegExp(`(?:^|[^a-z])${k}\\s*[,(/-]\\s*(?:jud(?:etul|et)?\\.?\\s*)?${MEGYE_RO}(?=[^a-z]|$)`),
+            barhol: new RegExp(`(?:^|[^a-z])${k}(?=[^a-z]|$)`),
+            koznev: Telepulesek.koznev(n.k)
+        };
+        NEV_MINTAK.set(n.k + (n.hu ? "|hu" : ""), m);
+    }
+    return m;
+}
+
+function telepulesKeres(varosRo, eros, gyenge, opts = {}) {
+
+    const kizart = new Set([varosRo, ...(opts.varosNevek || [])].map(Telepulesek.kulcs).filter(Boolean));
+
+    const jelolt = lista => lista
+        .flatMap(t => [{ t, k: Telepulesek.kulcs(t.ro), hu: false }, { t, k: Telepulesek.kulcs(t.hu), hu: true }])
+        .filter(x => x.k && x.k.length >= 3 && !kizart.has(x.k))
         .sort((a, b) => b.k.length - a.k.length);
 
-    const illeszt = (szoveg, elotag) => {
-        const s = Telepulesek.kulcs(szoveg);
-        if (!s) return null;
-        for (const n of nevek) {
-            const re = new RegExp(`(^|[^a-z])${elotag}${n.k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`);
-            if (re.test(s)) return n.t.ro;
+    // Először a város környékének falvai, utána a többi
+    const sajat = opts.varos ? Telepulesek.regio(opts.varos) : [];
+    const csoportok = [jelolt(sajat), jelolt(Telepulesek.LISTA.filter(t => !sajat.includes(t)))];
+
+    const illeszt = (szoveg, csakJelolve) => {
+
+        const eredeti = Telepulesek.kulcs(szoveg);
+        if (!eredeti) return null;
+        const s = megyeNelkul(eredeti);
+
+        for (const nevek of csoportok) {
+            for (const n of nevek) {
+
+                // Gyors szűrés: ha a név (ékezet nélkül) elő sem fordul, nem kell a minta
+                if (!eredeti.includes(n.k)) continue;
+
+                const m = nevMinta(n);
+
+                // "Reci, Covasna" / "Bodoc (Covasna)": a megyével együtt egyértelmű
+                if (m.elotaggal.test(s) || (m.raggal && m.raggal.test(s)) || m.megyevel.test(eredeti)) return n.t.ro;
+                if (!csakJelolve && !m.koznev && m.barhol.test(s)) return n.t.ro;
+
+            }
         }
+
         return null;
+
     };
 
-    for (const e of eros) {
-        const x = illeszt(e, "");
+    for (const e of eros || []) {
+        const x = illeszt(e, false);
         if (x) return x;
     }
 
-    for (const g of gyenge) {
-        const x = illeszt(g, "(?:in|sat(?:ul)?|comuna|localitatea|loc\\.|com\\.) ");
+    for (const g of gyenge || []) {
+        const x = illeszt(g, true);
         if (x) return x;
     }
 

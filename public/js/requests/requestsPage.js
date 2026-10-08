@@ -273,7 +273,7 @@ class RequestsPage {
                 ${foto ? `<img src="${Utils.escape(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : `<span class="miniCardNoPhoto"><i class="${Types.get(i.tipus).icon}"></i></span>`}
                 <span class="miniCardBody">
                     <b>${Utils.price(i)}</b>
-                    <small>${i.nm ? Utils.num(i.nm) + " m²" : ""}${i.szobak ? " · " + i.szobak + " " + I18n.t("reqRooms") : ""}</small>
+                    <small>${i.nm ? Utils.nm(i.nm) : ""}${i.szobak ? " · " + i.szobak + " " + I18n.t("reqRooms") : ""}</small>
                     <small class="text-body-secondary text-truncate">${Utils.escape(CityManager.helyLabel(i))}</small>
                 </span>
             </a>`;
@@ -329,7 +329,7 @@ class RequestsPage {
                             <label class="form-label" for="reqOffer">${I18n.t("reqOfferLabel")}</label>
                             <select class="form-select mb-1" id="reqOffer">
                                 <option value="">${I18n.t("reqOfferNone")}</option>
-                                ${sajat.map(i => `<option value="${i.id}" ${illok[0] && illok[0].id === i.id ? "selected" : ""}>${i.illik ? "✓ " : ""}${Utils.escape(i.cim || Types.label(i.tipus))} – ${Utils.eur(i.ar)}${i.nm ? ", " + Utils.num(i.nm) + " m²" : ""}</option>`).join("")}
+                                ${sajat.map(i => `<option value="${i.id}" ${illok[0] && illok[0].id === i.id ? "selected" : ""}>${i.illik ? "✓ " : ""}${Utils.escape(i.cim || Types.label(i.tipus))} – ${Utils.eur(i.ar)}${i.nm ? ", " + Utils.nm(i.nm) : ""}</option>`).join("")}
                             </select>
                             <div class="form-text mb-3">${illok.length ? I18n.f("reqOfferMatching", { n: illok.length }) : I18n.t("reqOfferHelp")}</div>` : `
                             <div class="alert alert-light small">${I18n.t("reqNoOwnListings")} <a href="#new">${I18n.t("navPost")}</a></div>`}

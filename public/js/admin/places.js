@@ -20,12 +20,15 @@ AdminManager.renderPlaces = function () {
 
         CityManager.keruletek = keruletek;
 
-        // Az aktuális város elöl, utána akinek van kerülete, aztán ábécé
+        // Az aktuális város elöl, utána akinek van kerülete, aztán ábécé;
+        // a "<város> és környéke" közvetlenül a városa után
         const kDb = v => keruletek.filter(x => x.varos === v).length;
+        const alap = v => CityManager.varosAdat(v.anyavaros) || v;
         const varosok = [...CityManager.varosok].sort((a, b) =>
-            (b.nev === DataManager.currentCity) - (a.nev === DataManager.currentCity) ||
-            (kDb(b.nev) > 0) - (kDb(a.nev) > 0) ||
-            CityManager.displayName(a.nev).localeCompare(CityManager.displayName(b.nev), "hu"));
+            (alap(b).nev === DataManager.currentCity) - (alap(a).nev === DataManager.currentCity) ||
+            (kDb(alap(b).nev) > 0) - (kDb(alap(a).nev) > 0) ||
+            CityManager.displayName(alap(a).nev).localeCompare(CityManager.displayName(alap(b).nev), "hu") ||
+            (!!a.anyavaros - !!b.anyavaros));
 
         const esc = Utils.escape;
 
@@ -91,14 +94,36 @@ AdminManager.renderPlaces = function () {
                     const k = keruletek.filter(x => x.varos === v.nev)
                         .sort((a, b) => a.nev.localeCompare(b.nev, "hu"));
                     const nelkul = (ismeretlen.keruletNelkul || []).find(x => x.varos === v.nev);
+                    const kornyekVaros = CityManager.kornyekOf(v.nev);
+
+                    // Város és környéke: a kapcsolat jelzése, létrehozás, rendezés
+                    const kornyekSor = v.anyavaros
+                        ? `<div class="cityKornyek isKornyek">
+                                <i class="fa-solid fa-tree-city" aria-hidden="true"></i>
+                                <span>${I18n.f("placesIsKornyek", { varos: esc(CityManager.displayName(v.anyavaros)), n: Utils.num(v.db || 0) })}</span>
+                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto" data-kornyek-open="${esc(v.anyavaros)}">${I18n.t("placesKornyekOpen")}</button>
+                           </div>`
+                        : kornyekVaros
+                            ? `<div class="cityKornyek">
+                                    <i class="fa-solid fa-tree-city" aria-hidden="true"></i>
+                                    <span>${I18n.f("placesHasKornyek", { nev: esc(CityManager.displayName(kornyekVaros.nev)), n: Utils.num(kornyekVaros.db || 0) })}</span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-kornyek-open="${esc(v.nev)}">${I18n.t("placesKornyekOpen")}</button>
+                               </div>`
+                            : `<div class="cityKornyek muted">
+                                    <i class="fa-solid fa-tree-city" aria-hidden="true"></i>
+                                    <span>${I18n.t("placesNoKornyek")}</span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-kornyek-create="${v.id}">${I18n.t("placesKornyekCreate")}</button>
+                               </div>`;
+
                     return `
                         <div class="col-lg-6 col-xxl-4">
-                            <div class="card h-100">
+                            <div class="card h-100 ${v.anyavaros ? "cityCardKornyek" : ""}">
                                 <div class="card-header d-flex justify-content-between align-items-center gap-2">
-                                    <h6 class="mb-0"><i class="fa-solid fa-city" aria-hidden="true"></i> ${esc(CityManager.displayName(v.nev))} <span class="badge text-bg-light">${k.length}</span></h6>
-                                    ${nelkul && nelkul.db ? `<span class="small text-body-secondary">${I18n.f("placesWithout", { n: nelkul.db })}</span>` : ""}
+                                    <h6 class="mb-0"><i class="fa-solid ${v.anyavaros ? "fa-tree-city" : "fa-city"}" aria-hidden="true"></i> ${esc(CityManager.displayName(v.nev))} ${v.anyavaros ? "" : `<span class="badge text-bg-light">${k.length}</span>`}</h6>
+                                    ${nelkul && nelkul.db && !v.anyavaros ? `<span class="small text-body-secondary">${I18n.f("placesWithout", { n: nelkul.db })}</span>` : ""}
                                 </div>
-                                ${k.length ? `
+                                ${kornyekSor}
+                                ${k.length && !v.anyavaros ? `
                                 <div class="cityBorders">
                                     <i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>
                                     <span>${I18n.f("deBordersCount", { n: k.filter(x => Array.isArray(x.hatar) && x.hatar.length >= 3).length, ossz: k.length })}</span>
@@ -106,12 +131,16 @@ AdminManager.renderPlaces = function () {
                                 </div>` : ""}
                                 <div class="cityGeo" data-city-geo="${v.id}">
                                     <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
-                                    <span>${v.x && v.y
-                                        ? `${esc(v.nev_ro || "")}${v.megye ? " · " + esc(v.megye) : ""} · ${I18n.f("placesRadius", { km: v.sugar_km || 6 })}`
-                                        : `<span class="text-warning">${I18n.t("placesNoCenter")}</span>`}</span>
+                                    <span>${v.anyavaros
+                                        ? `${esc(v.nev_ro || "")}${v.nev_ro ? " · " : ""}${I18n.f("placesKornyekGeo", { varos: esc(CityManager.displayName(v.anyavaros)) })}`
+                                        : v.x && v.y
+                                            ? `${esc(v.nev_ro || "")}${v.megye ? " · " + esc(v.megye) : ""} · ${I18n.f("placesRadius", { km: v.sugar_km || 6 })}`
+                                            : `<span class="text-warning">${I18n.t("placesNoCenter")}</span>`}</span>
                                     <button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-geo-edit="${v.id}">${I18n.t("placesEdit")}</button>
                                 </div>
                                 <div class="card-body">
+                                    ${v.anyavaros ? `
+                                    <p class="small text-body-secondary mb-0">${I18n.t("placesKornyekNoDistricts")}</p>` : `
                                     <div class="districtList mb-3">
                                         ${k.length ? k.map(keruletSor).join("") : `<span class="text-body-secondary small">${I18n.t("placesNoDistricts")}</span>`}
                                     </div>
@@ -122,7 +151,7 @@ AdminManager.renderPlaces = function () {
                                         <button class="btn btn-sm btn-outline-primary" data-district-add="${esc(v.nev)}" aria-label="${I18n.t("newAddKerulet")}"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                                     </div>
 
-                                    ${ismeretlenBlokk(v.nev)}
+                                    ${ismeretlenBlokk(v.nev)}`}
                                 </div>
                             </div>
                         </div>`;
@@ -149,6 +178,21 @@ AdminManager.renderPlaces = function () {
                 body: JSON.stringify({ nev, nev_ro: document.getElementById("newCityRo").value.trim(), megye: document.getElementById("newCityMegye").value.trim() })
             }).then(() => CityManager.init()).then(() => AdminManager.renderPlaces());
         };
+
+        // Város és környéke: megnyitás az admin rendezőben / létrehozás
+        box.querySelectorAll("[data-kornyek-open]").forEach(b => {
+            b.onclick = () => { AdminManager.kornyekVaros = b.dataset.kornyekOpen; AdminManager.open("kornyek"); };
+        });
+
+        box.querySelectorAll("[data-kornyek-create]").forEach(b => {
+            b.onclick = () => {
+                b.disabled = true;
+                fetch(`/api/varosok/${b.dataset.kornyekCreate}/kornyek`, { method: "POST" })
+                    .then(r => { if (!r.ok) throw new Error(); return CityManager.init(); })
+                    .then(() => { Utils.toast(I18n.t("knCreated")); AdminManager.renderPlaces(); })
+                    .catch(() => { b.disabled = false; alert(I18n.t("alertSaveError")); });
+            };
+        });
 
         // Kerülethatárok rajzolása
         box.querySelectorAll("[data-borders]").forEach(b => {
@@ -284,6 +328,15 @@ AdminManager.cityGeoEdit = function (v) {
                 <div class="col-md-5"><label class="form-label" for="cgRo">${I18n.t("placesCityRo")}</label><input class="form-control" id="cgRo" lang="ro" value="${esc(v.nev_ro || "")}"></div>
                 <div class="col-md-4"><label class="form-label" for="cgMegye">${I18n.t("placesCounty")}</label><input class="form-control" id="cgMegye" value="${esc(v.megye || "")}"></div>
                 <div class="col-md-3"><label class="form-label" for="cgSugar">${I18n.t("placesRadiusLabel")}</label><input class="form-control" id="cgSugar" type="number" min="1" max="40" step="0.5" value="${v.sugar_km || 6}"></div>
+                <div class="col-12">
+                    <label class="form-label" for="cgAnya">${I18n.t("placesParentLabel")}</label>
+                    <select class="form-select" id="cgAnya">
+                        <option value="">${I18n.t("placesParentNone")}</option>
+                        ${CityManager.varosok.filter(x => x.nev !== v.nev && !x.anyavaros)
+                            .map(x => `<option value="${esc(x.nev)}" ${x.nev === v.anyavaros ? "selected" : ""}>${esc(I18n.f("placesParentOf", { varos: CityManager.displayName(x.nev) }))}</option>`).join("")}
+                    </select>
+                    <div class="form-text">${I18n.t("placesParentHelp")}</div>
+                </div>
             </div>
             <label class="form-label">${I18n.t("placesCenterLabel")}</label>
             <div id="cityGeoMap" class="locPicker"></div>
@@ -311,12 +364,18 @@ AdminManager.cityGeoEdit = function (v) {
                 nev_ro: document.getElementById("cgRo").value,
                 megye: document.getElementById("cgMegye").value,
                 sugar_km: document.getElementById("cgSugar").value,
+                anyavaros: document.getElementById("cgAnya").value,
                 x: h.x || v.x, y: h.y || v.y
             })
         }).then(r => {
             if (!r.ok) return alert(I18n.t("alertSaveError"));
             modal.hide();
-            CityManager.loadVarosok().then(() => AdminManager.renderPlaces());
+            CityManager.loadVarosok().then(() => {
+                CityManager.fillCitySelect(document.getElementById("citySelect"), DataManager.currentCity);
+                FilterManager.onTypeChange();
+                FilterManager.renderKornyekHint();
+                AdminManager.renderPlaces();
+            });
         });
     };
 

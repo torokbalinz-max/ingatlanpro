@@ -150,7 +150,7 @@ AdminManager.condOneHtml = function () {
 
     const adatok = [
         Types.label(i.tipus),
-        i.nm ? Utils.num(i.nm) + " m²" : null,
+        i.nm ? Utils.nm(i.nm) : null,
         i.szobak ? I18n.f("roomsLabel", { n: i.szobak }) : null,
         i.emelet ? `${I18n.t("floorWordCap")}: ${esc(i.emelet)}` : null,
         i.evszam ? `${I18n.t("condYear")}: ${i.evszam}` : null,
@@ -320,7 +320,7 @@ AdminManager.condGridHtml = function () {
                         </a>
                         <div class="condCardBody">
                             <div class="small fw-semibold text-truncate">${esc(i.cim || Types.label(i.tipus))}</div>
-                            <div class="small text-body-secondary">${Utils.price(i)}${i.nm ? " · " + Utils.num(i.nm) + " m²" : ""}${i.evszam ? " · " + i.evszam : ""}</div>
+                            <div class="small text-body-secondary">${Utils.price(i)}${i.nm ? " · " + Utils.nm(i.nm) : ""}${i.evszam ? " · " + i.evszam : ""}</div>
                             ${jav ? `<div class="small condSuggestMini" title="${esc(jav.ok)}"><i class="fa-solid fa-wand-magic-sparkles"></i> ${esc(Utils.allapotLabel(jav.ertek))}</div>` : ""}
                             <div class="condBtns small">${AdminManager.condButtons(i.allapot, jav && jav.ertek, true)}</div>
                         </div>

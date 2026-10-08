@@ -39,7 +39,7 @@ class NewPropertyMap {
             onPoint: (px, py) => {
                 const sel = document.getElementById("ujKerulet");
                 const varos = document.getElementById("ujVaros").value;
-                if (!sel || !Types.get(NewPropertyManager.tipus).fields.kerulet) return;
+                if (!sel || !Types.fieldsFor(NewPropertyManager.tipus, document.getElementById("ujVaros").value).kerulet) return;
                 // A megrajzolt kerülethatár dönt (pontos helynél felülírja a választást)
                 const hatar = typeof Districts !== "undefined" && NewPropertyMap.picker && NewPropertyMap.picker.mod === "pontos"
                     ? Districts.find(varos, px, py) : null;

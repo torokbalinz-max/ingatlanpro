@@ -5,16 +5,27 @@
 
 class HomePage {
 
-    // Fotók: Unsplash (szabadon felhasználható, forrásmegjelölés nélkül)
+    // Fotók: Unsplash (szabadon felhasználható, forrásmegjelölés nélkül) –
+    // erdélyi, romániai képek (nem a szokásos amerikai belsőépítészeti fotók)
     static FOTO = id => `https://images.unsplash.com/${id}?auto=format&fit=crop&q=75`;
 
     static KEPEK = {
-        hero: "photo-1636288087131-7e912d7d37cf",          // Brassó, ősszel
-        lakas: "photo-1560448204-e02f11c3d0e2",         // világos nappali
-        haz: "photo-1680645944941-da9198d7f6aa",        // családi ház zöld kerttel
-        telek: "photo-1625866529727-67ec4c3245d0",      // zöld dombok
-        kereskedelmi: "photo-1528698827591-e19ccd7bc23d" // üzletportál
+        hero: "photo-1644347760697-041c8324029f",          // színes óvárosi házsor, mögötte őszi erdős hegy (Brassó)
+        lakas: "photo-1755933780910-23850458afed",         // tömbházak, mögöttük a hegyek
+        haz: "photo-1620418739542-40fce94d7639",           // oszlopos tornácú erdélyi kúria
+        telek: "photo-1700156968085-164d37155f10",         // dombok közé épült falu
+        kereskedelmi: "photo-1696783576440-be3ba9abfdf7"   // üzletes óvárosi utca (Segesvár)
     };
+
+    // "Mit tudsz itt csinálni?" – az oldal funkciói egy pillantásra
+    static FUNKCIOK = [
+        { cls: "featBig featTint", icon: "fa-solid fa-magnifying-glass-location", cim: "homeFeatPropsTitle", szoveg: "homeFeatPropsText", pontok: ["homeFeatPropsB1", "homeFeatPropsB2", "homeFeatPropsB3"], hova: "properties" },
+        { cls: "featWide", icon: "fa-solid fa-map-location-dot", cim: "homeFeatMapTitle", szoveg: "homeFeatMapText", hova: "map" },
+        { cls: "featWide", icon: "fa-solid fa-calculator", cim: "homeFeatValTitle", szoveg: "homeFeatValText", hova: "valuation" },
+        { cls: "featThird", icon: "fa-solid fa-chart-line", cim: "homeFeatMarketTitle", szoveg: "homeFeatMarketText", hova: "market" },
+        { cls: "featThird", icon: "fa-solid fa-bullhorn", cim: "homeFeatReqTitle", szoveg: "homeFeatReqText", hova: "igenyek" },
+        { cls: "featThird", icon: "fa-solid fa-briefcase", cim: "homeFeatAgTitle", szoveg: "homeFeatAgText", hova: "irodak" }
+    ];
 
     static stats() {
 
@@ -153,6 +164,24 @@ class HomePage {
                 </div>
             </section>
 
+            <section class="homeSection">
+                <h2 class="homeH2">${t("homeFeaturesTitle")}</h2>
+                <div class="featGrid">
+                    ${HomePage.FUNKCIOK.map(f => `
+                        <a class="featCell ${f.cls}" href="#${f.hova}" data-feat="${f.hova}">
+                            <div class="featBody">
+                                <span class="featIcon"><i class="${f.icon}" aria-hidden="true"></i></span>
+                                <span class="featTitle">${t(f.cim)}</span>
+                                <span class="featText">${t(f.szoveg)}</span>
+                                ${f.pontok ? `<ul class="featList">${f.pontok.map(p => `<li><i class="fa-solid fa-check" aria-hidden="true"></i><span>${t(p)}</span></li>`).join("")}</ul>` : ""}
+                                <span class="featMore">${t("homeOpen")}<i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+                            </div>
+                        </a>`).join("")}
+                </div>
+            </section>
+
+            ${typeof AdSlots !== "undefined" ? `<div class="homeAd">${AdSlots.html("home")}</div>` : ""}
+
             <section class="homeHelpStrip">
                 <span class="homeHelpIcon"><i class="fa-solid fa-circle-question" aria-hidden="true"></i></span>
                 <div>
@@ -160,12 +189,7 @@ class HomePage {
                     <span>${t("homeHelpText")}</span>
                 </div>
                 <a class="btn btn-outline-primary btn-sm" href="#sugo">${t("homeHelpBtn")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
-            </section>
-
-            <footer class="homeFooter">
-                <span class="appBrand small"><span class="appBrandIcon"><i class="fa-solid fa-building" aria-hidden="true"></i></span><span translate="no">Ingatlan<b>Pro</b></span></span>
-                <span class="small text-body-secondary">${t("homePhotoCredit")}</span>
-            </footer>`;
+            </section>`;
 
         const ertek = () => ({
             ugylet: (box.querySelector('input[name="heroUgylet"]:checked') || {}).value || "elado",
@@ -179,6 +203,13 @@ class HomePage {
         });
 
         document.getElementById("heroMap").addEventListener("click", e => {
+            e.preventDefault();
+            HomePage.go({ ...ertek(), page: "map" });
+        });
+
+        // A térkép a keresés szűrőivel nyíljon (mint a hero-ban)
+        const terkep = box.querySelector('[data-feat="map"]');
+        if (terkep) terkep.addEventListener("click", e => {
             e.preventDefault();
             HomePage.go({ ...ertek(), page: "map" });
         });

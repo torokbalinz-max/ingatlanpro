@@ -11,6 +11,7 @@ const { hiba, csakBelepve } = require("../lib/http");
 const { ASZF_VERZIO } = require("../lib/jogi");
 const allapotok = require("../services/allapotok");
 const oldalAdatok = require("../services/oldalAdatok");
+const reklam = require("../services/reklam");
 
 const router = express.Router();
 
@@ -21,8 +22,10 @@ router.get("/api/config", async (req, res) => {
 
     let uzemelteto = null;
     let allapotLista = [];
+    let reklamAdat = { mutat: true, email: "" };
 
     try { uzemelteto = await oldalAdatok.nyilvanos(); } catch (e) { /* az alapértékek maradnak */ }
+    try { reklamAdat = await reklam.olvas(); } catch (e) { /* alapból látszanak a helyőrzők */ }
     try { await allapotok.kesz(); allapotLista = allapotok.nyilvanos(); } catch (e) { /* a beépített lista marad */ }
 
     res.json({
@@ -40,6 +43,8 @@ router.get("/api/config", async (req, res) => {
         },
         allapotok: allapotLista,
         uzemelteto,
+        // Bérelhető reklámfelületek (helyőrzők): látszanak-e, és hova írjanak az érdeklődők
+        reklam: { mutat: reklamAdat.mutat !== false, email: reklamAdat.email || (uzemelteto && uzemelteto.email) || "" },
         // Hibakereséshez: ha induláskor egy táblát nem sikerült létrehozni
         dbHibak: (db.schemaHibak || []).map(h => h.slice(0, 200))
     });

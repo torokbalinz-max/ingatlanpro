@@ -53,10 +53,25 @@ class Types {
 
     }
 
-    // A [data-field] elemek elrejtése, ha a típusnál nem értelmes
-    static applyFields(rootSelector, tipus) {
-
+    // A mezők egy adott városban: a "<város> és környéke" városban minden
+    // típusnál a település (melyik faluban van) számít, kerület nincs
+    static fieldsFor(tipus, varos) {
         const f = Types.get(tipus).fields;
+        if (varos && typeof CityManager !== "undefined" && CityManager.isKornyek(varos)) {
+            return { ...f, kerulet: false, telepules: true };
+        }
+        return f;
+    }
+
+    // Egy hirdetés mezői (a típusa és a városa szerint)
+    static fieldsOf(i) {
+        return Types.fieldsFor(i && i.tipus, i && i.varos);
+    }
+
+    // A [data-field] elemek elrejtése, ha a típusnál nem értelmes
+    static applyFields(rootSelector, tipus, varos) {
+
+        const f = Types.fieldsFor(tipus, varos);
 
         document.querySelectorAll(`${rootSelector} [data-field]`).forEach(el => {
             const k = el.dataset.field;

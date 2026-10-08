@@ -9,6 +9,10 @@ class FilterManager {
     static tipus = "lakas";
     static ugylet = "elado";
 
+    // Többes választók: kerületek, települések (falvak)
+    static keruletMS = null;
+    static telepulesMS = null;
+
     static renderTypes() {
 
         Types.renderGrid("searchTypeGrid", FilterManager.tipus, t => {
@@ -22,7 +26,11 @@ class FilterManager {
     // Típus/ügylet váltáskor a nem értelmes mezők eltűnnek
     static onTypeChange() {
 
-        Types.applyFields("#searchAside", FilterManager.tipus);
+        Types.applyFields("#searchAside", FilterManager.tipus, DataManager.currentCity);
+
+        // A darabszámok a típus / ügylet szerint változnak
+        FilterManager.renderKeruletek();
+        FilterManager.renderTelepulesek();
 
         document.getElementById("searchArLabel").innerText =
             I18n.t(FilterManager.ugylet === "kiado" ? "searchArRent" : "searchAr");
@@ -33,6 +41,25 @@ class FilterManager {
     }
 
     static init() {
+
+        FilterManager.keruletMS = new MultiSelect("keresoKeruletMS", {
+            id: "keresoKerulet",
+            label: v => CityManager.keruletLabel(v, DataManager.currentCity),
+            noOptions: () => I18n.t("msNoDistricts"),
+            onChange: () => FilterManager.apply()
+        });
+
+        FilterManager.telepulesMS = new MultiSelect("keresoTelepulesMS", {
+            id: "keresoTelepules",
+            label: v => v === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(v),
+            noOptions: () => I18n.t("msNoVillages"),
+            onChange: () => FilterManager.apply()
+        });
+
+        I18n.onChange(() => {
+            FilterManager.keruletMS.renderTexts();
+            FilterManager.telepulesMS.renderTexts();
+        });
 
         FilterManager.renderTypes();
 
@@ -69,7 +96,7 @@ class FilterManager {
         });
 
         // Legördülők azonnal szűrnek
-        ["allapot", "keresoKerulet", "keresoTelepules", "keresoHely", "keresoJelleg"].forEach(id => {
+        ["allapot", "keresoHely", "keresoJelleg"].forEach(id => {
             document.getElementById(id).addEventListener("change", () => FilterManager.apply());
         });
 
@@ -91,9 +118,12 @@ class FilterManager {
             DataManager.setCity(this.value);
 
             // Új városnál a kerület- és forrásszűrő nem értelmezhető
-            document.getElementById("keresoKerulet").value = "";
-            document.getElementById("keresoTelepules").value = "";
+            FilterManager.keruletMS.clear(true);
+            FilterManager.telepulesMS.clear(true);
             FilterManager.selectedSources = null;
+
+            // A környék-városban a település számít (kerület nincs)
+            FilterManager.onTypeChange();
 
             CityManager.loadSearchKeruletek(this.value);
 
@@ -178,6 +208,10 @@ class FilterManager {
             return v === "" ? null : Number(v);
         };
 
+        const f = Types.fieldsFor(FilterManager.tipus, DataManager.currentCity);
+        const keruletek = f.kerulet && FilterManager.keruletMS ? FilterManager.keruletMS.values : [];
+        const telepulesek = f.telepules && FilterManager.telepulesMS ? FilterManager.telepulesMS.values : [];
+
         return {
             varos: DataManager.currentCity,
             tipus: FilterManager.tipus,
@@ -194,8 +228,11 @@ class FilterManager {
             maxEmelet: n("maxEmelet"),
             jelleg: FilterManager.tipus === "telek" ? document.getElementById("keresoJelleg").value : "",
             allapot: document.getElementById("allapot").value,
-            kerulet: Types.get(FilterManager.tipus).fields.kerulet ? document.getElementById("keresoKerulet").value : "",
-            telepules: Types.get(FilterManager.tipus).fields.telepules ? document.getElementById("keresoTelepules").value : "",
+            // Több kerület / település egyszerre; a régi egy-értékes mező csak akkor, ha egy van kiválasztva
+            keruletek,
+            telepulesek,
+            kerulet: keruletek.length === 1 ? keruletek[0] : "",
+            telepules: telepulesek.length === 1 ? telepulesek[0] : "",
             hely: document.getElementById("keresoHely").value,
             sources: FilterManager.selectedSources
         };
@@ -233,10 +270,13 @@ class FilterManager {
 
         if (f.allapot && Utils.normAllapot(i.allapot) !== f.allapot) return false;
 
-        if (f.kerulet && (i.kerulet || "") !== f.kerulet) return false;
+        // Kerületek (bármelyik); a régi, egy-értékes mentett szűrő is működik
+        const keruletek = f.keruletek && f.keruletek.length ? f.keruletek : (f.kerulet ? [f.kerulet] : []);
+        if (keruletek.length && !keruletek.includes(i.kerulet || "")) return false;
 
-        if (f.telepules === "_varos" && i.telepules) return false;
-        if (f.telepules && f.telepules !== "_varos" && (i.telepules || "") !== f.telepules) return false;
+        // Települések (bármelyik); "_varos" = magában a városban
+        const telepulesek = f.telepulesek && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
+        if (telepulesek.length && !telepulesek.includes(i.telepules || "_varos")) return false;
 
         if (f.hely && (i.hely_pontossag || (i.x && i.y ? "pontos" : "nincs")) !== f.hely &&
             !(f.hely === "pontos" && i.hely_pontossag === "utca")) return false;
@@ -247,22 +287,104 @@ class FilterManager {
 
     }
 
-    // Háznál, teleknél: a városban / melyik szomszéd településen (a betöltött hirdetésekből)
+    // A darabszámokhoz: a betöltött hirdetések az aktuális típusban, ügyletben
+    static tipusSzerint() {
+        return (DataManager.ingatlanok || []).filter(i =>
+            (i.tipus || "lakas") === FilterManager.tipus && (i.ugylet || "elado") === FilterManager.ugylet && !i.dup);
+    }
+
+    // Kerületek (több is kiválasztható), darabszámmal
+    static renderKeruletek() {
+
+        const ms = FilterManager.keruletMS;
+        if (!ms) return;
+
+        const varos = DataManager.currentCity;
+        const db = new Map();
+        FilterManager.tipusSzerint().forEach(i => { if (i.kerulet) db.set(i.kerulet, (db.get(i.kerulet) || 0) + 1); });
+
+        const lista = CityManager.searchKeruletek(varos).slice()
+            .sort((a, b) => CityManager.keruletLabelOf(a).localeCompare(CityManager.keruletLabelOf(b), I18n.current));
+
+        ms.setOptions(lista.map(k => {
+            const masik = I18n.current === "hu" ? k.nev_ro : k.nev;
+            const fo = CityManager.keruletLabelOf(k);
+            return { value: k.nev, label: fo, hint: masik && masik !== fo ? masik : "", count: db.get(k.nev) || 0 };
+        }));
+
+    }
+
+    // Háznál, teleknél (és a környék-városban mindennél): a városban / melyik faluban
     static renderTelepulesek() {
 
-        const sel = document.getElementById("keresoTelepules");
-        if (!sel) return;
+        const ms = FilterManager.telepulesMS;
+        if (!ms) return;
 
-        const keep = sel.value;
-        const nevek = [...new Set(DataManager.ingatlanok.map(i => i.telepules).filter(Boolean))]
+        const kornyek = CityManager.isKornyek(DataManager.currentCity);
+        const lista = FilterManager.tipusSzerint();
+        const db = new Map();
+        lista.forEach(i => { const k = i.telepules || "_varos"; db.set(k, (db.get(k) || 0) + 1); });
+
+        // Az összes típus falvai (hogy típusváltáskor se tűnjön el egy falu a listából)
+        const nevek = [...new Set((DataManager.ingatlanok || []).map(i => i.telepules).filter(Boolean))]
             .sort((a, b) => CityManager.telepulesLabel(a).localeCompare(CityManager.telepulesLabel(b), I18n.current));
 
-        sel.innerHTML = `<option value="">${I18n.t("allapotMindegy")}</option>` +
-            `<option value="_varos">${I18n.t("telepulesVarosban")}</option>` +
-            nevek.map(n => `<option value="${Utils.escape(n)}">${Utils.escape(CityManager.telepulesLabel(n))}</option>`).join("");
+        const opciok = nevek.map(n => {
+            const fo = CityManager.telepulesLabel(n);
+            const masik = I18n.current === "hu" ? n : Telepulesek.nev(n, "hu");
+            return { value: n, label: fo, hint: masik && masik !== fo ? masik : "", count: db.get(n) || 0 };
+        });
 
-        if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+        // A környék-városban nincs "a városban" (ott csak falvak vannak)
+        if (!kornyek) opciok.unshift({ value: "_varos", label: I18n.t("telepulesVarosban"), count: db.get("_varos") || 0 });
 
+        ms.setOptions(opciok);
+
+    }
+
+    //  A kereső alatti tipp:
+    //   - a városban: "+ N hirdetés a környező falvakban → <város> és környéke"
+    //   - a környék-városban: "← vissza a városba"
+    static renderKornyekHint() {
+
+        const box = document.getElementById("kornyekHint");
+        if (!box) return;
+
+        const varos = DataManager.currentCity;
+        const anya = CityManager.parentOf(varos);
+        const k = anya ? null : CityManager.kornyekOf(varos);
+
+        let html = "";
+
+        if (anya) {
+            html = `<i class="fa-solid fa-tree-city" aria-hidden="true"></i>
+                <div>
+                    <span>${I18n.f("kornyekHintIn", { varos: Utils.escape(CityManager.displayName(anya)) })}</span>
+                    <button type="button" class="btn btn-link btn-sm p-0" data-varos="${Utils.escape(anya)}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> ${I18n.f("kornyekHintBack", { varos: Utils.escape(CityManager.displayName(anya)) })}</button>
+                </div>`;
+        } else if (k && k.db > 0) {
+            html = `<i class="fa-solid fa-tree-city" aria-hidden="true"></i>
+                <div>
+                    <span>${I18n.f("kornyekHintOut", { n: Utils.num(k.db) })}</span>
+                    <button type="button" class="btn btn-link btn-sm p-0" data-varos="${Utils.escape(k.nev)}">${Utils.escape(CityManager.displayName(k.nev))} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                </div>`;
+        }
+
+        box.innerHTML = html;
+        box.hidden = !html;
+
+        const btn = box.querySelector("[data-varos]");
+        if (btn) btn.onclick = () => FilterManager.setCity(btn.dataset.varos);
+
+    }
+
+    // Városváltás kódból (ugyanaz, mintha a listában választották volna)
+    static setCity(varos) {
+        const sel = document.getElementById("citySelect");
+        if (!sel || !varos) return;
+        if (![...sel.options].some(o => o.value === varos)) CityManager.fillCitySelect(sel, varos);
+        sel.value = varos;
+        sel.dispatchEvent(new Event("change"));
     }
 
     static apply() {
@@ -305,8 +427,8 @@ class FilterManager {
         });
 
         document.getElementById("allapot").value = "";
-        document.getElementById("keresoKerulet").value = "";
-        document.getElementById("keresoTelepules").value = "";
+        FilterManager.keruletMS.clear(true);
+        FilterManager.telepulesMS.clear(true);
         document.getElementById("keresoHely").value = "";
         document.getElementById("keresoJelleg").value = "";
         document.getElementById("hideDuplicates").checked = true;
@@ -342,8 +464,10 @@ class FilterManager {
         if (f.minEmelet !== null || f.maxEmelet !== null) chips.push(`${I18n.t("floorWordCap")}: ${tart(f.minEmelet, f.maxEmelet)}`);
         if (f.jelleg) chips.push(I18n.t("jelleg_" + f.jelleg));
         if (f.allapot) chips.push(`${I18n.t("allapot")}: ${Utils.allapotLabel(f.allapot)}`);
-        if (f.kerulet) chips.push(`${I18n.t("kerulet")}: ${Utils.escape(CityManager.keruletLabel(f.kerulet, f.varos))}`);
-        if (f.telepules) chips.push(`${I18n.t("telepulesLabel")}: ${Utils.escape(f.telepules === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(f.telepules))}`);
+        const keruletek = f.keruletek && f.keruletek.length ? f.keruletek : (f.kerulet ? [f.kerulet] : []);
+        const telepulesek = f.telepulesek && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
+        if (keruletek.length) chips.push(`${I18n.t(keruletek.length > 1 ? "keruletekLabel" : "kerulet")}: ${Utils.escape(FilterManager.felsorol(keruletek.map(k => CityManager.keruletLabel(k, f.varos))))}`);
+        if (telepulesek.length) chips.push(`${I18n.t("telepulesLabel")}: ${Utils.escape(FilterManager.felsorol(telepulesek.map(t => t === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(t))))}`);
         if (f.hely) chips.push(`${I18n.t("filterHely")}: ${Utils.escape(I18n.t("hely_" + f.hely))}`);
 
         if (f.sources !== null && f.sources !== undefined) {
@@ -353,6 +477,12 @@ class FilterManager {
 
         return chips;
 
+    }
+
+    // "Lenin, Központ" / "Lenin, Központ, Csíki és 2 további"
+    static felsorol(lista) {
+        if (lista.length <= 3) return lista.join(", ");
+        return I18n.f("listMore", { list: lista.slice(0, 3).join(", "), n: lista.length - 3 });
     }
 
     static isFiltered() {

@@ -53,6 +53,8 @@ class NewPropertyManager {
         // különben ellenőrzi, hogy a pont nem esik-e messze
         document.getElementById("ujVaros").addEventListener("change", () => {
             if (NewPropertyMap.picker) NewPropertyMap.picker.varosValtas();
+            // A "<város> és környéke" városban minden típusnál a falu kell (kerület nincs)
+            NewPropertyManager.applyType();
         });
 
         ["ujLink", "ujAr", "ujNm"].forEach(id => {
@@ -104,7 +106,7 @@ class NewPropertyManager {
 
     static applyType() {
 
-        Types.applyFields("#page-new", NewPropertyManager.tipus);
+        Types.applyFields("#page-new", NewPropertyManager.tipus, document.getElementById("ujVaros").value);
 
         document.getElementById("ujArLabel").innerText =
             I18n.t(NewPropertyManager.ugylet === "kiado" ? "newArRent" : "newAr");
@@ -116,9 +118,14 @@ class NewPropertyManager {
         const req = document.getElementById("newHelyReq");
         if (req) req.style.display = NewPropertyManager.tipus === "telek" ? "none" : "";
 
-        // A település-javaslatok nyelv szerint
+        // A település-javaslatok nyelv szerint (a környék-városban a város falvai elöl)
         const dl = document.getElementById("telepulesLista");
-        if (dl) dl.innerHTML = Telepulesek.LISTA.map(t => `<option value="${Utils.escape(I18n.current === "hu" ? t.hu : t.ro)}">`).join("");
+        if (dl) {
+            const varos = document.getElementById("ujVaros").value;
+            const regio = CityManager.parentOf(varos) || varos;
+            const lista = [...Telepulesek.regio(regio), ...Telepulesek.LISTA.filter(t => t.regio !== regio)];
+            dl.innerHTML = lista.map(t => `<option value="${Utils.escape(I18n.current === "hu" ? t.hu : t.ro)}">`).join("");
+        }
 
         NewPropertyManager.updatePreview();
 
@@ -486,7 +493,7 @@ class NewPropertyManager {
     // Ugyanaz a szabály, mint a szerveren (listing.js)
     static missing(d) {
 
-        const f = Types.get(d.tipus).fields;
+        const f = Types.fieldsFor(d.tipus, d.varos);
         const h = [];
         const local = !d.link;
 
@@ -594,7 +601,7 @@ class NewPropertyManager {
                 set("ujCim", i.cim);
                 set("ujLeiras", i.leiras);
                 set("ujAr", i.ar);
-                set("ujNm", i.nm);
+                set("ujNm", i.nm ? Math.round(Number(i.nm) * 100) / 100 : "");
                 set("ujTelekNm", i.telek_nm);
                 set("ujSzobak", i.szobak);
                 set("ujTelepules", i.telepules ? CityManager.telepulesLabel(i.telepules) : "");
@@ -727,10 +734,16 @@ class NewPropertyManager {
                 throw new Error(v.message || v.error || ("HTTP " + status));
             }
 
+            // Ha egy faluban van, a "<város> és környéke" városba került
+            const varos = v.varos || d.varos;
+            const athelyezes = v.athelyezve
+                ? "\n\n" + I18n.f("kornyekMoved", { varos: CityManager.displayName(varos), falu: v.telepules ? CityManager.telepulesLabel(v.telepules) : "–" })
+                : "";
+
             if (v.hianyzo && v.hianyzo.length) {
-                alert(I18n.t("alertSavedIncomplete") + "\n" + v.hianyzo.map(m => "• " + I18n.t("field_" + m)).join("\n"));
+                alert(I18n.t("alertSavedIncomplete") + "\n" + v.hianyzo.map(m => "• " + I18n.t("field_" + m)).join("\n") + athelyezes);
             } else {
-                alert(I18n.t("alertSaveSuccess"));
+                alert(I18n.t("alertSaveSuccess") + athelyezes);
             }
 
             const ujId = v.id || NewPropertyManager.editId;
@@ -738,10 +751,11 @@ class NewPropertyManager {
             NewPropertyManager.editId = null;
             NewPropertyManager.clearForm();
 
-            if (d.varos !== DataManager.currentCity) {
-                DataManager.setCity(d.varos);
-                CityManager.fillCitySelect(document.getElementById("citySelect"), d.varos);
-                CityManager.loadSearchKeruletek(d.varos);
+            if (varos !== DataManager.currentCity) {
+                DataManager.setCity(varos);
+                CityManager.fillCitySelect(document.getElementById("citySelect"), varos);
+                CityManager.loadSearchKeruletek(varos);
+                FilterManager.onTypeChange();
             }
 
             DataManager.init();

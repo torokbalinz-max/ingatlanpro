@@ -160,9 +160,8 @@ function szam(v) {
 }
 
 function szuroEgyezik(i, f) {
-    if (f.kerulet && (i.kerulet || "") !== f.kerulet) return false;
-    if (f.telepules === "_varos" && i.telepules) return false;
-    if (f.telepules && f.telepules !== "_varos" && (i.telepules || "") !== f.telepules) return false;
+    if (f.keruletek.length && !f.keruletek.includes(i.kerulet || "")) return false;
+    if (f.telepulesek.length && !(i.telepules ? f.telepulesek.includes(i.telepules) : f.telepulesek.includes("_varos"))) return false;
     if (f.allapot && normAllapot(i.allapot) !== f.allapot) return false;
     if (f.jelleg && i.telek_jelleg !== f.jelleg) return false;
     if (f.minSzoba !== null && (i.szobak || 0) < f.minSzoba) return false;
@@ -178,14 +177,25 @@ function szuroEgyezik(i, f) {
     return true;
 }
 
+// Lista a kérésből: "a,b" / ["a", "b"] / egy érték
+function lista(v) {
+    if (Array.isArray(v)) return v.map(x => String(x || "").trim()).filter(Boolean);
+    return String(v || "").split("|").map(x => x.trim()).filter(Boolean);
+}
+
 // A kérés szűrői egységesen
 function szurok(q) {
+    // Több kerület / település egyszerre (keruletek=a|b), vagy a régi egy érték
+    const keruletek = lista(q.keruletek).length ? lista(q.keruletek) : lista(q.kerulet);
+    const telepulesek = lista(q.telepulesek).length ? lista(q.telepulesek) : lista(q.telepules);
     return {
         varos: String(q.varos || "").trim(),
         tipus: String(q.tipus || "lakas"),
         ugylet: String(q.ugylet || "elado"),
-        kerulet: String(q.kerulet || ""),
-        telepules: String(q.telepules || ""),
+        kerulet: keruletek.length === 1 ? keruletek[0] : "",
+        telepules: telepulesek.length === 1 ? telepulesek[0] : "",
+        keruletek,
+        telepulesek,
         allapot: String(q.allapot || ""),
         jelleg: String(q.jelleg || ""),
         minSzoba: szam(q.minSzoba), maxSzoba: szam(q.maxSzoba),

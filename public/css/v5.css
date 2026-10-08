@@ -1,0 +1,418 @@
+/* ==========================================================================
+   INGATLANPRO – 5. változat: több kerület egyszerre (többes választó),
+   város és környéke, térkép (egy ponton álló hirdetések), értékbecslő,
+   kezdőlap funkciói, bérelhető reklámfelületek
+   ========================================================================== */
+
+/* ---------- Többes választó (js/core/multiSelect.js) ---------- */
+
+.msSelect { position: relative; }
+
+.msToggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    min-height: calc(1.5em + 0.75rem + 2px);
+}
+
+.msToggle .msSummary {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.msToggle.msHasValue {
+    border-color: color-mix(in srgb, var(--ip-accent) 55%, var(--ip-border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ip-accent) 25%, transparent);
+    font-weight: 600;
+}
+
+.msMenu {
+    /* mindig a mező alatt nyílik (data-bs-display="static") */
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    min-width: 240px;
+    padding: 0.4rem;
+    border-radius: var(--ip-radius-sm);
+    box-shadow: var(--ip-shadow-lift);
+}
+
+.msSearchBox { padding: 0.15rem 0.15rem 0.4rem; }
+
+.msList {
+    max-height: 290px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.msItem {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.5rem;
+    margin: 0;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 0.92rem;
+    user-select: none;
+}
+
+.msItem:hover { background: var(--ip-surface-2); }
+.msItem .form-check-input { margin: 0; flex: none; }
+.msItem .msLabel { flex: 1 1 auto; min-width: 0; }
+.msItem .msLabel small { color: var(--ip-muted); }
+.msItem.msZero .msLabel { color: var(--ip-muted); }
+
+.msCount {
+    flex: none;
+    min-width: 1.6rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: var(--ip-surface-2);
+    color: var(--ip-muted);
+    font-size: 0.75rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.msEmpty { padding: 0.6rem 0.5rem; color: var(--ip-muted); font-size: 0.88rem; }
+
+.msFoot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.25rem 0.1rem;
+    margin-top: 0.3rem;
+    border-top: 1px solid var(--ip-border);
+}
+
+/* ---------- Kereső: a környező falvak tippje ---------- */
+
+.kornyekHint {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-accent-soft);
+    font-size: 0.85rem;
+    line-height: 1.35;
+}
+
+.kornyekHint[hidden] { display: none; }
+.kornyekHint > i { color: var(--ip-accent); margin-top: 0.15rem; }
+.kornyekHint > div { min-width: 0; }
+.kornyekHint .btn-link { font-weight: 600; text-decoration: none; font-size: 0.85rem; text-align: left; }
+
+/* ---------- Térkép: egy ponton álló hirdetések, rejtett hirdetések ---------- */
+
+.stackMarker { background: none; border: 0; }
+
+.stackDot {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    background: var(--stack, #1f6f5c);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 0 2px color-mix(in srgb, var(--stack, #1f6f5c) 35%, transparent);
+    color: #fff;
+}
+
+.stackDot b { font-size: 12px; line-height: 1; font-weight: 700; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); }
+
+.mapLegend i.legendStack {
+    display: inline-grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ip-accent);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+    color: #fff;
+    font-size: 8px;
+    font-style: normal;
+    font-weight: 700;
+    box-sizing: border-box;
+}
+
+.mapGroupItem .t small {
+    display: block;
+    color: var(--ip-muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mapGroupItem b { white-space: nowrap; }
+
+.mapGroupItem.active {
+    background: var(--ip-accent-soft);
+    box-shadow: inset 3px 0 0 var(--ip-accent);
+}
+
+.mapHiddenNote {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.mapNoteRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--ip-warn) 30%, var(--ip-border));
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-warn-soft);
+    font-size: 0.88rem;
+}
+
+.mapNoteRow > span { flex: 1 1 auto; min-width: 200px; }
+.mapNoteRow > span > i { color: var(--ip-warn); margin-right: 0.3rem; }
+
+/* ---------- Értékbecslő ---------- */
+
+.valLinked {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--ip-accent) 30%, var(--ip-border));
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-accent-soft);
+    font-size: 0.88rem;
+}
+
+.valLinked > i { color: var(--ip-accent); margin-top: 0.2rem; }
+.valLinked b { display: block; }
+.valLinked small { display: block; color: var(--ip-muted); line-height: 1.35; }
+.valLinked .btn-close { flex: none; font-size: 0.7rem; margin-top: 0.15rem; }
+
+.valSegment {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin-top: 1rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-surface-2);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.valSegment > i { color: var(--ip-accent); margin-top: 0.2rem; }
+.valSegment.uj > i { color: #0891b2; }
+
+.valNewBadge { font-size: 0.65rem; vertical-align: 0.1em; font-weight: 600; }
+
+/* ---------- Kezdőlap: funkciók ---------- */
+
+/* Egy nagy (a keresés, felsorolással) + mellette két fél, alattuk három harmad */
+.featCell { cursor: pointer; }
+.featGrid .featBig { grid-column: span 6; grid-row: span 2; }
+
+@media (max-width: 1199.98px) {
+    .featGrid .featBig { grid-column: span 12; grid-row: auto; }
+}
+
+/* ---------- Bérelhető reklámfelületek (js/core/ads.js) ----------
+   Mindig a tartalom között (sosem fölötte), jól láthatóan "Hirdetés"
+   felirattal, és nem nagyobb, mint a szokásos méret. */
+
+.adSlot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-inline: auto;
+    padding: 1.1rem 1rem 1rem;
+    border: 1.5px dashed color-mix(in srgb, var(--ip-muted) 45%, var(--ip-border));
+    border-radius: var(--ip-radius);
+    --adStripe: rgba(27, 37, 32, 0.035);
+    background:
+        repeating-linear-gradient(135deg, transparent 0 14px, var(--adStripe) 14px 28px),
+        var(--ip-surface);
+    color: var(--ip-muted);
+    text-align: center;
+    overflow: hidden;
+}
+
+[data-bs-theme="dark"] .adSlot { --adStripe: rgba(255, 255, 255, 0.022); }
+
+.adTag {
+    position: absolute;
+    top: 0.45rem;
+    left: 0.65rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ip-muted);
+    opacity: 0.85;
+}
+
+.adInner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem 1rem;
+}
+
+.adIcon {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--ip-surface-2);
+    color: var(--ip-muted);
+}
+
+.adText { display: flex; flex-direction: column; gap: 0.1rem; }
+.adText b { color: var(--ip-text); font-weight: 650; font-size: 0.98rem; }
+.adText small { font-size: 0.78rem; }
+
+.adCta { white-space: nowrap; }
+
+/* 970×250 – telefonon arányosan kisebb */
+.ad-billboard { max-width: 970px; min-height: 250px; }
+
+/* 300×250 a kereső alatt */
+.ad-rectangle { max-width: 300px; min-height: 250px; }
+.ad-rectangle .adInner { flex-direction: column; }
+
+/* 728×90 */
+.ad-leaderboard { max-width: 728px; min-height: 90px; padding-top: 1.3rem; }
+
+/* A hirdetéskártyák között: akkora, mint egy kártya */
+.ad-card { height: 100%; min-height: 300px; }
+.ad-card .adInner { flex-direction: column; }
+
+.adSideBox { margin-top: 1rem; }
+.adSideBox .adSlot { margin-inline: 0; }
+
+.homeAd { margin: clamp(2.5rem, 5vw, 4rem) 0 0; }
+
+@media (max-width: 767.98px) {
+    .ad-billboard { min-height: 160px; }
+    .ad-leaderboard { min-height: 80px; }
+    .ad-card { min-height: 200px; }
+}
+
+@media print {
+    .adSlot, .adSideBox, .homeAd, .adFeedCol { display: none !important; }
+}
+
+/* ---------- Admin – Város és környéke ---------- */
+
+.knList { display: flex; flex-direction: column; gap: 0.25rem; }
+
+/* jelölő | kép | cím, adatok, ok – alatta a műveletek */
+.knRow {
+    display: grid;
+    grid-template-columns: auto 52px minmax(0, 1fr);
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+    padding: 0.6rem 0.5rem;
+    border-radius: var(--ip-radius-sm);
+    transition: background 0.3s;
+}
+
+.knRow + .knRow { border-top: 1px solid var(--ip-border); }
+.knRow:hover { background: var(--ip-surface-2); }
+.knRow.flash { background: var(--ip-accent-soft); }
+
+.knThumb {
+    width: 52px;
+    height: 40px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    background: var(--ip-surface-2);
+    color: var(--ip-muted);
+}
+
+.knThumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.knTitle {
+    display: block;
+    font-weight: 600;
+    color: var(--ip-text);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.knTitle:hover { color: var(--ip-accent); }
+.knReason { color: var(--ip-muted); margin-top: 0.1rem; }
+.knReason i { color: var(--ip-accent); }
+
+.knActions {
+    grid-column: 3;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.knActions .knFalu { width: auto; max-width: 240px; }
+
+.knGroup + .knGroup { margin-top: 1rem; }
+
+.knGroupHead {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: var(--ip-radius-sm);
+    background: var(--ip-surface-2);
+    margin-bottom: 0.25rem;
+}
+
+.knMap { height: 300px; border-radius: var(--ip-radius-sm); }
+
+@media (max-width: 767.98px) {
+    .knRow { grid-template-columns: auto 44px minmax(0, 1fr); }
+    .knActions { grid-column: 1 / -1; }
+}
+
+/* ---------- Admin – Városok: a környék kapcsolata ---------- */
+
+.cityKornyek {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--ip-border);
+    font-size: 0.85rem;
+    color: var(--ip-muted);
+}
+
+.cityKornyek > i { color: var(--ip-accent); }
+.cityKornyek.muted > i { color: var(--ip-muted); }
+.cityKornyek.isKornyek { background: var(--ip-accent-soft); color: var(--ip-text); }
+
+.cityCardKornyek { border-color: color-mix(in srgb, var(--ip-accent) 30%, var(--ip-border)); }
+
+/* A kártyán belüli részcím ne kapjon felső térközt */
+.card-body > .adminSectionHead:first-child { margin-top: 0; }

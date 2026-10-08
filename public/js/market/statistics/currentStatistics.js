@@ -249,7 +249,7 @@ class CurrentStatistics {
                 <div class="list-group list-group-flush">
                     ${top.map(i => `
                         <a href="#listing/${i.id}" class="list-group-item list-group-item-action bestRow" data-open-listing="${i.id}">
-                            <span class="bestTitle">${Utils.escape(i.cim || Types.label(i.tipus))}<small>${Utils.escape(CityManager.helyLabel(i))}${i.nm ? " · " + Utils.num(i.nm) + " m²" : ""}</small></span>
+                            <span class="bestTitle">${Utils.escape(i.cim || Types.label(i.tipus))}<small>${Utils.escape(CityManager.helyLabel(i))}${i.nm ? " · " + Utils.nm(i.nm) : ""}</small></span>
                             <span class="text-end text-nowrap"><b>${Utils.eurNm(Utils.arNm(i))}</b><small>${Utils.price(i)}</small></span>
                             ${CurrentStatistics.diffBadge(Utils.arNm(i), atlag)}
                         </a>`).join("")}

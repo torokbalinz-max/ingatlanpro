@@ -13,7 +13,7 @@ class UIManager {
 
         document.getElementById("detailAr").innerText = Utils.price(i);
         document.getElementById("detailArNm").innerText = Utils.eurNm(Utils.arNm(i));
-        document.getElementById("detailNm").innerText = i.nm ? Utils.num(i.nm) + " m²" : "-";
+        document.getElementById("detailNm").innerText = i.nm ? Utils.nm(i.nm) : "-";
         document.getElementById("detailSzoba").innerText = t.fields.szobak ? (i.szobak ?? "-") : "–";
         document.getElementById("detailEmelet").innerText = t.fields.emelet ? (i.emelet || "-") : "–";
         document.getElementById("detailAllapot").innerText = t.fields.allapot ? Utils.allapotLabel(i.allapot) : "–";

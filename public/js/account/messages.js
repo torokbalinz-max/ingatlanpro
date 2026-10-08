@@ -184,7 +184,7 @@ class Messages {
                 <i class="fa-solid fa-house"></i>
                 <span>
                     <b>${Utils.escape(m.ajanlott_cim || Types.label(m.ajanlott_tipus))}</b>
-                    <small>${Utils.price({ ar: m.ajanlott_ar, ugylet: m.ajanlott_ugylet })}${m.ajanlott_nm ? " · " + Utils.num(m.ajanlott_nm) + " m²" : ""}</small>
+                    <small>${Utils.price({ ar: m.ajanlott_ar, ugylet: m.ajanlott_ugylet })}${m.ajanlott_nm ? " · " + Utils.nm(m.ajanlott_nm) : ""}</small>
                 </span>
                 <i class="fa-solid fa-chevron-right ms-auto"></i>
             </a>` : "";

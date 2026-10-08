@@ -41,7 +41,7 @@ AdminManager.renderUnavailable = function () {
                                         <div class="pendingThumb">${foto ? `<img src="${Utils.escape(foto)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">` : `<i class="${Types.get(i.tipus).icon}"></i>`}</div>
                                         <div class="flex-fill" style="min-width:220px;">
                                             <div class="fw-bold">${Utils.escape(i.cim || Types.label(i.tipus))} <span class="text-body-secondary small">#${i.id}</span></div>
-                                            <div class="small">${Utils.price(i)} · ${i.nm ? Utils.num(i.nm) + " m²" : "?"} · ${Utils.escape(CityManager.displayName(i.varos))}</div>
+                                            <div class="small">${Utils.price(i)} · ${i.nm ? Utils.nm(i.nm) : "?"} · ${Utils.escape(CityManager.displayName(i.varos))}</div>
                                             <div class="small text-body-secondary">${I18n.t("lastChecked")}: ${Utils.ago(i.utolso_ellenorzes)} · ${Sources.badge(i.forras)}</div>
                                         </div>
                                         <div class="d-flex gap-2">

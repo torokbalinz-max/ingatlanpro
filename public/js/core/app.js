@@ -31,7 +31,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Először kiderítjük, ki van belépve (privát módban megvárjuk a belépést),
     // utána töltjük a városokat és az ingatlanokat.
     AuthManager.load()
-        .then(() => CityManager.init())
+        .then(() => {
+            // A reklámfelületek (helyőrzők) a beállítás szerint (/api/config)
+            AdSlots.mountStatic();
+            return CityManager.init();
+        })
         .then(() => {
             DataManager.init();
             PageManager.init();
@@ -126,6 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
         AuthManager.apply();
         if (PageManager.current === "home") HomePage.render();
         HelpPage.rerender();
+        AdSlots.mountStatic();
 
         darkBtn.title = I18n.t(document.documentElement.getAttribute("data-bs-theme") === "dark" ? "darkModeOff" : "darkModeOn");
 

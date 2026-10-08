@@ -53,6 +53,8 @@ class DataManager {
 
                 FilterManager.renderSources();
                 FilterManager.renderTelepulesek();
+                FilterManager.renderKeruletek();
+                FilterManager.renderKornyekHint();
                 FilterManager.apply();
 
                 if (typeof PageManager !== "undefined" && PageManager.current === "home") HomePage.render();

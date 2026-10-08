@@ -69,7 +69,8 @@ AdminManager.renderReviewItem = function () {
     AdminManager.reviewIdx = Math.max(0, Math.min(AdminManager.reviewIdx, lista.length - 1));
 
     const i = lista[AdminManager.reviewIdx];
-    const t = Types.get(i.tipus);
+    // A környék-városban kerület helyett a falu (település) szerepel
+    const t = { ...Types.get(i.tipus), fields: Types.fieldsOf(i) };
     const hianyzo = i.hianyzo || [];
     const prob = i.problemak || [];
     const emelet = String(i.emelet ?? "").split("/");

@@ -21,6 +21,30 @@ function normAllapot(a) {
     return require("./allapotok").norm(a);
 }
 
+// A kerület-szűrő: több kerület egyszerre (keruletek), vagy a régi mentett
+// keresésekben egy kerület (kerulet)
+function keruletLista(f) {
+    if (Array.isArray(f.keruletek) && f.keruletek.length) return f.keruletek.filter(Boolean);
+    return f.kerulet ? [f.kerulet] : [];
+}
+
+function keruletIllik(i, f) {
+    const l = keruletLista(f);
+    return !l.length || l.includes(i.kerulet || "");
+}
+
+// A település-szűrő: "_varos" = a városban (nincs település), különben a falu neve
+function telepulesLista(f) {
+    if (Array.isArray(f.telepulesek) && f.telepulesek.length) return f.telepulesek.filter(Boolean);
+    return f.telepules ? [f.telepules] : [];
+}
+
+function telepulesIllik(i, f) {
+    const l = telepulesLista(f);
+    if (!l.length) return true;
+    return i.telepules ? l.includes(i.telepules) : l.includes("_varos");
+}
+
 // Mentett keresés szűrői -> illik-e a hirdetés
 function keresesIllik(i, f) {
 
@@ -47,10 +71,9 @@ function keresesIllik(i, f) {
 
     if (f.jelleg && i.telek_jelleg !== f.jelleg) return false;
     if (f.allapot && normAllapot(i.allapot) !== f.allapot) return false;
-    if (f.kerulet && (i.kerulet || "") !== f.kerulet) return false;
 
-    if (f.telepules === "_varos" && i.telepules) return false;
-    if (f.telepules && f.telepules !== "_varos" && (i.telepules || "") !== f.telepules) return false;
+    if (!keruletIllik(i, f)) return false;
+    if (!telepulesIllik(i, f)) return false;
 
     if (f.hely) {
         const h = i.hely_pontossag || (i.x && i.y ? "pontos" : "nincs");
@@ -110,4 +133,4 @@ async function aktivHirdetesek(varos, tipus, ugylet, utana) {
 
 }
 
-module.exports = { keresesIllik, igenyIllik, aktivHirdetesek, emeletSzam, normAllapot };
+module.exports = { keresesIllik, igenyIllik, aktivHirdetesek, emeletSzam, normAllapot, keruletIllik, telepulesIllik, keruletLista, telepulesLista };

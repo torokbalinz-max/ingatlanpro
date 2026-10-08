@@ -79,6 +79,7 @@ app.use(require("./routes/irodak"));
 app.use(require("./routes/legal"));
 app.use(require("./routes/sitestats"));
 app.use(require("./routes/beallitasok"));
+app.use(require("./routes/kornyek"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {
@@ -95,10 +96,13 @@ app.listen(PORT, () => {
     console.log(`Szerver elindult a ${PORT} porton.`);
     // Az állapotok listája (Admin → Állapotok) a gyorstárba
     require("./services/allapotok").kesz();
-    // A meglévő hirdetések automatikus javítása – csak egyszer, az első indításkor
+    // A meglévő hirdetések automatikus javítása – csak egyszer, az első indításkor.
+    // Utána a falvakban lévő hirdetések a "<város> és környéke" városba (minden indításkor).
     setTimeout(() => {
         const autofix = require("./services/autofix");
-        autofix.indulaskor().then(() => autofix.keruletIgazitas());
+        autofix.indulaskor()
+            .then(() => autofix.keruletIgazitas())
+            .then(() => require("./services/kornyek").indulaskor());
     }, 5000);
     // Havi automatikus piaci mentés (ha ebben a hónapban még nem volt) – induláskor és naponta
     const havonta = () => require("./routes/statistics").havontaMent().catch(() => { });

@@ -14,12 +14,21 @@ const router = express.Router();
 const MEZOK = ["varos", "tipus", "ugylet", "minAr", "maxAr", "minNm", "maxNm", "minSzoba", "maxSzoba",
     "minEmelet", "maxEmelet", "jelleg", "allapot", "kerulet", "telepules", "hely", "hideDup", "onlyPhotos"];
 
+// Több kerület / település egyszerre (listák)
+const LISTAK = ["keruletek", "telepulesek"];
+
 function tisztaSzurok(f) {
     const o = {};
     MEZOK.forEach(k => {
         const v = f ? f[k] : undefined;
         if (v === undefined || v === null || v === "") return;
         o[k] = typeof v === "number" || typeof v === "boolean" ? v : String(v).slice(0, 100);
+    });
+    LISTAK.forEach(k => {
+        const v = f ? f[k] : undefined;
+        if (!Array.isArray(v)) return;
+        const l = [...new Set(v.map(x => String(x || "").trim().slice(0, 100)).filter(Boolean))].slice(0, 40);
+        if (l.length) o[k] = l;
     });
     if (!o.varos) throw Object.assign(new Error("no_city"), { kod: "no_city" });
     o.tipus = o.tipus || "lakas";

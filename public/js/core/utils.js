@@ -39,6 +39,15 @@ class Utils {
         });
     }
 
+    // Alapterület: a tizedes is látszik (48,8 m²), legfeljebb két tizedes
+    // (az adatbázisból jövő 55.29999923706055 -> 55,3 m²)
+    static nm(value, mertekegyseg = true) {
+        if (value === null || value === undefined || value === "" || isNaN(value)) return "-";
+        const v = Math.round(Number(value) * 100) / 100;
+        const s = v.toLocaleString(Utils.locale(), { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        return mertekegyseg ? s + " m²" : s;
+    }
+
     static eur(value) {
         if (value === null || value === undefined || isNaN(value)) return "-";
         return Utils.num(Math.round(value)) + " €";

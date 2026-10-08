@@ -218,8 +218,8 @@ class ListingPage {
                     </div>
 
                     <div class="row g-3 mt-3">
-                        ${ListingPage.fact("fa-solid fa-ruler-combined", I18n.t(i.tipus === "telek" ? "searchTelekNm" : "detailNm"), i.nm ? Utils.num(i.nm) + " m²" : "")}
-                        ${t.fields.telek ? ListingPage.fact("fa-solid fa-tree", I18n.t("newTelekNm"), i.telek_nm ? Utils.num(i.telek_nm) + " m²" : "") : ""}
+                        ${ListingPage.fact("fa-solid fa-ruler-combined", I18n.t(i.tipus === "telek" ? "searchTelekNm" : "detailNm"), i.nm ? Utils.nm(i.nm) : "")}
+                        ${t.fields.telek ? ListingPage.fact("fa-solid fa-tree", I18n.t("newTelekNm"), i.telek_nm ? Utils.nm(i.telek_nm) : "") : ""}
                         ${t.fields.szobak ? ListingPage.fact("fa-solid fa-bed", I18n.t("detailSzoba"), i.szobak || "") : ""}
                         ${t.fields.emelet ? ListingPage.fact("fa-solid fa-stairs", I18n.t("detailEmelet"), i.emelet || "") : ""}
                         ${t.fields.allapot ? ListingPage.fact("fa-solid fa-screwdriver-wrench", I18n.t("detailAllapot"), i.allapot ? Utils.allapotLabel(i.allapot) : "", Utils.allapotBecsult(i) ? I18n.t("condFromTextShort") : "") : ""}
@@ -243,6 +243,8 @@ class ListingPage {
                             ${i.x && i.y ? `<div id="listingMap"></div>` : `<div class="noLocationBox"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i><div><b>${I18n.t("hely_nincs")}</b><p class="mb-0">${Utils.escape(CityManager.helyLabel(i))}. ${I18n.t("noLocationHelp")}</p></div></div>`}
                         </div>
                     </div>
+
+                    ${typeof AdSlots !== "undefined" ? `<div class="mt-4">${AdSlots.html("listing")}</div>` : ""}
 
                 </div>
 
@@ -416,7 +418,7 @@ class ListingPage {
             // A hirdetés kerületének határa (ha meg van rajzolva)
             const kn = Districts.ofListing(i);
             const kObj = kn && Districts.list(i.varos).find(k => k.nev === kn);
-            if (kObj && !(Types.get(i.tipus).fields.telepules && i.telepules)) {
+            if (kObj && !(Types.fieldsOf(i).telepules && i.telepules)) {
                 const szin = Districts.color(kObj);
                 L.polygon(Districts.latlngs(kObj.hatar), { color: szin, weight: 1.5, fillColor: szin, fillOpacity: 0.06, interactive: false })
                     .bindTooltip(Utils.escape(CityManager.keruletLabelOf(kObj)), { permanent: true, direction: "center", offset: [0, -22], className: "districtLabel" })

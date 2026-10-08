@@ -10,7 +10,7 @@ Romániai ingatlanhirdetések egy helyen: keresés, térkép, piaci elemzés, é
 ingatlanpro/
 ├── public/                  A weboldal – ezt kapja a böngésző
 │   ├── index.html           Az egyetlen HTML oldal (minden „oldal” ebben van)
-│   ├── css/                 Megjelenés (style.css az alap, v4.css az újabb részek)
+│   ├── css/                 Megjelenés (style.css az alap, v4.css / v5.css az újabb részek)
 │   └── js/
 │       ├── core/            Alap: nyelvek, segédek, típusok, belépés, oldalváltás, indítás
 │       ├── listings/        Ingatlanok: adatok, kereső, kártyák, táblázat, térkép, hirdetés oldal
@@ -78,7 +78,11 @@ A Render a push után magától újraindul az új kóddal (pár perc).
 - **Ártrend és összevetés** (`server/services/piactrend.js`): a trend a hirdetésekből számol (mikor volt fent, milyen áron). Az árváltozásokat és a piacról lekerülést egy adatbázis-trigger naplózza (`ar_elozmenyek` tábla, `piacrol_le` oszlop – a `schema.js` magától létrehozza). Havonta automatikus piaci mentés is készül.
 - **Állapot gyors beállítása** (Admin → Állapot beállítása, `server/routes/allapot.js`): képek alapján, 1–9 billentyűvel (az Állapotok lista sorrendjében) vagy rácsban tömegesen.
 - **Kerülethatárok** (`server/services/districts.js`): átfedésnél / résnél is a helyes kerület; induláskor a kerületek a határokhoz igazodnak; Ellenőrzés gomb a határ-szerkesztőben.
-- **Értékbecslő** (`server/services/valuation.js`): hasonló hirdetések + árarány-modell keverve. Pontosság mérése: Admin → Áttekintés → Értékbecslő pontossága.
+- **Értékbecslő** (`server/services/valuation.js`, 3. változat): hasonló hirdetések + árarány-modell keverve. Az újépítésű lakások külön piac (nem húzzák fel a régi lakások becslését egy olcsóbb negyedben), a tizedes alapterület pontosan számít és a becslés folytonos, egy hirdetés saját ára (és a más oldalon lévő ikre) soha nem számít bele, jobb állapotra nem jöhet ki kisebb becslés, a városi / kerületi szám medián. Pontosság mérése: Admin → Áttekintés → Értékbecslő pontossága (az első, az előző – `valuationV2.js` – és a mostani módszer egymás mellett).
+- **Város és környéke** (`server/services/kornyek.js`, Admin → Város és környéke): a város falvaiban lévő hirdetések (telek, ház, bármi) a „<város> és környéke” városba kerülnek – mentéskor, beolvasáskor és induláskor magától (ismert falu a település mezőben / a címben, vagy a pontos hely a városon kívül). A bizonytalan esetekről az admin dönt; a kézi döntést az automatika nem írja felül (`varos_kezi`). A városok táblában `anyavaros` = melyik város környéke.
+- **Több kerület egyszerre** a keresőben (`public/js/core/multiSelect.js`): kerületek és települések többes választóval, darabszámmal; a mentett keresések, az értesítések és az ártrend is kezelik (`keruletek`, `telepulesek`).
+- **Térkép**: az egy ponton álló hirdetések (ugyanaz az épület / az iroda címe) egy számozott jelölőbe kerülnek, listával – korábban egymásra rajzolódtak, és csak a legfelső látszott. A kikapcsolt közelítő helyekről és a hely nélküli hirdetésekről a térkép fölött szól.
+- **Reklámfelületek** (`public/js/core/ads.js`, `server/services/reklam.js`): „Bérelhető reklámfelület” helyőrzők a szokásos helyeken (kezdőlap, a kereső alatt, a találatok között egyszer, a hirdetés oldalán, az értékbecslőben, a piaci elemzés alján) – a funkciókat nem takarják. Admin → Webhely adatai → Reklámfelületek: ki-be kapcsolás, az érdeklődők e-mail címe.
 - **Súgó** (`#sugo`, `public/js/help/`): részletes, témákra bontott útmutató három nyelven.
 - **Állapotok** (Admin → Állapotok, `server/services/allapotok.js`, `allapotok` tábla): az állapotlista kód nélkül bővíthető (név HU/RO/EN, szín, szint, árszorzó, kulcsszavak). A hirdetés szövegéből a kulcsszavak és beépített szabályok alapján ismeri fel az állapotot (`allapot_forras`: kezi / forras / szoveg / ev – a becsültek *-gal látszanak).
 - **Webhely adatai** (Admin → Webhely adatai, `server/services/oldalAdatok.js`): az üzemeltető adatai (név / cégnév, adószám, cím, e-mail, telefon) – az Impresszum, a Felhasználási feltételek, az Adatvédelmi és a Süti-tájékoztató és a lábléc innen veszi. Üres e-mailnél az `ADMIN_EMAILS` első címe (vagy az admin fiók e-mailje) látszik.
@@ -87,5 +91,5 @@ A Render a push után magától újraindul az új kóddal (pár perc).
 
 ## Később (ötletek – még nincs kész)
 
-- **Reklámfelületek**: Google Ads, és saját reklámhelyek, amelyeket cégeknek lehet kiadni – mindkettő az admin felületről kezelve (hol jelenjen meg, mettől meddig, kinek a hirdetése).
+- **Reklámfelületek – valódi hirdetések**: a helyek már megvannak (lásd fent); hátravan a Google Ads, és a cégeknek kiadott saját hirdetések kezelése az admin felületről (mettől meddig, kinek a hirdetése, kép / link).
 - **AI-asszisztens a weboldalon**: egy chat, ami válaszol a látogatók kérdéseire (keresés, piaci adatok, hogyan működik az oldal).

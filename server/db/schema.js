@@ -68,6 +68,11 @@ async function createSchema(db) {
         "iroda_mappa TEXT",                      // az iroda saját rendszerezése (mappa / címke)
         "iroda_megjegyzes TEXT",                 // belső megjegyzés (csak az iroda látja)
         "allapot_forras TEXT",                   // honnan jön az állapot: kezi | forras | szoveg (a leírásból) | ev (az építés évéből)
+        // Város és környéke (services/kornyek.js): a falvakban lévő hirdetések a
+        // "<város> és környéke" városba kerülnek
+        "varos_kezi BOOLEAN DEFAULT false",      // az admin kézzel döntött a városról – az automatika nem mozgatja
+        "varos_ok TEXT",                         // miért került a környékre: telepules | szoveg | hely | kezi
+        "varos_eredeti TEXT",                    // az automatikus áthelyezés előtti város
         "updated_at TIMESTAMP DEFAULT NOW()"
     ];
 
@@ -287,6 +292,9 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE varosok ADD COLUMN IF NOT EXISTS x DOUBLE PRECISION`);
     await db.query(`ALTER TABLE varosok ADD COLUMN IF NOT EXISTS y DOUBLE PRECISION`);
     await db.query(`ALTER TABLE varosok ADD COLUMN IF NOT EXISTS sugar_km DOUBLE PRECISION`);
+
+    // "<város> és környéke": melyik város környéke (pl. "Sepsiszentgyörgy és környéke" -> Sepsiszentgyorgy)
+    await db.query(`ALTER TABLE varosok ADD COLUMN IF NOT EXISTS anyavaros TEXT`);
 
     // Más oldalak környék-nevei, amelyek ehhez a kerülethez tartoznak (vesszővel)
     await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS aliasok TEXT`);

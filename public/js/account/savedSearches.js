@@ -28,8 +28,11 @@ class SavedSearches {
         const r = [];
         r.push(Types.label(f.tipus || "lakas") + (f.ugylet === "kiado" ? " · " + Types.ugyletLabel("kiado") : ""));
         if (f.varos) r.push(CityManager.displayName(f.varos));
-        if (f.kerulet) r.push(CityManager.keruletLabel(f.kerulet, f.varos));
-        if (f.telepules) r.push(f.telepules === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(f.telepules));
+        // Több kerület / település is lehet (a régi mentéseknél egy)
+        const keruletek = Array.isArray(f.keruletek) && f.keruletek.length ? f.keruletek : (f.kerulet ? [f.kerulet] : []);
+        const telepulesek = Array.isArray(f.telepulesek) && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
+        if (keruletek.length) r.push(FilterManager.felsorol(keruletek.map(k => CityManager.keruletLabel(k, f.varos))));
+        if (telepulesek.length) r.push(FilterManager.felsorol(telepulesek.map(t => t === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(t))));
 
         const ar = tart(f.minAr, f.maxAr, v => Utils.eur(v));
         if (ar) r.push(ar);
@@ -151,7 +154,7 @@ class SavedSearches {
             set("allapot", f.allapot);
             set("keresoHely", f.hely);
             set("keresoJelleg", f.jelleg);
-            set("keresoTelepules", f.telepules);
+            FilterManager.telepulesMS.values = Array.isArray(f.telepulesek) && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
 
             document.getElementById("hideDuplicates").checked = f.hideDup !== false;
             document.getElementById("onlyWithPhotos").checked = !!f.onlyPhotos;
@@ -159,12 +162,9 @@ class SavedSearches {
             FilterManager.selectedSources = null;
             FilterManager.renderSources();
 
-            // A kerületlista betöltése után állítjuk be a kerületet
-            const ker = document.getElementById("keresoKerulet");
-            const kerBeallit = () => { if (ker) ker.value = f.kerulet || ""; FilterManager.apply(); };
-
-            kerBeallit();
-            setTimeout(kerBeallit, 400);
+            // A kerületek (a lista később is betöltődhet: a kiválasztás megmarad)
+            FilterManager.keruletMS.values = Array.isArray(f.keruletek) && f.keruletek.length ? f.keruletek : (f.kerulet ? [f.kerulet] : []);
+            FilterManager.apply();
 
         };
 
