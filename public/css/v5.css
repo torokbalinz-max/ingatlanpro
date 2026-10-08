@@ -416,3 +416,34 @@
 
 /* A kártyán belüli részcím ne kapjon felső térközt */
 .card-body > .adminSectionHead:first-child { margin-top: 0; }
+
+/* ---------- Admin – Kerületek: az értékbecslő szorzója és az árszint ---------- */
+
+.districtFactorNote {
+    margin: 0 0 0.5rem;
+    font-size: 0.78rem;
+    color: var(--ip-muted);
+}
+
+.districtFactorNote > i { color: var(--ip-accent); margin-right: 0.15rem; }
+
+.districtFactor {
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--ip-muted);
+    cursor: help;
+}
+
+.districtFactor:empty { display: none; }
+.districtFactor > i { font-size: 0.7rem; opacity: 0.7; margin-right: 0.1rem; }
+.districtFactor.up { color: var(--bs-success-text-emphasis, #157347); }
+.districtFactor.down { color: var(--bs-danger-text-emphasis, #b02a37); }
+
+.tierBadge {
+    background: var(--ip-accent-soft);
+    color: var(--ip-text);
+    font-weight: 600;
+}
+
+.tierBadge > i { color: var(--ip-accent); }

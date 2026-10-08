@@ -1,19 +1,32 @@
 // ============================================================
-//  Ingatlan értékbecslő (3. változat)
+//  Ingatlan értékbecslő (3.1 változat)
 //
-//  Két módszer együtt, mint egy ingatlanértékelőnél:
+//  Két lépés, mint egy ingatlanértékelőnél:
 //
-//  1) Összehasonlító: a hasonló hirdetések €/m² ára, a keresett
-//     ingatlanra átszámítva (méret, állapot, kerület, emelet...).
-//
-//  2) Árarány-modell (hedonikus): az egész város adataiból tanuljuk,
+//  1) Árarány-modell (hedonikus): az egész város hirdetéseiből tanuljuk,
 //     mennyit számít a méret (a kis lakások €/m²-e jóval magasabb), az
-//     állapot, az emelet, a kerület, az építés éve. Ahol kevés az adat,
-//     a józan piaci arányok felé húzunk, a kilógó hirdetések kis súlyt
-//     kapnak (robusztus illesztés).
+//     állapot, az emelet, a magas (8+ emeletes) tömbház, a kerület, az
+//     építés éve, az új építés. Ahol kevés az adat, a józan piaci arányok
+//     felé húzunk, a kilógó hirdetések kis súlyt kapnak (robusztus
+//     illesztés). Az eredmény szorzók sora:
+//        €/m² = alap × méret × állapot × emelet × kerület × ...
 //
-//  A végső becslés a kettő súlyozott keveréke: sok nagyon hasonló
-//  hirdetésnél az összehasonlító dönt, kevésnél a modell.
+//  2) Helyi korrekció a leghasonlóbb hirdetésekből: minden hasonló
+//     hirdetés árát a modell szorzóival a keresett ingatlanra számoljuk át
+//     (pl. egy felújítandó 50 m²-es Csiki lakást egy jó állapotú 55 m²-es
+//     központi lakásra), és ezek súlyozott átlagát vesszük. Ez lényegében
+//     azt méri, mennyivel kérnek a hozzá hasonló lakásokért többet vagy
+//     kevesebbet, mint amit a modell mondana.
+//
+//  A végső becslés a kettő keveréke: sok nagyon hasonló hirdetésnél a
+//  hasonlók döntenek, kevésnél a modell.
+//
+//  A kerület (meglévő lakásnál) csak a modell kerület-szorzójával számít:
+//  ugyanaz a lakás két kerületben pontosan a két szorzó arányában
+//  különbözik, így egy olcsóbb kerület nem "ugorhat" a drágább elé
+//  néhány véletlenül drága hirdetés miatt. Ha az admin megadja a
+//  kerületek árszintjét (1 = legdrágább), a szorzók ezt a sorrendet is
+//  betartják (amit az adatok nem tudnak eldönteni, ott egyformák lesznek).
 //
 //  Ami a 3. változatban új:
 //   - ÚJÉPÍTÉSŰ lakások külön: az új építésű (az elmúlt ~6 évben épült,
@@ -112,16 +125,35 @@ async function adatok(varos, tipus, ugylet) {
     return r.rows;
 }
 
+// A kerületek admin által megadott árszintje (1 = legdrágább ... 5 = legolcsóbb)
+// -> Map(kerület neve -> szint), vagy null, ha egyik sincs megadva
+async function keruletSzintek(varos) {
+    try {
+        const r = await db.query("SELECT nev, arszint FROM keruletek WHERE varos = $1 AND arszint IS NOT NULL", [varos]);
+        const m = new Map();
+        r.rows.forEach(k => {
+            const s = Number(k.arszint);
+            if (k.nev && s >= 1 && s <= 5) m.set(k.nev, s);
+        });
+        return m.size ? m : null;
+    } catch (e) {
+        return null;    // pl. még nincs ilyen oszlop
+    }
+}
+
 // A becslés "környezete": a típus, az ügylet, és hogy kerület vagy település szerint
 // számít-e a hely (háznál, teleknél és a "<város> és környéke" városban a falu)
 async function kornyezet(varos, tipus, ugylet) {
     let kornyekVaros = false;
     try { kornyekVaros = await require("./kornyek").isKornyek(varos); } catch (e) { kornyekVaros = false; }
+    const telepulesSzerint = kornyekVaros || ["haz", "telek"].includes(tipus || "lakas");
     return {
         tipus: tipus || "lakas",
         ugylet: ugylet || "elado",
         kornyekVaros,
-        telepulesSzerint: kornyekVaros || ["haz", "telek"].includes(tipus || "lakas")
+        telepulesSzerint,
+        // A kerületek árszintje (csak ha kerület szerint számít a hely)
+        szintek: telepulesSzerint ? null : await keruletSzintek(varos)
     };
 }
 
@@ -239,6 +271,7 @@ const ELOZETES = {
     kicsi: 0.2,
     foldszint: 0.95,
     legfelso: 0.96,
+    magasHaz: 0.93,
     ujabbEpulet: 1.04,
     ujEpitesu: 1.1,
     kulterulet: 0.45,
@@ -283,6 +316,11 @@ function jellemzok(pool, ctx) {
         add("legfelso", "emelet", i => i._emelet === null ? null : (i._legfelso ? 1 : 0), Math.log(ELOZETES.legfelso), ERO.emelet);
     }
 
+    // A magas (8+ emeletes) tömbház lakásai olcsóbbak (régi, sok lakásos panelház)
+    if (["lakas", "iroda"].includes(tipus) && T.magasHaz) {
+        add("magas_haz", "emelet", i => i._ossz === null ? null : (i._ossz >= 8 ? 1 : 0), Math.log(ELOZETES.magasHaz), ERO.emelet);
+    }
+
     if (tipus !== "telek") {
         // Az 1990 után épült (de nem új) épület enyhén drágább a panelnél
         add("ev_ujabb", "ev", i => i._ev === null ? null : (i._ev >= 1990 && !i._uj ? 1 : 0), Math.log(ELOZETES.ujabbEpulet), ERO.ev);
@@ -290,8 +328,10 @@ function jellemzok(pool, ctx) {
         add("uj", "uj", i => i._uj ? 1 : 0, Math.log(ELOZETES.ujEpitesu), ERO.uj);
     }
 
-    // Hely: kerület (vagy háznál, teleknél, a környék-városban a település)
-    const helyek = [...new Set(pool.map(i => i._hely).filter(Boolean))];
+    // Hely: kerület (vagy háznál, teleknél, a környék-városban a település).
+    // Az árszinttel megadott, de még hirdetés nélküli kerület is kap oszlopot
+    // (így rá is vonatkozik a kerületek sorrendje).
+    const helyek = [...new Set([...pool.map(i => i._hely), ...(ctx.szintek ? ctx.szintek.keys() : [])].filter(Boolean))];
     const helyElozetes = ctx.telepulesSzerint && !ctx.kornyekVaros ? Math.log(ELOZETES.falu) : 0;
     helyek.forEach(h => add("hely:" + h, "kerulet", i => i._hely === null ? null : (i._hely === h ? 1 : 0), helyElozetes, ERO.hely));
 
@@ -396,11 +436,25 @@ function modellIllesztes(pool, ctx) {
 
     }
 
-    // Az állapotok sorrendje kötött: jobb állapot nem lehet olcsóbb (a címkék
-    // zajosak – pl. a forrásoldal "újszerű"-nek ír egy régi, felújított lakást).
-    // Ha az illesztés szerint mégis az lenne, a sorrendet megtartó legközelebbi
-    // arányokat vesszük, és a többi tényezőt ezekhez igazítva újraszámoljuk.
-    const kotott = T.monotonModell ? allapotSorrend(cols, beta, X, w) : null;
+    // Kötött sorrendek. Ha az illesztés szerint sérülnének, a sorrendet megtartó
+    // legközelebbi arányokat vesszük, és a többi tényezőt ezekhez igazítva újraszámoljuk:
+    //  - jobb állapot nem lehet olcsóbb (a címkék zajosak – pl. a forrásoldal
+    //    "újszerű"-nek ír egy régi, felújított lakást)
+    //  - az admin által megadott árszint szerint drágább kerület nem lehet olcsóbb
+    const allapotK = T.monotonModell ? allapotSorrend(cols, beta, X, w) : null;
+    const keruletK = keruletSorrend(cols, beta, X, w, ctx.szintek);
+    let kotott = null;
+    if (allapotK || keruletK) {
+        // A nem igazított csoport is a mostani értékén marad (az újraszámolás ne
+        // vigye rossz sorrendbe)
+        kotott = new Map();
+        const rogzit = (map, kell) => {
+            if (map) map.forEach((v, r) => kotott.set(r, v));
+            else cols.forEach((c, k) => { if (kell(c)) kotott.set(k + 1, beta[k + 1]); });
+        };
+        if (T.monotonModell) rogzit(allapotK, c => c.csoport === "allapot");
+        if (ctx.szintek) rogzit(keruletK, c => c.nev.startsWith("hely:") && ctx.szintek.has(c.nev.slice(5)));
+    }
     if (kotott) {
         const A = Array.from({ length: p }, () => new Array(p).fill(0));
         const b = new Array(p).fill(0);
@@ -425,7 +479,58 @@ function modellIllesztes(pool, ctx) {
     const maradek = X.map((xn, n) => y[n] - xn.reduce((s, v, k) => s + v * beta[k], 0));
     const sigma = Math.max(0.05, median(maradek.map(Math.abs)) * 1.4826);
 
-    return { beta, cols, sigma, n: pool.length, atlagok, ctx };
+    return { beta, cols, sigma, n: pool.length, atlagok, ctx, keruletIgazitva: !!keruletK };
+
+}
+
+//  A kerületek árszintje (az admin adja meg: 1 = legdrágább ... 5 = legolcsóbb): a jobb
+//  szintű kerület aránya nem lehet kisebb egy rosszabb szintűénél. Ha az adatok szerint
+//  mégis az lenne, a kettőt (a hirdetéseik számával súlyozva) egyformának vesszük – ahogy
+//  az állapotoknál. Az azonos szintű és a szint nélküli kerületek között az adatok döntenek.
+//  -> Map(oszlop indexe a béta-ban -> új érték), vagy null, ha nem kellett igazítani
+function keruletSorrend(cols, beta, X, w, szintek) {
+
+    if (!szintek || !szintek.size) return null;
+
+    const elemek = [];
+    cols.forEach((c, k) => {
+        if (!c.nev.startsWith("hely:")) return;
+        const szint = szintek.get(c.nev.slice(5));
+        if (!szint) return;
+        let db0 = 0;
+        for (let n = 0; n < X.length; n++) if (X[n][k + 1] === 1) db0 += w[n];
+        elemek.push({ r: k + 1, szint, v: beta[k + 1], s: db0 + c.ero });
+    });
+
+    if (elemek.length < 2) return null;
+
+    // A rossz sorrendű csoportok összevonása (mindig a legnagyobb sértéssel kezdve),
+    // amíg van olyan pár, ahol a jobb szintű kerület aránya kisebb
+    let blokkok = elemek.map(e => ({ tagok: [e], v: e.v, s: e.s, legjobb: e.szint, legrosszabb: e.szint }));
+    for (;;) {
+        let max = 1e-9, par = null;
+        for (const a of blokkok) {
+            for (const b of blokkok) {
+                if (a !== b && a.legjobb < b.legrosszabb && b.v - a.v > max) { max = b.v - a.v; par = [a, b]; }
+            }
+        }
+        if (!par) break;
+        const [a, b] = par;
+        const s = a.s + b.s;
+        blokkok = blokkok.filter(x => x !== a && x !== b);
+        blokkok.push({
+            tagok: [...a.tagok, ...b.tagok], v: (a.v * a.s + b.v * b.s) / s, s,
+            legjobb: Math.min(a.legjobb, b.legjobb), legrosszabb: Math.max(a.legrosszabb, b.legrosszabb)
+        });
+    }
+
+    let valtozott = false;
+    const ki = new Map();
+    blokkok.forEach(b => b.tagok.forEach(t => {
+        if (Math.abs(t.v - b.v) > 1e-9) valtozott = true;
+        ki.set(t.r, b.v);
+    }));
+    return valtozott ? ki : null;
 
 }
 
@@ -494,27 +599,52 @@ function tenyezok(m, xCel) {
 //  Az összehasonlító rész
 // ============================================================
 
-// A hangolható értékek (a /api/admin/ertekbecslo-teszt ezekkel mér):
+// A hangolható értékek (a /api/admin/ertekbecslo-teszt ezekkel mér; a valós
+// adatokon, minden hirdetést a többiből becsülve mérve):
 //  atszamitas: mennyit veszünk át a modell szerinti különbségből, amikor egy
-//    hasonló hirdetés árát a keresett ingatlanra számoljuk át (0 = semmit,
-//    1 = teljesen). A méret a józan arány szerint, a kerület és az új / régi
-//    különbség teljesen számít, a többi (állapot, emelet...) részben – így
-//    mérve volt a legpontosabb.
-//  modellSuly: ennyi nagyon hasonló hirdetéssel ér fel a modell
+//    hasonló hirdetés árát a keresett ingatlanra számoljuk át (1 = teljesen –
+//    a részleges átszámítás miatt egy kerület néhány véletlenül drága
+//    hirdetése elhúzta a becslést, és kijöhetett drágábbnak a Központnál)
+//  modellSuly: ennyi nagyon hasonló hirdetéssel ér fel a modell (újépítésűnél kevesebb)
 //  h: a hasonlóság "sugara" (a távolság mértékében)
 //  ujTav: mennyivel "távolabbi" egy új építésű lakás egy meglévőtől
-//  monoton: jobb állapotra ne adhasson kisebb becslést
+//  magasHaz: a 8+ emeletes tömbház külön tényező
+//  keruletTav: mennyivel kevésbé hasonló egy másik kerületbeli hirdetés.
+//    Meglévő lakásnál 0: a kerületet a modell szorzója már tartalmazza, és így
+//    ugyanaz a lakás két kerületben pontosan a két szorzó arányában különbözik.
+//    Újépítésűnél számít (ott a projekt, a konkrét épület az ár nagy része).
+//  telepulesTav: ugyanez a településekre (háznál, teleknél, a környék-városban) –
+//    ott egy faluból kevés a hirdetés, a helyi hasonlók többet mondanak
+//  keruletTavKijelzes: csak a táblázat sorrendjéhez (az azonos kerületbeliek elöl)
+//  allapotTav: meglévő lakásnál 0 (az állapot különbségét a modell átszámolja);
+//    újépítésűnél számít
+//  ismeretlenAllapotTav: az ismeretlen állapotú hirdetés kevésbé hasonló
+//  monoton: a végső becslések utólagos állapot-sorrendje (kikapcsolva: kis
+//    adatnál torzított; a sorrendet a modell állapot-arányai biztosítják)
+//  monotonModell: a modell állapot-arányai kötött sorrendben
 const T = {
-    atszamitas: 0.25,
+    atszamitas: 1,
     atszamitasCsoport: { kerulet: 1, uj: 1 },
-    modellSuly: 1,
+    modellSuly: 2,
+    modellSulyUj: 1,
     h: 0.5,
     ujTav: 1,
-    monoton: true,
+    magasHaz: true,
+    keruletTav: 0,
+    keruletTavUj: 0.6,
+    telepulesTav: 0.6,
+    keruletTavKijelzes: 0.6,
+    allapotTav: 0,
+    allapotTavUj: 0.6,
+    ismeretlenAllapotTav: 0.5,
+    monoton: false,
     monotonModell: true
 };
 
 const PONTOS_HELY = ["pontos", "utca"];
+
+// A más kerületbeli (településbeli) hirdetés ennyivel "távolabbi"
+const helyTav = (cel, ctx) => ctx.telepulesSzerint ? T.telepulesTav : (cel._uj ? T.keruletTavUj : T.keruletTav);
 
 // Két ingatlan "távolsága": minél kisebb, annál hasonlóbb (folytonos: egy kis
 // méretváltozás csak kicsit változtat rajta)
@@ -524,9 +654,11 @@ function tavolsag(cel, i, ctx) {
 
     if (cel.szobak) d += (i.szobak > 0 ? Math.abs(cel.szobak - i.szobak) : 1.5) * 0.5;
 
-    if (cel._hely) d += i._hely === cel._hely ? 0 : 1;
+    if (cel._hely) d += i._hely === cel._hely ? 0 : helyTav(cel, ctx);
 
-    if (cel._szint !== null && cel._szint !== undefined) d += i._szint === null ? 0.5 : Math.abs(cel._szint - i._szint) * 0.6;
+    // Az ismeretlen állapotú hirdetés kevésbé hasonló (a modell ott csak átlagot tud venni)
+    const allapotTav = cel._uj ? T.allapotTavUj : T.allapotTav;
+    if (cel._szint !== null && cel._szint !== undefined) d += i._szint === null ? T.ismeretlenAllapotTav : Math.abs(cel._szint - i._szint) * allapotTav;
 
     if (cel._emelet !== null && cel._emelet !== undefined) d += i._emelet === null ? 0.2 : Math.min(Math.abs(cel._emelet - i._emelet), 3) * 0.1;
 
@@ -641,7 +773,7 @@ function becslesLog(cel, pool, elo, m, ctx, opts = {}) {
 
     // ---- 2) Keverés a modellel: a közeli hasonlók "száma" vs. a modell ereje
     const kozeliSzam = jeloltek.reduce((s, x) => s + x.w, 0);
-    const modellSuly = m ? (opts.modellSuly !== undefined ? opts.modellSuly : T.modellSuly) : 0;
+    const modellSuly = m ? (opts.modellSuly !== undefined ? opts.modellSuly : (cel._uj ? T.modellSulyUj : T.modellSuly)) : 0;
     const hasonloArany = kozeliSzam / (kozeliSzam + modellSuly);
 
     const becsultLog = m ? hasonloArany * hasonloLog + (1 - hasonloArany) * modellLog : hasonloLog;
@@ -739,15 +871,32 @@ function szamol(pool, params, ctx, opts = {}) {
     const alsoArany = Math.min(hasonloArany * hAlso + (1 - hasonloArany) * mAlso, 0.995);
     const felsoArany = Math.max(hasonloArany * hFelso + (1 - hasonloArany) * mFelso, 1.005);
 
-    // A 12 leghasonlóbb (a táblázatban)
-    const hasonlok = [...vegso].sort((a, b) => b.w - a.w || a.d - b.d).slice(0, 12);
+    // A 12 leghasonlóbb (a táblázatban). A becslésben bármelyik kerület hasonló
+    // hirdetése egyformán számít (a kerület árszintjét a modell szorzója adja, az
+    // átszámított árban már benne van), a táblázatban viszont az azonos kerületbeliek
+    // vannak elöl, és a hasonlóság is ezzel együtt látszik.
+    const kerTav = helyTav(cel, ctx);
+    const kijTav = x => x.d + (cel._hely && x.i._hely !== cel._hely ? Math.max(0, T.keruletTavKijelzes - kerTav) : 0);
+    const hasonlok = vegso
+        .map(x => {
+            const dk = kijTav(x);
+            return { ...x, dk, wk: x.w * suly(dk) / Math.max(suly(x.d), 1e-12) };
+        })
+        .sort((a, b) => b.wk - a.wk || a.dk - b.dk)
+        .slice(0, 12);
     const helyEgyezes = cel._hely ? hasonlok.filter(x => x.i._hely === cel._hely).length : null;
 
-    // Megbízhatóság: sok közeli hasonló + nem túl széles sáv; a modell kevés
-    // hasonlónál is közepessé teheti, ha elég adatból tanult
+    // Megbízhatóság: sok szinte ugyanilyen hirdetés (ugyanabban a kerületben, ugyanolyan
+    // állapotban, hasonló méretben) + nem túl széles sáv; a modell kevés hasonlónál is
+    // közepessé teheti, ha elég adatból tanult
+    const bizTav = x => x.d
+        + (cel._hely && x.i._hely !== cel._hely ? Math.max(0, 1 - kerTav) : 0)
+        + (cel._szint !== null && cel._szint !== undefined && x.i._szint !== null
+            ? Math.abs(cel._szint - x.i._szint) * Math.max(0, 0.6 - (cel._uj ? T.allapotTavUj : T.allapotTav)) : 0);
+    const nagyonHasonlo = r.jeloltek.reduce((s, x) => s + suly(bizTav(x)), 0);
     let megbizhatosag = "low";
     if (kozeliSzam >= 1.5) megbizhatosag = "medium";
-    if (kozeliSzam >= 4 && felsoArany / alsoArany <= 1.25 && (helyEgyezes === null || helyEgyezes >= 3)) megbizhatosag = "high";
+    if (nagyonHasonlo >= 4 && felsoArany / alsoArany <= 1.25 && (helyEgyezes === null || helyEgyezes >= 3)) megbizhatosag = "high";
     if (megbizhatosag === "low" && m && m.n >= 25 && m.sigma < 0.22) megbizhatosag = "medium";
 
     const lepes = x => x < 2000 ? 5 : (x < 20000 ? 50 : 100);
@@ -800,6 +949,8 @@ function szamol(pool, params, ctx, opts = {}) {
             baseArNm: m ? arNmKerek(Math.exp(m.beta[0] + pontszor(m.beta, m.atlagok))) : null,
             // Az állapot-sorrend miatti igazítás %-ban (0 = nem kellett)
             conditionAdjustment: Math.round((Math.exp(igazitas) - 1) * 1000) / 10,
+            // A kerület admin által megadott árszintje (1 = legdrágább), ha van
+            districtTier: ctx.szintek && cel._hely ? ctx.szintek.get(cel._hely) || null : null,
             factors: m ? tenyezok(m, xCel) : []
         },
         comparables: hasonlok.map(x => ({
@@ -816,7 +967,7 @@ function szamol(pool, params, ctx, opts = {}) {
             eladva: x.i.eladva,
             uj: !!x.i._uj,
             adjusted: kerekit(Math.exp(x.adj) * nm),
-            similarity: Math.round(100 * suly(x.d, 0.9))
+            similarity: Math.round(100 * suly(x.dk, 0.9))
         }))
     };
 
@@ -1009,7 +1160,46 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
 
 }
 
+//  A kerületek (háznál, teleknél a települések) szorzója a modell szerint: ugyanaz
+//  az ingatlan itt mennyivel drágább / olcsóbb, mint a város tipikus hirdetése.
+//  Az admin "Városok, kerületek" oldalán látszik – ebből látszik, mit "gondol"
+//  az értékbecslő a kerületekről (és az árszint után mi lett belőle).
+async function helySzorzok(varos, tipus = "lakas", ugylet = "elado") {
+
+    await allapotok.kesz();
+
+    const ctx = await kornyezet(varos, tipus, ugylet);
+    const rows = await adatok(varos, ctx.tipus, ctx.ugylet);
+    const { pool } = tisztitPool(rows, null, ctx);
+    const m = modellIllesztes(pool, ctx);
+
+    const alap = { varos, tipus: ctx.tipus, ugylet: ctx.ugylet, helySzerint: ctx.telepulesSzerint ? "telepules" : "kerulet", hirdetesek: pool.length };
+    if (!m) return { ...alap, helyek: [] };
+
+    // A hely-csoport értéke a tipikus hirdetésnél (a viszonyítás)
+    let atl = 0;
+    m.cols.forEach((c, k) => { if (c.csoport === "kerulet") atl += m.beta[k + 1] * m.atlagok[k]; });
+
+    const helyek = m.cols
+        .map((c, k) => {
+            if (!c.nev.startsWith("hely:")) return null;
+            const nev = c.nev.slice(5);
+            return {
+                nev,
+                szorzo: Math.round(Math.exp(m.beta[k + 1] - atl) * 1000) / 1000,
+                db: pool.filter(i => i._hely === nev && !i._uj).length,
+                dbUj: pool.filter(i => i._hely === nev && i._uj).length,
+                szint: ctx.szintek ? ctx.szintek.get(nev) || null : null
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.szorzo - a.szorzo);
+
+    return { ...alap, sorrendIgazitva: !!m.keruletIgazitva, helyek };
+
+}
+
 module.exports = {
-    becsles, teszt, ujEpitesu,
+    becsles, teszt, ujEpitesu, helySzorzok,
     _belso: { szamol, szamolRegi, modellIllesztes, modellTenyezok, tisztitPool, adatok, kornyezet, celAdat, pontosHelyek, ikrek, tisztaLink, T, ELOZETES, ERO }
 };

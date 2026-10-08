@@ -141,8 +141,8 @@ router.get("/api/keruletek", async (req, res) => {
         const varos = req.query.varos;
 
         const result = varos
-            ? await db.query("SELECT id, varos, nev, nev_ro, aliasok, hatar FROM keruletek WHERE varos=$1 ORDER BY nev", [varos])
-            : await db.query("SELECT id, varos, nev, nev_ro, aliasok, hatar FROM keruletek ORDER BY varos, nev");
+            ? await db.query("SELECT id, varos, nev, nev_ro, aliasok, hatar, arszint FROM keruletek WHERE varos=$1 ORDER BY nev", [varos])
+            : await db.query("SELECT id, varos, nev, nev_ro, aliasok, hatar, arszint FROM keruletek ORDER BY varos, nev");
 
         res.json(result.rows);
 
@@ -153,6 +153,12 @@ router.get("/api/keruletek", async (req, res) => {
 });
 
 const tisztaAliasok = v => String(v || "").split(",").map(x => x.trim()).filter(Boolean).join(", ") || null;
+
+// Árszint: 1 (legdrágább) ... 5 (legolcsóbb), vagy üres
+const tisztaSzint = v => {
+    const n = Number(v);
+    return v !== null && v !== "" && Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+};
 
 // Új kerület: magyar név (nev) + román név (nev_ro) + más oldalak nevei (aliasok).
 // Elég az egyik név – ha csak román van, az lesz a magyar is.
@@ -200,10 +206,11 @@ router.put("/api/keruletek/:id", csakAdmin, async (req, res) => {
         const nev = req.body.nev !== undefined ? (String(req.body.nev).trim() || regi.nev) : regi.nev;
         const nevRo = req.body.nev_ro !== undefined ? (String(req.body.nev_ro).trim() || null) : regi.nev_ro;
         const aliasok = req.body.aliasok !== undefined ? tisztaAliasok(req.body.aliasok) : regi.aliasok;
+        const arszint = req.body.arszint !== undefined ? tisztaSzint(req.body.arszint) : (regi.arszint ?? null);
 
         await client.query("BEGIN");
 
-        await client.query("UPDATE keruletek SET nev = $1, nev_ro = $2, aliasok = $3 WHERE id = $4", [nev, nevRo, aliasok, regi.id]);
+        await client.query("UPDATE keruletek SET nev = $1, nev_ro = $2, aliasok = $3, arszint = $4 WHERE id = $5", [nev, nevRo, aliasok, arszint, regi.id]);
 
         if (nev !== regi.nev) {
             await client.query("UPDATE ingatlanok SET kerulet = $1 WHERE varos = $2 AND kerulet = $3", [nev, regi.varos, regi.nev]);

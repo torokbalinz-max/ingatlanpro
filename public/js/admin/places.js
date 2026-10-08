@@ -6,6 +6,9 @@
 //  - "Ismeretlen környékek": a forrásoldalak környék-nevei, amelyekhez
 //    még nincs kerület. Egy kattintással hozzárendelhetők – az összes
 //    ilyen hirdetés megkapja, és legközelebb magától megy.
+//  - Az értékbecslő kerület-szorzója minden kerület mellett (mit "gondol"
+//    a becslő a kerületről), és az árszint (1 = legdrágább): ha meg van
+//    adva, a becslő ezt a sorrendet betartja.
 // ============================================================
 
 AdminManager.renderPlaces = function () {
@@ -39,6 +42,8 @@ AdminManager.renderPlaces = function () {
                     ${x.nev_ro && x.nev_ro !== x.nev ? `<span class="districtRo" lang="ro">${esc(x.nev_ro)}</span>` : ""}
                     ${!x.nev_ro ? `<span class="badge text-bg-warning">${I18n.t("placesNoRo")}</span>` : ""}
                     ${Array.isArray(x.hatar) && x.hatar.length >= 3 ? `<span class="badge text-bg-success-subtle text-success-emphasis" title="${esc(I18n.t("deHasBorder"))}"><i class="fa-solid fa-draw-polygon"></i></span>` : ""}
+                    ${x.arszint ? `<span class="badge tierBadge" title="${esc(I18n.t("placesTierHelp"))}"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> ${esc(I18n.f("placesTierBadge", { n: x.arszint }))}</span>` : ""}
+                    <small class="districtFactor" data-factor-varos="${esc(x.varos)}" data-factor-nev="${esc(x.nev)}"></small>
                     ${x.aliasok ? `<small class="districtAlias">${esc(x.aliasok)}</small>` : ""}
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-edit="${x.id}" aria-label="${I18n.t("placesEdit")}"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>
@@ -141,6 +146,7 @@ AdminManager.renderPlaces = function () {
                                 <div class="card-body">
                                     ${v.anyavaros ? `
                                     <p class="small text-body-secondary mb-0">${I18n.t("placesKornyekNoDistricts")}</p>` : `
+                                    ${k.length ? `<p class="districtFactorNote"><i class="fa-solid fa-calculator" aria-hidden="true"></i> ${I18n.t("placesFactorNote")}</p>` : ""}
                                     <div class="districtList mb-3">
                                         ${k.length ? k.map(keruletSor).join("") : `<span class="text-body-secondary small">${I18n.t("placesNoDistricts")}</span>`}
                                     </div>
@@ -220,6 +226,12 @@ AdminManager.renderPlaces = function () {
                             <input class="form-control form-control-sm" data-f="nev_ro" value="${esc(x.nev_ro || "")}" autocomplete="off" lang="ro"></label>
                         <label class="form-label mb-1">${I18n.t("placesAliases")}
                             <input class="form-control form-control-sm" data-f="aliasok" value="${esc(x.aliasok || "")}" autocomplete="off"></label>
+                        <label class="form-label mb-0">${I18n.t("placesTier")}
+                            <select class="form-select form-select-sm" data-f="arszint">
+                                <option value="">${I18n.t("placesTierNone")}</option>
+                                ${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${Number(x.arszint) === n ? "selected" : ""}>${esc(I18n.t("placesTier" + n))}</option>`).join("")}
+                            </select></label>
+                        <div class="form-text mt-0 mb-1">${I18n.t("placesTierHelp")}</div>
                         <div class="d-flex gap-2 mt-1">
                             <button type="button" class="btn btn-sm btn-primary" data-save>${I18n.t("placesSave")}</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" data-cancel>${I18n.t("newCancelBtn")}</button>
@@ -235,7 +247,7 @@ AdminManager.renderPlaces = function () {
                     fetch("/api/keruletek/" + x.id, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ nev: val("nev"), nev_ro: val("nev_ro"), aliasok: val("aliasok") })
+                        body: JSON.stringify({ nev: val("nev"), nev_ro: val("nev_ro"), aliasok: val("aliasok"), arszint: val("arszint") })
                     }).then(r => {
                         if (!r.ok) alert(I18n.t("placesDuplicate"));
                         utana(x.varos);
@@ -265,6 +277,27 @@ AdminManager.renderPlaces = function () {
                 }).then(() => utana(varos));
             };
         });
+
+        // Az értékbecslő kerület-szorzói (meglévő, eladó lakások): ugyanaz a lakás az
+        // adott kerületben mennyivel drágább / olcsóbb a város tipikus helyénél
+        varosok
+            .filter(v => !v.anyavaros && keruletek.some(x => x.varos === v.nev))
+            .forEach(v => {
+                fetch("/api/admin/ertekbecslo-helyek?" + new URLSearchParams({ varos: v.nev, tipus: "lakas", ugylet: "elado" }))
+                    .then(r => r.ok ? r.json() : null)
+                    .then(adat => {
+                        if (!adat || !Array.isArray(adat.helyek)) return;
+                        box.querySelectorAll(`[data-factor-varos="${CSS.escape(v.nev)}"]`).forEach(el => {
+                            const h = adat.helyek.find(x => x.nev === el.dataset.factorNev);
+                            if (!h || !(h.db > 0)) return;
+                            const pct = Math.round((h.szorzo - 1) * 100);
+                            el.innerHTML = `<i class="fa-solid fa-calculator" aria-hidden="true"></i> ${esc(pct === 0 ? "0 %" : Utils.pct(pct, 0))}`;
+                            el.classList.add(pct > 0 ? "up" : (pct < 0 ? "down" : "flat"));
+                            el.title = I18n.f("placesFactorHelp", { n: h.db });
+                        });
+                    })
+                    .catch(() => { });
+            });
 
         // Ismeretlen környék hozzárendelése
         box.querySelectorAll("[data-um-go]").forEach(b => {

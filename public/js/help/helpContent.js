@@ -137,16 +137,17 @@ const HELP_CONTENT = {
                     "Kattints a Becslés gombra."
                 ] },
                 { h: "Hogyan számol?", ul: [
-                    "<b>Hasonló hirdetések</b>: a leghasonlóbb hirdetések árát átszámoljuk a te ingatlanodra (méret, állapot, kerület, emelet különbsége szerint).",
-                    "<b>Árarány-modell</b>: a város összes hirdetéséből megtanuljuk, mennyivel ér többet például egy jó állapotú lakás a felújítandónál, egy földszinti a többinél, egy kerület a városátlagnál, és hogyan csökken a €/m² a mérettel. Ahol kevés az adat, józan piaci arányok felé húzunk.",
-                    "A kettőt keverjük: ha sok nagyon hasonló hirdetés van, azok döntenek; ha kevés (pl. ritka szobaszám egy kis kerületben), a modell kap nagyobb súlyt.",
-                    "Az eredmény alatt látod mindkét becslést, a súlyukat és a fő arányokat (pl. Állapot +14%)."
+                    "<b>Árarány-modell</b>: a város összes hirdetéséből megtanuljuk, mennyivel ér többet például egy jó állapotú lakás a felújítandónál, egy földszinti vagy legfelső emeleti a többinél, egy kisebb házban lévő a magas (8+ emeletes) tömbházbelinél, egy kerület a városátlagnál, és hogyan csökken a €/m² a mérettel. Ahol kevés az adat, józan piaci arányok felé húzunk.",
+                    "<b>Hasonló hirdetések</b>: a leghasonlóbb hirdetések árát a modell arányaival átszámoljuk a te ingatlanodra (méret, állapot, emelet, kerület különbsége szerint). Ez megmutatja, mennyivel kérnek a hozzá hasonló lakásokért többet vagy kevesebbet, mint amit a modell mondana.",
+                    "A kettőt keverjük: ha sok nagyon hasonló hirdetés van, azok döntenek; ha kevés (pl. ritka szobaszám), a modell kap nagyobb súlyt.",
+                    "Az eredmény alatt látod mindkét becslést, a súlyukat és a fő arányokat (pl. Állapot +14%, Kerület +6%)."
                 ] },
                 { h: "Pontosabb, következetesebb becslés", ul: [
                     "<b>Újépítésű lakások külön</b>: egy olcsóbb negyedben is lehetnek drága új projektek – ezek nem húzzák fel a régebbi lakások becslését. Új lakásnál a becslés az új lakásokhoz hasonlít. Újnak számít, ami az elmúlt ~6 évben épült, „újépítésű” / „félkész” állapotú, vagy a címe szerint új projekt.",
                     "<b>Pontos alapterület</b>: a tizedes m² is számít, és a becslés folytonos – egy négyzetméterrel több csak kicsit változtat a €/m²-en, nem ugrik.",
                     "<b>Egy hirdetés becslése</b> („Értékbecslés erre”): a hirdetés saját ára és a más oldalon lévő példánya soha nem számít bele – akkor sem, ha közben átírod a méretet vagy az állapotot. A × gombbal veheted le a kötést.",
                     "<b>Állapot-sorrend</b>: jobb állapotra soha nem jön ki kisebb becslés.",
+                    "<b>Kerületek következetesen</b>: meglévő lakásnál a kerület egyetlen szorzóval számít – ugyanaz a lakás két kerületben pontosan a két kerület szorzójának arányában különbözik, így egy olcsóbb kerület nem jöhet ki drágábbnak néhány véletlenül drága hirdetés miatt. A kerületek árszintjét az oldal szerkesztői is megadhatják, a becslés ezt a sorrendet betartja. (Újépítésűnél a konkrét projekt számít, ott a kerület hasonló hirdetései többet nyomnak.)",
                     "A városi és kerületi szám <b>medián</b> (a kilógó árak nem húzzák el), és a duplikált hirdetések csak egyszer számítanak."
                 ] },
                 { h: "Megbízhatóság és ársáv", ul: [
@@ -437,16 +438,17 @@ const HELP_CONTENT = {
                     "Click Estimate."
                 ] },
                 { h: "How is it calculated?", ul: [
-                    "<b>Similar listings</b>: the prices of the most similar listings are converted to your property (by the difference in size, condition, district, floor).",
-                    "<b>Price-ratio model</b>: from all listings of the city we learn how much more e.g. a flat in good condition is worth than one needing renovation, a ground-floor flat versus others, a district versus the city average, and how €/m² falls with size. Where data is scarce we lean on sensible market ratios.",
-                    "The two are blended: with many very similar listings they decide; with few (e.g. a rare room count in a small district) the model gets more weight.",
-                    "Below the result you see both estimates, their weights and the main ratios (e.g. Condition +14%)."
+                    "<b>Price-ratio model</b>: from all listings of the city we learn how much more e.g. a flat in good condition is worth than one needing renovation, a ground-floor or top-floor flat versus others, one in a smaller building versus a tall (8+ floor) block, a district versus the city average, and how €/m² falls with size. Where data is scarce we lean on sensible market ratios.",
+                    "<b>Similar listings</b>: the prices of the most similar listings are converted to your property with the model's ratios (by the difference in size, condition, floor, district). This shows how much more or less is asked for flats like yours than the model alone would say.",
+                    "The two are blended: with many very similar listings they decide; with few (e.g. a rare room count) the model gets more weight.",
+                    "Below the result you see both estimates, their weights and the main ratios (e.g. Condition +14%, District +6%)."
                 ] },
                 { h: "More accurate, more consistent", ul: [
                     "<b>New builds separately</b>: a cheaper neighbourhood can have expensive new projects – they do not push up the estimate of older flats. A new flat is compared with new ones. New = built in the last ~6 years, in „new build” / „unfinished” condition, or a new project by its title.",
                     "<b>Exact floor area</b>: decimals count and the estimate is continuous – one square metre more changes the €/m² only a little, it does not jump.",
                     "<b>Estimating a listing</b> („Valuate this property”): the listing's own price and its copies on other sites are never counted – not even if you change the size or the condition. The × button removes the link.",
                     "<b>Condition order</b>: a better condition never gets a lower estimate.",
+                    "<b>Consistent districts</b>: for an existing flat the district counts through a single multiplier – the same flat in two districts differs exactly by the ratio of the two districts' multipliers, so a cheaper district cannot come out dearer because of a few accidentally expensive listings. The site's editors can also set the districts' price levels, and the estimate keeps that order. (For a new build the specific project matters, so the district's similar listings weigh more there.)",
                     "City and district figures are <b>medians</b> (outliers do not distort them), and duplicate listings count only once."
                 ] },
                 { h: "Confidence and range", ul: [
@@ -737,16 +739,17 @@ const HELP_CONTENT = {
                     "Apasă Estimare."
                 ] },
                 { h: "Cum se calculează?", ul: [
-                    "<b>Anunțuri similare</b>: prețurile celor mai asemănătoare anunțuri sunt convertite la proprietatea ta (după diferența de suprafață, stare, cartier, etaj).",
-                    "<b>Modelul raporturilor de preț</b>: din toate anunțurile orașului învățăm cu cât valorează mai mult un apartament în stare bună față de unul de renovat, unul de la parter față de celelalte, un cartier față de media orașului și cum scade €/m² cu suprafața. Unde datele sunt puține, ne sprijinim pe raporturi rezonabile de piață.",
-                    "Cele două se combină: cu multe anunțuri foarte similare, acestea decid; cu puține (de ex. un număr rar de camere într-un cartier mic), modelul primește o pondere mai mare.",
-                    "Sub rezultat vezi ambele estimări, ponderile lor și raporturile principale (de ex. Stare +14%)."
+                    "<b>Modelul raporturilor de preț</b>: din toate anunțurile orașului învățăm cu cât valorează mai mult un apartament în stare bună față de unul de renovat, unul de la parter sau de la ultimul etaj față de celelalte, unul dintr-o clădire mai mică față de un bloc înalt (8+ etaje), un cartier față de media orașului și cum scade €/m² cu suprafața. Unde datele sunt puține, ne sprijinim pe raporturi rezonabile de piață.",
+                    "<b>Anunțuri similare</b>: prețurile celor mai asemănătoare anunțuri sunt convertite la proprietatea ta cu raporturile modelului (după diferența de suprafață, stare, etaj, cartier). Așa se vede cu cât se cere mai mult sau mai puțin pentru apartamente ca al tău decât ar spune doar modelul.",
+                    "Cele două se combină: cu multe anunțuri foarte similare, acestea decid; cu puține (de ex. un număr rar de camere), modelul primește o pondere mai mare.",
+                    "Sub rezultat vezi ambele estimări, ponderile lor și raporturile principale (de ex. Stare +14%, Cartier +6%)."
                 ] },
                 { h: "Mai precis, mai consecvent", ul: [
                     "<b>Construcțiile noi separat</b>: un cartier mai ieftin poate avea proiecte noi scumpe – acestea nu ridică estimarea apartamentelor mai vechi. Un apartament nou se compară cu cele noi. Nou = construit în ultimii ~6 ani, în stare „construcție nouă” / „nefinisat” sau proiect nou după titlu.",
                     "<b>Suprafața exactă</b>: zecimalele contează, iar estimarea este continuă – un metru pătrat în plus schimbă €/m² doar puțin, nu sare.",
                     "<b>Estimarea unui anunț</b> („Evaluează proprietatea”): prețul propriu al anunțului și copiile lui de pe alte site-uri nu se iau niciodată în calcul – nici dacă modifici suprafața sau starea. Butonul × anulează legătura.",
                     "<b>Ordinea stărilor</b>: o stare mai bună nu primește niciodată o estimare mai mică.",
+                    "<b>Cartiere consecvente</b>: la un apartament existent cartierul contează printr-un singur multiplicator – același apartament în două cartiere diferă exact în raportul multiplicatorilor celor două cartiere, deci un cartier mai ieftin nu poate ieși mai scump din cauza câtorva anunțuri scumpe întâmplător. Editorii site-ului pot seta și nivelul de preț al cartierelor, iar estimarea păstrează această ordine. (La o construcție nouă contează proiectul concret, acolo anunțurile similare din cartier cântăresc mai mult.)",
                     "Cifrele orașului și ale cartierului sunt <b>mediane</b> (valorile extreme nu le distorsionează), iar anunțurile duplicate contează o singură dată."
                 ] },
                 { h: "Încredere și interval", ul: [

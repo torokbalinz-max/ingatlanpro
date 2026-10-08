@@ -307,6 +307,11 @@ async function createSchema(db) {
     // Ebből dől el, melyik kerületben van egy pontos helyű hirdetés.
     await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS hatar JSONB`);
 
+    // A kerület árszintje (1 = legdrágább ... 5 = legolcsóbb; üres = csak a hirdetések
+    // döntenek). Az értékbecslő ezt a sorrendet betartja: ugyanarra a lakásra a jobb
+    // árszintű kerületben nem ad kisebb becslést.
+    await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS arszint SMALLINT`);
+
     // ===================== INGATLANIRODÁK =====================
 
     // Az iroda (cég) adatai – egy felhasználó hozza létre, ő a vezetője

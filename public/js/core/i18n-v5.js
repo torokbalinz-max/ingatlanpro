@@ -67,8 +67,21 @@
             valCondAdjusted: "Condition order: adjusted by {pct} so that a better condition never gets a lower estimate.",
             valF_uj: "New build",
             valF_ev: "Year built",
+            valMethod2: "The prices of the {n} most similar listings are converted to your property with the model's ratios, and blended with the model learned from every listing in the city. With many close matches the listings decide, with few the model gets more weight. For an existing flat the district counts through a single multiplier: the same flat in another district would be dearer or cheaper exactly by the ratio of the two districts' multipliers.",
+            valAdjustedHelp: "The listing's price converted to your property (size, condition, floor, district – with the model's ratios)",
+            placesTier: "Price level",
+            placesTierNone: "– (the listings decide)",
+            placesTier1: "1 – most expensive",
+            placesTier2: "2",
+            placesTier3: "3",
+            placesTier4: "4",
+            placesTier5: "5 – cheapest",
+            placesTierBadge: "price level {n}",
+            placesTierHelp: "If set, the valuation never gives a lower estimate for the same flat in a district with a better price level (where the listings say otherwise, the two are treated as equal). Between districts with the same or no price level the listings decide.",
+            placesFactorNote: "The % next to a district: according to the valuation, the same existing flat there is this much dearer or cheaper than in a typical location of the city. You can fix the order with the Price level when editing a district.",
+            placesFactorHelp: "The valuation's district multiplier (from {n} existing flats for sale), compared with a typical location in the city",
             valHow1: "We take the verified listings of the city (each listing only once, even if it is on several sites).",
-            valHow2: "The most similar ones (size, rooms, district, condition, floor, new or existing) are converted to your property, and blended with a model learned from the whole city.",
+            valHow2: "A model learned from all listings of the city tells how much size, condition, floor and district matter; the prices of the most similar listings are converted to your property with these ratios, and the two are blended.",
             valHow3: "New builds are a separate market: they do not push up the estimate of an older flat in the same district.",
             valHow4: "The exact floor area counts (48.8 m² too): one square metre more changes the result only a little.",
 
@@ -179,7 +192,7 @@
             help_valuation: [
                 "Fill in at least the city and the floor area (decimals too, e.g. 48.8).",
                 "Started from a listing („Valuate this property”), its own price is never counted – not even after you change the details.",
-                "New builds and older flats are compared separately; a better condition never gives a lower estimate.",
+                "New builds and older flats are compared separately; a better condition never gives a lower estimate, and the district counts through a single multiplier.",
                 "Enter the asking price to see whether it is cheap or expensive."
             ]
         },
@@ -237,8 +250,21 @@
             valCondAdjusted: "Állapot-sorrend: {pct} igazítás, hogy jobb állapotra soha ne jöjjön ki kisebb becslés.",
             valF_uj: "Új építés",
             valF_ev: "Építés éve",
+            valMethod2: "A {n} leghasonlóbb hirdetés árát a modell arányaival átszámoljuk a te ingatlanodra, és összekeverjük a város összes hirdetéséből tanult modellel. Sok közeli hasonlónál a hirdetések döntenek, kevésnél a modell kap nagyobb súlyt. Meglévő lakásnál a kerület egyetlen szorzóval számít: ugyanez a lakás egy másik kerületben pontosan a két kerület szorzójának arányában lenne drágább vagy olcsóbb.",
+            valAdjustedHelp: "A hirdetés ára a te ingatlanodra átszámítva (méret, állapot, emelet, kerület – a modell arányaival)",
+            placesTier: "Árszint",
+            placesTierNone: "– (a hirdetések döntenek)",
+            placesTier1: "1 – legdrágább",
+            placesTier2: "2",
+            placesTier3: "3",
+            placesTier4: "4",
+            placesTier5: "5 – legolcsóbb",
+            placesTierBadge: "{n}. árszint",
+            placesTierHelp: "Ha megadod, az értékbecslő ugyanarra a lakásra a jobb árszintű kerületben soha nem ad kisebb becslést (ahol a hirdetések mást mutatnak, ott a kettőt egyformának veszi). Az azonos vagy üres árszintű kerületek között a hirdetések döntenek.",
+            placesFactorNote: "A % a kerület mellett: az értékbecslő szerint ugyanaz a meglévő lakás ott ennyivel drágább vagy olcsóbb a város tipikus helyénél. A sorrendet a kerület szerkesztésénél az Árszinttel rögzítheted.",
+            placesFactorHelp: "Az értékbecslő kerület-szorzója ({n} meglévő eladó lakás alapján), a város tipikus helyéhez képest",
             valHow1: "A város ellenőrzött hirdetéseit vesszük (mindegyiket csak egyszer, akkor is, ha több oldalon fent van).",
-            valHow2: "A leghasonlóbbakat (méret, szobák, kerület, állapot, emelet, új vagy meglévő) átszámoljuk a te ingatlanodra, és összekeverjük a város összes hirdetéséből tanult modellel.",
+            valHow2: "A város összes hirdetéséből tanult modell megmondja, mennyit számít a méret, az állapot, az emelet és a kerület; a leghasonlóbb hirdetések árát ezekkel az arányokkal a te ingatlanodra számoljuk át, és a kettőt keverjük.",
             valHow3: "Az újépítésű lakások külön piac: nem húzzák fel egy régebbi lakás becslését ugyanabban a kerületben.",
             valHow4: "A pontos alapterület számít (48,8 m² is): egy négyzetméterrel több csak kicsit változtat az eredményen.",
 
@@ -342,7 +368,7 @@
             help_valuation: [
                 "Legalább a várost és az alapterületet add meg (tizedessel is, pl. 48,8).",
                 "Ha egy hirdetésről indítod („Értékbecslés erre”), a saját ára soha nem számít bele – akkor sem, ha átírod az adatokat.",
-                "Az újépítésű és a régebbi lakásokat külön hasonlítjuk; jobb állapotra soha nem jön ki kisebb becslés.",
+                "Az újépítésű és a régebbi lakásokat külön hasonlítjuk; jobb állapotra soha nem jön ki kisebb becslés, és a kerület egyetlen szorzóval számít.",
                 "Ha megadod a kért árat, megmutatjuk, olcsó-e vagy drága."
             ]
         },
@@ -400,8 +426,21 @@
             valCondAdjusted: "Ordinea stărilor: ajustare de {pct}, ca o stare mai bună să nu primească niciodată o estimare mai mică.",
             valF_uj: "Construcție nouă",
             valF_ev: "Anul construcției",
+            valMethod2: "Prețurile celor mai similare {n} anunțuri sunt convertite la proprietatea ta cu raporturile modelului și combinate cu modelul învățat din toate anunțurile orașului. Cu multe potriviri apropiate decid anunțurile, cu puține modelul primește o pondere mai mare. La un apartament existent cartierul contează printr-un singur multiplicator: același apartament într-un alt cartier ar fi mai scump sau mai ieftin exact în raportul multiplicatorilor celor două cartiere.",
+            valAdjustedHelp: "Prețul anunțului convertit la proprietatea ta (suprafață, stare, etaj, cartier – cu raporturile modelului)",
+            placesTier: "Nivel de preț",
+            placesTierNone: "– (decid anunțurile)",
+            placesTier1: "1 – cel mai scump",
+            placesTier2: "2",
+            placesTier3: "3",
+            placesTier4: "4",
+            placesTier5: "5 – cel mai ieftin",
+            placesTierBadge: "nivel de preț {n}",
+            placesTierHelp: "Dacă îl setezi, evaluarea nu dă niciodată o estimare mai mică pentru același apartament într-un cartier cu nivel de preț mai bun (unde anunțurile arată altceva, cele două sunt considerate egale). Între cartierele cu același nivel sau fără nivel decid anunțurile.",
+            placesFactorNote: "Procentul de lângă cartier: după evaluare, același apartament existent este acolo cu atât mai scump sau mai ieftin decât într-o locație tipică a orașului. Ordinea o poți fixa cu Nivelul de preț la editarea cartierului.",
+            placesFactorHelp: "Multiplicatorul cartierului în evaluare (din {n} apartamente existente de vânzare), față de o locație tipică a orașului",
             valHow1: "Luăm anunțurile verificate ale orașului (fiecare o singură dată, chiar dacă apare pe mai multe site-uri).",
-            valHow2: "Cele mai asemănătoare (suprafață, camere, cartier, stare, etaj, nou sau existent) sunt convertite la proprietatea ta și combinate cu un model învățat din tot orașul.",
+            valHow2: "Un model învățat din toate anunțurile orașului arată cât contează suprafața, starea, etajul și cartierul; prețurile celor mai asemănătoare anunțuri sunt convertite la proprietatea ta cu aceste raporturi, iar cele două se combină.",
             valHow3: "Construcțiile noi sunt o piață separată: nu ridică estimarea unui apartament mai vechi din același cartier.",
             valHow4: "Suprafața exactă contează (și 48,8 m²): un metru pătrat în plus schimbă rezultatul doar puțin.",
 
@@ -505,7 +544,7 @@
             help_valuation: [
                 "Completează cel puțin orașul și suprafața (și cu zecimale, ex. 48,8).",
                 "Dacă pornești de la un anunț („Evaluează proprietatea”), prețul lui nu se ia niciodată în calcul – nici după ce modifici datele.",
-                "Construcțiile noi și cele vechi sunt comparate separat; o stare mai bună nu dă niciodată o estimare mai mică.",
+                "Construcțiile noi și cele vechi sunt comparate separat; o stare mai bună nu dă niciodată o estimare mai mică, iar cartierul contează printr-un singur multiplicator.",
                 "Dacă introduci prețul cerut, îți arătăm dacă e ieftin sau scump."
             ]
         }
