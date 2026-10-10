@@ -1002,14 +1002,17 @@ function szamol(pool, params, ctx, opts = {}) {
 const V4 = {
     K: 12, KMAX: 20, KMIN: 6,
     nagyonHasonlo: 0.8,         // ennyi fölött akár 20 hasonló is számít
-    atmenet: 0.06,              // a k-adik hasonlónál ennyivel kisebb hasonlóságig fokozatosan
-    kitevo: 3,                  // a súly = hasonlóság^kitevo (a leghasonlóbbak döntenek)
+    atmenet: 0.12,              // a k-adik hasonlónál ennyivel kisebb hasonlóságig fokozatosan
+    kitevo: 8,                  // a súly = hasonlóság^kitevo (a leghasonlóbbak döntenek)
     korlat: Math.log(1.3),      // az átszámítás legfeljebb ±30 %
     kilogo: 0.3,                // a súlyozott mediántól ennyire (log) eltérő hasonló kimarad
+    helySav: 0.3,               // ekkora (log) árszint-különbségnél már nem hasonló a másik kerület
     keruletEro: 3,              // ennyi "hasonló hirdetésnyi" súllyal húz a modell kerület-aránya
+    atszamol: false,            // false: a hasonlók eredeti €/m²-e számít (nincs átszámítás)
     vag: true,                  // a becslés a hasonlók tartományán belül
     savSzel: 0.04,              // az ársáv legalább ±4 %
-    sulyok: { meret: 0.28, hely: 0.24, allapot: 0.18, szoba: 0.14, emelet: 0.06, epulet: 0.05, ev: 0.05 }
+    // Átszámítás nélkül a kerület és az állapot a legfontosabb (ezek mozgatják leginkább az árat)
+    sulyok: { meret: 0.25, hely: 0.35, allapot: 0.25, szoba: 0.08, emelet: 0.04, epulet: 0.02, ev: 0.01 }
 };
 
 if (process.env.V4_TEST) Object.assign(V4, JSON.parse(process.env.V4_TEST));
@@ -1152,7 +1155,7 @@ function becsles4(cel, pool, m, elo, ctx) {
             if (i._hely === cel._hely) helySim = 1;
             else if (i._hely && celSzint !== null && szint.has(i._hely)) {
                 helyKul = celSzint - szint.get(i._hely);
-                helySim = 0.7 * Math.max(0, 1 - Math.abs(helyKul) / 0.3);
+                helySim = 0.7 * Math.max(0, 1 - Math.abs(helyKul) / V4.helySav);
             } else helySim = 0.3;
             if (cel._pontos && i._pontos) {
                 const km = Math.hypot((cel.x - i.x) * 111.32 * Math.cos(cel.y * Math.PI / 180), (cel.y - i.y) * 110.57);
@@ -1164,8 +1167,8 @@ function becsles4(cel, pool, m, elo, ctx) {
         // Amit 30 %-nál jobban kellene átszámolni, az valójában nem hasonló (a korlát
         // miatt torzítana) – a hasonlósága ennek arányában csökken
         const tobblet = Math.abs(x.a + helyKul) - V4.korlat;
-        if (tobblet > 0) sim *= Math.max(0.05, 1 - tobblet / 0.15);
-        const atsz = Math.max(-V4.korlat, Math.min(V4.korlat, x.a + helyKul));
+        if (V4.atszamol && tobblet > 0) sim *= Math.max(0.05, 1 - tobblet / 0.15);
+        const atsz = V4.atszamol ? Math.max(-V4.korlat, Math.min(V4.korlat, x.a + helyKul)) : 0;
         return { i, sim, reszek, helyKul, masKul: x.a, atsz, v: Math.log(i.arNm) + atsz };
     }).sort((a, b) => b.sim - a.sim);
 
@@ -1184,9 +1187,11 @@ function becsles4(cel, pool, m, elo, ctx) {
     const sulyoz = l => l.map(x => ({ ...x, w: x.t * Math.pow(Math.max(x.sim, 0.01), V4.kitevo) }));
     let s = sulyoz(valasztott);
     const kozep = sulyozottKvantilis(s, 0.5);
-    const tiszta = s.filter(x => Math.abs(x.v - kozep) <= V4.kilogo);
-    const kimaradt = tiszta.length >= Math.min(V4.KMIN, s.length) ? s.filter(x => Math.abs(x.v - kozep) > V4.kilogo) : [];
-    if (kimaradt.length) s = tiszta;
+    // (fokozatosan: a mediántól távolodva egyre kisebb súllyal, a nagyon távoliak kimaradnak)
+    s = s.map(x => { const e = (x.v - kozep) / V4.kilogo; return { ...x, w: x.w / (1 + e * e * e * e) }; });
+    const kimaradt = s.filter(x => Math.abs(x.v - kozep) > 1.5 * V4.kilogo);
+    if (s.length - kimaradt.length >= Math.min(V4.KMIN, s.length)) s = s.filter(x => Math.abs(x.v - kozep) <= 1.5 * V4.kilogo);
+    else kimaradt.length = 0;
 
     const ossz = s.reduce((t, x) => t + x.w, 0);
     let becsLog = s.reduce((t, x) => t + x.w * x.v, 0) / ossz;
@@ -1291,6 +1296,7 @@ function szamol4(pool, params, ctx, opts = {}) {
         helySzerint: ctx.telepulesSzerint ? "telepules" : "kerulet",
         method: {
             kind: "comparables",
+            converted: V4.atszamol,
             used: r.s.length,
             dropped: r.kimaradt.length,
             verySimilar: r.nagyon,
@@ -1315,8 +1321,9 @@ function szamol4(pool, params, ctx, opts = {}) {
             telepules: x.i.telepules,
             eladva: x.i.eladva,
             uj: !!x.i._uj,
-            adjusted: kerekit(Math.exp(x.v) * nm),
-            adjustedArNm: arNmKerek(Math.exp(x.v)),
+            adjusted: V4.atszamol ? kerekit(Math.exp(x.v) * nm) : null,
+            adjustedArNm: V4.atszamol ? arNmKerek(Math.exp(x.v)) : null,
+            simParts: Object.fromEntries(Object.entries(x.reszek).map(([k, v]) => [k, Math.round(v * 100)])),
             adjDistrict: pct(Math.max(-V4.korlat, Math.min(V4.korlat, x.helyKul))),
             adjOther: pct(x.atsz - Math.max(-V4.korlat, Math.min(V4.korlat, x.helyKul))),
             weight: Math.round(x.w / r.s.reduce((t, y) => t + y.w, 0) * 1000) / 10,
