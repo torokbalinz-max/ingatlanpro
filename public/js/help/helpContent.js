@@ -138,10 +138,10 @@ const HELP_CONTENT = {
                 ] },
                 { h: "Hogyan számol?", ul: [
                     "<b>Hasonlóság %-ban</b>: minden ellenőrzött hirdetéshez kiszámoljuk, mennyire hasonlít a tiédre – alapterület, szobák, állapot, kerület, emelet, épület (magas tömbház, építés éve). Új építésű és meglévő lakás alig hasonló egymáshoz.",
-                    "<b>Kerületek árszintje</b>: a piaci statisztikából nézzük, hogy a te paramétereiddel (méret, szobák, állapot) mennyivel drágább vagy olcsóbb egyik kerület a másiknál. Egy másik kerület hirdetésének árát ennek arányában számoljuk át (pl. Csiki → Központ +12 %), a nagyon más árszintű kerület pedig kevésbé hasonló.",
-                    "<b>A leghasonlóbbak</b>: alapból 12 hirdetés, ha sok a nagyon hasonló (80 % fölött), akár 20, de legalább 6. Mindegyik árát a te ingatlanodra számoljuk át (kerület, méret, állapot, emelet – legfeljebb ±30 %), és a hasonlóságukkal súlyozva átlagoljuk; a kilógók kimaradnak.",
-                    "<b>Becslés = átszámolt €/m² × alapterület.</b> A becslés és az ársáv (a súlyozott 20–80 %-os tartomány) mindig a felhasznált hirdetések árai között marad.",
-                    "A táblázatban minden hasonlónál látod a hasonlóságot, a súlyát és az átszámolt árát (az egérrel rámutatva: mennyi a kerület és mennyi a többi különbség miatt)."
+                    "<b>Kerületek árszintje</b>: a piaci statisztikából nézzük, hogy a te paramétereiddel (méret, szobák, állapot) mennyivel drágább vagy olcsóbb egyik kerület a másiknál. A nagyon más árszintű kerület hirdetése kevésbé hasonló, vagy egyáltalán nem számít.",
+                    "<b>A leghasonlóbbak</b>: alapból 12 hirdetés, ha sok a nagyon hasonló (80 % fölött), akár 20, de legalább 6. Ezek saját €/m²-ét a hasonlóságukkal súlyozva átlagoljuk (az árakat nem számoljuk át); a kilógók kimaradnak.",
+                    "<b>Becslés = súlyozott €/m² × alapterület.</b> A becslés és az ársáv (a súlyozott 20–80 %-os tartomány) mindig a felhasznált hirdetések árai között marad.",
+                    "A táblázatban minden hasonlónál látod a hasonlóságot és a súlyát (mennyit számít a becslésben)."
                 ] },
                 { h: "Pontosabb, következetesebb becslés", ul: [
                     "<b>Újépítésű lakások külön</b>: egy olcsóbb negyedben is lehetnek drága új projektek – ezek nem húzzák fel a régebbi lakások becslését. Új lakásnál a becslés az új lakásokhoz hasonlít. Újnak számít, ami az elmúlt ~6 évben épült, „újépítésű” / „félkész” állapotú, vagy a címe szerint új projekt.",
@@ -462,10 +462,10 @@ const HELP_CONTENT = {
                 ] },
                 { h: "How is it calculated?", ul: [
                     "<b>Similarity in %</b>: for every verified listing we compute how similar it is to yours – floor area, rooms, condition, district, floor, building (tall block, year built). New builds and existing homes are hardly similar to each other.",
-                    "<b>District price levels</b>: from the market statistics we see how much more or less expensive one district is than another for your parameters (size, rooms, condition). A listing from another district is converted proportionally (e.g. Csiki → Centre +12 %), and very differently priced districts count as less similar.",
-                    "<b>The most similar ones</b>: 12 listings by default, up to 20 if many are very similar (above 80 %), at least 6. Each price is converted to your property (district, size, condition, floor – at most ±30 %) and averaged, weighted by similarity; outliers are left out.",
-                    "<b>Estimate = converted €/m² × floor area.</b> The estimate and the range (weighted 20–80 % band) always stay within the prices of the listings used.",
-                    "The table shows each listing's similarity, weight and converted price (hover to see how much is due to the district and how much to the other differences)."
+                    "<b>District price levels</b>: from the market statistics we see how much more or less expensive one district is than another for your parameters (size, rooms, condition). Listings from very differently priced districts count as less similar, or not at all.",
+                    "<b>The most similar ones</b>: 12 listings by default, up to 20 if many are very similar (above 80 %), at least 6. Their own €/m² is averaged, weighted by similarity (prices are not converted); outliers are left out.",
+                    "<b>Estimate = weighted €/m² × floor area.</b> The estimate and the range (weighted 20–80 % band) always stay within the prices of the listings used.",
+                    "The table shows each listing's similarity and weight (how much it counts in the estimate)."
                 ] },
                 { h: "More accurate, more consistent", ul: [
                     "<b>New builds separately</b>: a cheaper neighbourhood can have expensive new projects – they do not push up the estimate of older flats. A new flat is compared with new ones. New = built in the last ~6 years, in „new build” / „unfinished” condition, or a new project by its title.",
@@ -786,10 +786,10 @@ const HELP_CONTENT = {
                 ] },
                 { h: "Cum se calculează?", ul: [
                     "<b>Similaritate în %</b>: pentru fiecare anunț verificat calculăm cât de asemănător este cu al tău – suprafață, camere, stare, cartier, etaj, clădire (bloc înalt, anul construcției). Construcțiile noi și locuințele existente sunt puțin asemănătoare.",
-                    "<b>Nivelul de preț al cartierelor</b>: din statisticile pieței vedem cu cât e mai scump sau mai ieftin un cartier față de altul pentru parametrii tăi (suprafață, camere, stare). Prețul unui anunț din alt cartier e convertit proporțional (ex. Ciuc → Centru +12 %), iar cartierele cu prețuri foarte diferite contează ca mai puțin asemănătoare.",
-                    "<b>Cele mai asemănătoare</b>: implicit 12 anunțuri, până la 20 dacă multe sunt foarte asemănătoare (peste 80 %), cel puțin 6. Prețul fiecăruia e convertit la proprietatea ta (cartier, suprafață, stare, etaj – cel mult ±30 %) și mediat ponderat cu similaritatea; valorile extreme sunt excluse.",
-                    "<b>Estimare = €/m² convertit × suprafață.</b> Estimarea și intervalul (banda ponderată 20–80 %) rămân mereu între prețurile anunțurilor folosite.",
-                    "Tabelul arată pentru fiecare anunț similaritatea, ponderea și prețul convertit (cu mouse-ul deasupra: cât se datorează cartierului și cât celorlalte diferențe)."
+                    "<b>Nivelul de preț al cartierelor</b>: din statisticile pieței vedem cu cât e mai scump sau mai ieftin un cartier față de altul pentru parametrii tăi (suprafață, camere, stare). Anunțurile din cartiere cu prețuri foarte diferite contează ca mai puțin asemănătoare sau deloc.",
+                    "<b>Cele mai asemănătoare</b>: implicit 12 anunțuri, până la 20 dacă multe sunt foarte asemănătoare (peste 80 %), cel puțin 6. Media €/m² propriu al acestora, ponderată cu similaritatea (prețurile nu sunt convertite); valorile extreme sunt excluse.",
+                    "<b>Estimare = €/m² ponderat × suprafață.</b> Estimarea și intervalul (banda ponderată 20–80 %) rămân mereu între prețurile anunțurilor folosite.",
+                    "Tabelul arată pentru fiecare anunț similaritatea și ponderea (cât contează în estimare)."
                 ] },
                 { h: "Mai precis, mai consecvent", ul: [
                     "<b>Construcțiile noi separat</b>: un cartier mai ieftin poate avea proiecte noi scumpe – acestea nu ridică estimarea apartamentelor mai vechi. Un apartament nou se compară cu cele noi. Nou = construit în ultimii ~6 ani, în stare „construcție nouă” / „nefinisat” sau proiect nou după titlu.",

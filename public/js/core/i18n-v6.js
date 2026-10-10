@@ -260,8 +260,8 @@
             valLoginNote: "You need to log in for an estimate (free).",
             // Értékbecslő – 4. változat
             valHow1: "We take the verified listings of the city (each only once) and give each a similarity score: size, rooms, condition, district, floor, building.",
-            valHow2: "District price levels for your parameters come from the market statistics – a listing from another district is converted proportionally (e.g. +8 %), very differently priced districts count as less similar.",
-            valHow3: "The most similar listings (12 by default, up to 20 if many are very similar, at least 6) are converted to your property and averaged, weighted by similarity.",
+            valHow2: "District price levels for your parameters come from the market statistics: a district with a very different price level counts as less similar (or not at all).",
+            valHow3: "From the most similar listings (12 by default, up to 20 if many are very similar, at least 6) we take the similarity-weighted average of their own €/m² – the more similar, the more it counts.",
             valHow4: "Estimate = converted €/m² × floor area. The estimate and the range always stay within the prices of the listings used.",
             valWeight: "weight {pct} %",
             valWeightHelp: "How much this listing counts in the estimate (the more similar, the more)",
@@ -273,7 +273,9 @@
             valM4Raw: "Original €/m² of these listings: {min} – {max}",
             valM4Districts: "Price level of your district compared with",
             valM4Villages: "Price level of your village compared with",
-            valM4Note: "The estimate and the range always stay within the prices of the listings used.",
+            valM4WeightedRaw: "€/m² of these listings, weighted by similarity: <b>{arnm}</b> × {nm}",
+            valM4Note: "The prices are not converted: the estimate is the similarity-weighted average of the listings' own €/m², so it always stays within their prices.",
+            valSim_meret: "Floor area", valSim_hely: "District", valSim_allapot: "Condition", valSim_szoba: "Rooms", valSim_emelet: "Floor", valSim_epulet: "Building", valSim_ev: "Year built",
             valTestPrev: "Previous (3.)",
             valTestNew: "New (4. – similarity %)"
         },
@@ -516,8 +518,8 @@
 
             valLoginNote: "A becsléshez be kell jelentkezni (ingyenes).",
             valHow1: "A város ellenőrzött hirdetéseit vesszük (mindegyiket csak egyszer), és mindegyikhez hasonlóságot számolunk: alapterület, szobák, állapot, kerület, emelet, épület.",
-            valHow2: "A kerületek árszintje a te paramétereidre a piaci statisztikából jön – egy másik kerület hirdetését arányosan átszámoljuk (pl. +8 %), a nagyon más árszintű kerület kevésbé hasonló.",
-            valHow3: "A leghasonlóbb hirdetéseket (alapból 12, ha sok a nagyon hasonló, akár 20, legalább 6) a te ingatlanodra számoljuk át, és a hasonlósággal súlyozva átlagoljuk.",
+            valHow2: "A kerületek árszintje a te paramétereidre a piaci statisztikából jön: a nagyon más árszintű kerület hirdetése kevésbé hasonló (vagy egyáltalán nem számít).",
+            valHow3: "A leghasonlóbb hirdetések (alapból 12, ha sok a nagyon hasonló, akár 20, legalább 6) saját €/m²-ének hasonlósággal súlyozott átlagát vesszük – minél hasonlóbb, annál többet számít.",
             valHow4: "Becslés = átszámolt €/m² × alapterület. A becslés és az ársáv mindig a felhasznált hirdetések árai között marad.",
             valWeight: "súly {pct} %",
             valWeightHelp: "Ennyit számít a becslésben (minél hasonlóbb, annál többet)",
@@ -529,7 +531,9 @@
             valM4Raw: "Ezeknek a hirdetéseknek az eredeti €/m²-e: {min} – {max}",
             valM4Districts: "A kerületed árszintje ezekhez képest",
             valM4Villages: "A falud árszintje ezekhez képest",
-            valM4Note: "A becslés és az ársáv mindig a felhasznált hirdetések árai között marad.",
+            valM4WeightedRaw: "Ezeknek a hirdetéseknek a €/m²-e, hasonlósággal súlyozva: <b>{arnm}</b> × {nm}",
+            valM4Note: "Az árakat nem számoljuk át: a becslés a hasonlók saját €/m²-ének hasonlósággal súlyozott átlaga, így mindig az áraik között marad.",
+            valSim_meret: "Alapterület", valSim_hely: "Kerület", valSim_allapot: "Állapot", valSim_szoba: "Szobák", valSim_emelet: "Emelet", valSim_epulet: "Épület", valSim_ev: "Építés éve",
             valTestPrev: "Előző (3.)",
             valTestNew: "Új (4. – hasonlósági %)"
         },
@@ -772,8 +776,8 @@
 
             valLoginNote: "Pentru estimare trebuie să te autentifici (gratuit).",
             valHow1: "Luăm anunțurile verificate ale orașului (fiecare o singură dată) și calculăm pentru fiecare o similaritate: suprafață, camere, stare, cartier, etaj, clădire.",
-            valHow2: "Nivelul de preț al cartierelor pentru parametrii tăi vine din statisticile pieței – un anunț din alt cartier e convertit proporțional (ex. +8 %), cartierele cu prețuri foarte diferite contează ca mai puțin asemănătoare.",
-            valHow3: "Cele mai asemănătoare anunțuri (implicit 12, până la 20 dacă multe sunt foarte asemănătoare, cel puțin 6) sunt convertite la proprietatea ta și mediate, ponderat cu similaritatea.",
+            valHow2: "Nivelul de preț al cartierelor pentru parametrii tăi vine din statisticile pieței: un cartier cu preț foarte diferit contează ca mai puțin asemănător (sau deloc).",
+            valHow3: "Din cele mai asemănătoare anunțuri (implicit 12, până la 20 dacă multe sunt foarte asemănătoare, cel puțin 6) luăm media €/m² propriu, ponderată cu similaritatea.",
             valHow4: "Estimare = €/m² convertit × suprafață. Estimarea și intervalul rămân mereu între prețurile anunțurilor folosite.",
             valWeight: "pondere {pct} %",
             valWeightHelp: "Cât contează în estimare (cu cât mai asemănător, cu atât mai mult)",
@@ -785,7 +789,9 @@
             valM4Raw: "€/m² original al acestor anunțuri: {min} – {max}",
             valM4Districts: "Nivelul de preț al cartierului tău față de",
             valM4Villages: "Nivelul de preț al satului tău față de",
-            valM4Note: "Estimarea și intervalul rămân mereu între prețurile anunțurilor folosite.",
+            valM4WeightedRaw: "€/m² al acestor anunțuri, ponderat cu similaritatea: <b>{arnm}</b> × {nm}",
+            valM4Note: "Prețurile nu sunt convertite: estimarea e media ponderată cu similaritatea a €/m² propriu al anunțurilor, deci rămâne mereu între prețurile lor.",
+            valSim_meret: "Suprafață", valSim_hely: "Cartier", valSim_allapot: "Stare", valSim_szoba: "Camere", valSim_emelet: "Etaj", valSim_epulet: "Clădire", valSim_ev: "Anul construcției",
             valTestPrev: "Anterioară (3.)",
             valTestNew: "Nouă (4. – similaritate %)"
         }

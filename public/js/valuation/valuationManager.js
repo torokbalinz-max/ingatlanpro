@@ -353,10 +353,11 @@ class ValuationManager {
             ? `<div class="small text-body-secondary mt-1"><i class="fa-solid fa-link" aria-hidden="true"></i> ${I18n.f(d.excluded.ikrek ? "valExcludedTwins" : "valExcluded", { id: d.excluded.id, n: d.excluded.ikrek })}</div>`
             : "";
 
-        // Hasonló ingatlanok
+        // Hasonló ingatlanok (a 4. változatban alapból nincs átszámítás: az eredeti €/m² számít)
+        const atszamolt = !(d.method && d.method.kind === "comparables" && d.method.converted === false);
         const sorok = d.comparables.map(c => `
             <tr class="${c.id === ValuationManager.excludeId ? "table-primary" : ""}">
-                <td>
+                <td title="${Utils.escape(ValuationManager.hasonlosagCim(c))}">
                     <div class="simBar"><span style="width:${c.similarity}%"></span></div>
                     <small>${c.similarity}%</small>${c.weight !== undefined ? `<small class="d-block text-body-secondary" title="${Utils.escape(I18n.t("valWeightHelp"))}">${I18n.f("valWeight", { pct: Utils.num(c.weight, 1) })}</small>` : ""}
                 </td>
@@ -364,7 +365,7 @@ class ValuationManager {
                 <td class="text-end fw-semibold">${Utils.eur(c.ar)}</td>
                 <td class="text-end">${Utils.nm(c.nm)}</td>
                 <td class="text-end">${Utils.eurNm(c.arNm)}</td>
-                <td class="text-end text-body-secondary" title="${Utils.escape(ValuationManager.atszamitasCim(c))}">${c.adjusted ? Utils.eur(c.adjusted) : "-"}${c.adjustedArNm ? `<small class="d-block">${Utils.eurNm(c.adjustedArNm)}</small>` : ""}</td>
+                ${atszamolt ? `<td class="text-end text-body-secondary" title="${Utils.escape(ValuationManager.atszamitasCim(c))}">${c.adjusted ? Utils.eur(c.adjusted) : "-"}${c.adjustedArNm ? `<small class="d-block">${Utils.eurNm(c.adjustedArNm)}</small>` : ""}</td>` : ""}
                 <td class="text-center">${c.szobak || "-"}</td>
                 <td>${Utils.escape(c.emelet || "-")}</td>
                 <td>${Utils.escape(Utils.allapotLabel(c.allapot))}</td>
@@ -430,7 +431,7 @@ class ValuationManager {
                                     <th class="text-end">${I18n.t("colAr")}</th>
                                     <th class="text-end">${I18n.t("colNm")}</th>
                                     <th class="text-end">${I18n.t("colArNm")}</th>
-                                    <th class="text-end" title="${Utils.escape(I18n.t("valAdjustedHelp"))}">${I18n.t("valAdjusted")}</th>
+                                    ${atszamolt ? `<th class="text-end" title="${Utils.escape(I18n.t("valAdjustedHelp"))}">${I18n.t("valAdjusted")}</th>` : ""}
                                     <th class="text-center">${I18n.t("colSzoba")}</th>
                                     <th>${I18n.t("colEmelet")}</th>
                                     <th>${I18n.t("colAllapot")}</th>
@@ -449,6 +450,12 @@ class ValuationManager {
 
     }
 
+    // Miből jön a hasonlóság (a cella címe): méret, kerület, állapot...
+    static hasonlosagCim(c) {
+        if (!c.simParts) return "";
+        return Object.entries(c.simParts).map(([k, v]) => `${I18n.t("valSim_" + k)}: ${v} %`).join("\n");
+    }
+
     // Az átszámítás részletei egy hasonló hirdetésnél (a cella címe)
     static atszamitasCim(c) {
         if (c.adjDistrict === undefined) return I18n.t("valAdjustedHelp");
@@ -465,7 +472,7 @@ class ValuationManager {
         return `
             <ul class="small mb-2 valMethodList">
                 <li>${I18n.f("valM4Used", { n: m.used, sim: m.avgSimilarity })}${m.dropped ? ` <span class="text-body-secondary">${I18n.f("valM4Dropped", { n: m.dropped })}</span>` : ""}</li>
-                <li>${I18n.f("valM4Weighted", { arnm: Utils.eurNm(m.weightedArNm), nm: Utils.nm(d.nm) })}</li>
+                <li>${I18n.f(m.converted === false ? "valM4WeightedRaw" : "valM4Weighted", { arnm: Utils.eurNm(m.weightedArNm), nm: Utils.nm(d.nm) })}</li>
                 <li>${I18n.f("valM4Raw", { min: Utils.eurNm(m.rawMinArNm), max: Utils.eurNm(m.rawMaxArNm) })}</li>
                 ${kerek ? `<li>${I18n.t(d.helySzerint === "telepules" ? "valM4Villages" : "valM4Districts")}: ${kerek}</li>` : ""}
                 ${m.conditionAdjustment && Math.abs(m.conditionAdjustment) >= 0.5 ? `<li>${I18n.f("valCondAdjusted", { pct: Utils.pct(m.conditionAdjustment, 1) })}</li>` : ""}
