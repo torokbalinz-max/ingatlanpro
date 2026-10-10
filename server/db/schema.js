@@ -668,6 +668,147 @@ async function createSchema(db) {
         )
     `);
 
+    // ===================== PÉNZÜGYEK (Admin → Pénzügyek) =====================
+    // A weboldal bevételei és kiadásai egy helyen:
+    //  - díjcsomagok (árlista): iroda-előfizetés, extra hirdetések, reklámmentes,
+    //    részletes statisztika, kiemelés, reklámfelület... – mit ad (jogosultsag)
+    //  - ügyfelek: magánszemély / cég (ANAF-adatokkal), kapcsolható fiókhoz / irodához
+    //  - előfizetések: ki, melyik csomag, mettől, mikor esedékes a következő díjbekérő
+    //  - díjbekérők / számlák tételekkel, fizetve / lejárt / sztornó
+    //  - kiadások (tárhely, domain, könyvelő...)
+    // A pénzösszegek NUMERIC(12,2) – nincs kerekítési hiba.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS penzugy_csomagok (
+            id SERIAL PRIMARY KEY,
+            kod TEXT UNIQUE,
+            nev TEXT NOT NULL,
+            nev_ro TEXT,
+            nev_en TEXT,
+            kategoria TEXT NOT NULL DEFAULT 'egyeb',
+            ar NUMERIC(12,2) DEFAULT 0,
+            penznem TEXT DEFAULT 'RON',
+            idoszak TEXT DEFAULT 'havi',
+            leiras TEXT,
+            jogosultsag JSONB DEFAULT '{}'::jsonb,
+            aktiv BOOLEAN DEFAULT true,
+            sorrend INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS penzugy_ugyfelek (
+            id SERIAL PRIMARY KEY,
+            tipus TEXT DEFAULT 'maganszemely',
+            nev TEXT NOT NULL,
+            cui TEXT,
+            reg_com TEXT,
+            cim TEXT,
+            email TEXT,
+            telefon TEXT,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE SET NULL,
+            jegyzet TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_ugyfel_user ON penzugy_ugyfelek (user_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_ugyfel_iroda ON penzugy_ugyfelek (iroda_id)`);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS penzugy_elofizetesek (
+            id SERIAL PRIMARY KEY,
+            ugyfel_id INTEGER REFERENCES penzugy_ugyfelek(id) ON DELETE CASCADE,
+            csomag_id INTEGER REFERENCES penzugy_csomagok(id) ON DELETE SET NULL,
+            megnevezes TEXT,
+            ar NUMERIC(12,2) DEFAULT 0,
+            penznem TEXT DEFAULT 'RON',
+            idoszak TEXT DEFAULT 'havi',
+            mennyiseg INTEGER DEFAULT 1,
+            kezdet DATE DEFAULT CURRENT_DATE,
+            kovetkezo DATE,
+            vege DATE,
+            statusz TEXT DEFAULT 'aktiv',
+            jegyzet TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS penzugy_szamlak (
+            id SERIAL PRIMARY KEY,
+            sorszam TEXT UNIQUE,
+            tipus TEXT DEFAULT 'dijbekero',
+            ugyfel_id INTEGER REFERENCES penzugy_ugyfelek(id) ON DELETE SET NULL,
+            vevo JSONB DEFAULT '{}'::jsonb,
+            kiallitva DATE DEFAULT CURRENT_DATE,
+            esedekes DATE,
+            fizetve DATE,
+            statusz TEXT DEFAULT 'kiallitva',
+            penznem TEXT DEFAULT 'RON',
+            netto NUMERIC(12,2) DEFAULT 0,
+            afa NUMERIC(12,2) DEFAULT 0,
+            brutto NUMERIC(12,2) DEFAULT 0,
+            fizetesi_mod TEXT,
+            kulso_szam TEXT,
+            elofizetes_id INTEGER REFERENCES penzugy_elofizetesek(id) ON DELETE SET NULL,
+            reklam_id INTEGER REFERENCES reklamok(id) ON DELETE SET NULL,
+            idoszak_tol DATE,
+            idoszak_ig DATE,
+            megjegyzes TEXT,
+            emailezve TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_szamla_kiallitva ON penzugy_szamlak (kiallitva)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_szamla_ugyfel ON penzugy_szamlak (ugyfel_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_szamla_elofizetes ON penzugy_szamlak (elofizetes_id)`);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS penzugy_tetelek (
+            id SERIAL PRIMARY KEY,
+            szamla_id INTEGER REFERENCES penzugy_szamlak(id) ON DELETE CASCADE,
+            megnevezes TEXT NOT NULL,
+            kategoria TEXT DEFAULT 'egyeb',
+            csomag_id INTEGER REFERENCES penzugy_csomagok(id) ON DELETE SET NULL,
+            mennyiseg NUMERIC(12,2) DEFAULT 1,
+            egysegar NUMERIC(12,2) DEFAULT 0,
+            afa_kulcs NUMERIC(5,2) DEFAULT 0,
+            netto NUMERIC(12,2) DEFAULT 0,
+            afa NUMERIC(12,2) DEFAULT 0,
+            brutto NUMERIC(12,2) DEFAULT 0,
+            sorrend INTEGER DEFAULT 0
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_tetel_szamla ON penzugy_tetelek (szamla_id)`);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS penzugy_kiadasok (
+            id SERIAL PRIMARY KEY,
+            datum DATE DEFAULT CURRENT_DATE,
+            kategoria TEXT DEFAULT 'egyeb',
+            leiras TEXT NOT NULL,
+            szallito TEXT,
+            osszeg NUMERIC(12,2) DEFAULT 0,
+            penznem TEXT DEFAULT 'RON',
+            afa NUMERIC(12,2) DEFAULT 0,
+            szamlaszam TEXT,
+            ismetlodo TEXT,
+            jegyzet TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_kiadas_datum ON penzugy_kiadasok (datum)`);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

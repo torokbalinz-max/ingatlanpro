@@ -72,13 +72,18 @@ class AdSlots {
         return { mutat: true, helyorzo: true, email: "", helyek: {}, hirdetesek: [], ...r };
     }
 
+    // Reklámmentes csomag (Admin → Pénzügyek → előfizetés): neki nincs reklám
+    static reklammentes() {
+        return !!(typeof AuthManager !== "undefined" && AuthManager.csomag && AuthManager.csomag.reklammentes);
+    }
+
     static enabled() {
-        return AdSlots.beallitas().mutat !== false;
+        return AdSlots.beallitas().mutat !== false && !AdSlots.reklammentes();
     }
 
     static helyAktiv(hely) {
         const b = AdSlots.beallitas();
-        return b.mutat !== false && !(b.helyek && b.helyek[hely] && b.helyek[hely].aktiv === false);
+        return b.mutat !== false && !AdSlots.reklammentes() && !(b.helyek && b.helyek[hely] && b.helyek[hely].aktiv === false);
     }
 
     static helyorzoKell(hely) {

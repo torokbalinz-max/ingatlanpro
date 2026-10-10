@@ -81,6 +81,7 @@ app.use(require("./routes/sitestats"));
 app.use(require("./routes/beallitasok"));
 app.use(require("./routes/kornyek"));
 app.use(require("./routes/reklam"));
+app.use(require("./routes/penzugy"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {
@@ -109,4 +110,9 @@ app.listen(PORT, () => {
     const havonta = () => require("./routes/statistics").havontaMent().catch(() => { });
     setTimeout(havonta, 60 * 1000);
     setInterval(havonta, 12 * 3600 * 1000).unref();
+    // Pénzügyek: a kezdő díjcsomagok (egyszer), és ha be van kapcsolva, az
+    // esedékes előfizetések díjbekérői (induláskor és 6 óránként)
+    const penzugy = require("./services/penzugy");
+    setTimeout(() => penzugy.kesz().then(() => penzugy.napi()), 20 * 1000);
+    setInterval(() => penzugy.napi(), 6 * 3600 * 1000).unref();
 });

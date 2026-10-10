@@ -230,6 +230,11 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
         const kepek = parseKepek(req.body.kepek);
         const iroda = await irodaMezok(req, req.body);
 
+        // Díjcsomagok: elérte-e a hirdetésszám-korlátot (csak ha az adminban
+        // be van kapcsolva a díjak érvényesítése – Admin → Pénzügyek → Beállítások)
+        const korlat = await require("../services/penzugy").hirdetesKorlat(req, iroda && iroda.iroda_id).catch(() => null);
+        if (korlat) return res.status(402).json({ error: "listing_limit", ...korlat });
+
         // Ha a város egy faluja (pl. Uzon) van megadva, a "<város> és környéke" városba kerül
         d.forras_tipus = "kezi";
         const at = await kornyek.helyreTesz(d);

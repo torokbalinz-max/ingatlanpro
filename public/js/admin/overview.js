@@ -42,6 +42,8 @@ AdminManager.renderOverview = function () {
         todo(c.unavailable, "fa-solid fa-ban", "red", I18n.f("ovTodoUnavailable", { n: c.unavailable }), "unavailable");
         todo(c.allapot_hianyzo, "fa-solid fa-screwdriver-wrench", "purple", I18n.f("ovTodoAllapot", { n: c.allapot_hianyzo }), "allapot");
         todo(c.reklam_lejaro, "fa-solid fa-rectangle-ad", "orange", I18n.f("ovTodoAdsExpiring", { n: c.reklam_lejaro }), "reklam");
+        todo(c.penzugy_lejart, "fa-solid fa-clock", "red", I18n.f("ovTodoFinLate", { n: c.penzugy_lejart }), "szamlak");
+        todo(c.penzugy_esedekes, "fa-solid fa-arrows-rotate", "orange", I18n.f("ovTodoFinDue", { n: c.penzugy_esedekes }), "elofizetesek");
         todo(!c.figyelt, "fa-solid fa-binoculars", "cyan", I18n.t("ovTodoWatch"), "watch");
 
         // Gyors elérés: a menü csoportjai, mindegyik rész egy mondattal
@@ -129,5 +131,5 @@ AdminManager.renderOverview = function () {
 AdminManager.COUNT_KEY = {
     pendingCount: "review", unavailableCount: "unavailable", allapotCount: "allapot_hianyzo",
     irodaCount: "iroda_fuggo", kornyekCount: "kornyek_javaslat", reportCount: "bejelentes_uj",
-    helyCount: "hely_athelyezett", reklamCount: "reklam_fut"
+    helyCount: "hely_athelyezett", reklamCount: "reklam_fut", finLateCount: "penzugy_lejart", finDueCount: "penzugy_esedekes"
 };

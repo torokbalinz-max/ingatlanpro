@@ -13,6 +13,8 @@
 //    Beolvasás               beolvasás linkről, figyelt oldalak, karbantartás
 //    Helyek                  városok és kerületek, város és környéke, hely-ellenőrzés
 //    Partnerek és reklám     ingatlanirodák, reklámfelületek
+//    Pénzügyek               áttekintés, díjbekérők / számlák, előfizetések,
+//                            ügyfelek, díjcsomagok, kiadások, számlázási beállítások
 //    Beállítások             állapotok, webhely adatai
 //
 //  Az egyes részek külön fájlban vannak (ugyanebben a mappában):
@@ -30,6 +32,8 @@
 //    locationCheck.js  hely-ellenőrzés: amit az automatika áthelyezett
 //    agencies.js       ingatlanirodák jóváhagyása (ANAF-adatokkal)
 //    ads.js            reklámfelületek: reklámhelyek, hirdetések, statisztika
+//    finance.js        pénzügyek: áttekintés, ügyfelek, díjcsomagok, kiadások, beállítások
+//    financeInvoices.js pénzügyek: díjbekérők / számlák, előfizetések
 //    conditionList.js  az állapotok listája (új állapot, átnevezés, szín, kulcsszavak)
 //    siteSettings.js   a webhely / üzemeltető adatai (a jogi oldalakhoz)
 // ============================================================
@@ -59,6 +63,7 @@ class AdminManager {
         { key: "import", label: "adminGroupImport", icon: "fa-solid fa-file-import" },
         { key: "places", label: "adminGroupPlaces", icon: "fa-solid fa-map-location-dot" },
         { key: "partners", label: "adminGroupPartners", icon: "fa-solid fa-handshake" },
+        { key: "finance", label: "adminGroupFinance", icon: "fa-solid fa-coins" },
         { key: "settings", label: "adminGroupSettings", icon: "fa-solid fa-gear" }
     ];
 
@@ -84,12 +89,20 @@ class AdminManager {
         irodak:      { group: "partners", icon: "fa-solid fa-briefcase",           title: "adminTabAgencies",    desc: "adminDescAgencies",    render: () => AdminManager.renderAgencies(),    count: "irodaCount", warn: true },
         reklam:      { group: "partners", icon: "fa-solid fa-rectangle-ad",        title: "adminTabAds",         desc: "adminDescAds",         render: () => AdminManager.renderAds(),         count: "reklamCount" },
 
+        penzugy:     { group: "finance",  icon: "fa-solid fa-chart-pie",           title: "adminTabFinOverview", desc: "adminDescFinOverview", render: () => AdminManager.renderFinOverview() },
+        szamlak:     { group: "finance",  icon: "fa-solid fa-file-invoice",        title: "adminTabFinInvoices", desc: "adminDescFinInvoices", render: () => AdminManager.renderFinInvoices(),  count: "finLateCount", warn: true },
+        elofizetesek:{ group: "finance",  icon: "fa-solid fa-arrows-rotate",       title: "adminTabFinSubs",     desc: "adminDescFinSubs",     render: () => AdminManager.renderFinSubscriptions(), count: "finDueCount" },
+        ugyfelek:    { group: "finance",  icon: "fa-solid fa-address-book",        title: "adminTabFinCustomers", desc: "adminDescFinCustomers", render: () => AdminManager.renderFinCustomers() },
+        csomagok:    { group: "finance",  icon: "fa-solid fa-tags",                title: "adminTabFinPackages", desc: "adminDescFinPackages", render: () => AdminManager.renderFinPackages() },
+        kiadasok:    { group: "finance",  icon: "fa-solid fa-receipt",             title: "adminTabFinExpenses", desc: "adminDescFinExpenses", render: () => AdminManager.renderFinExpenses() },
+        penzugyBeall:{ group: "finance",  icon: "fa-solid fa-building-columns",    title: "adminTabFinSettings", desc: "adminDescFinSettings", render: () => AdminManager.renderFinSettings() },
+
         allapotok:   { group: "settings", icon: "fa-solid fa-sliders",             title: "adminTabConditions",  desc: "adminDescConditions",  render: () => AdminManager.renderConditionList() },
         webhely:     { group: "settings", icon: "fa-solid fa-id-card",             title: "adminTabSite",        desc: "adminDescSite",        render: () => AdminManager.renderSiteSettings() }
     };
 
     // Régi nevek (könyvjelzők, más modulok)
-    static ALIASES = { bejelentesek: "reports", karbantartas: "tools", hely: "helyek", reklamok: "reklam", ads: "reklam" };
+    static ALIASES = { bejelentesek: "reports", karbantartas: "tools", hely: "helyek", reklamok: "reklam", ads: "reklam", penzugyek: "penzugy", finance: "penzugy", szamla: "szamlak", dijbekerok: "szamlak" };
 
     static init() {
         AdminManager.renderNav();
@@ -241,6 +254,8 @@ class AdminManager {
         AdminManager.setCount("reportCount", c.bejelentes_uj);
         AdminManager.setCount("helyCount", c.hely_athelyezett);
         AdminManager.setCount("reklamCount", c.reklam_fut);
+        AdminManager.setCount("finLateCount", c.penzugy_lejart);
+        AdminManager.setCount("finDueCount", c.penzugy_esedekes);
         AdminManager.setCount("navAdminCount", (c.review || 0) + (c.iroda_fuggo || 0) + (c.bejelentes_uj || 0));
     }
 

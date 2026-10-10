@@ -148,4 +148,56 @@ router.post("/api/admin/hely-athelyezett/:id/vissza", csakAdmin, async (req, res
     }
 });
 
+// Kézi hely: ha sem az automatika új pontja, sem az eredeti nem jó, az admin
+// itt helyben (a hirdetés megnyitása nélkül) megadja a helyes pontot.
+// Kézi döntés: az automatika többé nem mozgatja (hely_kezi).
+//  body: { x, y, hely_pontossag: pontos|utca|kozelito|nincs, hely_sugar, kerulet? }
+//  kerulet: ha meg van adva (üres szöveg = nincs kerület), az kerül be;
+//           ha nincs a kérésben, pontos helynél a kerülethatárok döntenek.
+router.post("/api/admin/hely-athelyezett/:id/kezi", csakAdmin, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const b = req.body || {};
+
+        const r = await db.query("SELECT id, varos, tipus FROM ingatlanok WHERE id = $1", [id]);
+        if (!r.rowCount) return res.status(404).json({ error: "not_found" });
+        const t = r.rows[0];
+
+        let x = Number(b.x), y = Number(b.y);
+        let pontossag = ["pontos", "utca", "kozelito", "nincs"].includes(b.hely_pontossag) ? b.hely_pontossag : "pontos";
+        const vanPont = Number.isFinite(x) && Number.isFinite(y) && x !== 0 && y !== 0 && pontossag !== "nincs";
+
+        if (vanPont && (x < -180 || x > 180 || y < -90 || y > 90)) return res.status(400).json({ error: "bad_point" });
+        if (!vanPont) { x = null; y = null; pontossag = "nincs"; }
+
+        const sugar = pontossag === "kozelito" ? Math.min(20000, Math.max(50, Math.round(Number(b.hely_sugar) || 500))) : null;
+
+        await db.query(`
+            UPDATE ingatlanok SET x = $1, y = $2, hely_pontossag = $3, hely_sugar = $4,
+                   hely_kezi = true, hely_forras = 'kezi', hely_eredeti = NULL, updated_at = NOW()
+            WHERE id = $5
+        `, [x, y, pontossag, sugar, id]);
+
+        // Kerület (csak ahol a típusnál van kerület, és a város nem "<város> és környéke")
+        let kerulet;
+        try {
+            const { TIPUS_MEZOK } = require("../services/listing");
+            const vanKerulet = (TIPUS_MEZOK[t.tipus || "lakas"] || TIPUS_MEZOK.lakas).kerulet
+                && !(await require("../services/kornyek").isKornyek(t.varos).catch(() => false));
+            if (vanKerulet) {
+                if (typeof b.kerulet === "string") {
+                    kerulet = b.kerulet.trim().slice(0, 120) || null;
+                } else if (vanPont && ["pontos", "utca"].includes(pontossag)) {
+                    kerulet = await require("../services/districts").keruletPontbol(t.varos, x, y) || undefined;
+                }
+                if (kerulet !== undefined) await db.query("UPDATE ingatlanok SET kerulet = $1 WHERE id = $2", [kerulet, id]);
+            }
+        } catch (er) { /* nem kritikus */ }
+
+        res.json({ siker: true, x, y, hely_pontossag: pontossag, hely_sugar: sugar, kerulet: kerulet === undefined ? null : kerulet });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
 module.exports = router;

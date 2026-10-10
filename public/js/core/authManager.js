@@ -94,6 +94,13 @@ class AuthManager {
         AuthManager.irodak = Array.isArray(me.irodak) ? me.irodak : [];
         AuthManager.irodaMeghivasok = Array.isArray(me.irodaMeghivasok) ? me.irodaMeghivasok : [];
 
+        // Előfizetett csomag jogai (Admin → Pénzügyek): reklámmentes oldal, hirdetésszám...
+        const voltReklammentes = !!(AuthManager.csomag && AuthManager.csomag.reklammentes);
+        AuthManager.csomag = me.csomag || null;
+        if (voltReklammentes !== !!(AuthManager.csomag && AuthManager.csomag.reklammentes) && typeof AdSlots !== "undefined" && AuthManager.config) {
+            try { AdSlots.refresh(); } catch (e) { /* még nincs kész az oldal */ }
+        }
+
         AuthManager.apply();
 
         // A felhasználási feltételek (új változatának) elfogadása

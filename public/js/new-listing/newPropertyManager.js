@@ -736,6 +736,11 @@ class NewPropertyManager {
                     NewPropertyManager.showMissing(v.hianyzo || []);
                     return;
                 }
+                // Díjcsomag: elérte a hirdetésszám-korlátot
+                if (v.error === "listing_limit") {
+                    alert(I18n.f(v.iroda ? "finLimitReachedAgency" : "finLimitReached", { n: v.limit, db: v.db }));
+                    return;
+                }
                 if (status === 403) {
                     alert(I18n.t("alertAdminOnly"));
                     return;

@@ -261,6 +261,7 @@ const HELP_CONTENT = {
                     "<b>Beolvasás, karbantartás</b>: Beolvasás linkről, Figyelt oldalak, Karbantartás (automatikus javítás, forrásoldalak ellenőrzése, értékbecslő pontossága).",
                     "<b>Helyek</b>: Városok és kerületek, Város és környéke, Hely-ellenőrzés.",
                     "<b>Partnerek, reklám</b>: Ingatlanirodák, Reklámfelületek.",
+                    "<b>Pénzügyek</b>: Pénzügyi áttekintés, Díjbekérők / számlák, Előfizetések, Ügyfelek, Díjcsomagok / árak, Kiadások, Számlázási beállítások.",
                     "<b>Beállítások</b>: Állapotok, Webhely adatai.",
                     "Minden résznek saját címe van (pl. #admin/reklam), így a böngésző Vissza gombja és a frissítés is ugyanoda visz. Telefonon a menü egy lenyíló választó."
                 ] },
@@ -302,7 +303,16 @@ const HELP_CONTENT = {
                 { h: "Hely-ellenőrzés", ul: [
                     "A beolvasás és az automatikus javítás ellenőrzi a hirdetési oldal pontját: ha messze van a várostól / a falutól, ha a leírásban szereplő utca vagy kerület máshol van, vagy ha csak a város „alapértelmezett” pontja (a hirdető nem jelölt helyet), a hirdetést a szöveg szerinti helyre teszi – vagy közelítő helyet ad.",
                     "Admin → Helyek → Hely-ellenőrzés: ezek a hirdetések városonként és okonként; a térképen piros az eredeti, zöld az új pont. <b>Rendben</b>: eltűnik a listából. <b>Vissza az eredetire</b>: a régi pont (és kerület) visszakerül, és az automatika többé nem mozgatja.",
+                    "<b>Kézi hely</b>: ha egyik pont sem jó, egy ablakban helyben megadod a helyeset (kattintás a térképre, címkereső, „A leírásból”, pontos / közelítő, kerület, vagy „Nincs pontos hely”) – a hirdetést nem kell megnyitni. Utána az automatika nem mozgatja.",
                     "Amit ember tett le a térképen (hirdetésfeladás, ellenőrzés), azt az automatika soha nem mozgatja."
+                ] },
+                { h: "Pénzügyek", ul: [
+                    "Admin → Pénzügyek: a weboldal bevételei és kiadásai rendszerezve. <b>Ügyfél</b> (iroda, magánszemély, reklámozó cég – regisztrált irodából / fiókból vagy az ANAF-ból kitölthető), <b>díjcsomag</b> (árlista és jogok), <b>előfizetés</b> (ki, mit, mennyiért, mikor esedékes), <b>díjbekérő</b> (tételes, sorszámozott: DB-2026-0001), <b>kiadás</b>.",
+                    "Díjbekérő: nyomtatás / PDF, küldés e-mailben, Fizetve (dátum, fizetési mód, hivatalos számla száma), sztornó, másolat. A kiállítottat nem lehet törölni (folytonos sorszám), csak sztornózni.",
+                    "Előfizetés: a „Következő díjbekérő” napja előtt pár nappal elkészül a következő időszak díjbekérője – gombbal, vagy ha a Számlázási beállításokban bekapcsolod, magától.",
+                    "Reklámfelületek: az áras reklámokhoz, amelyeknek még nincs díjbekérője, az Áttekintés teendőként jelzi – egy kattintással elkészíthető.",
+                    "Jogok: a csomag adhat hirdetésszámot, extra hirdetéseket, reklámmentes oldalt (belépve nem lát reklámot), részletes statisztikát, kiemelést. A <b>hirdetésszám-korlát</b> csak a „Díjak érvényesítése” kapcsolóval él (az „Előnézet” megmutatja, kiket érintene).",
+                    "Export: a díjbekérők és a kiadások CSV-ben (Excel), a könyvelőnek. Fontos: a hivatalos számlát Romániában az e-Factura rendszeren kell kiállítani (pl. SmartBill, Oblio) – ennek számát írd a díjbekérőhöz."
                 ] },
                 { h: "Reklámfelületek", ul: [
                     "15 reklámhely, mindegyik a tartalom között (sosem fölötte), „Hirdetés” felirattal: kezdőlap (fent és lent), Ingatlanok (a találatok fölött, a kártyák között kártya méretben és egy teljes széles sorban, a kereső alatt álló formában, ami görgetéskor is látszik), térkép alatt, a hirdetés oldalán (jobb oldalt és a térkép alatt), értékbecslő (az űrlap alatt és az eredménynél), piaci elemzés (fent és lent), ingatlanirodák, keresési igények.",
@@ -585,6 +595,7 @@ const HELP_CONTENT = {
                     "<b>Import & maintenance</b>: Import from a link, Watched sites, Maintenance (automatic fix, checking the source sites, valuation accuracy).",
                     "<b>Locations</b>: Cities and districts, City & surroundings, Location check.",
                     "<b>Partners & ads</b>: Real estate agencies, Ad spaces.",
+                    "<b>Finance</b>: Finance overview, Proformas & invoices, Subscriptions, Customers, Packages & prices, Expenses, Billing settings.",
                     "<b>Settings</b>: Conditions, Website details.",
                     "Every part has its own address (e.g. #admin/reklam), so the browser's Back button and reloading take you to the same place. On phones the menu is a drop-down."
                 ] },
@@ -626,7 +637,16 @@ const HELP_CONTENT = {
                 { h: "Location check", ul: [
                     "Import and the automatic fix check the listing site's pin: if it is far from the city / village, if the street or district in the description is elsewhere, or if it is only the city's “default” point (the advertiser did not mark a location), the listing is moved to the place the text says – or gets an approximate location.",
                     "Admin → Locations → Location check: these listings by city and reason; on the map red is the original, green the new point. <b>Fine</b>: it leaves the list. <b>Put back</b>: the old point (and district) comes back and the automation never moves it again.",
+                    "<b>Set by hand</b>: if neither point is right, set the correct one in a window right there (click on the map, address search, “From the description”, exact / approximate, district, or “No exact location”) – no need to open the listing. After that the automation does not move it.",
                     "What a person placed on the map (posting, review) is never moved by the automation."
+                ] },
+                { h: "Finance", ul: [
+                    "Admin → Finance: the site's income and expenses in order. <b>Customer</b> (agency, private person, advertiser – fillable from a registered agency / account or from ANAF), <b>package</b> (price list and rights), <b>subscription</b> (who, what, how much, when due), <b>proforma</b> (itemised, numbered: DB-2026-0001), <b>expense</b>.",
+                    "Proforma: print / PDF, send by e-mail, Paid (date, payment method, official invoice number), cancel, copy. An issued one cannot be deleted (continuous numbering), only cancelled.",
+                    "Subscription: a few days before the “Next proforma” date the next period's proforma is created – with a button, or automatically if switched on in Billing settings.",
+                    "Ad spaces: priced ads without a proforma show up as a to-do in the overview – one click creates it.",
+                    "Rights: a package can give a listing count, extra listings, an ad-free site (no ads when signed in), detailed statistics, featuring. The <b>listing limit</b> only applies with the “Enforce the fees” switch (the “Preview” shows who it would affect).",
+                    "Export: proformas and expenses as CSV (Excel) for the accountant. Note: in Romania the official invoice must be issued through e-Factura (e.g. SmartBill, Oblio) – write its number on the proforma."
                 ] },
                 { h: "Ad spaces", ul: [
                     "15 ad places, each between the content (never over it), labelled “Ad”: home page (top and bottom), Properties (above the results, among the cards in card size and in one full-width row, a tall one below the search that stays visible when scrolling), below the map, on the listing page (right side and below the map), valuation (below the form and with the result), market analysis (top and bottom), agencies, buyer requests.",
@@ -909,6 +929,7 @@ const HELP_CONTENT = {
                     "<b>Import și întreținere</b>: Import din link, Site-uri urmărite, Întreținere (corectare automată, verificarea site-urilor sursă, precizia evaluării).",
                     "<b>Locații</b>: Orașe și cartiere, Oraș și împrejurimi, Verificarea locației.",
                     "<b>Parteneri și reclame</b>: Agenții imobiliare, Spații publicitare.",
+                    "<b>Finanțe</b>: Privire de ansamblu, Proforme / facturi, Abonamente, Clienți, Pachete / prețuri, Cheltuieli, Setări facturare.",
                     "<b>Setări</b>: Stări, Datele site-ului.",
                     "Fiecare parte are adresa ei (ex. #admin/reklam), așa că butonul Înapoi al browserului și reîncărcarea duc în același loc. Pe telefon meniul este o listă derulantă."
                 ] },
@@ -950,7 +971,16 @@ const HELP_CONTENT = {
                 { h: "Verificarea locației", ul: [
                     "Importul și corectarea automată verifică punctul de pe site-ul sursă: dacă e departe de oraș / sat, dacă strada sau cartierul din descriere e în altă parte, sau dacă e doar punctul „implicit” al orașului (agentul nu a marcat locația), anunțul e mutat unde spune textul – sau primește o locație aproximativă.",
                     "Admin → Locații → Verificarea locației: aceste anunțuri pe orașe și motive; pe hartă roșu e punctul original, verde cel nou. <b>În regulă</b>: iese din listă. <b>Pune înapoi</b>: punctul (și cartierul) vechi revine și automatizarea nu-l mai mută.",
+                    "<b>Manual</b>: dacă niciun punct nu e bun, îl stabilești pe cel corect într-o fereastră chiar acolo (clic pe hartă, căutare adresă, „Din descriere”, exact / aproximativ, cartier sau „Fără locație exactă”) – nu trebuie deschis anunțul. După aceea automatizarea nu-l mai mută.",
                     "Ce a pus un om pe hartă (publicare, verificare) nu este mutat niciodată de automatizare."
+                ] },
+                { h: "Finanțe", ul: [
+                    "Admin → Finanțe: veniturile și cheltuielile site-ului, ordonate. <b>Client</b> (agenție, persoană fizică, firmă care face reclamă – se completează dintr-o agenție / un cont înregistrat sau de la ANAF), <b>pachet</b> (listă de prețuri și drepturi), <b>abonament</b> (cine, ce, cu cât, când e scadent), <b>proformă</b> (pe articole, numerotată: DB-2026-0001), <b>cheltuială</b>.",
+                    "Proformă: tipărire / PDF, trimitere pe e-mail, Achitată (data, modalitatea de plată, numărul facturii fiscale), anulare, copie. Una emisă nu se poate șterge (numerotare continuă), doar anula.",
+                    "Abonament: cu câteva zile înainte de data „Următoarea proformă” se emite proforma perioadei următoare – cu un buton sau automat, dacă e activat în Setări facturare.",
+                    "Spații publicitare: reclamele cu preț fără proformă apar ca sarcini în privirea de ansamblu – se emit cu un clic.",
+                    "Drepturi: un pachet poate oferi un număr de anunțuri, anunțuri extra, site fără reclame (autentificat nu vede reclame), statistici detaliate, promovare. <b>Limita de anunțuri</b> se aplică doar cu comutatorul „Aplicarea taxelor” („Previzualizare” arată pe cine ar afecta).",
+                    "Export: proformele și cheltuielile în CSV (Excel), pentru contabil. Important: în România factura fiscală se emite prin e-Factura (de ex. SmartBill, Oblio) – trece numărul ei la proformă."
                 ] },
                 { h: "Spații publicitare", ul: [
                     "15 locuri de reclamă, fiecare între conținut (niciodată peste el), cu eticheta „Reclamă”: pagina principală (sus și jos), Proprietăți (deasupra rezultatelor, între carduri cât un card și pe un rând întreg, unul vertical sub căutare care rămâne vizibil la derulare), sub hartă, pe pagina anunțului (dreapta și sub hartă), evaluare (sub formular și la rezultat), analiza pieței (sus și jos), agenții, cereri de căutare.",

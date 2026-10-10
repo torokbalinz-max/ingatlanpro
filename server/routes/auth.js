@@ -67,12 +67,15 @@ router.get("/api/me", async (req, res) => {
         let olvasatlan = 0;
         let irodak = [];
         let irodaMeghivasok = [];
+        let csomag = null;
 
         if (req.user) {
             const r = await db.query("SELECT COUNT(*)::int AS n FROM uzenetek WHERE cimzett_id = $1 AND NOT olvasva", [req.user.id]);
             olvasatlan = r.rows[0].n;
             irodak = await require("./irodak").sajatIrodak(req.user.id).catch(() => []);
             irodaMeghivasok = await require("./irodak").meghivasok(req.user.id).catch(() => []);
+            // Az előfizetett csomagok jogai (reklámmentes, hirdetésszám...) – Admin → Pénzügyek
+            csomag = await require("../services/penzugy").jogosultsag(req.user.id).catch(() => null);
         }
 
         res.json({
@@ -86,6 +89,7 @@ router.get("/api/me", async (req, res) => {
             olvasatlan,
             irodak,
             irodaMeghivasok,
+            csomag,
             // Az ÁSZF (új változatát) még nem fogadta el -> a weboldal megkérdezi
             aszfKell: !!(req.user && req.valodiSzerep !== "admin" && req.user.aszf_verzio !== ASZF_VERZIO)
         });
