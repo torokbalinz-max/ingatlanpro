@@ -22,10 +22,12 @@ router.get("/api/config", async (req, res) => {
 
     let uzemelteto = null;
     let allapotLista = [];
-    let reklamAdat = { mutat: true, email: "" };
+    let reklamAdat = { mutat: true, email: "", helyorzo: true, helyek: {} };
+    let reklamok = [];
 
     try { uzemelteto = await oldalAdatok.nyilvanos(); } catch (e) { /* az alapértékek maradnak */ }
     try { reklamAdat = await reklam.olvas(); } catch (e) { /* alapból látszanak a helyőrzők */ }
+    try { reklamok = await reklam.aktivak(); } catch (e) { /* nincs futó hirdetés */ }
     try { await allapotok.kesz(); allapotLista = allapotok.nyilvanos(); } catch (e) { /* a beépített lista marad */ }
 
     res.json({
@@ -43,8 +45,15 @@ router.get("/api/config", async (req, res) => {
         },
         allapotok: allapotLista,
         uzemelteto,
-        // Bérelhető reklámfelületek (helyőrzők): látszanak-e, és hova írjanak az érdeklődők
-        reklam: { mutat: reklamAdat.mutat !== false, email: reklamAdat.email || (uzemelteto && uzemelteto.email) || "" },
+        // Reklámfelületek: látszanak-e (összesen és helyenként), üresen a "Bérelhető"
+        // helyőrző, hova írjanak az érdeklődők, és a ma futó hirdetések (kép nélkül)
+        reklam: {
+            mutat: reklamAdat.mutat !== false,
+            helyorzo: reklamAdat.helyorzo !== false,
+            email: reklamAdat.email || (uzemelteto && uzemelteto.email) || "",
+            helyek: reklamAdat.helyek || {},
+            hirdetesek: reklamok
+        },
         // Hibakereséshez: ha induláskor egy táblát nem sikerült létrehozni
         dbHibak: (db.schemaHibak || []).map(h => h.slice(0, 200))
     });

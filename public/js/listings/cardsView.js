@@ -120,22 +120,26 @@ class CardsView {
 
         const rendezett = CardsView.sorted(lista);
 
-        // Ha a kártyák között reklámfelület is van, egy hirdetéssel kevesebb fér
+        // Reklámhelyek a kártyák között (oldalanként, csak ha elég találat van):
+        // egy kártya méretű az 5. kártya után, és egy teljes széles a 12. cella
+        // után (2, 3 és 4 oszlopnál is egy sor vége) – a hirdetések sorrendjét
+        // nem változtatják
+        const reklam = typeof AdSlots !== "undefined" && rendezett.length >= AdSlots.FEED_MIN;
+        const feed = reklam ? AdSlots.feedCol() : "";
+        const szeles = reklam ? AdSlots.feedWideCol() : "";
+
+        // Ha a kártyák között reklám cella is van, egy hirdetéssel kevesebb fér
         // egy oldalra – így a rács sorai teliek maradnak (24 cella)
-        const reklam = typeof AdSlots !== "undefined" && AdSlots.enabled() && rendezett.length >= AdSlots.FEED_MIN;
-        const meret = reklam ? CardsView.PAGE_SIZE - 1 : CardsView.PAGE_SIZE;
+        const meret = feed ? CardsView.PAGE_SIZE - 1 : CardsView.PAGE_SIZE;
         const oldalak = Math.max(1, Math.ceil(rendezett.length / meret));
 
         CardsView.page = Math.min(CardsView.page, oldalak - 1);
 
         const resz = rendezett.slice(CardsView.page * meret, (CardsView.page + 1) * meret);
 
-        // Bérelhető reklámfelület a kártyák között (oldalanként egy, a 6. kártya után,
-        // csak ha elég találat van – a hirdetések sorrendjét nem változtatja)
         const kartyak = resz.map(CardsView.cardHtml);
-        if (reklam && resz.length >= AdSlots.FEED_MIN) {
-            kartyak.splice(AdSlots.FEED_UTAN, 0, AdSlots.feedCol());
-        }
+        if (feed && resz.length >= AdSlots.FEED_MIN) kartyak.splice(AdSlots.FEED_UTAN, 0, feed);
+        if (szeles && kartyak.length > AdSlots.FEED_SZELES_UTAN) kartyak.splice(AdSlots.FEED_SZELES_UTAN, 0, szeles);
 
         grid.innerHTML = resz.length
             ? kartyak.join("")

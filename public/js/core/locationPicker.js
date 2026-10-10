@@ -8,9 +8,15 @@
 //  Kattintásra / húzásra a pont áthelyeződik; ilyenkor az
 //  onPoint visszahívás megkapja (pl. a kerület megkereséséhez).
 //
-//  Címkereső: utca / környék / falu a város körül (a kiválasztott
-//  városban keres, így nem kerülhet egy azonos nevű másik helyre).
-//  "A leírásból" gomb: a hirdetés szövegében talált utca / falu.
+//  Nagyítás: a +/− gombok mellett görgővel is (ha az egér egy pillanatra
+//  megáll a térképen, vagy rákattintottál – így az oldal görgetése nem
+//  akad meg rajta), Ctrl + görgővel / két ujjal azonnal. A "Teljes
+//  képernyő" gombbal a térkép kitölti a képernyőt (Esc vagy "Kész": vissza).
+//
+//  Címkereső: utca (házszámmal), kerület, falu a város körül (a kiválasztott
+//  városban keres, így nem kerülhet egy azonos nevű másik helyre). Utcánál
+//  a térkép kiemeli az egész utcát, így pontosan rá lehet kattintani.
+//  "A leírásból" gomb: a hirdetés szövegében talált utca / kerület / falu.
 //  Ha a pont messze van a várostól, figyelmeztetés jelenik meg.
 //
 //  opts.varos:    () => a kiválasztott város (a mi nevünk)
@@ -20,6 +26,15 @@
 class LocationPicker {
 
     static ALAP = [45.8590, 25.7900];
+
+    // A keresési találatok ikonja (a találat szintje szerint)
+    static IKON = {
+        haz: "fa-house", utca: "fa-road", kerulet: "fa-draw-polygon",
+        telepules: "fa-tree-city", varos: "fa-city", hely: "fa-location-dot"
+    };
+
+    // Görgős nagyítás: ennyi ideig kell az egérnek a térképen állnia
+    static GORGO_VAR_MS = 450;
 
     constructor(containerId, opts = {}) {
 
@@ -31,10 +46,21 @@ class LocationPicker {
         this.sugar = opts.sugar || 500;
         this.mozgatva = false;
         this.id = containerId;
+        this.nagy = false;
+        this.erintes = 0;
+        this.ac = typeof AbortController !== "undefined" ? new AbortController() : null;
 
+        const esc = Utils.escape;
+
+        this.box.classList.add("locPicker");
         this.box.innerHTML = `
+            <div class="locFullHead">
+                <b><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> ${esc(I18n.t("locFullTitle"))}</b>
+                <span class="locFullTip small">${esc(I18n.t("locFullTip"))}</span>
+                <button type="button" class="btn btn-primary btn-sm locFullDone"><i class="fa-solid fa-check" aria-hidden="true"></i> ${esc(I18n.t("locFullDone"))}</button>
+            </div>
             <div class="locBar">
-                <div class="btn-group btn-group-sm" role="group" aria-label="${I18n.t("locModeLabel")}">
+                <div class="btn-group btn-group-sm" role="group" aria-label="${esc(I18n.t("locModeLabel"))}">
                     <input type="radio" class="btn-check" name="${this.id}_mod" id="${this.id}_pontos" value="pontos" ${this.mod === "pontos" ? "checked" : ""}>
                     <label class="btn btn-outline-secondary" for="${this.id}_pontos"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${I18n.t("hely_pontos")}</label>
                     <input type="radio" class="btn-check" name="${this.id}_mod" id="${this.id}_kozelito" value="kozelito" ${this.mod === "kozelito" ? "checked" : ""}>
@@ -42,21 +68,27 @@ class LocationPicker {
                 </div>
                 <label class="locRadius" ${this.mod === "kozelito" ? "" : "hidden"}>
                     <span>${I18n.t("locRadius")}</span>
-                    <input type="range" min="150" max="3000" step="50" value="${this.sugar}" aria-label="${I18n.t("locRadius")}">
+                    <input type="range" min="150" max="3000" step="50" value="${this.sugar}" aria-label="${esc(I18n.t("locRadius"))}">
                     <b class="locRadiusVal">${LocationPicker.meter(this.sugar)}</b>
                 </label>
                 ${this.x ? "" : `<span class="locHint">${I18n.t("locClickHint")}</span>`}
+                <button type="button" class="btn btn-sm btn-outline-secondary locFullToggle" aria-pressed="false">
+                    <i class="fa-solid fa-expand" aria-hidden="true"></i> <span>${esc(I18n.t("locFullscreen"))}</span>
+                </button>
             </div>
             <div class="locSearch">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
-                    <input type="search" class="form-control locSearchInput" placeholder="${Utils.escape(I18n.t("locSearchPh"))}" aria-label="${Utils.escape(I18n.t("locSearchPh"))}">
+                    <input type="search" class="form-control locSearchInput" placeholder="${esc(I18n.t("locSearchPh"))}" aria-label="${esc(I18n.t("locSearchPh"))}" autocomplete="off">
                     <button class="btn btn-outline-secondary locSearchBtn" type="button">${I18n.t("locSearchBtn")}</button>
                 </div>
                 ${opts.szoveg ? `<button class="btn btn-sm btn-outline-primary locFromText" type="button"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ${I18n.t("locFromText")}</button>` : ""}
             </div>
             <div class="locResults" hidden></div>
-            <div class="locMap"></div>
+            <div class="locMapWrap">
+                <div class="locMap"></div>
+                <div class="locZoomTip" hidden>${esc(I18n.t("locWheelTip"))}</div>
+            </div>
             <div class="locDistrict small" hidden></div>
             <div class="locWarn alert alert-warning small py-2 mb-0" hidden></div>`;
 
@@ -64,9 +96,10 @@ class LocationPicker {
 
         const kozep = this.x && this.y ? [this.y, this.x] : (opts.kozep || LocationPicker.varosKozep(this.varos()) || LocationPicker.ALAP);
 
-        this.map = L.map(this.mapEl, { scrollWheelZoom: false }).setView(kozep, this.x ? (this.mod === "kozelito" ? 14 : 16) : 13);
+        this.map = L.map(this.mapEl, { scrollWheelZoom: false, wheelPxPerZoomLevel: 80 })
+            .setView(kozep, this.x ? (this.mod === "kozelito" ? 14 : 16) : 13);
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(this.map);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap", maxZoom: 19 }).addTo(this.map);
 
         this.map.getContainer().style.cursor = "crosshair";
 
@@ -74,6 +107,27 @@ class LocationPicker {
 
         // A város kerülethatárai (ha az admin megrajzolta) – látszik, hová esik a pont
         if (opts.hatarok !== false) this.drawDistricts();
+
+        // Teljes képernyő gomb a térképen is (a +/− alatt)
+        const picker = this;
+        const Nagyit = L.Control.extend({
+            options: { position: "topleft" },
+            onAdd() {
+                const b = L.DomUtil.create("button", "leaflet-bar locFullMapBtn");
+                b.type = "button";
+                b.title = I18n.t("locFullscreen");
+                b.setAttribute("aria-label", I18n.t("locFullscreen"));
+                b.innerHTML = `<i class="fa-solid fa-expand" aria-hidden="true"></i>`;
+                L.DomEvent.disableClickPropagation(b);
+                L.DomEvent.on(b, "click", e => { L.DomEvent.preventDefault(e); picker.nagyit(!picker.nagy); });
+                picker.fullMapBtn = b;
+                return b;
+            }
+        });
+        this.map.addControl(new Nagyit());
+
+        this.box.querySelector(".locFullToggle").onclick = () => this.nagyit(!this.nagy);
+        this.box.querySelector(".locFullDone").onclick = () => this.nagyit(false);
 
         this.box.querySelectorAll(`input[name="${this.id}_mod"]`).forEach(r => {
             r.addEventListener("change", () => {
@@ -101,6 +155,8 @@ class LocationPicker {
         const szovegBtn = this.box.querySelector(".locFromText");
         if (szovegBtn) szovegBtn.onclick = () => this.szovegbol(szovegBtn);
 
+        this.gorgoInit();
+
         this.draw();
         if (this.x && this.y) this.ellenoriz();
         this.kerulteKiir();
@@ -124,6 +180,157 @@ class LocationPicker {
         return v && v.x && v.y ? [v.y, v.x] : null;
     }
 
+    // ---------- Nagyítás görgővel / két ujjal ----------
+
+    gorgoInit() {
+
+        const m = this.map;
+        const el = this.mapEl;
+        const opt = this.ac ? { signal: this.ac.signal } : undefined;
+        let idozito = null;
+
+        const be = () => {
+            clearTimeout(idozito);
+            if (!m.scrollWheelZoom.enabled()) m.scrollWheelZoom.enable();
+            this.tipp(false);
+        };
+        const ki = () => {
+            clearTimeout(idozito);
+            if (!this.nagy && m.scrollWheelZoom.enabled()) m.scrollWheelZoom.disable();
+        };
+        const varj = () => {
+            clearTimeout(idozito);
+            idozito = setTimeout(be, LocationPicker.GORGO_VAR_MS);
+        };
+
+        el.addEventListener("mouseenter", varj);
+        el.addEventListener("mouseleave", ki);
+
+        // Ha az oldal görgetése közben ér ide az egér, előbb tovább görgethet az oldal;
+        // Ctrl + görgő (és a tapipad két ujjas csippentése) azonnal nagyít
+        el.addEventListener("wheel", e => {
+            if (m.scrollWheelZoom.enabled()) return;
+            if (e.ctrlKey) {
+                e.preventDefault();
+                be();
+                const pont = m.mouseEventToContainerPoint(e);
+                m.setZoomAround(pont, m.getZoom() + (e.deltaY < 0 ? 1 : -1));
+                return;
+            }
+            this.tipp(true);
+            varj();
+        }, { passive: false });
+
+        // Kattintás / húzás után már görgővel is nagyít
+        m.on("mousedown", be);
+
+        // Safari (Mac / iPad tapipad): a csippentés "gesture" esemény – érintőképernyőn
+        // a Leaflet maga kezeli, ezért ott nem
+        el.addEventListener("pointerdown", e => { if (e.pointerType === "touch") this.erintes++; });
+        window.addEventListener("pointerup", e => { if (e.pointerType === "touch" && this.erintes > 0) this.erintes--; }, opt);
+        window.addEventListener("pointercancel", e => { if (e.pointerType === "touch" && this.erintes > 0) this.erintes--; }, opt);
+
+        let kezdo = null;
+        el.addEventListener("gesturestart", e => {
+            if (this.erintes > 0) return;
+            e.preventDefault();
+            kezdo = m.getZoom();
+        });
+        el.addEventListener("gesturechange", e => {
+            if (this.erintes > 0 || kezdo === null) return;
+            e.preventDefault();
+            const z = Math.max(m.getMinZoom(), Math.min(m.getMaxZoom(), kezdo + Math.log2(e.scale || 1)));
+            const pont = Number.isFinite(e.clientX) ? m.mouseEventToContainerPoint(e) : m.getSize().divideBy(2);
+            m.setZoomAround(pont, Math.round(z * 4) / 4, { animate: false });
+        });
+        el.addEventListener("gestureend", () => { kezdo = null; });
+
+    }
+
+    // "Állj meg egy pillanatra a térképen, vagy kattints rá – utána görgővel nagyíthatsz"
+    tipp(mutat) {
+        const t = this.box.querySelector(".locZoomTip");
+        if (!t) return;
+        clearTimeout(this.tippIdozito);
+        if (!mutat) { t.hidden = true; return; }
+        t.hidden = false;
+        this.tippIdozito = setTimeout(() => { t.hidden = true; }, 1600);
+    }
+
+    // ---------- Teljes képernyő ----------
+
+    nagyit(be) {
+
+        be = !!be;
+        if (be === this.nagy) return;
+        this.nagy = be;
+
+        // Egy felugró ablakban (pl. a város helye) helyben marad – kivinni a
+        // fókusz miatt nem lehet; máshol az oldal végére kerül, hogy semmi
+        // (fejléc, mentés-sáv) ne takarja
+        const modalban = !!this.box.closest(".modal");
+
+        if (be) {
+
+            if (!modalban) {
+                this.helyJel = document.createComment("locPicker");
+                this.box.parentNode.insertBefore(this.helyJel, this.box);
+                document.body.appendChild(this.box);
+            }
+
+            this.box.classList.add("locFull");
+            document.body.classList.add("locFullOpen");
+            this.map.scrollWheelZoom.enable();
+
+            this.escFn = e => {
+                if (e.key !== "Escape") return;
+                e.preventDefault();
+                e.stopPropagation();
+                this.nagyit(false);
+            };
+            document.addEventListener("keydown", this.escFn, true);
+
+        } else {
+
+            if (this.helyJel && this.helyJel.parentNode) {
+                this.helyJel.parentNode.insertBefore(this.box, this.helyJel);
+                this.helyJel.remove();
+            }
+            this.helyJel = null;
+
+            this.box.classList.remove("locFull");
+            if (!document.querySelector(".locPicker.locFull")) document.body.classList.remove("locFullOpen");
+            this.map.scrollWheelZoom.disable();
+
+            if (this.escFn) document.removeEventListener("keydown", this.escFn, true);
+            this.escFn = null;
+
+        }
+
+        // A gombok felirata / ikonja
+        const t = this.box.querySelector(".locFullToggle");
+        if (t) {
+            t.setAttribute("aria-pressed", String(be));
+            t.innerHTML = `<i class="fa-solid ${be ? "fa-compress" : "fa-expand"}" aria-hidden="true"></i> <span>${Utils.escape(I18n.t(be ? "locFullExit" : "locFullscreen"))}</span>`;
+        }
+        if (this.fullMapBtn) {
+            this.fullMapBtn.innerHTML = `<i class="fa-solid ${be ? "fa-compress" : "fa-expand"}" aria-hidden="true"></i>`;
+            this.fullMapBtn.title = I18n.t(be ? "locFullExit" : "locFullscreen");
+            this.fullMapBtn.setAttribute("aria-label", this.fullMapBtn.title);
+        }
+
+        setTimeout(() => {
+            this.map.invalidateSize();
+            if (this.x && this.y) this.map.panTo([this.y, this.x], { animate: false });
+        }, 60);
+
+        if (!be && !modalban) {
+            // Vissza a helyére: ott látszódjon, ahol abbahagytad
+            setTimeout(() => { if (this.box.scrollIntoView) this.box.scrollIntoView({ block: "nearest" }); }, 80);
+        }
+
+    }
+
     // Városváltáskor: ha még nincs pont, a térkép az új városra ugrik
     varosValtas() {
         this.drawDistricts();
@@ -133,18 +340,27 @@ class LocationPicker {
         if (k) this.map.setView(k, 13);
     }
 
-    // Címkeresés a város körül
+    // ---------- Címkeresés a város körül ----------
+
     keres(q) {
 
         const box = this.box.querySelector(".locResults");
+        const esc = Utils.escape;
 
-        if (q.length < 3) { box.hidden = true; return; }
+        if (q.length < 3) {
+            box.hidden = false;
+            box.innerHTML = `<span class="small text-body-secondary">${I18n.t("locTypeMore")}</span>`;
+            return;
+        }
 
         box.hidden = false;
         box.innerHTML = `<span class="small text-body-secondary"><span class="spinner-border spinner-border-sm"></span> ${I18n.t("locSearching")}</span>`;
 
         fetch(`/api/hely/kereses?varos=${encodeURIComponent(this.varos() || "")}&q=${encodeURIComponent(q)}`)
-            .then(r => r.json())
+            .then(r => {
+                if (r.status === 401) throw new Error("login_required");
+                return r.json();
+            })
             .then(lista => {
 
                 if (!Array.isArray(lista) || !lista.length) {
@@ -152,30 +368,71 @@ class LocationPicker {
                     return;
                 }
 
-                box.innerHTML = lista.map((t, idx) => `
-                    <button type="button" class="locResult" data-idx="${idx}">
-                        <i class="fa-solid ${t.szint === "utca" ? "fa-road" : "fa-location-dot"}" aria-hidden="true"></i>
-                        <span>${Utils.escape(t.nev || "")}${t.telepules ? ` <small class="text-body-secondary">${Utils.escape(t.telepules)}</small>` : ""}</span>
-                    </button>`).join("");
+                const km = t => t.tavolKm !== null && t.tavolKm !== undefined && t.tavolKm >= 0.5
+                    ? ` · ${I18n.f("locKmFromCity", { km: Utils.num(t.tavolKm, 1) })}` : "";
+
+                box.innerHTML = `
+                    <div class="locResultsHead small text-body-secondary">${I18n.f("locResultsCount", { n: lista.length })}</div>
+                    ${lista.map((t, idx) => `
+                        <button type="button" class="locResult ${t.tavol ? "isFar" : ""}" data-idx="${idx}">
+                            <i class="fa-solid ${LocationPicker.IKON[t.szint] || "fa-location-dot"}" aria-hidden="true"></i>
+                            <span class="locResultText">
+                                <b>${esc(t.nev || "")}</b>
+                                <small>${esc(I18n.t("locLevel_" + (t.szint || "hely")))}${t.telepules ? " · " + esc(t.telepules) : ""}${km(t)}</small>
+                            </span>
+                            ${t.tavol ? `<span class="badge text-bg-warning">${I18n.t("locFarBadge")}</span>` : ""}
+                        </button>`).join("")}`;
 
                 box.querySelectorAll("[data-idx]").forEach(b => {
                     b.onclick = () => {
-                        const t = lista[Number(b.dataset.idx)];
-                        this.mod = t.szint === "utca" ? "pontos" : "kozelito";
-                        if (this.mod === "kozelito") this.sugar = 600;
-                        this.syncMod();
-                        this.set(t.x, t.y, true);
-                        this.center(this.mod === "kozelito" ? 14 : 17);
+                        this.valaszt(lista[Number(b.dataset.idx)]);
                         box.hidden = true;
                     };
                 });
 
-                // Egy találat: rögtön oda
-                if (lista.length === 1) box.querySelector("[data-idx]").click();
+                // Egy (közeli) találat: rögtön oda
+                if (lista.length === 1 && !lista[0].tavol) box.querySelector("[data-idx]").click();
 
             })
-            .catch(() => { box.innerHTML = `<span class="small text-danger">${I18n.t("locNoResult")}</span>`; });
+            .catch(err => {
+                box.innerHTML = err && err.message === "login_required"
+                    ? `<span class="small text-body-secondary">${I18n.t("locLoginNeeded")}</span>`
+                    : `<span class="small text-danger">${I18n.t("locNoResult")}</span>`;
+            });
 
+    }
+
+    // Egy keresési találat kiválasztása: a pont oda kerül; utcánál az egész utca kiemelve
+    valaszt(t) {
+
+        const pontos = t.szint === "haz" || t.szint === "utca";
+
+        this.mod = pontos ? "pontos" : "kozelito";
+        if (!pontos) this.sugar = Math.max(150, Math.min(3000, Math.round((t.sugar || 600) / 50) * 50));
+        this.syncMod();
+
+        this.utcaKiemel(t.vonalak);
+        this.set(t.x, t.y, true);
+
+        if (t.szint === "haz") this.center(18);
+        else if (this.utcaLayer && t.szint === "utca") {
+            const b = this.utcaLayer.getBounds();
+            if (b.isValid()) this.map.fitBounds(b, { maxZoom: 17, padding: [28, 28] });
+            else this.center(17);
+        }
+        else if (this.kor) this.map.fitBounds(this.kor.getBounds(), { maxZoom: 16, padding: [16, 16] });
+        else this.center(14);
+
+    }
+
+    // Az utca vonala a térképen (a GeoJSON [hosszúság, szélesség] pontjaiból)
+    utcaKiemel(vonalak) {
+        if (this.utcaLayer) { this.utcaLayer.remove(); this.utcaLayer = null; }
+        if (!Array.isArray(vonalak) || !vonalak.length) return;
+        const vonal = vonalak.filter(v => Array.isArray(v) && v.length > 1)
+            .map(v => L.polyline(v.map(p => [p[1], p[0]]), { color: "#f59e0b", weight: 7, opacity: 0.55, interactive: false }));
+        if (!vonal.length) return;
+        this.utcaLayer = L.featureGroup(vonal).addTo(this.map);
     }
 
     // A hirdetés szövegéből (utca, falu, kerület)
@@ -195,16 +452,22 @@ class LocationPicker {
         })
             .then(r => r.json())
             .then(h => {
-                if (!h) {
+                if (!h || !(h.x && h.y)) {
                     box.innerHTML = `<span class="small text-body-secondary">${I18n.t("locFromTextNone")}</span>`;
                     return;
                 }
                 this.mod = h.szint === "kozelito" ? "kozelito" : "pontos";
-                if (h.sugar) this.sugar = h.sugar;
+                if (h.sugar) this.sugar = Math.max(150, Math.min(3000, Math.round(h.sugar / 50) * 50));
                 this.syncMod();
+                this.utcaKiemel(null);
                 this.set(h.x, h.y, true);
-                this.center(this.mod === "kozelito" ? 14 : 17);
-                box.innerHTML = `<span class="small text-success"><i class="fa-solid fa-check"></i> ${I18n.f("locFromTextFound", { nev: Utils.escape(h.nev || "") })}</span>`;
+                if (this.kor) this.map.fitBounds(this.kor.getBounds(), { maxZoom: 16, padding: [16, 16] });
+                else this.center(17);
+
+                const nev = h.nev ? (h.forras === "kerulet" ? CityManager.keruletLabel(h.nev, this.varos()) : h.nev) : "";
+                const honnan = I18n.t("locSrc_" + (h.forras || "szoveg"));
+                box.innerHTML = `<span class="small text-success"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.f("locFromTextFound", { nev: Utils.escape(nev || I18n.t("locLevel_hely")) })}${honnan && !honnan.startsWith("locSrc_") ? ` <span class="text-body-secondary">(${Utils.escape(honnan)})</span>` : ""}</span>
+                    <span class="small text-body-secondary d-block">${I18n.t("locFromTextCheck")}</span>`;
             })
             .catch(() => { box.innerHTML = `<span class="small text-danger">${I18n.t("locNoResult")}</span>`; })
             .finally(() => { gomb.disabled = false; });
@@ -283,6 +546,7 @@ class LocationPicker {
     clear() {
         this.x = null;
         this.y = null;
+        this.utcaKiemel(null);
         this.draw();
         this.valtozott();
     }
@@ -332,6 +596,10 @@ class LocationPicker {
     }
 
     remove() {
+        if (this.nagy) this.nagyit(false);
+        if (this.ac) this.ac.abort();
+        clearTimeout(this.tippIdozito);
+        clearTimeout(this.ellTimer);
         this.map.remove();
     }
 

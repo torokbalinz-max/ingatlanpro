@@ -29,7 +29,9 @@ const MINDIG_NYITOTT = [/^\/api\/me$/, /^\/api\/config$/, /^\/api\/auth\//,
     // Jogi: tartalom bejelentése (EU DSA – bárki megteheti) és a süti-választás naplója
     /^\/api\/jogi\/(bejelentes|suti)$/,
     // Látogatottsági statisztika (sütik nélkül)
-    /^\/api\/stat\/pv$/];
+    /^\/api\/stat\/pv$/,
+    // Reklámfelületek: a megjelenések számolása (sütik és személyes adat nélkül)
+    /^\/api\/reklam\/megjelenes$/];
 
 function nyilvanosMod() {
     return !/^(0|false|nem|no|privat|privát)$/i.test(String(process.env.NYILVANOS || "").trim());

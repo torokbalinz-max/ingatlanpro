@@ -577,6 +577,15 @@ class NewPropertyManager {
         info.style.display = NewPropertyManager.editStatusz === "fuggo" && NewPropertyManager.editId !== null ? "" : "none";
         info.innerHTML = `<i class="fa-solid fa-inbox"></i> ${I18n.t("newPendingInfo")}`;
 
+        // Az alsó mentés-sáv: mit mentesz (új hirdetés / melyik hirdetés szerkesztése)
+        const edit = NewPropertyManager.editId !== null;
+        const barTitle = document.getElementById("newSaveBarTitle");
+        const barNote = document.getElementById("newSaveBarNote");
+        const barIcon = document.getElementById("newSaveBarIcon");
+        if (barTitle) barTitle.innerText = title.innerText;
+        if (barNote) barNote.innerText = I18n.t(!edit ? "newSaveBarHint" : NewPropertyManager.editStatusz === "fuggo" ? "newSaveBarPending" : "newSaveBarEdit");
+        if (barIcon) barIcon.className = edit ? "fa-solid fa-pen-to-square" : "fa-solid fa-circle-plus";
+
     }
 
     static startEdit(ingatlan) {

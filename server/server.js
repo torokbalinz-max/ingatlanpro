@@ -80,6 +80,7 @@ app.use(require("./routes/legal"));
 app.use(require("./routes/sitestats"));
 app.use(require("./routes/beallitasok"));
 app.use(require("./routes/kornyek"));
+app.use(require("./routes/reklam"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {

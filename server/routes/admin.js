@@ -72,7 +72,23 @@ router.get("/api/admin/counts", csakAdmin, async (req, res) => {
         // Város és környéke: ennyi bizonytalan hirdetésről kell dönteni
         const kornyek = await require("../services/kornyek").javaslatDb().catch(() => 0);
 
-        res.json({ ...r.rows[0], ...w.rows[0], ...ir.rows[0], kornyek_javaslat: kornyek, ai: ai.elerheto() });
+        // Új tartalom-bejelentések, a hely-ellenőrzés áthelyezései, reklámok
+        const egyeb = await db.query(`
+            SELECT
+                (SELECT COUNT(*) FROM bejelentesek WHERE statusz = 'uj')::int AS bejelentes_uj,
+                (SELECT COUNT(*) FROM ingatlanok WHERE hely_eredeti IS NOT NULL AND hely_eredeti->>'ok' IS NOT NULL
+                    AND COALESCE((hely_eredeti->>'elfogadva')::boolean, false) = false AND NOT COALESCE(hely_kezi, false)
+                    AND statusz IN ('aktiv', 'fuggo'))::int AS hely_athelyezett
+        `).catch(() => ({ rows: [{}] }));
+
+        const reklam = require("../services/reklam");
+        const reklamFut = (await reklam.aktivak().catch(() => [])).length;
+        const reklamLejaro = (await reklam.lejarok(7).catch(() => [])).length;
+
+        res.json({
+            ...r.rows[0], ...w.rows[0], ...ir.rows[0], ...egyeb.rows[0],
+            kornyek_javaslat: kornyek, reklam_fut: reklamFut, reklam_lejaro: reklamLejaro, ai: ai.elerheto()
+        });
     } catch (err) {
         hiba(res, err);
     }

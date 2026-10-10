@@ -104,6 +104,8 @@ class RequestsPage {
                 <div><span class="reqHowNum">3</span><span>${I18n.t("reqHow3")}</span></div>
             </div>
 
+            ${typeof AdSlots !== "undefined" ? AdSlots.slot("requests", "mb-4") : ""}
+
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                 <select class="form-select w-auto" id="reqFVaros"><option value="">${I18n.t("reqAllCities")}</option></select>
                 <select class="form-select w-auto" id="reqFTipus">

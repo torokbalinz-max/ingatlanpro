@@ -30,8 +30,9 @@ const Telepulesek = require("../../public/js/core/telepulesek");
 // Ha a javítás szabályai bővülnek, a szám emelésével a következő
 // induláskor minden hirdetésen újra lefut (2: ár, belterület/külterület, kerület a helyből;
 // 3: hely-ellenőrzés – a forrásoldal rossz pontjai, hasonló nevű falvak;
-// 4: állapot a leírásból / az építés évéből, pontosabb emelet, terület, évszám, nevezetes helyek)
-const VERZIO = 4;
+// 4: állapot a leírásból / az építés évéből, pontosabb emelet, terület, évszám, nevezetes helyek;
+// 5: pontosabb hely – az utca összes szakasza, házszám, a cím / leírás / forrás szerinti kerület)
+const VERZIO = 5;
 
 const ures = v => v === null || v === undefined || v === "" || (typeof v === "number" && !(v > 0));
 
@@ -341,6 +342,8 @@ async function indulaskor() {
 
     try {
         await db.ready;
+        // A kerületek egymásnak ellentmondó "más nevei" (pl. "Central" a Félközpontnál) ki
+        await quality.aliasTisztitas().catch(e => console.error("Kerület-nevek tisztítása:", e.message));
         if (await beallitas("autofix_v" + VERZIO)) return;
         console.log("Automatikus javítás indul a meglévő hirdetéseken...");
         const j = indit({ mind: false });   // ha a Render közben leállna, a következő indulás folytatja

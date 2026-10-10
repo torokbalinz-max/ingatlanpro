@@ -107,13 +107,54 @@ async function keruletLista(varos) {
 
     const r = await db.query("SELECT nev, nev_ro, aliasok FROM keruletek WHERE varos = $1", [varos]);
 
-    // Hosszabb kulcs előbb ("Cartierul Ciucului" előbb, mint "Ciuc")
-    return r.rows.flatMap(k =>
-        [k.nev, k.nev_ro, ...String(k.aliasok || "").split(",")]
-            .map(ekezetNelkul)
-            .filter(x => x.length >= 3)
-            .map(kulcs => ({ nev: k.nev, kulcs }))
-    ).sort((a, b) => b.kulcs.length - a.kulcs.length);
+    // Egy kerület hivatalos neve (magyar / román) nem lehet egy másik kerület
+    // "más neve" – különben pl. a "Central" (= Központ) a Félközpontra is mutatna
+    const hivatalos = new Map();
+    r.rows.forEach(k => [k.nev, k.nev_ro].map(ekezetNelkul).filter(x => x.length >= 3).forEach(x => hivatalos.set(x, k.nev)));
+
+    // Hosszabb kulcs előbb ("Cartierul Ciucului" előbb, mint "Ciuc"); azonos hossznál a hivatalos név
+    return r.rows.flatMap(k => [
+        ...[k.nev, k.nev_ro].map(ekezetNelkul).filter(x => x.length >= 3).map(kulcs => ({ nev: k.nev, kulcs, hivatalos: true })),
+        ...String(k.aliasok || "").split(",").map(ekezetNelkul)
+            .filter(x => x.length >= 3 && !(hivatalos.has(x) && hivatalos.get(x) !== k.nev))
+            .map(kulcs => ({ nev: k.nev, kulcs, hivatalos: false }))
+    ]).sort((a, b) => b.kulcs.length - a.kulcs.length || (b.hivatalos - a.hivatalos));
+
+}
+
+// Induláskor: a kerületek "más nevei" közül kivesszük, ami egy MÁSIK kerület
+// hivatalos neve (pl. a "Central" a Félközpontnál, ha a Központ román neve Central) –
+// ezek a régi kézi javításokból maradtak, és rossz kerületre irányították a hirdetéseket
+async function aliasTisztitas() {
+
+    const r = await db.query("SELECT id, varos, nev, nev_ro, aliasok FROM keruletek");
+    const varosonkent = new Map();
+    r.rows.forEach(k => {
+        if (!varosonkent.has(k.varos)) varosonkent.set(k.varos, []);
+        varosonkent.get(k.varos).push(k);
+    });
+
+    let javitott = 0;
+
+    for (const lista of varosonkent.values()) {
+        const hivatalos = new Map();
+        lista.forEach(k => [k.nev, k.nev_ro].map(ekezetNelkul).filter(x => x.length >= 3).forEach(x => hivatalos.set(x, k.nev)));
+        for (const k of lista) {
+            const regi = String(k.aliasok || "").split(",").map(x => x.trim()).filter(Boolean);
+            const uj = regi.filter(a => { const x = ekezetNelkul(a); return !(hivatalos.has(x) && hivatalos.get(x) !== k.nev); });
+            if (uj.length !== regi.length) {
+                await db.query("UPDATE keruletek SET aliasok = $1 WHERE id = $2", [uj.join(", ") || null, k.id]);
+                javitott++;
+            }
+        }
+    }
+
+    if (javitott) {
+        console.log(`Kerületek: ${javitott} kerület "más nevei" közül kivéve egy másik kerület neve.`);
+        try { require("./districts").cacheUrit(); } catch (e) { /* nem kritikus */ }
+    }
+
+    return javitott;
 
 }
 
@@ -221,10 +262,16 @@ async function aliasHozzaad(varos, kerulet, alias) {
     const a = ekezetNelkul(alias);
     if (lista.map(ekezetNelkul).includes(a) || a === ekezetNelkul(kerulet) || a === ekezetNelkul(r.rows[0].nev_ro)) return;
 
+    // Egy másik kerület hivatalos neve nem lehet ennek a "más neve"
+    const masik = await db.query(
+        "SELECT 1 FROM keruletek WHERE varos = $1 AND nev <> $2 AND (lower(nev) = lower($3) OR lower(COALESCE(nev_ro, '')) = lower($3)) LIMIT 1",
+        [varos, kerulet, alias.trim()]);
+    if (masik.rowCount) return;
+
     lista.push(alias.trim());
 
     await db.query("UPDATE keruletek SET aliasok = $1 WHERE varos = $2 AND nev = $3", [lista.join(", "), varos, kerulet]);
 
 }
 
-module.exports = { ertekel, problemak, median, keruletKeres, keruletSzovegbol, keruletHelybol, aliasHozzaad, ekezetNelkul, KOTELEZO_IMPORT };
+module.exports = { ertekel, problemak, median, keruletKeres, keruletSzovegbol, keruletHelybol, aliasHozzaad, aliasTisztitas, ekezetNelkul, KOTELEZO_IMPORT };

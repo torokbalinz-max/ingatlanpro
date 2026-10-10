@@ -89,6 +89,7 @@ class AgencyDirectory {
                     <div class="row g-3" id="agDirGrid"><div class="col-12"><div class="emptyState"><div class="spinner-border text-primary"></div></div></div></div>
                 </div>
                 <div class="col-xl-3">
+                    <div class="agDirSideWrap">
                     <aside class="card agDirAside mb-4">
                         <div class="card-body">
                             <h6 class="mb-3"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ${I18n.t("agDirTrustTitle")}</h6>
@@ -102,6 +103,8 @@ class AgencyDirectory {
                             <a class="btn btn-outline-primary btn-sm w-100" href="#iroda/uj">${I18n.t("agDirRegister")}</a>
                         </div>
                     </aside>
+                    ${typeof AdSlots !== "undefined" ? AdSlots.slot("agencies", "mb-4") : ""}
+                    </div>
                 </div>
             </div>`;
 
@@ -398,7 +401,7 @@ class AgencyProfile {
         if (tobb) tobb.onclick = () => { f.mennyi += 24; AgencyProfile.render(ir); };
 
         const adm = document.getElementById("agAdminOpen");
-        if (adm) adm.onclick = () => { AdminManager.tab = "irodak"; location.hash = "#admin"; };
+        if (adm) adm.onclick = () => { AdminManager.tab = "irodak"; location.hash = "#admin/irodak"; };
 
     }
 

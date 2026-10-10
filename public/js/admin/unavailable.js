@@ -9,11 +9,15 @@ AdminManager.renderUnavailable = function () {
 
     fetch("/api/admin/unavailable")
         .then(r => r.json())
-        .then(lista => {
+        .then(osszes => {
 
-            DataManager.prepare(lista);
+            DataManager.prepare(osszes);
 
-            AdminManager.setCount("unavailableCount", lista.length);
+            AdminManager.setCount("unavailableCount", osszes.length);
+
+            // Városonként (ha több városban is van)
+            if (AdminManager.unavVaros && !osszes.some(i => i.varos === AdminManager.unavVaros)) AdminManager.unavVaros = "";
+            const lista = AdminManager.unavVaros ? osszes.filter(i => i.varos === AdminManager.unavVaros) : osszes;
 
             AdminManager.box().innerHTML = `
 
@@ -27,6 +31,8 @@ AdminManager.renderUnavailable = function () {
                     </div>
                     <div class="px-3 pb-3" id="recheckStatus"></div>
                 </div>
+
+                ${AdminManager.cityTabs(osszes, AdminManager.unavVaros || "", "data-unav-city")}
 
                 ${AdminManager.section("fa-solid fa-ban", `${I18n.t("unavailableTitle")} <span class="badge text-bg-secondary">${lista.length}</span>`, I18n.t("unavailableNote"),
                     lista.length ? `<button class="btn btn-sm btn-outline-danger text-nowrap" id="unavDeleteAll"><i class="fa-solid fa-trash"></i> ${I18n.f("invalidDeleteBtn", { n: lista.length })}</button>` : "")}
@@ -65,6 +71,10 @@ AdminManager.renderUnavailable = function () {
             };
 
             const box = AdminManager.box();
+
+            box.querySelectorAll("[data-unav-city]").forEach(b => {
+                b.onclick = () => { AdminManager.unavVaros = b.dataset.unavCity; AdminManager.renderUnavailable(); };
+            });
 
             box.querySelectorAll("[data-restore]").forEach(b => {
                 b.onclick = () => fetch(`/api/admin/unavailable/${b.dataset.restore}/restore`, { method: "POST" })

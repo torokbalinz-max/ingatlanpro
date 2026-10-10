@@ -107,20 +107,13 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
                         </div>
                     </div>
                 </div>
-                <div class="card mb-4" id="wsAdsCard">
-                    <div class="card-body">
-                        <h6 class="mb-2"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> ${I18n.t("wsAdsTitle")}</h6>
-                        <p class="small text-body-secondary">${I18n.t("wsAdsHelp")}</p>
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" id="wsAdsShow">
-                            <label class="form-check-label" for="wsAdsShow">${I18n.t("wsAdsShow")}</label>
-                        </div>
-                        <label class="form-label small" for="wsAdsEmail">${I18n.t("wsAdsEmail")}</label>
-                        <input class="form-control form-control-sm mb-2" id="wsAdsEmail" type="email" maxlength="160" placeholder="${esc(a.email || adminEmail || "")}">
-                        <div class="wsAdsMsg alert small py-2 mb-2" hidden></div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <a class="small" href="#properties">${I18n.t("wsAdsPreview")}</a>
-                            <button type="button" class="btn btn-sm btn-primary" id="wsAdsSave">${I18n.t("save")}</button>
+                <div class="card mb-4">
+                    <div class="card-body d-flex align-items-start gap-3">
+                        <i class="fa-solid fa-rectangle-ad fs-4 text-primary" aria-hidden="true"></i>
+                        <div class="flex-fill">
+                            <h6 class="mb-1">${I18n.t("wsAdsTitle")}</h6>
+                            <p class="small text-body-secondary mb-2">${I18n.t("wsAdsMoved")}</p>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-go-tab="reklam">${I18n.t("adminTabAds")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                         </div>
                     </div>
                 </div>
@@ -133,7 +126,7 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
             </div>
         </div>`;
 
-    AdminManager.bindAdsSettings();
+    box.querySelectorAll("[data-go-tab]").forEach(b => b.onclick = () => AdminManager.open(b.dataset.goTab));
 
     const form = document.getElementById("wsForm");
     const msg = form.querySelector(".wsMsg");
@@ -184,47 +177,6 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
                 });
             })
             .catch(() => { msg.hidden = false; msg.className = "wsMsg alert alert-danger small py-2 mt-3 mb-0"; msg.innerText = I18n.t("alertSaveError"); });
-    };
-
-};
-
-// Reklámfelületek: ki-be kapcsolás és az érdeklődők e-mail címe (services/reklam.js)
-AdminManager.bindAdsSettings = function () {
-
-    const show = document.getElementById("wsAdsShow");
-    const email = document.getElementById("wsAdsEmail");
-    const msg = document.querySelector(".wsAdsMsg");
-    if (!show) return;
-
-    fetch("/api/admin/reklam").then(r => r.json()).then(d => {
-        const a = d.adat || {};
-        show.checked = a.mutat !== false;
-        email.value = a.email || "";
-    }).catch(() => { show.checked = AdSlots.enabled(); });
-
-    document.getElementById("wsAdsSave").onclick = () => {
-        fetch("/api/admin/reklam", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mutat: show.checked, email: email.value.trim() })
-        })
-            .then(r => r.json().then(v => ({ ok: r.ok, v })))
-            .then(({ ok, v }) => {
-                msg.hidden = false;
-                if (!ok) {
-                    msg.className = "wsAdsMsg alert alert-danger small py-2 mb-2";
-                    msg.innerText = I18n.t(v.error === "bad_email" ? "wsBadEmail" : "alertSaveError");
-                    return;
-                }
-                msg.className = "wsAdsMsg alert alert-success small py-2 mb-2";
-                msg.innerText = I18n.t("wsSaved");
-                // Az oldal azonnal a beállítás szerint mutassa (vagy rejtse) a helyőrzőket
-                return fetch("/api/config").then(r => r.json()).then(c => {
-                    AuthManager.config = { ...AuthManager.config, reklam: c.reklam };
-                    AdSlots.refresh();
-                });
-            })
-            .catch(() => { msg.hidden = false; msg.className = "wsAdsMsg alert alert-danger small py-2 mb-2"; msg.innerText = I18n.t("alertSaveError"); });
     };
 
 };

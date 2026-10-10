@@ -139,7 +139,7 @@ class ValuationManager {
                     <p class="sectionNote mb-0">${I18n.t("valDisclaimer")}</p>
                 </div>
             </div>
-            ${typeof AdSlots !== "undefined" && AdSlots.enabled() ? `<div class="mt-4">${AdSlots.html("valuation")}</div>` : ""}`;
+            ${typeof AdSlots !== "undefined" ? AdSlots.slot("valuation", "mt-4") : ""}`;
 
         if (typeof AdSlots !== "undefined") AdSlots.bind(document.getElementById("valResult"));
 
@@ -218,7 +218,7 @@ class ValuationManager {
 
     }
 
-    static run() {
+    static run(masodszor) {
 
         const params = ValuationManager.params();
 
@@ -227,12 +227,30 @@ class ValuationManager {
             return;
         }
 
+        // A becsléshez be kell jelentkezni (mint a hirdetésfeladáshoz): a belépő
+        // ablak, utána magától lefut – a kitöltött adatok megmaradnak
+        if (!AuthManager.loggedIn()) {
+            AuthManager.kell().then(() => ValuationManager.run()).catch(() => { });
+            return;
+        }
+
         const box = document.getElementById("valResult");
         box.innerHTML = `<div class="emptyState"><div class="spinner-border text-primary"></div></div>`;
 
         fetch("/api/valuation?" + new URLSearchParams(params).toString())
-            .then(r => r.json())
-            .then(data => {
+            .then(r => r.json().then(data => ({ status: r.status, data })))
+            .then(({ status, data }) => {
+
+                // Lejárt a belépés: újra belépés, utána még egyszer
+                if (status === 401) {
+                    ValuationManager.renderIntro();
+                    if (masodszor) return;
+                    AuthManager.refresh()
+                        .then(() => AuthManager.kell())
+                        .then(() => ValuationManager.run(true))
+                        .catch(() => { });
+                    return;
+                }
 
                 if (data.error) {
                     box.innerHTML = `
@@ -340,13 +358,13 @@ class ValuationManager {
             <tr class="${c.id === ValuationManager.excludeId ? "table-primary" : ""}">
                 <td>
                     <div class="simBar"><span style="width:${c.similarity}%"></span></div>
-                    <small>${c.similarity}%</small>
+                    <small>${c.similarity}%</small>${c.weight !== undefined ? `<small class="d-block text-body-secondary" title="${Utils.escape(I18n.t("valWeightHelp"))}">${I18n.f("valWeight", { pct: Utils.num(c.weight, 1) })}</small>` : ""}
                 </td>
                 <td><a href="#listing/${Number(c.id)}" class="text-reset">#${c.id}</a>${c.uj ? ` <span class="badge text-bg-info valNewBadge" title="${Utils.escape(I18n.t("valNewBuildHint"))}">${I18n.t("valNewBuild")}</span>` : ""}</td>
                 <td class="text-end fw-semibold">${Utils.eur(c.ar)}</td>
                 <td class="text-end">${Utils.nm(c.nm)}</td>
                 <td class="text-end">${Utils.eurNm(c.arNm)}</td>
-                <td class="text-end text-body-secondary" title="${Utils.escape(I18n.t("valAdjustedHelp"))}">${c.adjusted ? Utils.eur(c.adjusted) : "-"}</td>
+                <td class="text-end text-body-secondary" title="${Utils.escape(ValuationManager.atszamitasCim(c))}">${c.adjusted ? Utils.eur(c.adjusted) : "-"}${c.adjustedArNm ? `<small class="d-block">${Utils.eurNm(c.adjustedArNm)}</small>` : ""}</td>
                 <td class="text-center">${c.szobak || "-"}</td>
                 <td>${Utils.escape(c.emelet || "-")}</td>
                 <td>${Utils.escape(Utils.allapotLabel(c.allapot))}</td>
@@ -396,7 +414,7 @@ class ValuationManager {
                 </div>
             </div>
 
-            ${typeof AdSlots !== "undefined" && AdSlots.enabled() ? `<div class="mb-4">${AdSlots.html("valuation")}</div>` : ""}
+            ${typeof AdSlots !== "undefined" ? AdSlots.slot("valuation", "mb-4") : ""}
 
             <div class="card">
                 <div class="card-header">
@@ -431,10 +449,35 @@ class ValuationManager {
 
     }
 
+    // Az átszámítás részletei egy hasonló hirdetésnél (a cella címe)
+    static atszamitasCim(c) {
+        if (c.adjDistrict === undefined) return I18n.t("valAdjustedHelp");
+        const p = v => (v > 0 ? "+" : "") + Utils.num(v, 1) + " %";
+        return I18n.t("valAdjustedHelp") + "\n" + I18n.f("valAdjParts", { ker: p(c.adjDistrict), mas: p(c.adjOther) });
+    }
+
+    // Hogyan jött ki a becslés (4. változat: a hasonlók átszámolt €/m²-e)
+    static methodHtml4(d, params) {
+        const m = d.method;
+        const p = v => (v > 0 ? "+" : "") + Utils.num(v, 0) + " %";
+        const kerek = (m.districtRatios || []).sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct)).slice(0, 5)
+            .map(x => `${Utils.escape(CityManager.keruletLabel(x.hely, params.varos) || x.hely)} <b class="${x.pct >= 0 ? "text-success" : "text-danger"}">${p(x.pct)}</b>`).join(", ");
+        return `
+            <ul class="small mb-2 valMethodList">
+                <li>${I18n.f("valM4Used", { n: m.used, sim: m.avgSimilarity })}${m.dropped ? ` <span class="text-body-secondary">${I18n.f("valM4Dropped", { n: m.dropped })}</span>` : ""}</li>
+                <li>${I18n.f("valM4Weighted", { arnm: Utils.eurNm(m.weightedArNm), nm: Utils.nm(d.nm) })}</li>
+                <li>${I18n.f("valM4Raw", { min: Utils.eurNm(m.rawMinArNm), max: Utils.eurNm(m.rawMaxArNm) })}</li>
+                ${kerek ? `<li>${I18n.t(d.helySzerint === "telepules" ? "valM4Villages" : "valM4Districts")}: ${kerek}</li>` : ""}
+                ${m.conditionAdjustment && Math.abs(m.conditionAdjustment) >= 0.5 ? `<li>${I18n.f("valCondAdjusted", { pct: Utils.pct(m.conditionAdjustment, 1) })}</li>` : ""}
+            </ul>
+            <p class="small text-body-secondary mb-0">${I18n.t("valM4Note")}</p>`;
+    }
+
     // Hogyan jött ki a becslés: hasonlók + árarány-modell, és a fő arányok
     static methodHtml(d, params) {
 
         const m = d.method;
+        if (m && m.kind === "comparables") return ValuationManager.methodHtml4(d, params);
 
         if (!m) {
             return `<p class="small text-body-secondary mb-0">${I18n.f("valMethod", { n: d.comparables.length })}</p>`;

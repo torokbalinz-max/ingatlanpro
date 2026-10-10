@@ -1,0 +1,685 @@
+/* ==========================================================================
+   6. változat: rendezett admin, több és nagyobb reklámhely, mentés-sáv a
+   hirdetésfeladásnál, nagyítható helyválasztó térkép, hely-ellenőrzés
+   ========================================================================== */
+
+/* ---------- Admin: menü telefonon (lenyíló választó), útjelző ---------- */
+
+.adminNavMobile {
+    display: none;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius);
+    background: var(--ip-surface);
+    box-shadow: var(--ip-shadow);
+}
+
+.adminNavMobile > i { color: #dc2626; }
+.adminNavMobile .form-select { font-weight: 600; }
+
+.adminCrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ip-muted);
+}
+
+.adminCrumb:empty { display: none; }
+.adminCrumb i { color: var(--ip-accent); }
+
+.adminNavList .adminNavGroup:first-child { margin-top: 0.35rem; }
+
+@media (max-width: 991.98px) {
+    /* Kis képernyőn a hosszú menüsor helyett a választó */
+    .adminShell > .adminNav { display: none !important; }
+    .adminNavMobile:not([hidden]) { display: flex; }
+}
+
+/* ---------- Admin: Áttekintés – "Mi hol van?" ---------- */
+
+.ovGroup .card-header h6 i { color: var(--ip-accent); margin-right: 0.35rem; }
+
+.ovGroupItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    border-left: 0;
+    border-right: 0;
+    background: transparent;
+    color: var(--ip-text);
+    text-align: left;
+}
+
+.ovGroupItem > i {
+    width: 18px;
+    margin-top: 0.2rem;
+    text-align: center;
+    color: var(--ip-muted);
+}
+
+.ovGroupItem b { display: block; font-weight: 600; font-size: 0.93rem; }
+.ovGroupItem small { display: block; color: var(--ip-muted); line-height: 1.35; margin-top: 0.1rem; }
+.ovGroupItem .navCount { margin-top: 0.15rem; }
+.ovGroupItem:hover > i { color: var(--ip-accent); }
+
+/* ---------- Admin: Karbantartás ---------- */
+
+.toolCard h5 { font-size: 1.05rem; }
+.toolCard .kpiIcon { flex: 0 0 44px; width: 44px; height: 44px; }
+
+/* ---------- Admin: városonkénti fülek (ellenőrzés, nem elérhető, hely-ellenőrzés) ---------- */
+
+.cityTabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0.5rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius);
+    background: var(--ip-surface-2);
+}
+
+.cityTab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ip-text);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.cityTab > i { color: var(--ip-muted); }
+.cityTab:hover { background: var(--ip-surface); border-color: var(--ip-border); }
+
+.cityTab.active {
+    background: var(--ip-surface);
+    border-color: color-mix(in srgb, var(--ip-accent) 55%, var(--ip-border));
+    color: var(--ip-accent);
+    box-shadow: var(--ip-shadow);
+}
+
+.cityTab.active > i { color: var(--ip-accent); }
+
+.revCity { font-weight: 700; }
+
+/* ---------- Admin: Reklámfelületek ---------- */
+
+.adsList { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.adsRow {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr) 210px 170px auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.85rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius);
+    background: var(--ip-surface);
+}
+
+.adsThumb {
+    width: 120px;
+    height: 72px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--ip-surface-2);
+    color: var(--ip-muted);
+    font-size: 1.4rem;
+    overflow: hidden;
+}
+
+.adsThumb img { width: 100%; height: 100%; object-fit: contain; }
+
+.adsMain { min-width: 0; }
+.adsName { font-size: 1rem; }
+
+.adsSlotChips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.35rem; }
+
+.adsChip {
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.adsDates { color: var(--ip-text); }
+.adsNums b { font-variant-numeric: tabular-nums; }
+.adsActions { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end; }
+
+@media (max-width: 1399.98px) {
+    .adsRow { grid-template-columns: 110px minmax(0, 1fr) 190px; }
+    .adsThumb { width: 110px; }
+    .adsNums { grid-column: 2; }
+    .adsActions { grid-column: 3; justify-content: flex-start; }
+}
+
+@media (max-width: 767.98px) {
+    .adsRow { grid-template-columns: 88px minmax(0, 1fr); gap: 0.6rem 0.85rem; }
+    .adsThumb { width: 88px; height: 60px; }
+    .adsDates, .adsNums, .adsActions { grid-column: 1 / -1; }
+}
+
+/* A reklámhelyek oldalanként */
+
+.adsSlotGroups {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 1rem;
+}
+
+.adsSlotGroup {
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius);
+    background: var(--ip-surface);
+    overflow: hidden;
+}
+
+.adsSlotGroupHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--ip-surface-2);
+    border-bottom: 1px solid var(--ip-border);
+}
+
+.adsSlotGroupHead i { color: var(--ip-accent); margin-right: 0.25rem; }
+
+.adsSlot {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 0.35rem 0.65rem;
+    align-items: start;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--ip-border);
+}
+
+.adsSlot:last-child { border-bottom: 0; }
+.adsSlot > .adsShape { justify-self: center; margin-top: 0.4rem; }
+
+.adsSlotMain { min-width: 0; display: flex; flex-direction: column; gap: 0.05rem; }
+.adsSlotMain b { font-size: 0.92rem; font-weight: 600; }
+.adsSlotMain small { line-height: 1.35; }
+
+.adsSlotSwitches { grid-column: 2; display: flex; flex-wrap: wrap; gap: 0.15rem 1.1rem; }
+
+/* A forma kicsiben (arányosan) */
+.adsShape {
+    flex: 0 0 auto;
+    display: inline-block;
+    margin-top: 0.2rem;
+    border: 1.5px solid color-mix(in srgb, var(--ip-accent) 60%, var(--ip-border));
+    border-radius: 3px;
+    background: var(--ip-accent-soft);
+    vertical-align: middle;
+}
+
+.ad-shape-billboard { width: 39px; height: 10px; }
+.ad-shape-csik { width: 39px; height: 4px; }
+.ad-shape-leaderboard { width: 29px; height: 4px; }
+.ad-shape-negyzet { width: 14px; height: 12px; }
+.ad-shape-allo { width: 9px; height: 18px; }
+
+/* Szerkesztő */
+
+.adsEdH {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ip-muted);
+    margin-bottom: 0.75rem;
+}
+
+.adsImgPick { display: flex; align-items: flex-start; gap: 0.85rem; }
+
+.adsImgPrev {
+    flex: 0 0 160px;
+    width: 160px;
+    height: 96px;
+    display: grid;
+    place-items: center;
+    border: 1px dashed var(--ip-border);
+    border-radius: 10px;
+    background: var(--ip-surface-2);
+    color: var(--ip-muted);
+    font-size: 1.5rem;
+    overflow: hidden;
+}
+
+.adsImgPrev.small { flex-basis: 96px; width: 96px; height: 72px; }
+.adsImgPrev img { width: 100%; height: 100%; object-fit: contain; }
+
+.adsPickList { display: grid; gap: 0.6rem; max-height: 360px; overflow-y: auto; padding-right: 0.25rem; }
+
+.adsPickGroup {
+    border: 1px solid var(--ip-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.adsPickHead {
+    padding: 0.35rem 0.7rem;
+    background: var(--ip-surface-2);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.adsPickHead i { color: var(--ip-accent); margin-right: 0.25rem; }
+
+.adsPick {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0.45rem 0.7rem;
+    border-top: 1px solid var(--ip-border);
+    cursor: pointer;
+}
+
+.adsPick .form-check-input { margin: 0; flex: 0 0 auto; }
+.adsPick .adsShape { margin-top: 0; }
+.adsPickText { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.adsPickText b { font-size: 0.88rem; font-weight: 600; }
+.adsPickText small { color: var(--ip-muted); font-size: 0.75rem; }
+.adsPick:hover { background: var(--bs-tertiary-bg); }
+.adsPick.fitBad .adsPickText b { color: var(--ip-muted); }
+.adsFit { flex: 0 0 auto; }
+
+.adsPreview {
+    padding: 0.75rem;
+    border: 1px dashed var(--ip-border);
+    border-radius: 10px;
+    background: var(--ip-bg);
+}
+
+.adsPreview .adSlot { margin: 0; }
+.adsPreviewLabel { margin-bottom: 0.35rem; }
+
+.adsSizes summary { cursor: pointer; color: var(--ip-accent); font-weight: 600; }
+.adsSizes li { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
+.adsSizes .adsShape { margin-top: 0; }
+
+.adsChartBox { position: relative; height: 260px; }
+
+/* ---------- Admin: Hely-ellenőrzés ---------- */
+
+.lcLayout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 42%);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.lcList { display: flex; flex-direction: column; gap: 0.65rem; min-width: 0; }
+
+.lcRow {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 0.4rem 0.85rem;
+    padding: 0.75rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius);
+    background: var(--ip-surface);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.lcRow:hover { border-color: color-mix(in srgb, var(--ip-accent) 40%, var(--ip-border)); }
+.lcRow.active { border-color: var(--ip-accent); box-shadow: 0 0 0 3px var(--ip-accent-soft); }
+.lcRow:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+
+.lcThumb {
+    position: relative;
+    width: 84px;
+    height: 64px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--ip-surface-2);
+    color: var(--ip-muted);
+    overflow: hidden;
+}
+
+.lcThumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+.lcMain { min-width: 0; }
+.lcTitle { display: block; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lcActions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+}
+
+.lcMapCol { position: sticky; top: calc(var(--ip-nav-h) + 1rem); }
+.lcMap { height: min(560px, calc(100vh - var(--ip-nav-h) - 9rem)); min-height: 320px; border-radius: 10px; }
+
+.lcLegend { display: flex; flex-wrap: wrap; gap: 1rem; padding: 0.5rem 0.25rem 0; color: var(--ip-muted); }
+.lcDot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25); vertical-align: -1px; }
+.lcDot.from { background: #dc2626; }
+.lcDot.to { background: #16a34a; }
+
+@media (max-width: 1199.98px) {
+    .lcLayout { grid-template-columns: minmax(0, 1fr); }
+    .lcMapCol { position: static; order: -1; }
+    .lcMap { height: 340px; min-height: 0; }
+}
+
+/* ==========================================================================
+   REKLÁMHELYEK (js/core/ads.js)
+   ========================================================================== */
+
+.adMount[hidden] { display: none !important; }
+
+/* Az új formák (helyőrzőként) */
+.ad-csik { max-width: 970px; min-height: 90px; padding-top: 1.3rem; }
+.ad-negyzet { max-width: 336px; min-height: 250px; }
+.ad-negyzet .adInner { flex-direction: column; }
+.ad-allo { max-width: 300px; min-height: 600px; }
+.ad-allo .adInner { flex-direction: column; }
+
+/* A kártyák között a négyzet akkora, mint egy kártya */
+.adFeedCol .adSlot { max-width: none; height: 100%; min-height: 300px; }
+.adFeedWide .adSlot { margin-block: 0.25rem; }
+
+/* Valódi hirdetés: a kép a hely méretében, középen, felirattal */
+.adSlot.adReal {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow: visible;
+    text-align: center;
+}
+
+.adSlot.adReal.ad-billboard,
+.adSlot.adReal.ad-csik,
+.adSlot.adReal.ad-leaderboard,
+.adSlot.adReal.ad-negyzet,
+.adSlot.adReal.ad-allo { min-height: 0; }
+
+.adReal .adLink {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    line-height: 0;
+    box-shadow: var(--ip-shadow);
+    background: var(--ip-surface);
+}
+
+.adReal .adLink img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    object-fit: contain;
+}
+
+.adReal.ad-billboard .adLink img { max-height: 250px; }
+.adReal.ad-csik .adLink img { max-height: 90px; }
+.adReal.ad-leaderboard .adLink img { max-height: 90px; }
+.adReal.ad-negyzet .adLink img { max-height: 280px; }
+.adReal.ad-allo .adLink img { max-height: 600px; }
+
+.adReal .adTag {
+    position: static;
+    display: block;
+    margin: 0 0 0.25rem;
+    text-align: left;
+    opacity: 0.9;
+}
+
+a.adLink:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+
+/* A kártyák között a valódi hirdetés is a cella közepén */
+.adFeedCol .adSlot.adReal { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.adFeedCol .adReal .adTag { align-self: flex-start; }
+
+/* A kereső alatt: görgetéskor is látszik (csak széles képernyőn) */
+#adSearchSide {
+    position: sticky;
+    top: calc(var(--ip-nav-h) + 1rem);
+    margin-top: 1rem;
+}
+
+#adSearchSide .adSlot { margin-inline: 0; }
+#adSearchSide .ad-allo { max-width: none; }
+
+@media (max-width: 991.98px) {
+    #adSearchSide { display: none !important; }
+}
+
+/* Rövidebb képernyőn az álló reklám nem lehet magasabb, mint ami kifér */
+@media (max-height: 820px) {
+    #adSearchSide .ad-allo.adPlaceholder { min-height: 420px; }
+    #adSearchSide .adReal.ad-allo .adLink img { max-height: calc(100vh - var(--ip-nav-h) - 4rem); }
+}
+
+.homeAdTop { margin-top: clamp(1.5rem, 3vw, 2.5rem); }
+.adSideSlot .adSlot { margin-inline: 0; }
+.adValSide .adSlot { margin-inline: 0; }
+
+/* Ingatlanirodák: a jobb oldali doboz és a reklám együtt marad */
+.agDirSideWrap { position: sticky; top: calc(var(--ip-nav-h) + 16px); }
+.agDirSideWrap .agDirAside { position: static; }
+
+@media (max-width: 1199.98px), (max-height: 899.98px) {
+    .agDirSideWrap { position: static; }
+}
+
+@media (max-width: 767.98px) {
+    .ad-csik { min-height: 70px; }
+    .ad-allo { min-height: 250px; }
+    .adFeedCol .adSlot { min-height: 220px; }
+}
+
+@media print {
+    .adMount, .adFeedWide, #adSearchSide, .newSaveBar { display: none !important; }
+}
+
+/* ==========================================================================
+   HIRDETÉS OLDALA: a jobb oldali sáv csak akkor ragad, ha kifér
+   ========================================================================== */
+
+.listingSide.noStick { position: static; }
+
+/* ==========================================================================
+   HIRDETÉSFELADÁS: mentés-sáv az oldal alján + nagyobb térkép
+   ========================================================================== */
+
+.newSaveBar {
+    position: sticky;
+    bottom: 0;
+    z-index: 1015;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.25rem;
+    margin: 1.75rem 0 0;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    border: 1px solid var(--ip-border);
+    border-bottom: 0;
+    border-radius: var(--ip-radius) var(--ip-radius) 0 0;
+    background: color-mix(in srgb, var(--ip-surface) 94%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 -6px 24px rgba(27, 37, 32, 0.1);
+}
+
+[data-bs-theme="dark"] .newSaveBar { box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.4); }
+
+.newSaveBarInfo { display: flex; align-items: center; gap: 0.75rem; min-width: 0; flex: 1 1 260px; }
+.newSaveBarInfo b { display: block; font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.newSaveBarInfo small { display: block; line-height: 1.3; }
+
+.newSaveBarIcon {
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent);
+}
+
+.newSaveBarBtns { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; }
+.newSaveBarBtns #btnSave { min-width: 190px; font-weight: 650; }
+
+@media (max-width: 575.98px) {
+    .newSaveBar { padding-inline: 0.75rem; }
+    .newSaveBarInfo small { display: none; }
+    .newSaveBarBtns { width: 100%; }
+    .newSaveBarBtns .btn { flex: 1 1 auto; }
+    .newSaveBarBtns #btnSave { min-width: 0; flex-basis: 100%; order: -1; }
+}
+
+/* A térkép-kártya magassága igazodik a képernyőhöz (a mentés-sáv ne takarja) */
+#newMap { height: auto; }
+#newMap .locMap { height: clamp(340px, calc(100vh - var(--ip-nav-h) - 420px), 640px); }
+
+@media (max-width: 1199.98px) {
+    /* Egymás alatt: nem ragad, a térkép nagyobb lehet */
+    .newMapCard { position: static; }
+    #newMap .locMap { height: clamp(320px, 55vh, 520px); }
+}
+
+/* ==========================================================================
+   HELYVÁLASZTÓ TÉRKÉP: teljes képernyő, nagyítás, találatok
+   ========================================================================== */
+
+.locBar .locFullToggle { margin-left: auto; }
+
+.locMapWrap { position: relative; }
+
+.locZoomTip {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    z-index: 900;
+    transform: translateX(-50%);
+    max-width: calc(100% - 24px);
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(17, 20, 19, 0.82);
+    color: #fff;
+    font-size: 0.78rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.locZoomTip[hidden] { display: none; }
+
+.locFullMapBtn {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    background: #fff;
+    color: #333;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.locFullMapBtn:hover { background: #f4f4f4; }
+
+.locFullHead { display: none; }
+
+/* Teljes képernyő */
+body.locFullOpen { overflow: hidden; }
+
+.locPicker.locFull {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    height: auto !important;
+    margin: 0;
+    padding: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    background: var(--ip-bg);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.locFull .locFullHead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+}
+
+.locFull .locFullHead b { font-size: 1.05rem; }
+.locFull .locFullHead b i { color: var(--ip-accent); }
+.locFull .locFullTip { color: var(--ip-muted); flex: 1 1 260px; }
+.locFull .locFullDone { margin-left: auto; min-width: 110px; }
+
+.locFull .locMapWrap { flex: 1 1 auto; min-height: 0; }
+.locFull .locMap { height: 100% !important; min-height: 240px; }
+.locFull .locResults { max-height: 30vh; overflow-y: auto; }
+.locFull .locWarn, .locFull .locDistrict { flex: 0 0 auto; }
+
+/* Keresési találatok */
+.locResults:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.35rem;
+    border: 1px solid var(--ip-border);
+    border-radius: 10px;
+    background: var(--ip-surface);
+}
+
+.locResultsHead { padding: 0.15rem 0.4rem 0.3rem; }
+
+.locResult {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.45rem 0.55rem;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ip-text);
+    text-align: left;
+}
+
+.locResult > i { width: 18px; text-align: center; color: var(--ip-accent); }
+.locResult:hover, .locResult:focus-visible { background: var(--bs-tertiary-bg); }
+.locResultText { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.locResultText b { font-weight: 600; font-size: 0.9rem; }
+.locResultText small { color: var(--ip-muted); font-size: 0.76rem; }
+.locResult.isFar > i { color: var(--ip-warn); }
+
+/* ==========================================================================
+   ÉRTÉKBECSLŐ
+   ========================================================================== */
+
+.valLoginNote i { color: var(--ip-muted); margin-right: 0.15rem; }

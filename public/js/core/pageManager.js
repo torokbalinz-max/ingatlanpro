@@ -154,7 +154,7 @@ class PageManager {
         }
 
         if (page === "admin") {
-            AdminManager.show();
+            AdminManager.show(param);
         }
 
         if (page === "listing" && param) {

@@ -1,5 +1,11 @@
 // ============================================================
-//  Admin – Áttekintés: számok, teendők, gyors műveletek
+//  Admin – Áttekintés: számok, teendők, gyors elérés
+//
+//  A teendők csak azt mutatják, ami tényleg vár rád. A "Gyors elérés" a
+//  menü csoportjai szerint mutatja az összes részt egy rövid leírással –
+//  így egy pillantásra látszik, mi hol van. A karbantartó eszközök
+//  (automatikus javítás, forrásoldalak ellenőrzése, értékbecslő pontossága)
+//  a Beolvasás → Karbantartás oldalon vannak (maintenance.js).
 // ============================================================
 
 AdminManager.renderOverview = function () {
@@ -10,6 +16,7 @@ AdminManager.renderOverview = function () {
 
         const c = AdminManager.counts || {};
         const n = v => Utils.num(v || 0);
+        const esc = Utils.escape;
 
         const tile = (tab, icon, color, label, value, sub) => `
             <div class="col-sm-6 col-xxl-3">
@@ -25,241 +32,102 @@ AdminManager.renderOverview = function () {
 
         // Teendők: csak ami tényleg vár rád
         const teendok = [];
+        const todo = (ha, icon, color, text, tab, btn) => { if (ha) teendok.push({ icon, color, text, tab, btn: btn || I18n.t("ovOpen") }); };
 
-        if (c.review) teendok.push({
-            icon: "fa-solid fa-list-check", color: "orange",
-            text: I18n.f("ovTodoReview", { n: c.review }),
-            tab: "review", btn: I18n.t("ovTodoReviewBtn")
-        });
+        todo(c.review, "fa-solid fa-list-check", "orange", I18n.f("ovTodoReview", { n: c.review }), "review", I18n.t("ovTodoReviewBtn"));
+        todo(c.bejelentes_uj, "fa-solid fa-flag", "red", I18n.f("ovTodoReports", { n: c.bejelentes_uj }), "reports");
+        todo(c.iroda_fuggo, "fa-solid fa-briefcase", "orange", I18n.f("ovTodoAgencies", { n: c.iroda_fuggo }), "irodak");
+        todo(c.kornyek_javaslat, "fa-solid fa-tree-city", "cyan", I18n.f("ovTodoKornyek", { n: c.kornyek_javaslat }), "kornyek");
+        todo(c.hely_athelyezett, "fa-solid fa-location-crosshairs", "blue", I18n.f("ovTodoLocations", { n: c.hely_athelyezett }), "helyek");
+        todo(c.unavailable, "fa-solid fa-ban", "red", I18n.f("ovTodoUnavailable", { n: c.unavailable }), "unavailable");
+        todo(c.allapot_hianyzo, "fa-solid fa-screwdriver-wrench", "purple", I18n.f("ovTodoAllapot", { n: c.allapot_hianyzo }), "allapot");
+        todo(c.reklam_lejaro, "fa-solid fa-rectangle-ad", "orange", I18n.f("ovTodoAdsExpiring", { n: c.reklam_lejaro }), "reklam");
+        todo(!c.figyelt, "fa-solid fa-binoculars", "cyan", I18n.t("ovTodoWatch"), "watch");
 
-        if (c.unavailable) teendok.push({
-            icon: "fa-solid fa-ban", color: "red",
-            text: I18n.f("ovTodoUnavailable", { n: c.unavailable }),
-            tab: "unavailable", btn: I18n.t("ovOpen")
-        });
-
-        if (c.iroda_fuggo) teendok.push({
-            icon: "fa-solid fa-briefcase", color: "orange",
-            text: I18n.f("ovTodoAgencies", { n: c.iroda_fuggo }),
-            tab: "irodak", btn: I18n.t("ovOpen")
-        });
-
-        if (c.allapot_hianyzo) teendok.push({
-            icon: "fa-solid fa-screwdriver-wrench", color: "purple",
-            text: I18n.f("ovTodoAllapot", { n: c.allapot_hianyzo }),
-            tab: "allapot", btn: I18n.t("ovOpen")
-        });
-
-        if (!c.figyelt) teendok.push({
-            icon: "fa-solid fa-binoculars", color: "cyan",
-            text: I18n.t("ovTodoWatch"),
-            tab: "watch", btn: I18n.t("ovOpen")
-        });
+        // Gyors elérés: a menü csoportjai, mindegyik rész egy mondattal
+        const csoportok = AdminManager.GROUPS.filter(g => g.key !== "dash").map(g => {
+            const pontok = Object.entries(AdminManager.TABS).filter(([, t]) => t.group === g.key);
+            return `
+                <div class="col-md-6 col-xxl-4">
+                    <div class="card h-100 ovGroup">
+                        <div class="card-header"><h6 class="mb-0"><i class="${g.icon}" aria-hidden="true"></i> ${esc(I18n.t(g.label))}</h6></div>
+                        <div class="list-group list-group-flush">
+                            ${pontok.map(([k, t]) => `
+                                <button type="button" class="list-group-item list-group-item-action ovGroupItem" data-go="${k}">
+                                    <i class="${t.icon}" aria-hidden="true"></i>
+                                    <span class="flex-fill">
+                                        <b>${esc(I18n.t(t.title))}</b>
+                                        <small>${esc(I18n.t(t.desc))}</small>
+                                    </span>
+                                    ${t.count && c[AdminManager.COUNT_KEY[t.count]] ? `<span class="navCount ${t.warn ? "warn" : ""}">${n(c[AdminManager.COUNT_KEY[t.count]])}</span>` : ""}
+                                </button>`).join("")}
+                        </div>
+                    </div>
+                </div>`;
+        }).join("");
 
         AdminManager.box().innerHTML = `
+
+            <div id="ovRunning"></div>
 
             <div class="row g-3 g-xxl-4 mb-4">
                 ${tile("", "fa-solid fa-house", "blue", I18n.t("ovActive"), n(c.aktiv),
                     I18n.f("ovActiveSub", { ok: n(c.ellenorzott), foto: n(c.fotos) }))}
                 ${tile("review", "fa-solid fa-list-check", "orange", I18n.t("adminTabReview"), n(c.review),
                     I18n.t("ovReviewSub"))}
-                ${tile("unavailable", "fa-solid fa-ban", "red", I18n.t("adminTabUnavailable"), n(c.unavailable),
-                    I18n.t("ovUnavailableSub"))}
+                ${tile("reklam", "fa-solid fa-rectangle-ad", "purple", I18n.t("ovAdsRunning"), n(c.reklam_fut),
+                    c.reklam_lejaro ? I18n.f("ovAdsExpiringSub", { n: c.reklam_lejaro }) : I18n.t("ovAdsSub"))}
                 ${tile("watch", "fa-solid fa-binoculars", "cyan", I18n.t("adminTabWatch"), n(c.figyelt),
                     `${I18n.t("ovLastRun")}: ${c.utolso_futas ? Utils.ago(c.utolso_futas) : I18n.t("ovNever")}`)}
             </div>
 
-            <div class="row g-4">
-
-                <div class="col-xl-7">
-                    <div class="card h-100">
-                        <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-clipboard-check"></i> ${I18n.t("ovTodo")}</h5></div>
-                        <div class="card-body">
-                            ${teendok.length ? `
-                                <div class="todoList">
-                                    ${teendok.map(t => `
-                                        <div class="todoItem">
-                                            <span class="kpiIcon ${t.color}"><i class="${t.icon}"></i></span>
-                                            <span class="flex-fill">${t.text}</span>
-                                            <button class="btn btn-sm btn-outline-primary text-nowrap" data-go="${t.tab}">${t.btn} <i class="fa-solid fa-arrow-right"></i></button>
-                                        </div>`).join("")}
-                                </div>` : `
-                                <div class="emptyState py-4">
-                                    <i class="fa-solid fa-circle-check text-success"></i>
-                                    <h5>${I18n.t("ovTodoNone")}</h5>
-                                </div>`}
-                        </div>
-                    </div>
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-clipboard-check"></i> ${I18n.t("ovTodo")}</h5></div>
+                <div class="card-body">
+                    ${teendok.length ? `
+                        <div class="todoList">
+                            ${teendok.map(t => `
+                                <div class="todoItem">
+                                    <span class="kpiIcon ${t.color}"><i class="${t.icon}"></i></span>
+                                    <span class="flex-fill">${t.text}</span>
+                                    <button class="btn btn-sm btn-outline-primary text-nowrap" data-go="${t.tab}">${t.btn} <i class="fa-solid fa-arrow-right"></i></button>
+                                </div>`).join("")}
+                        </div>` : `
+                        <div class="emptyState py-4">
+                            <i class="fa-solid fa-circle-check text-success"></i>
+                            <h5>${I18n.t("ovTodoNone")}</h5>
+                        </div>`}
                 </div>
-
-                <div class="col-xl-5">
-                    <div class="card h-100">
-                        <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-bolt"></i> ${I18n.t("ovQuick")}</h5></div>
-                        <div class="card-body">
-
-                            <div class="quickList">
-
-                                <div class="quickItem">
-                                    <div>
-                                        <b>${I18n.t("autofixTitle")}</b>
-                                        <p class="sectionNote mb-0">${I18n.t("autofixDesc")}</p>
-                                    </div>
-                                    <button class="btn btn-primary btn-sm text-nowrap" id="ovAutofix"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ${I18n.t("autofixBtn")}</button>
-                                </div>
-
-                                <div class="quickItem">
-                                    <div>
-                                        <b>${I18n.t("recheckTitle")}</b>
-                                        <p class="sectionNote mb-0">${I18n.t("ovLastCheck")}: ${c.utolso_ellenorzes ? Utils.ago(c.utolso_ellenorzes) : I18n.t("ovNever")}</p>
-                                    </div>
-                                    <button class="btn btn-outline-primary btn-sm text-nowrap" id="ovRecheck"><i class="fa-solid fa-play"></i> ${I18n.t("recheckBtn")}</button>
-                                </div>
-
-                                <div class="quickItem">
-                                    <div>
-                                        <b>${I18n.t("adminTabImport")}</b>
-                                        <p class="sectionNote mb-0">${I18n.t("ovImportSub")}</p>
-                                    </div>
-                                    <button class="btn btn-outline-primary btn-sm text-nowrap" data-go="import"><i class="fa-solid fa-file-import"></i> ${I18n.t("ovOpen")}</button>
-                                </div>
-
-                                <div class="quickItem">
-                                    <div>
-                                        <b>${I18n.t("valTestTitle")}</b>
-                                        <p class="sectionNote mb-0">${I18n.t("valTestSub")}</p>
-                                    </div>
-                                    <button class="btn btn-outline-primary btn-sm text-nowrap" id="ovValTest"><i class="fa-solid fa-bullseye"></i> ${I18n.t("valTestBtn")}</button>
-                                </div>
-
-                                <div class="quickItem">
-                                    <div>
-                                        <b>${I18n.t("adminTabDups")}</b>
-                                        <p class="sectionNote mb-0">${I18n.t("ovDupsSub")}</p>
-                                    </div>
-                                    <button class="btn btn-outline-primary btn-sm text-nowrap" data-go="dups"><i class="fa-solid fa-clone"></i> ${I18n.t("ovOpen")}</button>
-                                </div>
-
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-
             </div>
 
-            <div id="ovValTestResult" class="mt-4" aria-live="polite"></div>
-            <div id="ovAutofixStatus" class="mt-4" aria-live="polite"></div>
-            <div id="ovJobStatus" class="mt-4"></div>`;
+            ${AdminManager.section("fa-solid fa-sitemap", I18n.t("ovMapTitle"), I18n.t("ovMapNote"))}
+            <div class="row g-4">${csoportok}</div>`;
 
         AdminManager.box().querySelectorAll("[data-go]").forEach(b => {
             b.onclick = () => AdminManager.open(b.dataset.go);
         });
 
-        document.getElementById("ovAutofix").onclick = () => {
-            document.getElementById("ovAutofix").disabled = true;
-            fetch("/api/admin/autofix", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ mind: true })
-            }).then(() => AdminManager.pollAutofix());
-        };
-
-        // Ha éppen fut (pl. a telepítés utáni első indításkor), mutatjuk
+        // Ha éppen fut az automatikus javítás (pl. telepítés után), egy sávban jelezzük
         fetch("/api/admin/autofix").then(r => r.json()).then(v => {
-            if (v.allapot === "fut" || v.allapot === "indul") AdminManager.pollAutofix();
+            if (!(v.allapot === "fut" || v.allapot === "indul")) return;
+            const el = document.getElementById("ovRunning");
+            if (!el) return;
+            el.innerHTML = `
+                <div class="alert alert-info d-flex flex-wrap align-items-center gap-2">
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    <span class="flex-fill">${I18n.f("autofixRunning", { kesz: v.kesz || 0, osszes: v.osszes || 0 })} – ${I18n.t("autofixTitle")}</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-go-tools>${I18n.t("ovOpen")} <i class="fa-solid fa-arrow-right"></i></button>
+                </div>`;
+            el.querySelector("[data-go-tools]").onclick = () => AdminManager.open("tools");
         }).catch(() => { });
-
-        // Értékbecslő pontossága a valós adatokon (régi vs. új módszer)
-        document.getElementById("ovValTest").onclick = () => {
-            const box = document.getElementById("ovValTestResult");
-            const q = new URLSearchParams({ varos: DataManager.currentCity, tipus: FilterManager.tipus, ugylet: FilterManager.ugylet });
-            box.innerHTML = `<div class="spinner-border spinner-border-sm text-primary"></div>`;
-            fetch("/api/admin/ertekbecslo-teszt?" + q).then(r => r.json()).then(v => {
-                if (v.error) { box.innerHTML = `<div class="alert alert-warning">${I18n.t("valNotEnough")}</div>`; return; }
-                // Három módszer: az első, az előző (2.) és a mostani (3.) – a csoportok szerint is
-                const e = v.eredmeny || {};
-                const modszerek = [["regi", "valTestFirst"], ["elozo", "valTestPrev"], ["uj", "valTestNew"]].filter(([k]) => e[k]);
-                const cella = (o, vastag) => o
-                    ? `<td class="text-end ${vastag ? "fw-semibold" : ""}">${o.medianHiba} %</td><td class="text-end ${vastag ? "fw-semibold" : ""}">${o.atlagHiba} %</td><td class="text-end ${vastag ? "fw-semibold" : ""}">${o.tizSzazalekonBelul} %</td>`
-                    : `<td colspan="3"></td>`;
-                const sor = (l, g) => g ? `<tr><td>${l}${g.uj && g.uj.n !== undefined ? ` <small class="text-body-secondary">(${g.uj.n})</small>` : ""}</td>${modszerek.map(([k]) => cella(g[k], k === "uj")).join("")}</tr>` : "";
-                const cs = v.csoportok || {};
-                const st = v.stabilitas || {};
-                box.innerHTML = `
-                    <div class="card"><div class="card-body">
-                        <h6>${I18n.t("valTestTitle")} – ${Utils.escape(CityManager.displayName(v.varos))} · ${Types.label(v.tipus)} (${v.hirdetesek} ${I18n.t("pcsWord")})</h6>
-                        <p class="sectionNote">${I18n.t("valTestNote")}</p>
-                        <div class="table-responsive"><table class="table table-sm statTable mb-0">
-                            <thead><tr><th></th>${modszerek.map(([, l]) => `<th class="text-end" colspan="3">${I18n.t(l)}</th>`).join("")}</tr>
-                            <tr><th></th>${modszerek.map(() => `<th class="text-end">${I18n.t("valTestMedian")}</th><th class="text-end">${I18n.t("valTestMean")}</th><th class="text-end">${I18n.t("valTestWithin")}</th>`).join("")}</tr></thead>
-                            <tbody>
-                                ${sor(I18n.t("valTestAll"), e)}
-                                ${sor(I18n.t("valTestExisting"), cs.meglevo)}
-                                ${sor(I18n.t("valTestNewBuild"), cs.ujepitesu)}
-                                ${sor(I18n.t("valTestRare"), cs.ritka)}
-                                ${sor(I18n.t("valTestCommon"), cs.gyakori)}
-                            </tbody>
-                        </table></div>
-                        ${st.uj ? `<p class="small mt-3 mb-0"><i class="fa-solid fa-ruler-combined" aria-hidden="true"></i> ${I18n.f("valTestStability", {
-                            elozo: Utils.num(st.elozo ? st.elozo.atlag : 0, 2), elozoMax: Utils.num(st.elozo ? st.elozo.max : 0, 1),
-                            uj: Utils.num(st.uj.atlag, 2), ujMax: Utils.num(st.uj.max, 1)
-                        })}</p>` : ""}
-                    </div></div>`;
-            }).catch(() => { box.innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`; });
-        };
-
-        document.getElementById("ovRecheck").onclick = () => {
-            fetch("/api/admin/recheck", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ limit: 500 })
-            })
-            .then(r => r.json())
-            .then(v => AdminManager.pollJob(v.jobId, "ovJobStatus"));
-        };
 
     });
 
 };
 
-
-// Az automatikus javítás állapota (másodpercenként frissül, amíg fut)
-AdminManager.pollAutofix = function () {
-
-    const box = document.getElementById("ovAutofixStatus");
-    if (!box) return;
-
-    fetch("/api/admin/autofix").then(r => r.json()).then(v => {
-
-        const fut = v.allapot === "fut" || v.allapot === "indul";
-        const pct = v.osszes ? Math.round(v.kesz / v.osszes * 100) : 0;
-
-        const mezok = Object.entries(v.mezok || {})
-            .filter(([k]) => !["hely_pontossag", "y"].includes(k))
-            .map(([k, n]) => `<span class="badge text-bg-light">${I18n.t("field_" + (k === "x" ? "hely" : k))}: ${n}</span>`).join(" ");
-
-        box.innerHTML = `
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                        <b><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ${I18n.t("autofixTitle")}</b>
-                        <span class="small text-body-secondary">${fut ? I18n.f("autofixRunning", { kesz: v.kesz, osszes: v.osszes }) : ""}</span>
-                    </div>
-                    ${fut ? `<div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:${pct}%"></div></div>
-                             <p class="small text-body-secondary mt-2 mb-0">${I18n.t("autofixSlow")}</p>` : ""}
-                    ${v.allapot === "kesz" ? `<p class="mb-2">${I18n.f("autofixDone", { javitott: v.javitott, elotte: v.elotte, utana: v.utana })}</p><div class="d-flex flex-wrap gap-1">${mezok}</div>` : ""}
-                    ${v.allapot === "hiba" ? `<div class="alert alert-danger small mb-0">${Utils.escape(v.utolsoHiba || "")}</div>` : ""}
-                </div>
-            </div>`;
-
-        if (fut) {
-            setTimeout(AdminManager.pollAutofix, 1500);
-        } else {
-            const b = document.getElementById("ovAutofix");
-            if (b) b.disabled = false;
-            AdminManager.refreshPendingCount();
-        }
-
-    });
-
+// A számláló-elemek és az /api/admin/counts mezői
+AdminManager.COUNT_KEY = {
+    pendingCount: "review", unavailableCount: "unavailable", allapotCount: "allapot_hianyzo",
+    irodaCount: "iroda_fuggo", kornyekCount: "kornyek_javaslat", reportCount: "bejelentes_uj",
+    helyCount: "hely_athelyezett", reklamCount: "reklam_fut"
 };

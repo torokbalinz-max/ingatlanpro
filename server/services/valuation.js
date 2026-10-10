@@ -1,5 +1,7 @@
 // ============================================================
-//  Ingatlan értékbecslő (3.1 változat)
+//  Ingatlan értékbecslő (4. változat – lásd lent: "4. változat")
+//  Az alábbi leírás a 3. változaté (árarány-modell), amit a 4. változat
+//  az átszámításhoz és a kerületek árszintjéhez használ.
 //
 //  Két lépés, mint egy ingatlanértékelőnél:
 //
@@ -974,6 +976,357 @@ function szamol(pool, params, ctx, opts = {}) {
 }
 
 // ============================================================
+//  4. változat: hasonló hirdetések hasonlósági %-kal
+//
+//  Ahogy egy ingatlanértékelő dolgozik:
+//   1) Minden hirdetéshez hasonlóság (0–100 %): alapterület, szobák,
+//      állapot, kerület (a kerületek árszintjének különbsége szerint),
+//      emelet, épület (magas tömbház, építés éve), új építésű-e.
+//   2) A kerületek árszintje "a keresett paraméterekre": a hozzá hasonló
+//      (méret, szobák, állapot) hirdetések €/m²-e kerületenként, a város
+//      egészéhez képest – ahol kevés ilyen hirdetés van, a modell
+//      (a piaci statisztika) kerület-aránya felé húzva. Így egy másik
+//      kerület hirdetésének ára arányosan átszámolható (pl. Csiki → Központ
+//      +12 %), a nagyon más árszintű kerület pedig kevésbé hasonló.
+//   3) A leghasonlóbbak (alapból 12; ha sok a nagyon hasonló, akár 20,
+//      de legalább 6) €/m²-ét a keresett ingatlanra számoljuk át (kerület,
+//      méret, állapot, emelet – legfeljebb ±30 %), és a hasonlósággal
+//      súlyozott középértéküket vesszük (a kilógók kimaradnak).
+//   4) Becslés = átszámolt €/m² × alapterület. A becslés és az ársáv
+//      (a súlyozott 20–80 %-os tartomány) mindig a felhasznált hasonlók
+//      tartományán belül marad – nem jöhet ki drágább, mint a legdrágább
+//      hasonló, vagy olcsóbb a legolcsóbbnál.
+//   5) Jobb állapotra soha nem jön ki kisebb becslés.
+// ============================================================
+
+const V4 = {
+    K: 12, KMAX: 20, KMIN: 6,
+    nagyonHasonlo: 0.8,         // ennyi fölött akár 20 hasonló is számít
+    atmenet: 0.06,              // a k-adik hasonlónál ennyivel kisebb hasonlóságig fokozatosan
+    kitevo: 3,                  // a súly = hasonlóság^kitevo (a leghasonlóbbak döntenek)
+    korlat: Math.log(1.3),      // az átszámítás legfeljebb ±30 %
+    kilogo: 0.3,                // a súlyozott mediántól ennyire (log) eltérő hasonló kimarad
+    keruletEro: 3,              // ennyi "hasonló hirdetésnyi" súllyal húz a modell kerület-aránya
+    vag: true,                  // a becslés a hasonlók tartományán belül
+    savSzel: 0.04,              // az ársáv legalább ±4 %
+    sulyok: { meret: 0.28, hely: 0.24, allapot: 0.18, szoba: 0.14, emelet: 0.06, epulet: 0.05, ev: 0.05 }
+};
+
+if (process.env.V4_TEST) Object.assign(V4, JSON.parse(process.env.V4_TEST));
+
+const emeletOsztaly = i => i._emelet === null ? null : (i._emelet === 0 ? "f" : (i._legfelso ? "t" : "k"));
+
+// A hely nélküli (kerület / település szerinti) hasonlóság részei: 0..1
+function parameterHasonlosag(cel, i, ctx) {
+
+    const r = {};
+    r.meret = Math.exp(-Math.pow(Math.log(cel.nm / i.nm) / 0.25, 2));
+
+    if (cel.szobak) {
+        const d = i.szobak > 0 ? Math.abs(cel.szobak - i.szobak) : null;
+        r.szoba = d === null ? 0.5 : [1, 0.55, 0.15][d] ?? 0;
+    }
+
+    if (cel._szint !== null && cel._szint !== undefined && ctx.tipus !== "telek") {
+        const d = i._szint === null ? null : Math.abs(cel._szint - i._szint);
+        r.allapot = d === null ? 0.5 : [1, 0.6, 0.3][d] ?? 0.1;
+    }
+
+    const eo = emeletOsztaly(cel);
+    if (eo) { const o = emeletOsztaly(i); r.emelet = o === null ? 0.75 : (o === eo ? 1 : 0.6); }
+
+    if (cel._ossz !== null && cel._ossz !== undefined) {
+        r.epulet = i._ossz === null ? 0.85 : ((cel._ossz >= 8) === (i._ossz >= 8) ? 1 : 0.65);
+    }
+
+    if (cel._ev && i._ev) {
+        const d = Math.abs(cel._ev - i._ev);
+        r.ev = d <= 5 ? 1 : d <= 15 ? 0.7 : d <= 30 ? 0.45 : 0.25;
+    }
+
+    return r;
+
+}
+
+function osszHasonlosag(reszek, cel, i, ctx) {
+    let s = 0, w = 0;
+    for (const [k, v] of Object.entries(reszek)) { const sw = V4.sulyok[k] || 0.05; s += sw * v; w += sw; }
+    let h = w ? s / w : 0.5;
+    // Új építésű és meglévő: külön piac
+    if (!!cel._uj !== !!i._uj) h *= 0.4;
+    if (ctx.tipus === "telek" && cel.telek_jelleg && i.telek_jelleg && cel.telek_jelleg !== i.telek_jelleg) h *= 0.5;
+    if (ctx.tipus === "haz" && cel.telek_nm > 0 && i.telek_nm > 0) h *= 0.75 + 0.25 * Math.exp(-Math.abs(Math.log(cel.telek_nm / i.telek_nm)));
+    return h;
+}
+
+//  A hely (kerület / település) árszintje a keresett paraméterekre:
+//  -> Map(hely -> log-eltérés a várostól), a modell aránya felé húzva
+function helyArszint(cel, pool, adjLista, ctx, m, elo) {
+
+    // A modell (piaci statisztika) kerület-aránya: a hely-csoport értéke a hirdetésnél
+    const modellHely = new Map();
+    if (m && elo) {
+        const atl = csoportok(m, m.atlagok).kerulet || 0;
+        pool.forEach((i, n) => { if (i._hely && !modellHely.has(i._hely)) modellHely.set(i._hely, (elo[n].kerulet || 0) - atl); });
+        if (cel._hely && !modellHely.has(cel._hely)) {
+            const c = m.cols.findIndex(c => c.nev === "hely:" + cel._hely);
+            if (c >= 0) modellHely.set(cel._hely, m.beta[c + 1] - atl);
+        }
+    }
+
+    // Helyben: a paraméterben hasonló hirdetések (a keresett ingatlanra átszámított,
+    // a hely nélküli) €/m²-e – súlyozott átlag log-ban
+    const gy = new Map();
+    let ossz = 0, osszW = 0;
+    pool.forEach((i, n) => {
+        const w = Math.pow(adjLista[n].ph, 2);
+        const y = adjLista[n].nelkulHely;
+        ossz += w * y; osszW += w;
+        if (!i._hely) return;
+        const g = gy.get(i._hely) || { s: 0, w: 0 };
+        g.s += w * y; g.w += w;
+        gy.set(i._hely, g);
+    });
+    const varos = osszW ? ossz / osszW : 0;
+
+    const ki = new Map();
+    const helyek = new Set([...gy.keys(), ...modellHely.keys()]);
+    helyek.forEach(h => {
+        const g = gy.get(h);
+        const prior = modellHely.has(h) ? modellHely.get(h) : 0;
+        const neff = g ? g.w : 0;
+        const nyers = g && g.w ? g.s / g.w - varos : prior;
+        ki.set(h, (neff * nyers + V4.keruletEro * prior) / (neff + V4.keruletEro));
+    });
+    return ki;
+
+}
+
+//  Súlyozott kvantilis (log-értékekből)
+function sulyozottKvantilis(lista, p) {
+    const r = [...lista].sort((a, b) => a.v - b.v);
+    const ossz = r.reduce((t, x) => t + x.w, 0);
+    if (!ossz) return r.length ? r[0].v : 0;
+    let kum = 0;
+    const pt = r.map(x => { const k = (kum + x.w / 2) / ossz; kum += x.w; return [k, x.v]; });
+    if (p <= pt[0][0]) return pt[0][1];
+    for (let j = 1; j < pt.length; j++) {
+        if (p <= pt[j][0]) {
+            const [k0, v0] = pt[j - 1], [k1, v1] = pt[j];
+            return v0 + (v1 - v0) * (p - k0) / (k1 - k0);
+        }
+    }
+    return pt[pt.length - 1][1];
+}
+
+// Egy becslés (a keresett ingatlan adataival) -> részletes eredmény
+function becsles4(cel, pool, m, elo, ctx) {
+
+    const kitevo = ctx.ugylet === "kiado" ? -0.4 : (ELOZETES.meretTipus[ctx.tipus] ?? -0.15);
+    const xCel = m ? vektor(m, cel) : null;
+    const gCel = m ? csoportok(m, xCel) : null;
+    const ATSZAMOL = ["meret", "szoba", "allapot", "emelet", "ev", "uj", "telek", "jelleg"];
+
+    // 1) Átszámítás a hely nélkül (méret, állapot, emelet...) + paraméter-hasonlóság
+    const adjLista = pool.map((i, n) => {
+        let a = 0;
+        if (m) {
+            for (const cs of ATSZAMOL) if (gCel[cs] !== undefined) a += gCel[cs] - (elo[n][cs] || 0);
+        } else {
+            a = kitevo * Math.log(cel.nm / i.nm);
+        }
+        const reszek = parameterHasonlosag(cel, i, ctx);
+        const ph = osszHasonlosag(reszek, cel, i, ctx);
+        return { a, reszek, ph, nelkulHely: Math.log(i.arNm) + a };
+    });
+
+    // 2) A helyek árszintje a keresett paraméterekre
+    const szint = helyArszint(cel, pool, adjLista, ctx, m, elo);
+    const celSzint = cel._hely && szint.has(cel._hely) ? szint.get(cel._hely) : null;
+
+    // 3) Minden hirdetés: hasonlóság (a hellyel) és átszámított €/m²
+    const jeloltek = pool.map((i, n) => {
+        const x = adjLista[n];
+        let helyKul = 0, helySim = null;
+        if (cel._hely) {
+            if (i._hely === cel._hely) helySim = 1;
+            else if (i._hely && celSzint !== null && szint.has(i._hely)) {
+                helyKul = celSzint - szint.get(i._hely);
+                helySim = 0.7 * Math.max(0, 1 - Math.abs(helyKul) / 0.3);
+            } else helySim = 0.3;
+            if (cel._pontos && i._pontos) {
+                const km = Math.hypot((cel.x - i.x) * 111.32 * Math.cos(cel.y * Math.PI / 180), (cel.y - i.y) * 110.57);
+                helySim *= 0.8 + 0.2 * Math.exp(-km);
+            }
+        }
+        const reszek = helySim === null ? x.reszek : { ...x.reszek, hely: helySim };
+        let sim = osszHasonlosag(reszek, cel, i, ctx);
+        // Amit 30 %-nál jobban kellene átszámolni, az valójában nem hasonló (a korlát
+        // miatt torzítana) – a hasonlósága ennek arányában csökken
+        const tobblet = Math.abs(x.a + helyKul) - V4.korlat;
+        if (tobblet > 0) sim *= Math.max(0.05, 1 - tobblet / 0.15);
+        const atsz = Math.max(-V4.korlat, Math.min(V4.korlat, x.a + helyKul));
+        return { i, sim, reszek, helyKul, masKul: x.a, atsz, v: Math.log(i.arNm) + atsz };
+    }).sort((a, b) => b.sim - a.sim);
+
+    // 4) Hány hasonló: alapból 12; ha sok a nagyon hasonló, több (legfeljebb 20)
+    const nagyon = jeloltek.filter(x => x.sim >= V4.nagyonHasonlo).length;
+    let k = nagyon > V4.K ? Math.min(nagyon, V4.KMAX) : V4.K;
+    k = Math.min(k, jeloltek.length);
+    // A határon lévők fokozatosan: aki alig marad le a k-adiktól, kis súllyal még
+    // számít (így egy kis változás, pl. +1 m², nem ugrasztja a becslést)
+    const hatarSim = jeloltek[k - 1].sim;
+    let valasztott = jeloltek.slice(0, Math.min(V4.KMAX, jeloltek.length))
+        .map((x, n) => ({ ...x, t: n < k ? 1 : Math.max(0, Math.min(1, (x.sim - (hatarSim - V4.atmenet)) / V4.atmenet)) }))
+        .filter(x => x.t > 0);
+
+    // A kilógók (pl. hibás adat, egyedi ingatlan) kimaradnak, ha marad elég
+    const sulyoz = l => l.map(x => ({ ...x, w: x.t * Math.pow(Math.max(x.sim, 0.01), V4.kitevo) }));
+    let s = sulyoz(valasztott);
+    const kozep = sulyozottKvantilis(s, 0.5);
+    const tiszta = s.filter(x => Math.abs(x.v - kozep) <= V4.kilogo);
+    const kimaradt = tiszta.length >= Math.min(V4.KMIN, s.length) ? s.filter(x => Math.abs(x.v - kozep) > V4.kilogo) : [];
+    if (kimaradt.length) s = tiszta;
+
+    const ossz = s.reduce((t, x) => t + x.w, 0);
+    let becsLog = s.reduce((t, x) => t + x.w * x.v, 0) / ossz;
+
+    // A becslés a felhasznált hasonlók tartományán belül (az eredeti és az átszámított áraik között)
+    const nyersMin = Math.log(Math.min(...s.map(x => x.i.arNm)));
+    const nyersMax = Math.log(Math.max(...s.map(x => x.i.arNm)));
+    const also = Math.min(nyersMin, Math.min(...s.map(x => x.v)));
+    const felso = Math.max(nyersMax, Math.max(...s.map(x => x.v)));
+    const vagott = x => !V4.vag ? x : Math.max(nyersMin - 0.03, Math.min(nyersMax + 0.03, Math.max(also, Math.min(felso, x))));
+    becsLog = vagott(becsLog);
+
+    // Ársáv: a súlyozott 20–80 %-os tartomány (legalább ±4 %), szintén a hasonlók között
+    let lo = vagott(sulyozottKvantilis(s, 0.2));
+    let hi = vagott(sulyozottKvantilis(s, 0.8));
+    lo = Math.min(lo, becsLog - V4.savSzel);
+    hi = Math.max(hi, becsLog + V4.savSzel);
+
+    const neff = ossz * ossz / s.reduce((t, x) => t + x.w * x.w, 0);
+    const atlagSim = s.slice(0, 6).reduce((t, x) => t + x.sim, 0) / Math.min(6, s.length);
+
+    return { becsLog, lo, hi, s, kimaradt, neff, atlagSim, szint, celSzint, k, nagyon, xCel };
+
+}
+
+function szamol4(pool, params, ctx, opts = {}) {
+
+    const cel = celAdat(params, ctx);
+    const nm = cel.nm;
+
+    if (pool.length < 3) return { error: "not_enough_data", count: pool.length };
+
+    const m = opts.modell !== undefined ? opts.modell : modellIllesztes(pool, ctx);
+    if (!opts.pontokKeszek) pontosHelyek(pool);
+    const elo = opts.elo || modellTenyezok(pool, m);
+
+    const r = becsles4(cel, pool, m, elo, ctx);
+
+    // Jobb állapotra ne jöjjön ki kisebb becslés: minden állapottal becslünk, és a
+    // sort nem csökkenővé igazítjuk
+    let igazitas = 0;
+    if (cel._allapot && ctx.tipus !== "telek" && opts.monoton !== false) {
+        const rend = allapotRend();
+        const j = rend.indexOf(cel._allapot);
+        if (j >= 0 && rend.length > 1) {
+            const uj = cel._uj ? "1" : "0";
+            const ertekek = rend.map((k, n) => n === j ? r.becsLog : becsles4(celAdat({ ...params, allapot: k, uj }, ctx), pool, m, elo, ctx).becsLog);
+            igazitas = izoton(ertekek)[j] - r.becsLog;
+        }
+    }
+
+    const becsultArNm = Math.exp(r.becsLog + igazitas);
+    if (opts.csakSzam) return becsultArNm * nm;
+
+    const lepes = x => x < 2000 ? 5 : (x < 20000 ? 50 : 100);
+    const kerekit = x => Math.round(x / lepes(x)) * lepes(x);
+    const arNmKerek = x => x < 50 ? Math.round(x * 10) / 10 : Math.round(x);
+    const becsles = kerekit(becsultArNm * nm);
+
+    let megbizhatosag = "low";
+    const szel = r.hi - r.lo;
+    if (r.s.length >= 3 && r.atlagSim >= 0.5) megbizhatosag = "medium";
+    if (r.neff >= 5 && r.atlagSim >= 0.72 && szel <= Math.log(1.25)) megbizhatosag = "high";
+
+    const szegmens = pool.filter(i => i._uj === !!cel._uj);
+    const helyben = cel._hely ? pool.filter(i => i._hely === cel._hely) : [];
+    const helybenSzegmens = helyben.filter(i => i._uj === !!cel._uj);
+    const helybenMasik = helyben.filter(i => i._uj !== !!cel._uj);
+    const medianArNm = l => l.length ? arNmKerek(median(l.map(i => i.arNm))) : null;
+    const pct = v => Math.round((Math.exp(v) - 1) * 1000) / 10;
+
+    // A hasonlók között szereplő más kerületek árszintje a keresett kerülethez képest
+    const helyArany = [];
+    if (r.celSzint !== null) {
+        [...new Set(r.s.map(x => x.i._hely).filter(h => h && h !== cel._hely))].forEach(h => {
+            helyArany.push({ hely: h, pct: pct(r.celSzint - r.szint.get(h)) });
+        });
+    }
+
+    return {
+        version: 4,
+        estimate: becsles,
+        arNm: arNmKerek(becsles / nm),
+        nm,
+        low: kerekit(Math.exp(r.lo + igazitas) * nm),
+        high: kerekit(Math.exp(r.hi + igazitas) * nm),
+        lowArNm: arNmKerek(Math.exp(r.lo + igazitas)),
+        highArNm: arNmKerek(Math.exp(r.hi + igazitas)),
+        confidence: megbizhatosag,
+        poolCount: pool.length,
+        segment: cel._uj ? "uj" : "meglevo",
+        segmentCount: szegmens.length,
+        cityAvgArNm: medianArNm(szegmens.length >= 5 ? szegmens : pool),
+        cityMedianArNm: medianArNm(szegmens.length >= 5 ? szegmens : pool),
+        districtAvgArNm: medianArNm(helybenSzegmens.length ? helybenSzegmens : helyben),
+        districtMedianArNm: medianArNm(helybenSzegmens.length ? helybenSzegmens : helyben),
+        districtCount: helybenSzegmens.length || helyben.length,
+        districtMatches: cel._hely ? r.s.filter(x => x.i._hely === cel._hely).length : null,
+        districtOtherCount: helybenMasik.length,
+        districtOtherMedianArNm: medianArNm(helybenMasik),
+        districtNewCount: helyben.filter(i => i._uj).length,
+        helySzerint: ctx.telepulesSzerint ? "telepules" : "kerulet",
+        method: {
+            kind: "comparables",
+            used: r.s.length,
+            dropped: r.kimaradt.length,
+            verySimilar: r.nagyon,
+            avgSimilarity: Math.round(r.atlagSim * 100),
+            weightedArNm: arNmKerek(Math.exp(r.becsLog)),
+            rawMinArNm: arNmKerek(Math.min(...r.s.map(x => x.i.arNm))),
+            rawMaxArNm: arNmKerek(Math.max(...r.s.map(x => x.i.arNm))),
+            conditionAdjustment: Math.round((Math.exp(igazitas) - 1) * 1000) / 10,
+            districtTier: ctx.szintek && cel._hely ? ctx.szintek.get(cel._hely) || null : null,
+            districtRatios: helyArany
+        },
+        comparables: r.s.map(x => ({
+            id: x.i.id,
+            link: x.i.link,
+            ar: x.i.ar,
+            nm: x.i.nm,
+            arNm: arNmKerek(x.i.arNm),
+            szobak: x.i.szobak,
+            emelet: x.i.emelet,
+            allapot: x.i.allapot,
+            kerulet: x.i.kerulet,
+            telepules: x.i.telepules,
+            eladva: x.i.eladva,
+            uj: !!x.i._uj,
+            adjusted: kerekit(Math.exp(x.v) * nm),
+            adjustedArNm: arNmKerek(Math.exp(x.v)),
+            adjDistrict: pct(Math.max(-V4.korlat, Math.min(V4.korlat, x.helyKul))),
+            adjOther: pct(x.atsz - Math.max(-V4.korlat, Math.min(V4.korlat, x.helyKul))),
+            weight: Math.round(x.w / r.s.reduce((t, y) => t + y.w, 0) * 1000) / 10,
+            similarity: Math.round(100 * x.sim)
+        }))
+    };
+
+}
+
+// ============================================================
 //  A legelső módszer (csak az összevetéshez, a tesztben)
 // ============================================================
 
@@ -1057,7 +1410,7 @@ async function becsles(params) {
         return { error: "not_enough_data", count: pool.length };
     }
 
-    const e = szamol(pool, { ...params, nm }, ctx);
+    const e = szamol4(pool, { ...params, nm }, ctx);
     if (e.error) return e;
 
     return { ...e, excluded: kihagy ? { id: kihagy, sajat: kihagyva.sajat > 0, ikrek: kihagyva.ikrek } : null, cleaned: kihagyva };
@@ -1072,7 +1425,6 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
 
     await allapotok.kesz();
 
-    const V2 = require("./valuationV2");
     const ctx = await kornyezet(varos, tipus, ugylet);
     const rows = await adatok(varos, ctx.tipus, ctx.ugylet);
     const { pool: osszes } = tisztitPool(rows, null, ctx);
@@ -1103,14 +1455,11 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
         const regi = szamolRegi(pool, params);
         if (!regi) continue;
 
-        // Az előző módszer (2.) – a saját adatformájával
-        const pool2 = V2.tisztitPool(pool.map(x => ({ ...x })), null);
-        const m2 = V2.modellIllesztes(pool2, ctx.tipus, ctx.ugylet);
-        const elozo = V2.szamol(pool2, params, { modell: m2, csakSzam: true });
-
+        // Az előző (3., modell + hasonlók keverése) és az új (4., hasonlósági %) módszer
         const m3 = modellIllesztes(pool, ctx);
         const elo3 = modellTenyezok(pool, m3);
-        const uj = szamol(pool, params, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
+        const elozo = szamol(pool, params, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
+        const uj = szamol4(pool, params, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
 
         hibak.regi.push(e(regi));
         hibak.elozo.push(e(elozo));
@@ -1125,8 +1474,8 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
 
         // Stabilitás: +1 m² (a hirdetés saját hiánya mellett, ugyanazzal a modellel)
         const p1 = { ...params, nm: i.nm + 1 };
-        const e2b = V2.szamol(pool2, p1, { modell: m2, csakSzam: true });
-        const e3b = szamol(pool, p1, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
+        const e2b = szamol(pool, p1, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
+        const e3b = szamol4(pool, p1, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
         stab.elozo.push(Math.abs((e2b / (i.nm + 1)) / (elozo / i.nm) - 1) * 100);
         stab.uj.push(Math.abs((e3b / (i.nm + 1)) / (uj / i.nm) - 1) * 100);
 
@@ -1152,7 +1501,7 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
     const stabil = l => ({ atlag: Math.round(atlag(l) * 100) / 100, max: Math.round(Math.max(0, ...l) * 100) / 100 });
 
     return {
-        varos, tipus: ctx.tipus, ugylet: ctx.ugylet, hirdetesek: osszes.length, verzio: 3,
+        varos, tipus: ctx.tipus, ugylet: ctx.ugylet, hirdetesek: osszes.length, verzio: 4,
         modellSuly: T.modellSuly, atszamitas: T.atszamitas,
         eredmeny, csoportok: csoportokOut,
         stabilitas: { elozo: stabil(stab.elozo), uj: stabil(stab.uj) }
@@ -1201,5 +1550,5 @@ async function helySzorzok(varos, tipus = "lakas", ugylet = "elado") {
 
 module.exports = {
     becsles, teszt, ujEpitesu, helySzorzok,
-    _belso: { szamol, szamolRegi, modellIllesztes, modellTenyezok, tisztitPool, adatok, kornyezet, celAdat, pontosHelyek, ikrek, tisztaLink, T, ELOZETES, ERO }
+    _belso: { szamol, szamol4, becsles4, V4, szamolRegi, modellIllesztes, modellTenyezok, tisztitPool, adatok, kornyezet, celAdat, pontosHelyek, ikrek, tisztaLink, T, ELOZETES, ERO }
 };

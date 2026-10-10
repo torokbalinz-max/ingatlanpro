@@ -38,6 +38,7 @@
     <link rel="stylesheet" href="css/sitestats.css">
     <link rel="stylesheet" href="css/v4.css">
     <link rel="stylesheet" href="css/v5.css">
+    <link rel="stylesheet" href="css/v6.css">
 </head>
 
 <body>
@@ -366,8 +367,8 @@
 
     </div>
 
-    <!-- Bérelhető reklámfelület a kereső alatt (csak széles képernyőn; js/core/ads.js) -->
-    <div class="adSideBox d-none d-lg-block" id="adSearchSide" hidden></div>
+    <!-- Reklámfelület a kereső alatt: görgetéskor is látszik (csak széles képernyőn; js/core/ads.js) -->
+    <div class="adSideBox" id="adSearchSide" data-ad-mount="sidebar" hidden></div>
 
 </aside>
 
@@ -450,6 +451,9 @@
         </div>
 
     </div>
+
+    <!-- Reklámfelület a találatok fölött (js/core/ads.js) -->
+    <div class="adMount mb-4" id="adListTop" data-ad-mount="list_top" hidden></div>
 
     <!-- Nézet váltó -->
     <div class="viewBar mb-3">
@@ -682,6 +686,9 @@
         <div id="map"></div>
     </div>
 
+    <!-- Reklámfelület a térkép alatt (js/core/ads.js) -->
+    <div class="adMount mt-4" id="adMapBottom" data-ad-mount="map" hidden></div>
+
 </section>
 
 <!-- =====================================================================
@@ -904,22 +911,32 @@
                 </div>
             </div>
 
-            <div class="d-grid gap-2 mt-4">
-                <button id="btnSave" class="btn btn-success btn-lg">
-                    <i class="fa-solid fa-floppy-disk"></i>
-                    <span data-i18n="newSaveBtn">Hirdetés mentése</span>
-                </button>
-                <button id="btnApprove" class="btn btn-warning admin-only" hidden style="display:none;">
-                    <i class="fa-solid fa-check"></i>
-                    <span data-i18n="newApproveBtn">Mentés és jóváhagyás</span>
-                </button>
-                <button id="btnCancelNew" class="btn btn-outline-secondary" data-i18n="newCancelBtn">Mégse</button>
-            </div>
-
             <input id="ujX" type="hidden">
             <input id="ujY" type="hidden">
         </div>
 
+    </div>
+
+    <!-- Mentés: az oldal alján mindig látszik (görgetéskor sem kerül a térkép mögé) -->
+    <div class="newSaveBar" id="newSaveBar">
+        <div class="newSaveBarInfo">
+            <span class="newSaveBarIcon"><i class="fa-solid fa-pen-to-square" aria-hidden="true" id="newSaveBarIcon"></i></span>
+            <div class="min-w-0">
+                <b id="newSaveBarTitle" data-i18n="newTitle">Új hirdetés feladása</b>
+                <small id="newSaveBarNote" class="text-body-secondary" data-i18n="newSaveBarHint">Minden csillaggal jelölt mezőt ki kell tölteni.</small>
+            </div>
+        </div>
+        <div class="newSaveBarBtns">
+            <button id="btnCancelNew" class="btn btn-outline-secondary" type="button" data-i18n="newCancelBtn">Mégse</button>
+            <button id="btnApprove" class="btn btn-warning admin-only" type="button" hidden style="display:none;">
+                <i class="fa-solid fa-check"></i>
+                <span data-i18n="newApproveBtn">Mentés és jóváhagyás</span>
+            </button>
+            <button id="btnSave" class="btn btn-success" type="button">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span data-i18n="newSaveBtn">Hirdetés mentése</span>
+            </button>
+        </div>
     </div>
 
 </section>
@@ -957,10 +974,13 @@
 
     <div class="pageHelp mb-4" id="help-market" hidden></div>
 
+    <!-- Reklámfelület a fülek alatt (js/core/ads.js) -->
+    <div class="adMount mb-4" id="adMarketTop" data-ad-mount="market_top" hidden></div>
+
     <div id="statisticsContainer"></div>
 
-    <!-- Bérelhető reklámfelület az oldal alján (js/core/ads.js) -->
-    <div class="mt-4" id="adMarketBottom" hidden></div>
+    <!-- Reklámfelület az oldal alján (js/core/ads.js) -->
+    <div class="adMount mt-4" id="adMarketBottom" data-ad-mount="market" hidden></div>
 
 </section>
 
@@ -1079,9 +1099,15 @@
                             <span data-i18n="valBtn">Becslés</span>
                         </button>
                     </div>
+                    <p class="valLoginNote guest-only small text-body-secondary mt-2 mb-0" id="valLoginNote" hidden>
+                        <i class="fa-solid fa-lock" aria-hidden="true"></i> <span data-i18n="valLoginNote">A becsléshez be kell jelentkezni (ingyenes).</span>
+                    </p>
 
                 </div>
             </div>
+
+            <!-- Reklámfelület az űrlap alatt (js/core/ads.js) -->
+            <div class="adMount adValSide mt-4" id="adValSide" data-ad-mount="valuation_side" hidden></div>
         </div>
 
         <div class="col-lg-8">
@@ -1111,39 +1137,24 @@
                 </div>
             </div>
 
-            <nav id="adminTabs" class="adminNavList">
-
-                <button class="adminNavItem" data-tab="overview" type="button"><i class="fa-solid fa-gauge-high"></i><span data-i18n="adminTabOverview">Áttekintés</span></button>
-                <button class="adminNavItem" data-tab="sitestats" type="button"><i class="fa-solid fa-chart-column"></i><span data-i18n="adminTabSiteStats">Látogatottság</span></button>
-
-                <div class="adminNavGroup" data-i18n="adminGroupListings">Hirdetések</div>
-                <button class="adminNavItem" data-tab="review" type="button"><i class="fa-solid fa-list-check"></i><span data-i18n="adminTabReview">Ellenőrzésre vár</span><span class="navCount warn" id="pendingCount" hidden></span></button>
-                <button class="adminNavItem" data-tab="unavailable" type="button"><i class="fa-solid fa-ban"></i><span data-i18n="adminTabUnavailable">Nem elérhető</span><span class="navCount" id="unavailableCount" hidden></span></button>
-                <button class="adminNavItem" data-tab="allapot" type="button"><i class="fa-solid fa-screwdriver-wrench"></i><span data-i18n="adminTabAllapot">Állapot beállítása</span><span class="navCount" id="allapotCount" hidden></span></button>
-                <button class="adminNavItem" data-tab="dups" type="button"><i class="fa-solid fa-clone"></i><span data-i18n="adminTabDups">Duplikátumok</span></button>
-                <button class="adminNavItem" data-tab="kornyek" type="button"><i class="fa-solid fa-tree-city"></i><span data-i18n="adminTabKornyek">Város és környéke</span><span class="navCount warn" id="kornyekCount" hidden></span></button>
-
-                <div class="adminNavGroup" data-i18n="adminGroupImport">Beolvasás</div>
-                <button class="adminNavItem" data-tab="import" type="button"><i class="fa-solid fa-file-import"></i><span data-i18n="adminTabImport">Beolvasás</span></button>
-                <button class="adminNavItem" data-tab="watch" type="button"><i class="fa-solid fa-binoculars"></i><span data-i18n="adminTabWatch">Figyelt oldalak</span></button>
-
-                <div class="adminNavGroup" data-i18n="adminGroupPartners">Partnerek</div>
-                <button class="adminNavItem" data-tab="irodak" type="button"><i class="fa-solid fa-briefcase"></i><span data-i18n="adminTabAgencies">Ingatlanirodák</span><span class="navCount warn" id="irodaCount" hidden></span></button>
-
-                <div class="adminNavGroup" data-i18n="adminGroupSettings">Beállítások</div>
-                <button class="adminNavItem" data-tab="places" type="button"><i class="fa-solid fa-city"></i><span data-i18n="adminTabPlaces">Városok, kerületek</span></button>
-                <button class="adminNavItem" data-tab="allapotok" type="button"><i class="fa-solid fa-sliders"></i><span data-i18n="adminTabConditions">Állapotok</span></button>
-                <button class="adminNavItem" data-tab="webhely" type="button"><i class="fa-solid fa-id-card"></i><span data-i18n="adminTabSite">Webhely adatai</span></button>
-
-            </nav>
+            <!-- A menüpontokat az AdminManager.renderNav() rajzolja (csoportokba rendezve) -->
+            <nav id="adminTabs" class="adminNavList" aria-label="Admin"></nav>
 
         </aside>
 
         <!-- Admin tartalom -->
         <div class="adminMain">
 
+            <!-- Telefonon / kis képernyőn: a menü egy lenyíló választó -->
+            <div class="adminNavMobile admin-only" hidden>
+                <label class="visually-hidden" for="adminNavSelect" data-i18n="adminTitle">Admin</label>
+                <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+                <select class="form-select" id="adminNavSelect"></select>
+            </div>
+
             <header class="adminHeader">
                 <div>
+                    <div class="adminCrumb" id="adminCrumb"></div>
                     <h2 id="adminPageTitle"></h2>
                     <p id="adminPageDesc" class="text-body-secondary mb-0"></p>
                 </div>
@@ -1253,6 +1264,7 @@
 <script src="js/core/i18n-v3.js"></script>
 <script src="js/core/i18n-v4.js"></script>
 <script src="js/core/i18n-v5.js"></script>
+<script src="js/core/i18n-v6.js"></script>
 <script src="js/core/telepulesek.js"></script>
 <script src="js/core/utils.js"></script>
 <script src="js/core/multiSelect.js"></script>
@@ -1309,6 +1321,9 @@
 <script src="js/admin/siteSettings.js"></script>
 <script src="js/admin/agencies.js"></script>
 <script src="js/admin/kornyek.js"></script>
+<script src="js/admin/maintenance.js"></script>
+<script src="js/admin/locationCheck.js"></script>
+<script src="js/admin/ads.js"></script>
 
 <!-- Oldalak, indítás -->
 <script src="js/core/locationPicker.js"></script>

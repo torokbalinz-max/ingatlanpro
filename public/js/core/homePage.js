@@ -146,6 +146,8 @@ class HomePage {
                 <div><b>${Utils.num(s.foto)}</b><span>${t("homeStatPhotos")}</span></div>
             </section>
 
+            ${typeof AdSlots !== "undefined" ? AdSlots.slot("home_top", "homeAd homeAdTop") : ""}
+
             <section class="homeSection">
                 <div class="homeSectionHead">
                     <h2 class="homeH2">${t("homeBrowseTitle")}</h2>
@@ -180,7 +182,7 @@ class HomePage {
                 </div>
             </section>
 
-            ${typeof AdSlots !== "undefined" ? `<div class="homeAd">${AdSlots.html("home")}</div>` : ""}
+            ${typeof AdSlots !== "undefined" ? AdSlots.slot("home", "homeAd") : ""}
 
             <section class="homeHelpStrip">
                 <span class="homeHelpIcon"><i class="fa-solid fa-circle-question" aria-hidden="true"></i></span>

@@ -16,14 +16,27 @@ AdminManager.renderReview = function () {
 
             DataManager.prepare(lista);
 
+            // Városonként: előbb a kiválasztott (vagy a keresőben beállított) város hirdetései
+            lista.sort((a, b) => String(a.varos || "").localeCompare(String(b.varos || ""), "hu") || b.id - a.id);
+
             AdminManager.reviewList = lista;
 
+            // Alapból az a város, amelyik a keresőben is ki van választva (ha ott van mit
+            // ellenőrizni), különben az első, ahol van
+            if (AdminManager.reviewVaros === undefined || (AdminManager.reviewVaros && !lista.some(i => i.varos === AdminManager.reviewVaros))) {
+                const sajat = lista.some(i => i.varos === DataManager.currentCity);
+                const varosok = new Set(lista.map(i => i.varos));
+                AdminManager.reviewVaros = varosok.size > 1 ? (sajat ? DataManager.currentCity : (lista[0] ? lista[0].varos : "")) : "";
+            }
+
             if (AdminManager.reviewFocusId) {
-                const idx = lista.findIndex(i => i.id === AdminManager.reviewFocusId);
+                const fokusz = lista.find(i => i.id === AdminManager.reviewFocusId);
+                if (fokusz && AdminManager.reviewVaros && fokusz.varos !== AdminManager.reviewVaros) AdminManager.reviewVaros = fokusz.varos;
+                const idx = AdminManager.reviewFiltered().findIndex(i => i.id === AdminManager.reviewFocusId);
                 AdminManager.reviewIdx = idx >= 0 ? idx : 0;
                 AdminManager.reviewFocusId = null;
             } else {
-                AdminManager.reviewIdx = Math.min(AdminManager.reviewIdx, Math.max(lista.length - 1, 0));
+                AdminManager.reviewIdx = Math.min(AdminManager.reviewIdx, Math.max(AdminManager.reviewFiltered().length - 1, 0));
             }
 
             AdminManager.setCount("pendingCount", lista.length); AdminManager.setCount("navAdminCount", lista.length);
@@ -38,8 +51,10 @@ AdminManager.reviewFiltered = function () {
 
     const f = AdminManager.reviewFilter;
     const t = AdminManager.reviewTipus || "";
+    const v = AdminManager.reviewVaros || "";
 
     return AdminManager.reviewList.filter(i => {
+        if (v && (i.varos || "") !== v) return false;
         if (t && (i.tipus || "lakas") !== t) return false;
         const h = (i.hianyzo || []).length;
         const p = (i.problemak || []).length;
@@ -51,6 +66,13 @@ AdminManager.reviewFiltered = function () {
 };
 
 AdminManager.renderReviewItem = function () {
+
+    // Ha a kiválasztott városban elfogyott, jön a következő város
+    if (AdminManager.reviewVaros && AdminManager.reviewList.length &&
+        !AdminManager.reviewList.some(i => (i.varos || "") === AdminManager.reviewVaros)) {
+        AdminManager.reviewVaros = AdminManager.reviewList[0].varos || "";
+        AdminManager.reviewIdx = 0;
+    }
 
     const lista = AdminManager.reviewFiltered();
     const box = AdminManager.box();
@@ -104,7 +126,7 @@ AdminManager.renderReviewItem = function () {
                         <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
                             <div>
                                 <h5 class="mb-1">${Utils.escape(i.cim || Types.label(i.tipus))}</h5>
-                                <div class="small text-body-secondary">#${i.id} · ${Utils.escape(CityManager.displayName(i.varos))} · ${(i.forrasok || [i.forras]).map(Sources.badge).join(" ")}</div>
+                                <div class="small text-body-secondary">#${i.id} · <b class="revCity"><i class="fa-solid fa-city" aria-hidden="true"></i> ${Utils.escape(CityManager.displayName(i.varos))}</b> · ${(i.forrasok || [i.forras]).map(Sources.badge).join(" ")}</div>
                             </div>
                             <div class="text-end">
                                 <div class="fw-bold fs-5 text-success">${Utils.price(i)}</div>
@@ -213,10 +235,13 @@ AdminManager.renderReviewItem = function () {
 
 AdminManager.reviewToolbar = function (db) {
 
-    const tipusDb = t => AdminManager.reviewList.filter(i => !t || (i.tipus || "lakas") === t).length;
+    const v = AdminManager.reviewVaros || "";
+    const varosban = AdminManager.reviewList.filter(i => !v || (i.varos || "") === v);
+    const tipusDb = t => varosban.filter(i => !t || (i.tipus || "lakas") === t).length;
     const aktTipus = AdminManager.reviewTipus || "";
 
     return `
+        ${AdminManager.cityTabs(AdminManager.reviewList, v, "data-rvcity")}
         <div class="typeTabs mb-3" role="tablist">
             ${[{ key: "", icon: "fa-solid fa-layer-group", label: "reviewAllTypes" }, ...Types.LIST].map(t => {
                 const n = tipusDb(t.key);
@@ -246,6 +271,14 @@ AdminManager.reviewToolbar = function (db) {
 AdminManager.bindReviewToolbar = function () {
 
     const f = document.getElementById("rvFilter");
+
+    document.querySelectorAll("[data-rvcity]").forEach(b => {
+        b.onclick = () => {
+            AdminManager.reviewVaros = b.dataset.rvcity;
+            AdminManager.reviewIdx = 0;
+            AdminManager.renderReviewItem();
+        };
+    });
 
     document.querySelectorAll("[data-rvtipus]").forEach(b => {
         b.onclick = () => {

@@ -610,6 +610,64 @@ async function createSchema(db) {
         )
     `);
 
+    // ---------- Reklámfelületek (Admin → Reklámfelületek) ----------
+    //
+    // Egy hirdetés (reklám): a hirdető, a kép (és ha van, egy telefonra szánt
+    // kisebb kép), hova visz a kattintás, mely reklámhelyeken jelenik meg és
+    // mettől meddig. A megjelenések / kattintások naponta és helyenként
+    // összesítve (reklam_stat) – személyes adat, süti nélkül.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS reklamok (
+            id SERIAL PRIMARY KEY,
+            nev TEXT NOT NULL,
+            hirdeto TEXT,
+            kapcsolat TEXT,
+            cel_url TEXT,
+            alt TEXT,
+            kep BYTEA,
+            kep_mime TEXT,
+            kep_w INTEGER,
+            kep_h INTEGER,
+            kep_mobil BYTEA,
+            kep_mobil_mime TEXT,
+            kep_mobil_w INTEGER,
+            kep_mobil_h INTEGER,
+            helyek JSONB DEFAULT '[]'::jsonb,
+            kezdet DATE,
+            vege DATE,
+            aktiv BOOLEAN DEFAULT true,
+            suly INTEGER DEFAULT 1,
+            ar DOUBLE PRECISION,
+            megjegyzes TEXT,
+            megjelenes INTEGER DEFAULT 0,
+            kattintas INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS reklam_stat (
+            reklam_id INTEGER REFERENCES reklamok(id) ON DELETE CASCADE,
+            nap DATE NOT NULL,
+            hely TEXT NOT NULL DEFAULT '',
+            megjelenes INTEGER DEFAULT 0,
+            kattintas INTEGER DEFAULT 0,
+            PRIMARY KEY (reklam_id, nap, hely)
+        )
+    `);
+
+    // ---------- Címkeresés gyorstára ----------
+    // Az utcák vonala (minden szakasza) és a házszámok – 30 napig, hogy egy
+    // újraindítás után ne kelljen mindent újra lekérdezni (OpenStreetMap: 1 kérés / mp)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS geo_cache (
+            kulcs TEXT PRIMARY KEY,
+            adat JSONB,
+            ido TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

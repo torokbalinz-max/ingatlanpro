@@ -134,13 +134,14 @@ const HELP_CONTENT = {
                     "Válaszd ki az ügyletet (eladó / kiadó), a típust, a várost és ha tudod, a kerületet (a „… és környéke” városban a falut).",
                     "Add meg az alapterületet (kötelező; tizedessel is, pl. 48,8), a szobákat, az emeletet (és ha tudod, hány emeletes az épület), az állapotot és ha tudod, az építés évét.",
                     "Ha van kért ár, írd be – megmutatjuk, drága-e vagy olcsó.",
-                    "Kattints a Becslés gombra."
+                    "Kattints a Becslés gombra. A becsléshez be kell jelentkezni (ingyenes): ha még nem vagy belépve, előbb a belépő ablak jön, és belépés után a becslés magától lefut – a kitöltött adatok megmaradnak."
                 ] },
                 { h: "Hogyan számol?", ul: [
-                    "<b>Árarány-modell</b>: a város összes hirdetéséből megtanuljuk, mennyivel ér többet például egy jó állapotú lakás a felújítandónál, egy földszinti vagy legfelső emeleti a többinél, egy kisebb házban lévő a magas (8+ emeletes) tömbházbelinél, egy kerület a városátlagnál, és hogyan csökken a €/m² a mérettel. Ahol kevés az adat, józan piaci arányok felé húzunk.",
-                    "<b>Hasonló hirdetések</b>: a leghasonlóbb hirdetések árát a modell arányaival átszámoljuk a te ingatlanodra (méret, állapot, emelet, kerület különbsége szerint). Ez megmutatja, mennyivel kérnek a hozzá hasonló lakásokért többet vagy kevesebbet, mint amit a modell mondana.",
-                    "A kettőt keverjük: ha sok nagyon hasonló hirdetés van, azok döntenek; ha kevés (pl. ritka szobaszám), a modell kap nagyobb súlyt.",
-                    "Az eredmény alatt látod mindkét becslést, a súlyukat és a fő arányokat (pl. Állapot +14%, Kerület +6%)."
+                    "<b>Hasonlóság %-ban</b>: minden ellenőrzött hirdetéshez kiszámoljuk, mennyire hasonlít a tiédre – alapterület, szobák, állapot, kerület, emelet, épület (magas tömbház, építés éve). Új építésű és meglévő lakás alig hasonló egymáshoz.",
+                    "<b>Kerületek árszintje</b>: a piaci statisztikából nézzük, hogy a te paramétereiddel (méret, szobák, állapot) mennyivel drágább vagy olcsóbb egyik kerület a másiknál. Egy másik kerület hirdetésének árát ennek arányában számoljuk át (pl. Csiki → Központ +12 %), a nagyon más árszintű kerület pedig kevésbé hasonló.",
+                    "<b>A leghasonlóbbak</b>: alapból 12 hirdetés, ha sok a nagyon hasonló (80 % fölött), akár 20, de legalább 6. Mindegyik árát a te ingatlanodra számoljuk át (kerület, méret, állapot, emelet – legfeljebb ±30 %), és a hasonlóságukkal súlyozva átlagoljuk; a kilógók kimaradnak.",
+                    "<b>Becslés = átszámolt €/m² × alapterület.</b> A becslés és az ársáv (a súlyozott 20–80 %-os tartomány) mindig a felhasznált hirdetések árai között marad.",
+                    "A táblázatban minden hasonlónál látod a hasonlóságot, a súlyát és az átszámolt árát (az egérrel rámutatva: mennyi a kerület és mennyi a többi különbség miatt)."
                 ] },
                 { h: "Pontosabb, következetesebb becslés", ul: [
                     "<b>Újépítésű lakások külön</b>: egy olcsóbb negyedben is lehetnek drága új projektek – ezek nem húzzák fel a régebbi lakások becslését. Új lakásnál a becslés az új lakásokhoz hasonlít. Újnak számít, ami az elmúlt ~6 évben épült, „újépítésű” / „félkész” állapotú, vagy a címe szerint új projekt.",
@@ -185,7 +186,13 @@ const HELP_CONTENT = {
                     "Töltsd ki a kötelező mezőket (piros jelzés mutatja, mi hiányzik).",
                     "Jelöld meg a helyet a térképen (a jelölő húzható). Pontos helynél a kerület magától kitöltődik a kerülethatárok alapján.",
                     "Tölts fel képeket (a böngésző lekicsinyíti őket, nem kell külön).",
-                    "Mentés. Később a Fiókom → Hirdetéseim alatt szerkesztheted vagy törölheted."
+                    "Mentés: a mentés gomb az oldal alján mindig látszik, bárhol jársz az űrlapon. Később a Fiókom → Hirdetéseim alatt szerkesztheted vagy törölheted."
+                ] },
+                { h: "A hely pontos megadása", ul: [
+                    "<b>Nagyítás</b>: a +/− gombok mellett görgővel is (állj meg egy pillanatra a térképen, vagy kattints rá), Ctrl + görgővel azonnal; telefonon és tableten két ujjal.",
+                    "<b>Teljes képernyő</b>: a térkép sarkában vagy fölötte lévő gombbal a térkép kitölti a képernyőt – így könnyebb pontosan a házra kattintani. Esc vagy „Kész”: vissza.",
+                    "<b>Címkereső</b>: írj be utcát (házszámmal), kerületet vagy falut – a kiválasztott város körül keres. Utcánál a térkép kiemeli az egész utcát, a házszámnál a házra ugrik; a messzi találatokat „messze” jelzi.",
+                    "<b>A leírásból</b>: a címben és a leírásban szereplő utca / kerület / falu alapján teszi le a jelölőt – utána ellenőrizd, és ha kell, kattints a pontos helyre."
                 ] },
                 { tip: "Ha az ár nagyon eltér a hasonló hirdetésekétől, a hirdetés megjelenik, de az admin ellenőrzi az adatokat." }
             ]
@@ -248,7 +255,16 @@ const HELP_CONTENT = {
         {
             id: "admin", icon: "fa-solid fa-user-shield", title: "Adminnak", admin: true,
             sections: [
-                { h: "Ellenőrzésre vár", p: "A hiányos vagy gyanús adatú hirdetések. Billentyűkkel gyorsan végigmehetsz rajtuk; az AI-ellenőrzés (ha be van kapcsolva) javaslatot ad a javításra." },
+                { h: "Mi hol van?", ul: [
+                    "<b>Irányítópult</b>: Áttekintés (számok, teendők, minden rész egy kattintásra), Látogatottság.",
+                    "<b>Hirdetések ellenőrzése</b>: Ellenőrzésre vár, Állapot beállítása, Duplikátumok, Nem elérhető, Bejelentések.",
+                    "<b>Beolvasás, karbantartás</b>: Beolvasás linkről, Figyelt oldalak, Karbantartás (automatikus javítás, forrásoldalak ellenőrzése, értékbecslő pontossága).",
+                    "<b>Helyek</b>: Városok és kerületek, Város és környéke, Hely-ellenőrzés.",
+                    "<b>Partnerek, reklám</b>: Ingatlanirodák, Reklámfelületek.",
+                    "<b>Beállítások</b>: Állapotok, Webhely adatai.",
+                    "Minden résznek saját címe van (pl. #admin/reklam), így a böngésző Vissza gombja és a frissítés is ugyanoda visz. Telefonon a menü egy lenyíló választó."
+                ] },
+                { h: "Ellenőrzésre vár", p: "A hiányos vagy gyanús adatú hirdetések, <b>városonként</b> (fent a városok fülei, darabszámmal). Billentyűkkel gyorsan végigmehetsz rajtuk; az AI-ellenőrzés (ha be van kapcsolva) javaslatot ad a javításra. A Nem elérhető hirdetések is városonként szűrhetők." },
                 { h: "Állapot beállítása", ul: [
                     "Az állapot nélküli (vagy csak becsült, *-os) hirdetések egymás után, nagy képekkel.",
                     "<b>1–9</b> billentyű = állapot (az Állapotok lista sorrendjében), és jön a következő. <b>←/→</b> a képek, <b>S</b> kihagyás, <b>Z</b> visszavonás, <b>Enter</b> = a szövegből adott javaslat elfogadása.",
@@ -283,9 +299,16 @@ const HELP_CONTENT = {
                     "Magától átkerül, ha a falu ismert (a „Hol van?” mezőből vagy a címből), vagy a pontos hely egyértelműen a városon kívül van – mentéskor, beolvasáskor és induláskor.",
                     "Admin → Város és környéke: a bizonytalan esetek (áthelyezés vagy „marad a városban”), a környék hirdetései falvanként (a falu javítása, vissza a városba), tömeges műveletek és térkép. A kézi döntést az automatika nem írja felül."
                 ] },
+                { h: "Hely-ellenőrzés", ul: [
+                    "A beolvasás és az automatikus javítás ellenőrzi a hirdetési oldal pontját: ha messze van a várostól / a falutól, ha a leírásban szereplő utca vagy kerület máshol van, vagy ha csak a város „alapértelmezett” pontja (a hirdető nem jelölt helyet), a hirdetést a szöveg szerinti helyre teszi – vagy közelítő helyet ad.",
+                    "Admin → Helyek → Hely-ellenőrzés: ezek a hirdetések városonként és okonként; a térképen piros az eredeti, zöld az új pont. <b>Rendben</b>: eltűnik a listából. <b>Vissza az eredetire</b>: a régi pont (és kerület) visszakerül, és az automatika többé nem mozgatja.",
+                    "Amit ember tett le a térképen (hirdetésfeladás, ellenőrzés), azt az automatika soha nem mozgatja."
+                ] },
                 { h: "Reklámfelületek", ul: [
-                    "Bérelhető reklámfelület helyőrzők a szokásos helyeken: kezdőlap (a kategóriák alatt), a kereső alatt, a találati kártyák között egyszer, a hirdetés oldalán a térkép alatt, az értékbecslőben és a piaci elemzés alján – sehol nem takarják el a funkciókat.",
-                    "Admin → Webhely adatai → Reklámfelületek: ki-be kapcsolhatók, és megadható az e-mail cím, ahova az érdeklődő hirdetők írnak."
+                    "15 reklámhely, mindegyik a tartalom között (sosem fölötte), „Hirdetés” felirattal: kezdőlap (fent és lent), Ingatlanok (a találatok fölött, a kártyák között kártya méretben és egy teljes széles sorban, a kereső alatt álló formában, ami görgetéskor is látszik), térkép alatt, a hirdetés oldalán (jobb oldalt és a térkép alatt), értékbecslő (az űrlap alatt és az eredménynél), piaci elemzés (fent és lent), ingatlanirodák, keresési igények.",
+                    "Admin → Partnerek, reklám → Reklámfelületek: <b>reklámok</b> feltöltése (a hirdető képe + telefonos kép, hova vigyen a kattintás, mely helyeken, mettől meddig, súly, saját jegyzet és ár), másolat, ki-be kapcsolás, napi és helyenkénti statisztika (megjelenés, kattintás, átkattintási arány – süti nélkül).",
+                    "Ugyanitt: a reklámhelyek oldalanként a méretükkel és azzal, ami most fut rajtuk; helyenként kikapcsolhatók, vagy elrejthető a „Bérelhető reklámfelület” helyőrző; az érdeklődő hirdetők e-mail címe.",
+                    "A szerkesztő megmutatja, mely helyek illenek a kép arányához, és ajánlott képméreteket ad (a hely kétszerese)."
                 ] },
                 { h: "Városok, kerületek, kerülethatárok", ul: [
                     "A kerületeknek magyar és román nevük, és más oldalakon használt neveik (aliasok) vannak.",
@@ -295,7 +318,7 @@ const HELP_CONTENT = {
                 ] },
                 { h: "Piaci mentések és értékbecslő", ul: [
                     "Havonta automatikus piaci mentés készül; kézzel az Előzmények fülön menthetsz.",
-                    "Áttekintés → „Értékbecslő pontossága”: a valós adatokon méri a becslő hibáját (minden hirdetést a többi alapján becsül) az első, az előző és a mostani módszerrel, a meglévő és az újépítésű lakásokra külön, és hogy 1 m² mennyit változtat a €/m²-en."
+                    "Karbantartás → „Értékbecslő pontossága”: a valós adatokon méri a becslő hibáját (minden hirdetést a többi alapján becsül) az első, az előző és a mostani módszerrel, a meglévő és az újépítésű lakásokra külön, és hogy 1 m² mennyit változtat a €/m²-en."
                 ] }
             ]
         },
@@ -435,13 +458,14 @@ const HELP_CONTENT = {
                     "Choose sale / rent, the type, the city and, if you know it, the district (in a „… és környéke” city the village).",
                     "Enter the floor area (required; decimals too, e.g. 48.8), rooms, floor (and if you know, how many floors the building has), condition and, if you know it, the year built.",
                     "If there is an asking price, enter it – we show whether it is high or low.",
-                    "Click Estimate."
+                    "Click Estimate. You need to log in for an estimate (free): if you are not logged in yet, the login window comes first, and after logging in the estimate runs by itself – what you filled in stays."
                 ] },
                 { h: "How is it calculated?", ul: [
-                    "<b>Price-ratio model</b>: from all listings of the city we learn how much more e.g. a flat in good condition is worth than one needing renovation, a ground-floor or top-floor flat versus others, one in a smaller building versus a tall (8+ floor) block, a district versus the city average, and how €/m² falls with size. Where data is scarce we lean on sensible market ratios.",
-                    "<b>Similar listings</b>: the prices of the most similar listings are converted to your property with the model's ratios (by the difference in size, condition, floor, district). This shows how much more or less is asked for flats like yours than the model alone would say.",
-                    "The two are blended: with many very similar listings they decide; with few (e.g. a rare room count) the model gets more weight.",
-                    "Below the result you see both estimates, their weights and the main ratios (e.g. Condition +14%, District +6%)."
+                    "<b>Similarity in %</b>: for every verified listing we compute how similar it is to yours – floor area, rooms, condition, district, floor, building (tall block, year built). New builds and existing homes are hardly similar to each other.",
+                    "<b>District price levels</b>: from the market statistics we see how much more or less expensive one district is than another for your parameters (size, rooms, condition). A listing from another district is converted proportionally (e.g. Csiki → Centre +12 %), and very differently priced districts count as less similar.",
+                    "<b>The most similar ones</b>: 12 listings by default, up to 20 if many are very similar (above 80 %), at least 6. Each price is converted to your property (district, size, condition, floor – at most ±30 %) and averaged, weighted by similarity; outliers are left out.",
+                    "<b>Estimate = converted €/m² × floor area.</b> The estimate and the range (weighted 20–80 % band) always stay within the prices of the listings used.",
+                    "The table shows each listing's similarity, weight and converted price (hover to see how much is due to the district and how much to the other differences)."
                 ] },
                 { h: "More accurate, more consistent", ul: [
                     "<b>New builds separately</b>: a cheaper neighbourhood can have expensive new projects – they do not push up the estimate of older flats. A new flat is compared with new ones. New = built in the last ~6 years, in „new build” / „unfinished” condition, or a new project by its title.",
@@ -486,7 +510,13 @@ const HELP_CONTENT = {
                     "Fill in the required fields (red marks show what is missing).",
                     "Mark the location on the map (the marker can be dragged). With an exact location the district is filled in from the district borders.",
                     "Upload photos (the browser resizes them).",
-                    "Save. Later you can edit or delete it under My account → My listings."
+                    "Save: the save button is always visible at the bottom of the page, wherever you are in the form. Later you can edit or delete it under My account → My listings."
+                ] },
+                { h: "Setting the exact location", ul: [
+                    "<b>Zoom</b>: besides the +/− buttons, with the mouse wheel too (rest on the map for a moment or click it), right away with Ctrl + wheel; on phones and tablets with two fingers.",
+                    "<b>Full screen</b>: with the button on or above the map the map fills the screen – it is easier to click exactly on the house. Esc or “Done”: back.",
+                    "<b>Address search</b>: type a street (with number), a district or a village – it searches around the chosen city. For a street the map highlights the whole street, for a house number it jumps to the house; far results are marked “far”.",
+                    "<b>From the description</b>: places the pin by the street / district / village in the title and the description – then check it and click the exact spot if needed."
                 ] },
                 { tip: "If the price differs a lot from similar listings, the listing still appears, but the admin checks the data." }
             ]
@@ -549,7 +579,16 @@ const HELP_CONTENT = {
         {
             id: "admin", icon: "fa-solid fa-user-shield", title: "For the admin", admin: true,
             sections: [
-                { h: "Needs review", p: "Listings with missing or suspicious data. Go through them quickly with the keyboard; the AI check (if enabled) suggests fixes." },
+                { h: "Where is what?", ul: [
+                    "<b>Dashboard</b>: Overview (numbers, to-dos, every part one click away), Site statistics.",
+                    "<b>Listing checks</b>: Waiting for check, Set condition, Duplicates, Not available, Reports.",
+                    "<b>Import & maintenance</b>: Import from a link, Watched sites, Maintenance (automatic fix, checking the source sites, valuation accuracy).",
+                    "<b>Locations</b>: Cities and districts, City & surroundings, Location check.",
+                    "<b>Partners & ads</b>: Real estate agencies, Ad spaces.",
+                    "<b>Settings</b>: Conditions, Website details.",
+                    "Every part has its own address (e.g. #admin/reklam), so the browser's Back button and reloading take you to the same place. On phones the menu is a drop-down."
+                ] },
+                { h: "Needs review", p: "Listings with missing or suspicious data, <b>city by city</b> (tabs with counts on top). Go through them quickly with the keyboard; the AI check (if enabled) suggests fixes. Not available listings can be filtered by city too." },
                 { h: "Set condition", ul: [
                     "Listings without condition (or only estimated, with *) one after another, with large photos.",
                     "<b>1–9</b> keys = condition (in the order of the Conditions list), then the next one comes. <b>←/→</b> photos, <b>S</b> skip, <b>Z</b> undo, <b>Enter</b> = accept the suggestion from the text.",
@@ -584,9 +623,16 @@ const HELP_CONTENT = {
                     "A listing moves automatically if its village is known (from the „Where is it?” field or the title) or its exact location is clearly outside the city – at saving, at import and at start-up.",
                     "Admin → City & surroundings: the uncertain cases (move or „stays in the city”), the listings of the surroundings by village (fix the village, back to the city), bulk actions and a map. Manual decisions are never overridden."
                 ] },
+                { h: "Location check", ul: [
+                    "Import and the automatic fix check the listing site's pin: if it is far from the city / village, if the street or district in the description is elsewhere, or if it is only the city's “default” point (the advertiser did not mark a location), the listing is moved to the place the text says – or gets an approximate location.",
+                    "Admin → Locations → Location check: these listings by city and reason; on the map red is the original, green the new point. <b>Fine</b>: it leaves the list. <b>Put back</b>: the old point (and district) comes back and the automation never moves it again.",
+                    "What a person placed on the map (posting, review) is never moved by the automation."
+                ] },
                 { h: "Ad spaces", ul: [
-                    "„Ad space for rent” placeholders at the usual places: home page (below the categories), below the search, once among the result cards, on the listing page under the map, in the valuation and at the bottom of the market page – they never cover the functions.",
-                    "Admin → Website details → Ad spaces: switch them on or off and set the e-mail address interested advertisers write to."
+                    "15 ad places, each between the content (never over it), labelled “Ad”: home page (top and bottom), Properties (above the results, among the cards in card size and in one full-width row, a tall one below the search that stays visible when scrolling), below the map, on the listing page (right side and below the map), valuation (below the form and with the result), market analysis (top and bottom), agencies, buyer requests.",
+                    "Admin → Partners & ads → Ad spaces: upload <b>ads</b> (the advertiser's image + a phone image, where a click goes, which places, from when to when, weight, your own note and price), duplicate, switch on/off, daily and per-place statistics (views, clicks, click-through rate – without cookies).",
+                    "Also there: the ad places by page with their size and what runs on them now; each can be switched off or its “Ad space for rent” placeholder hidden; the e-mail address for interested advertisers.",
+                    "The editor shows which places fit the image's proportions and recommends image sizes (twice the place)."
                 ] },
                 { h: "Cities, districts, district borders", ul: [
                     "Districts have a Hungarian and a Romanian name, plus names used on other sites (aliases).",
@@ -596,7 +642,7 @@ const HELP_CONTENT = {
                 ] },
                 { h: "Market snapshots and valuation", ul: [
                     "A market snapshot is saved automatically every month; save manually on the History tab.",
-                    "Overview → “Valuation accuracy”: measures the estimator's error on the real data (each listing estimated from the others) with the first, the previous and the current method, separately for existing homes and new builds, plus how much one square metre changes the €/m²."
+                    "Maintenance → “Valuation accuracy”: measures the estimator's error on the real data (each listing estimated from the others) with the first, the previous and the current method, separately for existing homes and new builds, plus how much one square metre changes the €/m²."
                 ] }
             ]
         },
@@ -736,13 +782,14 @@ const HELP_CONTENT = {
                     "Alege vânzare / închiriere, tipul, orașul și, dacă știi, cartierul (la un oraș „… és környéke” satul).",
                     "Introdu suprafața (obligatoriu; și cu zecimale, ex. 48,8), camerele, etajul (și dacă știi, câte etaje are clădirea), starea și, dacă știi, anul construcției.",
                     "Dacă există un preț cerut, introdu-l – arătăm dacă e mare sau mic.",
-                    "Apasă Estimare."
+                    "Apasă Estimare. Pentru estimare trebuie să te autentifici (gratuit): dacă nu ești autentificat, întâi apare fereastra de autentificare, iar după aceea estimarea pornește singură – datele completate rămân."
                 ] },
                 { h: "Cum se calculează?", ul: [
-                    "<b>Modelul raporturilor de preț</b>: din toate anunțurile orașului învățăm cu cât valorează mai mult un apartament în stare bună față de unul de renovat, unul de la parter sau de la ultimul etaj față de celelalte, unul dintr-o clădire mai mică față de un bloc înalt (8+ etaje), un cartier față de media orașului și cum scade €/m² cu suprafața. Unde datele sunt puține, ne sprijinim pe raporturi rezonabile de piață.",
-                    "<b>Anunțuri similare</b>: prețurile celor mai asemănătoare anunțuri sunt convertite la proprietatea ta cu raporturile modelului (după diferența de suprafață, stare, etaj, cartier). Așa se vede cu cât se cere mai mult sau mai puțin pentru apartamente ca al tău decât ar spune doar modelul.",
-                    "Cele două se combină: cu multe anunțuri foarte similare, acestea decid; cu puține (de ex. un număr rar de camere), modelul primește o pondere mai mare.",
-                    "Sub rezultat vezi ambele estimări, ponderile lor și raporturile principale (de ex. Stare +14%, Cartier +6%)."
+                    "<b>Similaritate în %</b>: pentru fiecare anunț verificat calculăm cât de asemănător este cu al tău – suprafață, camere, stare, cartier, etaj, clădire (bloc înalt, anul construcției). Construcțiile noi și locuințele existente sunt puțin asemănătoare.",
+                    "<b>Nivelul de preț al cartierelor</b>: din statisticile pieței vedem cu cât e mai scump sau mai ieftin un cartier față de altul pentru parametrii tăi (suprafață, camere, stare). Prețul unui anunț din alt cartier e convertit proporțional (ex. Ciuc → Centru +12 %), iar cartierele cu prețuri foarte diferite contează ca mai puțin asemănătoare.",
+                    "<b>Cele mai asemănătoare</b>: implicit 12 anunțuri, până la 20 dacă multe sunt foarte asemănătoare (peste 80 %), cel puțin 6. Prețul fiecăruia e convertit la proprietatea ta (cartier, suprafață, stare, etaj – cel mult ±30 %) și mediat ponderat cu similaritatea; valorile extreme sunt excluse.",
+                    "<b>Estimare = €/m² convertit × suprafață.</b> Estimarea și intervalul (banda ponderată 20–80 %) rămân mereu între prețurile anunțurilor folosite.",
+                    "Tabelul arată pentru fiecare anunț similaritatea, ponderea și prețul convertit (cu mouse-ul deasupra: cât se datorează cartierului și cât celorlalte diferențe)."
                 ] },
                 { h: "Mai precis, mai consecvent", ul: [
                     "<b>Construcțiile noi separat</b>: un cartier mai ieftin poate avea proiecte noi scumpe – acestea nu ridică estimarea apartamentelor mai vechi. Un apartament nou se compară cu cele noi. Nou = construit în ultimii ~6 ani, în stare „construcție nouă” / „nefinisat” sau proiect nou după titlu.",
@@ -787,7 +834,13 @@ const HELP_CONTENT = {
                     "Completează câmpurile obligatorii (marcajul roșu arată ce lipsește).",
                     "Marchează locația pe hartă (marcajul se poate trage). La locație exactă cartierul se completează din limitele cartierelor.",
                     "Încarcă fotografii (browserul le micșorează).",
-                    "Salvează. Mai târziu le editezi sau ștergi la Contul meu → Anunțurile mele."
+                    "Salvează: butonul de salvare se vede mereu în partea de jos a paginii, oriunde ai fi în formular. Mai târziu le editezi sau ștergi la Contul meu → Anunțurile mele."
+                ] },
+                { h: "Locația exactă", ul: [
+                    "<b>Zoom</b>: pe lângă butoanele +/−, și cu rotița (oprește-te o clipă pe hartă sau dă clic pe ea), imediat cu Ctrl + rotiță; pe telefon și tabletă cu două degete.",
+                    "<b>Ecran complet</b>: cu butonul de pe hartă sau de deasupra ei harta umple ecranul – e mai ușor să dai clic exact pe casă. Esc sau „Gata”: înapoi.",
+                    "<b>Căutarea adresei</b>: scrie o stradă (cu număr), un cartier sau un sat – caută în jurul orașului ales. La stradă harta evidențiază toată strada, la număr sare la casă; rezultatele îndepărtate sunt marcate „departe”.",
+                    "<b>Din descriere</b>: pune marcajul după strada / cartierul / satul din titlu și descriere – apoi verifică și dă clic pe locul exact dacă e nevoie."
                 ] },
                 { tip: "Dacă prețul diferă mult de anunțurile similare, anunțul apare, dar administratorul verifică datele." }
             ]
@@ -850,7 +903,16 @@ const HELP_CONTENT = {
         {
             id: "admin", icon: "fa-solid fa-user-shield", title: "Pentru administrator", admin: true,
             sections: [
-                { h: "De verificat", p: "Anunțurile cu date lipsă sau suspecte. Le parcurgi rapid cu tastatura; verificarea AI (dacă e activă) propune corecturi." },
+                { h: "Ce unde găsești?", ul: [
+                    "<b>Panou</b>: Prezentare (cifre, sarcini, fiecare parte la un clic), Statistici site.",
+                    "<b>Verificarea anunțurilor</b>: De verificat, Setarea stării, Duplicate, Indisponibile, Sesizări.",
+                    "<b>Import și întreținere</b>: Import din link, Site-uri urmărite, Întreținere (corectare automată, verificarea site-urilor sursă, precizia evaluării).",
+                    "<b>Locații</b>: Orașe și cartiere, Oraș și împrejurimi, Verificarea locației.",
+                    "<b>Parteneri și reclame</b>: Agenții imobiliare, Spații publicitare.",
+                    "<b>Setări</b>: Stări, Datele site-ului.",
+                    "Fiecare parte are adresa ei (ex. #admin/reklam), așa că butonul Înapoi al browserului și reîncărcarea duc în același loc. Pe telefon meniul este o listă derulantă."
+                ] },
+                { h: "De verificat", p: "Anunțurile cu date lipsă sau suspecte, <b>pe orașe</b> (sus filele orașelor, cu număr). Le parcurgi rapid cu tastatura; verificarea AI (dacă e activă) propune corecturi. Și anunțurile indisponibile se pot filtra pe orașe." },
                 { h: "Setarea stării", ul: [
                     "Anunțurile fără stare (sau doar estimată, cu *) unul după altul, cu fotografii mari.",
                     "Tastele <b>1–9</b> = starea (în ordinea listei de stări), apoi vine următorul. <b>←/→</b> fotografiile, <b>S</b> sari peste, <b>Z</b> anulare, <b>Enter</b> = acceptă sugestia din text.",
@@ -885,9 +947,16 @@ const HELP_CONTENT = {
                     "Un anunț se mută automat dacă satul este cunoscut (din câmpul „Unde se află?” sau din titlu) ori locația exactă este clar în afara orașului – la salvare, la import și la pornire.",
                     "Admin → Oraș și împrejurimi: cazurile nesigure (mutare sau „rămâne în oraș”), anunțurile din împrejurimi pe sate (corectarea satului, înapoi în oraș), acțiuni în masă și hartă. Deciziile manuale nu sunt suprascrise."
                 ] },
+                { h: "Verificarea locației", ul: [
+                    "Importul și corectarea automată verifică punctul de pe site-ul sursă: dacă e departe de oraș / sat, dacă strada sau cartierul din descriere e în altă parte, sau dacă e doar punctul „implicit” al orașului (agentul nu a marcat locația), anunțul e mutat unde spune textul – sau primește o locație aproximativă.",
+                    "Admin → Locații → Verificarea locației: aceste anunțuri pe orașe și motive; pe hartă roșu e punctul original, verde cel nou. <b>În regulă</b>: iese din listă. <b>Pune înapoi</b>: punctul (și cartierul) vechi revine și automatizarea nu-l mai mută.",
+                    "Ce a pus un om pe hartă (publicare, verificare) nu este mutat niciodată de automatizare."
+                ] },
                 { h: "Spații publicitare", ul: [
-                    "Spații rezervate „Spațiu publicitar de închiriat” în locurile obișnuite: pagina principală (sub categorii), sub căutare, o dată între cardurile cu rezultate, pe pagina anunțului sub hartă, la evaluare și la finalul analizei pieței – nu acoperă niciodată funcțiile.",
-                    "Admin → Datele site-ului → Spații publicitare: le pornești / oprești și setezi e-mailul la care scriu cei interesați."
+                    "15 locuri de reclamă, fiecare între conținut (niciodată peste el), cu eticheta „Reclamă”: pagina principală (sus și jos), Proprietăți (deasupra rezultatelor, între carduri cât un card și pe un rând întreg, unul vertical sub căutare care rămâne vizibil la derulare), sub hartă, pe pagina anunțului (dreapta și sub hartă), evaluare (sub formular și la rezultat), analiza pieței (sus și jos), agenții, cereri de căutare.",
+                    "Admin → Parteneri și reclame → Spații publicitare: încarci <b>reclame</b> (imaginea clientului + imagine pentru telefon, unde duce clicul, pe ce locuri, de când până când, greutate, notă și preț proprii), copiere, pornire/oprire, statistici zilnice și pe locuri (afișări, clicuri, rata de clic – fără cookie-uri).",
+                    "Tot acolo: locurile de reclamă pe pagini, cu mărimea lor și ce rulează acum; fiecare poate fi oprit sau i se poate ascunde mesajul „Spațiu publicitar de închiriat”; e-mailul pentru clienții interesați.",
+                    "Editorul arată ce locuri se potrivesc proporțiilor imaginii și recomandă dimensiuni (dublul locului)."
                 ] },
                 { h: "Orașe, cartiere, limite", ul: [
                     "Cartierele au nume maghiar și românesc, plus nume folosite pe alte site-uri (aliasuri).",
@@ -897,7 +966,7 @@ const HELP_CONTENT = {
                 ] },
                 { h: "Capturi de piață și evaluare", ul: [
                     "Lunar se salvează automat o captură a pieței; manual pe fila Istoric.",
-                    "Prezentare → „Precizia evaluării”: măsoară eroarea pe datele reale (fiecare anunț estimat din celelalte) cu prima, cu metoda anterioară și cu cea actuală, separat pentru locuințe existente și construcții noi, plus cât schimbă un metru pătrat €/m²."
+                    "Întreținere → „Precizia evaluării”: măsoară eroarea pe datele reale (fiecare anunț estimat din celelalte) cu prima, cu metoda anterioară și cu cea actuală, separat pentru locuințe existente și construcții noi, plus cât schimbă un metru pătrat €/m²."
                 ] }
             ]
         },

@@ -4,11 +4,13 @@
 
 const express = require("express");
 const { becsles, teszt, helySzorzok } = require("../services/valuation");
-const { hiba, csakAdmin } = require("../lib/http");
+const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
 
 const router = express.Router();
 
-router.get("/api/valuation", async (req, res) => {
+// Becslés – csak bejelentkezve (mint a hirdetésfeladás); a weboldal a belépő
+// ablakot hozza fel, és belépés után magától lefuttatja
+router.get("/api/valuation", csakBelepve, async (req, res) => {
 
     try {
 

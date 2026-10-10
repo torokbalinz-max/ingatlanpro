@@ -244,7 +244,7 @@ class ListingPage {
                         </div>
                     </div>
 
-                    ${typeof AdSlots !== "undefined" ? `<div class="mt-4">${AdSlots.html("listing")}</div>` : ""}
+                    ${typeof AdSlots !== "undefined" ? AdSlots.slot("listing", "mt-4") : ""}
 
                 </div>
 
@@ -280,13 +280,34 @@ class ListingPage {
 
                         ${adminBox}
 
+                        ${typeof AdSlots !== "undefined" ? AdSlots.slot("listing_side", "mt-4 adSideSlot") : ""}
+
                     </div>
                 </div>
 
             </div>`;
 
         ListingPage.bind(i);
+        ListingPage.oldalRagad();
 
+    }
+
+    // A jobb oldali sáv görgetéskor csak akkor marad a helyén, ha kifér a
+    // képernyőre (különben az alja – pl. a kapcsolat, a reklám – sosem látszana)
+    static oldalRagad() {
+        const side = document.querySelector("#listingContent .listingSide");
+        if (!side) return;
+        const nav = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ip-nav-h")) || 64;
+        side.classList.toggle("noStick", side.offsetHeight > window.innerHeight - nav - 32);
+        if (!ListingPage._ragadFigyel) {
+            ListingPage._ragadFigyel = true;
+            window.addEventListener("resize", () => { if (PageManager.current === "listing") ListingPage.oldalRagad(); });
+            // A képek / reklám betöltése után is
+            if (typeof ResizeObserver !== "undefined") {
+                ListingPage._ro = new ResizeObserver(() => ListingPage.oldalRagad());
+            }
+        }
+        if (ListingPage._ro) { ListingPage._ro.disconnect(); ListingPage._ro.observe(side); }
     }
 
     static setPhoto(idx) {
@@ -363,7 +384,7 @@ class ListingPage {
         };
 
         const rev = document.getElementById("lpReview");
-        if (rev) rev.onclick = () => { AdminManager.reviewFocusId = i.id; AdminManager.tab = "review"; PageManager.show("admin"); };
+        if (rev) rev.onclick = () => { AdminManager.reviewFocusId = i.id; AdminManager.reviewVaros = i.varos || ""; AdminManager.tab = "review"; PageManager.show("admin/review"); };
 
         const edit = document.getElementById("lpEdit");
         if (edit) edit.onclick = () => NewPropertyManager.startEdit(i);
@@ -437,11 +458,20 @@ class ListingPage {
 
     }
 
+    // Miért van máshol, mint a hirdetési oldalon (a hely-ellenőrzés oka)
+    static HELY_OK = {
+        varostol_tavol: "helyOkVaros", falutol_tavol: "helyOkFalu", utca_eltero: "helyOkUtca",
+        kerulet_eltero: "helyOkKerulet", pontosabb: "helyOkPontosabb", alappont: "helyOkAlappont"
+    };
+
     static helyEredetiSzoveg(i) {
         const e = i.hely_eredeti || {};
-        const kulcs = { varostol_tavol: "helyOkVaros", falutol_tavol: "helyOkFalu", utca_eltero: "helyOkUtca" }[e.ok] || "helyOkVaros";
-        return I18n.f(kulcs, { km: e.km !== null && e.km !== undefined ? Utils.num(e.km, 1) : "?" }) + " " +
-            I18n.t(i.x && i.y ? "helyAthelyezve" : "helyTorolve");
+        const kulcs = e.ok === "utca_eltero" && e.nev ? "helyOkUtcaNev" : (ListingPage.HELY_OK[e.ok] || "helyOkVaros");
+        const utana = e.ok === "alappont" ? "helyAlappontUtana" : (i.x && i.y ? "helyAthelyezve" : "helyTorolve");
+        return I18n.f(kulcs, {
+            km: e.km !== null && e.km !== undefined ? Utils.num(e.km, 1) : "?",
+            nev: Utils.escape(e.nev ? (e.ok === "kerulet_eltero" ? CityManager.keruletLabel(e.nev, i.varos) : e.nev) : "")
+        }) + " " + I18n.t(utana);
     }
 
     static updateFavorite(id) {

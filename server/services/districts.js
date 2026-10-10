@@ -40,7 +40,7 @@ async function varosKeruletei(varos) {
     if (Date.now() - cache.ido > 5 * 60 * 1000) cacheUrit();
 
     if (!cache.adat.has(varos)) {
-        const r = await db.query("SELECT nev, nev_ro, hatar FROM keruletek WHERE varos = $1", [varos]);
+        const r = await db.query("SELECT nev, nev_ro, aliasok, hatar FROM keruletek WHERE varos = $1", [varos]);
         cache.adat.set(varos, r.rows.map(k => ({ ...k, hatar: tisztaHatar(k.hatar) })));
         cache.ido = cache.ido || Date.now();
     }
