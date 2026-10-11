@@ -38,7 +38,10 @@ AdminManager.dupOkok = function (okok) {
 
 AdminManager.dupTag = function (g, t, idx) {
 
-    const marad = (AdminManager.dupMarad[g.kulcs] || g.javasolt) === t.id;
+    // A hirdető saját feltöltése mindig megmarad (a szerver is így vonja össze)
+    const tulajTag = g.tagok.find(x => x.owner_id && x.id === g.javasolt && (g.sajatFeltoltes || x.forras_tipus === "kezi"));
+    const kotott = !!tulajTag && !g.kulonbozoHirdetok;
+    const marad = kotott ? tulajTag.id === t.id : (AdminManager.dupMarad[g.kulcs] || g.javasolt) === t.id;
     const egyezo = new Set(t.egyezoKepek || []);
     const kepek = (t.kepek || []).slice(0, 4);
     const linkek = [t.link, ...(t.tovabbi_linkek || [])].filter(Boolean);
@@ -62,10 +65,11 @@ AdminManager.dupTag = function (g, t, idx) {
                     ${CityManager.helyReszLabel(t) ? `<span>${Utils.escape(CityManager.helyReszLabel(t))}</span>` : ""}
                 </div>
                 <div class="small text-body-secondary text-truncate" title="${Utils.escape(t.cim || "")}">${Utils.escape(t.cim || "")}</div>
-                <div class="small text-body-secondary">${Utils.ago(t.created_at)}${t.kedvenc ? " · ⭐" : ""}${t.owner_id ? ` · <i class="fa-solid fa-user"></i>` : ""}</div>
+                <div class="small text-body-secondary">${Utils.ago(t.created_at)}${t.kedvenc ? " · ⭐" : ""}${t.owner_id && t.hirdeto_admin ? ` · <i class="fa-solid fa-user-shield" title="Admin"></i>` : ""}</div>
+                ${t.owner_id && !t.hirdeto_admin ? `<div class="dupOwner"><i class="fa-solid fa-user" aria-hidden="true"></i> ${I18n.t("dupOwnUpload")}: <b>${Utils.escape(t.hirdeto_nev || "–")}</b></div>` : ""}
                 <div class="d-flex justify-content-between align-items-center mt-2">
                     <label class="dupKeep">
-                        <input type="radio" class="form-check-input" name="keep_${g.kulcs}" value="${t.id}" ${marad ? "checked" : ""}>
+                        <input type="radio" class="form-check-input" name="keep_${g.kulcs}" value="${t.id}" ${marad ? "checked" : ""} ${kotott && !marad ? `disabled title="${Utils.escape(I18n.t("dupOwnerKeeps"))}"` : ""}>
                         <span>${I18n.t("dupKeepThis")}</span> <kbd>${idx + 1}</kbd>
                     </label>
                     ${g.tagok.length > 2 ? `<button class="btn btn-link btn-sm p-0 text-body-secondary" data-out="${t.id}">${I18n.t("dupNotThis")}</button>` : ""}
@@ -180,13 +184,15 @@ AdminManager.dupRajzol = function () {
                             <span class="dupScore" title="${I18n.t("dupScore")}">${g.pont}%</span>
                             <div class="dupWhyList">${AdminManager.dupOkok(g.okok)}</div>
                         </div>
+                        ${g.sajatFeltoltes ? `<div class="dupOwnerNote"><i class="fa-solid fa-user-check" aria-hidden="true"></i> ${I18n.t("dupOwnerNote")}</div>` : ""}
+                        ${g.kulonbozoHirdetok ? `<div class="alert alert-warning small py-2"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${I18n.t("dupDifferentOwners")}</div>` : ""}
                         <div class="dupCols" style="--cols:${Math.min(g.tagok.length, 4)}">
                             ${g.tagok.map((t, idx) => AdminManager.dupTag(g, t, idx)).join("")}
                         </div>
                         <div class="d-flex flex-wrap gap-2 justify-content-end mt-3">
                             <button class="btn btn-sm btn-link text-body-secondary" data-skip="${gi}">${I18n.t("dupSkip")} <kbd>→</kbd></button>
                             <button class="btn btn-sm btn-outline-secondary" data-ignore="${gi}"><i class="fa-solid fa-xmark"></i> ${I18n.t("dupNotDuplicate")} <kbd>N</kbd></button>
-                            <button class="btn btn-sm btn-primary" data-merge="${gi}"><i class="fa-solid fa-object-group"></i> ${I18n.t("dupMerge")} <kbd>M</kbd></button>
+                            <button class="btn btn-sm btn-primary" data-merge="${gi}" ${g.kulonbozoHirdetok ? "disabled" : ""}><i class="fa-solid fa-object-group"></i> ${I18n.t("dupMerge")} <kbd>M</kbd></button>
                         </div>
                     </div>
                 </div>`).join("") : `<div class="emptyState"><i class="fa-solid fa-check"></i><h5>${I18n.t("dupNone")}</h5></div>`}
@@ -206,6 +212,8 @@ AdminManager.dupKivesz = function (g) {
 
 AdminManager.dupOsszevon = function (g) {
 
+    if (g.kulonbozoHirdetok) { alert(I18n.t("dupDifferentOwners")); return Promise.resolve(); }
+
     const megtart = AdminManager.dupMarad[g.kulcs] || g.javasolt;
     const torlendo = g.tagok.map(t => t.id).filter(id => id !== megtart);
 
@@ -214,6 +222,7 @@ AdminManager.dupOsszevon = function (g) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ megtart, torlendo })
     }).then(r => {
+        if (r.status === 400) return r.json().then(v => { throw new Error(v.error === "different_owners" ? I18n.t("dupDifferentOwners") : (v.error || "HTTP 400")); });
         if (!r.ok) throw new Error("HTTP " + r.status);
         AdminManager.dupKivesz(g);
         AdminManager.dupValtozott = true;
@@ -272,7 +281,7 @@ AdminManager.dupKot = function () {
 
     const all = document.getElementById("dupMergeAll");
     if (all) all.onclick = () => {
-        const erosek = lista.filter(g => g.eros);
+        const erosek = lista.filter(g => g.eros && !g.kulonbozoHirdetok);
         if (!confirm(I18n.f("dupMergeAllConfirm", { n: erosek.length }))) return;
         all.disabled = true;
         all.innerHTML = `<span class="spinner-border spinner-border-sm"></span> ${I18n.t("dupMerging")}`;

@@ -82,6 +82,8 @@ app.use(require("./routes/beallitasok"));
 app.use(require("./routes/kornyek"));
 app.use(require("./routes/reklam"));
 app.use(require("./routes/penzugy"));
+app.use(require("./routes/csomagok"));
+app.use(require("./routes/megbizas"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {

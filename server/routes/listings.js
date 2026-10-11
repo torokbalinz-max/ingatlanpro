@@ -43,7 +43,7 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
     try {
 
         const r = await db.query(`
-            SELECT ${LISTA_MEZOK}, i.leiras, i.forras_szoveg,
+            SELECT ${LISTA_MEZOK}, i.leiras, i.forras_szoveg, i.megbizas_id,
                    (SELECT COALESCE(u.nev, u.felhasznalonev) FROM users u WHERE u.id = i.owner_id) AS hirdeto_nev
             FROM ingatlanok i WHERE i.id = $1`, [req.params.id]);
 
@@ -284,6 +284,17 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
 
         await kepeketMent(client, id, kepek);
         await irodaMent(client, id, iroda);
+
+        // Eladjuk helyetted: az admin a megbízás adataiból adta fel → a hirdetés a megbízásé
+        const megbizasId = req.szerep === "admin" ? Number(req.body.megbizas_id) || null : null;
+        if (megbizasId) {
+            const mr = await client.query("UPDATE megbizasok SET ingatlan_id = $1, updated_at = NOW() WHERE id = $2 RETURNING id", [id, megbizasId]);
+            if (mr.rowCount) {
+                await client.query("UPDATE ingatlanok SET megbizas_id = $1 WHERE id = $2", [megbizasId, id]);
+                await client.query("INSERT INTO megbizas_naplo (megbizas_id, tipus, szoveg, lathato_eladonak, created_by) VALUES ($1, 'jegyzet', $2, false, $3)",
+                    [megbizasId, `Hirdetés feladva: #${id}`, req.user.id]);
+            }
+        }
 
         await client.query("COMMIT");
 

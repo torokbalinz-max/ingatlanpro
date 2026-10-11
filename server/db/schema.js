@@ -809,6 +809,163 @@ async function createSchema(db) {
 
     await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_kiadas_datum ON penzugy_kiadasok (datum)`);
 
+    // ===================== 8. változat =====================
+
+    // Díjcsomagok az árlistán (Csomagok és árak oldal): kinek szól (magánszemély /
+    // iroda / mindenki), látszik-e nyilvánosan, kiemelt-e ("legnépszerűbb"),
+    // leírás és előnyök (soronként egy) három nyelven
+    const csomagOszlopok = [
+        "celcsoport TEXT DEFAULT 'mindenki'",
+        "nyilvanos BOOLEAN DEFAULT true",
+        "kiemelt BOOLEAN DEFAULT false",
+        "leiras_ro TEXT",
+        "leiras_en TEXT",
+        "elonyok TEXT",
+        "elonyok_ro TEXT",
+        "elonyok_en TEXT"
+    ];
+    for (const o of csomagOszlopok) {
+        await db.query(`ALTER TABLE penzugy_csomagok ADD COLUMN IF NOT EXISTS ${o}`);
+    }
+
+    // Rendelések: a felhasználó a Csomagok és árak oldalon megrendel egy csomagot →
+    // ügyfél + (függő) előfizetés + díjbekérő. A befizetés után a csomag él.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS penzugy_rendelesek (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE SET NULL,
+            csomag_id INTEGER REFERENCES penzugy_csomagok(id) ON DELETE SET NULL,
+            ugyfel_id INTEGER REFERENCES penzugy_ugyfelek(id) ON DELETE SET NULL,
+            elofizetes_id INTEGER REFERENCES penzugy_elofizetesek(id) ON DELETE SET NULL,
+            szamla_id INTEGER REFERENCES penzugy_szamlak(id) ON DELETE SET NULL,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE SET NULL,
+            celcsoport TEXT DEFAULT 'maganszemely',
+            megnevezes TEXT,
+            ar NUMERIC(12,2) DEFAULT 0,
+            penznem TEXT DEFAULT 'RON',
+            idoszak TEXT,
+            statusz TEXT DEFAULT 'fizetesre_var',
+            megjegyzes TEXT,
+            fizetve TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_rendeles_user ON penzugy_rendelesek (user_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_rendeles_statusz ON penzugy_rendelesek (statusz)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_rendeles_szamla ON penzugy_rendelesek (szamla_id)`);
+
+    // ---------- Eladjuk helyetted: megbízásos értékesítés ----------
+    // A tulajdonos az oldalon kiválasztja a szolgáltatásokat (fotózás, hirdetés,
+    // bemutatás...), mi szerződést kötünk, lefotózzuk, feltöltjük, reklámozzuk,
+    // kezeljük az érdeklődőket, megtekintéseket, ajánlatokat.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megbizasok (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE SET NULL,
+            statusz TEXT DEFAULT 'uj',
+            ugylet TEXT DEFAULT 'elado',
+            tipus TEXT,
+            varos TEXT,
+            telepules TEXT,
+            cim TEXT,
+            nm DOUBLE PRECISION,
+            szobak INTEGER,
+            kert_ar DOUBLE PRECISION,
+            leiras TEXT,
+            nev TEXT,
+            email TEXT,
+            telefon TEXT,
+            elerhetoseg TEXT,
+            opciok JSONB DEFAULT '[]'::jsonb,
+            jutalek NUMERIC(5,2),
+            fix_dij NUMERIC(12,2),
+            penznem TEXT DEFAULT 'EUR',
+            kizarolagos BOOLEAN DEFAULT false,
+            idotartam_honap INTEGER DEFAULT 6,
+            szerzodes_szam TEXT,
+            szerzodes_datum DATE,
+            alairva DATE,
+            eladasi_ar DOUBLE PRECISION,
+            eladva DATE,
+            admin_jegyzet TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_megbizas_user ON megbizasok (user_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_megbizas_statusz ON megbizasok (statusz)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_megbizas_ingatlan ON megbizasok (ingatlan_id)`);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megbizas_erdeklodok (
+            id SERIAL PRIMARY KEY,
+            megbizas_id INTEGER REFERENCES megbizasok(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            nev TEXT,
+            telefon TEXT,
+            email TEXT,
+            koltsegkeret DOUBLE PRECISION,
+            finanszirozas TEXT,
+            statusz TEXT DEFAULT 'uj',
+            megjegyzes TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_erd ON megbizas_erdeklodok (megbizas_id)`);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megbizas_megtekintesek (
+            id SERIAL PRIMARY KEY,
+            megbizas_id INTEGER REFERENCES megbizasok(id) ON DELETE CASCADE,
+            erdeklodo_id INTEGER REFERENCES megbizas_erdeklodok(id) ON DELETE SET NULL,
+            idopont TIMESTAMP,
+            javasolt TEXT,
+            statusz TEXT DEFAULT 'kert',
+            visszajelzes TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_megt ON megbizas_megtekintesek (megbizas_id)`);
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megbizas_ajanlatok (
+            id SERIAL PRIMARY KEY,
+            megbizas_id INTEGER REFERENCES megbizasok(id) ON DELETE CASCADE,
+            erdeklodo_id INTEGER REFERENCES megbizas_erdeklodok(id) ON DELETE SET NULL,
+            osszeg DOUBLE PRECISION,
+            penznem TEXT DEFAULT 'EUR',
+            feltetelek TEXT,
+            statusz TEXT DEFAULT 'uj',
+            ellenajanlat DOUBLE PRECISION,
+            elado_valasz TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_ajanlat ON megbizas_ajanlatok (megbizas_id)`);
+
+    // Napló: státuszváltás, jegyzet, egyeztetés az eladóval
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megbizas_naplo (
+            id SERIAL PRIMARY KEY,
+            megbizas_id INTEGER REFERENCES megbizasok(id) ON DELETE CASCADE,
+            tipus TEXT DEFAULT 'jegyzet',
+            szoveg TEXT,
+            lathato_eladonak BOOLEAN DEFAULT false,
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_naplo ON megbizas_naplo (megbizas_id)`);
+
+    // A megbízásos hirdetés jelölése (a hirdetés oldalán: „Az IngatlanPro értékesíti”)
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS megbizas_id INTEGER`);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

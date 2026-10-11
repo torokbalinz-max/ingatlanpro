@@ -129,7 +129,9 @@ async function keres() {
     const r = await db.query(`
         SELECT i.id, i.link, i.ar, i.nm, i.szobak, i.emelet, i.allapot, i.varos, i.kerulet, i.telepules,
                i.tipus, i.ugylet, i.cim, i.created_at, i.tovabbi_linkek, i.kulso_kepek, i.x, i.y, i.hely_pontossag,
-               i.statusz, i.owner_id, i.jovahagyva, i.leiras IS NOT NULL AS leiras, i.evszam, i.telek_nm,
+               i.statusz, i.owner_id, i.jovahagyva, i.leiras IS NOT NULL AS leiras, i.evszam, i.telek_nm, i.forras_tipus,
+               (SELECT COALESCE(u.nev, u.felhasznalonev, u.email) FROM users u WHERE u.id = i.owner_id) AS hirdeto_nev,
+               (SELECT u.szerep FROM users u WHERE u.id = i.owner_id) AS hirdeto_szerep,
                (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db,
                (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id,
                (SELECT COUNT(*) FROM favorites f WHERE f.property_id = i.id)::int AS kedvenc_db
@@ -246,7 +248,10 @@ async function keres() {
         }));
 
         const legjobb = c.parok.reduce((m, p) => p.pont > m.pont ? p : m, c.parok[0]);
-        const javasolt = [...tagok].sort((a, b) => teljesseg(b) - teljesseg(a) || a.id - b.id)[0].id;
+        // A hirdető saját feltöltése mindig megmarad (az ő adatai és üzenetei)
+        const tulajok = [...new Set(tagok.map(t => t.owner_id).filter(Boolean))];
+        const sajat = tulajok.length === 1 ? tagok.find(t => t.owner_id === tulajok[0] && t.forras_tipus === "kezi") || tagok.find(t => t.owner_id === tulajok[0]) : null;
+        const javasolt = sajat ? sajat.id : [...tagok].sort((a, b) => teljesseg(b) - teljesseg(a) || a.id - b.id)[0].id;
 
         // Csak akkor "nagyon valószínű" a csoport, ha minden tag erős párral kapcsolódik
         const erosTag = new Set();
@@ -259,11 +264,15 @@ async function keres() {
             pont: legjobb.pont,
             okok: legjobb.okok,
             javasolt,
+            // Fiókkal feltöltött hirdetés + más oldalon lévő példány(ok)
+            sajatFeltoltes: !!sajat && tagok.some(t => t.link && !t.owner_id),
+            kulonbozoHirdetok: tulajok.length > 1,
             tagok: tagok.map(t => ({
                 id: t.id, link: t.link, ar: t.ar, nm: t.nm, szobak: t.szobak, emelet: t.emelet, allapot: t.allapot,
                 varos: t.varos, kerulet: t.kerulet, telepules: t.telepules, tipus: t.tipus, ugylet: t.ugylet,
                 cim: t.cim, created_at: t.created_at, kep_db: t.kep_db, kep_id: t.kep_id, kedvenc: t.kedvenc,
-                owner_id: t.owner_id, tovabbi_linkek: t.tovabbi_linkek,
+                owner_id: t.owner_id, tovabbi_linkek: t.tovabbi_linkek, forras_tipus: t.forras_tipus,
+                hirdeto_nev: t.owner_id ? t.hirdeto_nev : null, hirdeto_admin: t.hirdeto_szerep === "admin",
                 kepek: [
                     ...(t.kep_id ? ["db:" + t.kep_id] : []),
                     ...(t.kulso_kepek || []).slice(0, 5)
@@ -361,6 +370,21 @@ async function osszevonKliens(client, megtartId, torlendoIds) {
 
     const r = await client.query("SELECT * FROM ingatlanok WHERE id = ANY($1::int[])", [ids]);
 
+    // Fiókkal feltöltött hirdetés (a hirdető saját feltöltése) mindig megmarad:
+    // az ő adatai, elérhetősége, üzenetei élnek tovább, a más oldalon lévő
+    // példány linkje „további linkként” kerül hozzá (a hirdetésen: „Más oldalakon
+    // is fent van”). Két különböző hirdető hirdetését nem vonjuk össze.
+    const tulajok = [...new Set(r.rows.map(i => i.owner_id).filter(Boolean))];
+    if (tulajok.length > 1) {
+        const e = new Error("different_owners");
+        e.kod = "different_owners";
+        throw e;
+    }
+    if (tulajok.length === 1) {
+        const sajat = r.rows.find(i => i.owner_id === tulajok[0] && i.forras_tipus === "kezi") || r.rows.find(i => i.owner_id === tulajok[0]);
+        if (sajat && sajat.id !== Number(megtartId)) megtartId = sajat.id;
+    }
+
     const fo = r.rows.find(i => i.id === Number(megtartId));
     const tobbi = r.rows.filter(i => i.id !== Number(megtartId));
 
@@ -405,9 +429,22 @@ async function osszevonKliens(client, megtartId, torlendoIds) {
         [JSON.stringify([...linkek]), fo.id, ...kulcsok.map(k => uj[k])]
     );
 
+    // A megbízás / iroda / ügynök adatai a megtartotthoz (ha neki nincs)
+    const iroda = tobbi.find(i => i.iroda_id);
+    if (!fo.iroda_id && iroda && (!fo.owner_id || fo.owner_id === iroda.owner_id)) {
+        await client.query("UPDATE ingatlanok SET iroda_id = $1, ugynok_id = $2 WHERE id = $3", [iroda.iroda_id, iroda.ugynok_id || null, fo.id]).catch(() => { });
+    }
+    const mbz = tobbi.find(i => i.megbizas_id);
+    if (!fo.megbizas_id && mbz) {
+        await client.query("UPDATE ingatlanok SET megbizas_id = $1 WHERE id = $2", [mbz.megbizas_id, fo.id]).catch(() => { });
+        await client.query("UPDATE megbizasok SET ingatlan_id = $1 WHERE id = $2", [fo.id, mbz.megbizas_id]).catch(() => { });
+    }
+    // A rendelések (pl. kiemelés) a megtartott hirdetésre
+    await client.query("UPDATE penzugy_rendelesek SET ingatlan_id = $1 WHERE ingatlan_id = ANY($2::int[])", [fo.id, tobbi.map(i => i.id)]).catch(() => { });
+
     await athelyezEsTorol(client, fo.id, tobbi.map(i => i.id));
 
-    return { megtart: fo.id, torolt: tobbi.length };
+    return { megtart: fo.id, torolt: tobbi.length, sajatMarad: !!fo.owner_id };
 
 }
 

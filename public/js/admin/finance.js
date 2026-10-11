@@ -629,13 +629,18 @@ AdminManager.renderFinPackages = function () {
                             <div class="flex-fill">
                                 <b>${esc(AdminManager.finCsomagNev(c))}</b>
                                 <div class="small text-body-secondary">${esc(AdminManager.finKatLabel(c.kategoria))}${c.aktiv ? "" : ` · ${I18n.t("finInactive")}`}</div>
+                                <div class="mt-1 d-flex flex-wrap gap-1">
+                                    <span class="badge text-bg-light"><i class="fa-solid ${c.celcsoport === "iroda" ? "fa-briefcase" : c.celcsoport === "maganszemely" ? "fa-user" : "fa-users"}" aria-hidden="true"></i> ${esc(I18n.t("finAud_" + (c.celcsoport || "mindenki")))}</span>
+                                    ${c.nyilvanos === false ? `<span class="badge text-bg-secondary">${I18n.t("finHidden")}</span>` : ""}
+                                    ${c.kiemelt ? `<span class="badge text-bg-warning">${I18n.t("prPopular")}</span>` : ""}
+                                </div>
                             </div>
                         </div>
                         <div class="finPkgPrice">${esc(AdminManager.finPenz(c.ar, c.penznem))} <small>/ ${esc(AdminManager.finIdoszakLabel(c.idoszak))}</small></div>
                         ${c.leiras ? `<p class="small mb-2">${esc(c.leiras)}</p>` : ""}
                         <div class="mb-2">${jogok(c.jogosultsag)}</div>
                         <div class="d-flex flex-wrap align-items-center gap-2 mt-auto">
-                            <span class="small text-body-secondary flex-fill">${I18n.f("finSubscribersN", { n: c.elofizetok })}</span>
+                            <span class="small text-body-secondary flex-fill">${I18n.f("finSubscribersN", { n: c.elofizetok })}${c.rendelesek ? ` · ${I18n.f("finOrdersN", { n: c.rendelesek })}` : ""}${c.fizetesre_var ? ` · <span class="text-warning">${I18n.f("finAwaitingN", { n: c.fizetesre_var })}</span>` : ""}</span>
                             <button type="button" class="btn btn-sm btn-outline-primary" data-cs-szerk="${c.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${I18n.t("adsEdit")}</button>
                         </div>
                     </article>`).join("") || `<p class="text-body-secondary">${I18n.t("finNoPackages")}</p>`}
@@ -695,9 +700,44 @@ AdminManager.finCsomagSzerk = function (c) {
                     <select class="form-select form-select-sm" id="fcIdoszak">${L.idoszakok.map(p => `<option value="${p}" ${c.idoszak === p ? "selected" : ""}>${esc(AdminManager.finIdoszakLabel(p))}</option>`).join("")}</select>
                 </div>
                 <div class="col-12">
-                    <label class="form-label small mb-1" for="fcLeiras">${I18n.t("finDescription")}</label>
+                    <label class="form-label small mb-1" for="fcLeiras">${I18n.t("finDescription")} (HU)</label>
                     <textarea class="form-control form-control-sm" id="fcLeiras" rows="2" maxlength="1000">${esc(c.leiras || "")}</textarea>
                 </div>
+            </div>
+            <h6 class="mt-3 mb-1">${I18n.t("finPricePage")}</h6>
+            <p class="small text-body-secondary mb-2">${I18n.t("finPricePageNote")}</p>
+            <div class="row g-2">
+                <div class="col-sm-4">
+                    <label class="form-label small mb-1" for="fcCel">${I18n.t("finAudience")}</label>
+                    <select class="form-select form-select-sm" id="fcCel">
+                        ${["maganszemely", "iroda", "mindenki"].map(k => `<option value="${k}" ${(c.celcsoport || "mindenki") === k ? "selected" : ""}>${esc(I18n.t("finAud_" + k))}</option>`).join("")}
+                    </select>
+                </div>
+                <div class="col-sm-4 d-flex align-items-end">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="fcNyilv" ${c.nyilvanos !== false ? "checked" : ""}>
+                        <label class="form-check-label small" for="fcNyilv">${I18n.t("finPublic")}</label>
+                    </div>
+                </div>
+                <div class="col-sm-4 d-flex align-items-end">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="fcKiemelt" ${c.kiemelt ? "checked" : ""}>
+                        <label class="form-check-label small" for="fcKiemelt">${I18n.t("finHighlighted")}</label>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label small mb-1" for="fcLeirasRo">${I18n.t("finDescription")} (RO)</label>
+                    <textarea class="form-control form-control-sm" id="fcLeirasRo" rows="2" maxlength="1000">${esc(c.leiras_ro || "")}</textarea>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label small mb-1" for="fcLeirasEn">${I18n.t("finDescription")} (EN)</label>
+                    <textarea class="form-control form-control-sm" id="fcLeirasEn" rows="2" maxlength="1000">${esc(c.leiras_en || "")}</textarea>
+                </div>
+                ${[["fcElony", "elonyok", "HU"], ["fcElonyRo", "elonyok_ro", "RO"], ["fcElonyEn", "elonyok_en", "EN"]].map(([id, k, ny]) => `
+                    <div class="col-sm-4">
+                        <label class="form-label small mb-1" for="${id}">${I18n.t("finBenefits")} (${ny})</label>
+                        <textarea class="form-control form-control-sm" id="${id}" rows="4" maxlength="2000" placeholder="${esc(I18n.t("finBenefitsPh"))}">${esc(c[k] || "")}</textarea>
+                    </div>`).join("")}
             </div>
             <h6 class="mt-3 mb-1">${I18n.t("finRights")}</h6>
             <p class="small text-body-secondary mb-2">${I18n.t("finRightsNote")}</p>
@@ -754,6 +794,9 @@ AdminManager.finCsomagSzerk = function (c) {
             nev: $("#fcNev").value, nev_ro: $("#fcNevRo").value, nev_en: $("#fcNevEn").value, kategoria: $("#fcKat").value,
             ar: $("#fcAr").value, penznem: $("#fcPenznem").value, idoszak: $("#fcIdoszak").value, leiras: $("#fcLeiras").value,
             kod: $("#fcKod").value, sorrend: $("#fcSorrend").value, aktiv: $("#fcAktiv").checked,
+            celcsoport: $("#fcCel").value, nyilvanos: $("#fcNyilv").checked, kiemelt: $("#fcKiemelt").checked,
+            leiras_ro: $("#fcLeirasRo").value, leiras_en: $("#fcLeirasEn").value,
+            elonyok: $("#fcElony").value, elonyok_ro: $("#fcElonyRo").value, elonyok_en: $("#fcElonyEn").value,
             jogosultsag: {
                 hirdetes_limit: ures($("#fcLimit").value), hirdetes_plusz: ures($("#fcPlusz").value), kiemeles: ures($("#fcKiemeles").value),
                 korlatlan_hirdetes: $("#fcJ_korlatlan_hirdetes").checked, reklammentes: $("#fcJ_reklammentes").checked,

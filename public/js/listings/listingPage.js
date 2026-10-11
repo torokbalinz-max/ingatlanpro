@@ -93,13 +93,18 @@ class ListingPage {
         // Hol van meghirdetve
         const linkek = [i.link, ...(i.tovabbi_linkek || [])].filter(l => l && Sources.fromLink(l) !== "other");
 
-        const forrasHtml = linkek.length
+        // A hirdető itt (fiókkal) töltötte fel, és más oldalakon is fent van:
+        // itt közvetlenül neki lehet írni
+        const sajatEsMas = i.owner_id && linkek.length && !i.iroda;
+        const forrasHtml = (sajatEsMas ? `
+                <div class="sourceLink local ownUpload"><i class="fa-solid fa-house-flag"></i> <span>${I18n.t("lpOwnUploadHere")}</span></div>
+                <p class="small text-body-secondary mb-2 mt-1">${I18n.t("lpAlsoOnOther")}</p>` : "") + (linkek.length
             ? linkek.map(l => `
                 <a class="sourceLink" href="${Utils.escape(l)}" target="_blank" rel="noopener">
                     <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     ${I18n.f("viewOnSite", { site: Utils.escape(Sources.label(Sources.fromLink(l))) })}
                 </a>`).join("")
-            : `<div class="sourceLink local"><i class="fa-solid fa-house-flag"></i> ${I18n.t("onlyHere")}</div>`;
+            : `<div class="sourceLink local"><i class="fa-solid fa-house-flag"></i> ${I18n.t("onlyHere")}</div>`);
 
         const hianyzo = Array.isArray(i.hianyzo) ? i.hianyzo : [];
 

@@ -1,7 +1,8 @@
 // ============================================================
 //  Oldalak (a fejléc menüpontjai) + címsor (#hash) kezelés
 //  #properties, #market, #new, #favorites, #valuation, #admin,
-//  #user, #listing/123, #jogi/aszf, #sugo/piac, #irodak, #irodak/5
+//  #user, #listing/123, #jogi/aszf, #sugo/piac, #irodak, #irodak/5,
+//  #csomagok, #eladjuk
 // ============================================================
 
 class PageManager {
@@ -24,7 +25,9 @@ class PageManager {
         irodak: { icon: "fa-solid fa-briefcase", label: "agDirTitle" },
         listing: { icon: "fa-solid fa-rectangle-list", label: "menuHirdetes" },
         jogi: { icon: "fa-solid fa-scale-balanced", label: "legalPageTitle" },
-        sugo: { icon: "fa-solid fa-circle-question", label: "menuSugo" }
+        sugo: { icon: "fa-solid fa-circle-question", label: "menuSugo" },
+        csomagok: { icon: "fa-solid fa-tags", label: "menuCsomagok" },
+        eladjuk: { icon: "fa-solid fa-key", label: "menuEladjuk" }
     };
 
     // Régi nevek (más modulok még ezeket hívhatják)
@@ -110,9 +113,11 @@ class PageManager {
         // A hirdetés oldal a lista része (a menüben az Ingatlanok marad kiemelve)
         const menuPage = page === "listing" ? PageManager.lastListPage : page;
 
-        document.querySelectorAll(".navMenu .dropdown-item, .navLink, .navAdminBtn, .navPostBtn, .navHelpBtn").forEach(a => {
+        document.querySelectorAll(".navMenu .dropdown-item, .navAdminBtn, .navPostBtn, .navHelpBtn").forEach(a => {
             a.classList.toggle("active", a.dataset.page === menuPage);
         });
+
+        if (typeof NavMenu !== "undefined") NavMenu.aktiv(menuPage);
 
         document.body.dataset.page = page;
 
@@ -165,6 +170,14 @@ class PageManager {
         // Jogi oldalak (impresszum, feltételek, adatvédelem, sütik, bejelentés)
         if (page === "jogi" && typeof LegalPage !== "undefined") {
             LegalPage.show(param);
+        }
+
+        if (page === "csomagok" && typeof PricingPage !== "undefined") {
+            PricingPage.show(param);
+        }
+
+        if (page === "eladjuk" && typeof SellForYouPage !== "undefined") {
+            SellForYouPage.show(param);
         }
 
         if (page === "sugo") {

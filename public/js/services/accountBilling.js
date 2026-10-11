@@ -1,0 +1,192 @@
+// ============================================================
+//  Fiókom → Csomagom és számláim (#fiok/csomag)
+//
+//  - a jelenlegi jogaim (hány hirdetést tehetek fel, reklámmentes...)
+//  - az irodáim csomagja (ha irodavezető vagyok)
+//  - előfizetéseim (lemondás: a kifizetett időszak végéig él)
+//  - fizetésre váró rendeléseim: átutalási adatok, díjbekérő, visszavonás
+//  - díjbekérőim / számláim (megnyitás, nyomtatás / PDF)
+// ============================================================
+
+class AccountBilling {
+
+    static render(el) {
+
+        AccountPage.spinner(el);
+
+        Svc.api("/api/sajat-csomag/attekintes").then(d => AccountBilling.rajzol(el, d)).catch(() => {
+            el.innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`;
+        });
+
+    }
+
+    static rajzol(el, d) {
+
+        const esc = Utils.escape;
+        const j = d.jog || {};
+        const h = d.hasznalat || {};
+        const ma = new Date().toISOString().slice(0, 10);
+
+        const jogok = [];
+        jogok.push(h.limit === null || h.limit === undefined
+            ? I18n.f("prUsageUnlimited", { db: h.db })
+            : I18n.f("prUsage", { db: h.db, limit: h.limit }));
+        if (j.reklammentes) jogok.push(I18n.t("finRightAdFree"));
+        if (j.pro_statisztika) jogok.push(I18n.t("finRightProStats"));
+        if (j.kiemeles) jogok.push(I18n.f("finRightFeatured", { n: j.kiemeles }));
+
+        const szazalek = h.limit ? Math.min(100, Math.round(h.db / h.limit * 100)) : 0;
+
+        const fuggok = d.rendelesek.filter(r => r.statusz === "fizetesre_var");
+        const elof = d.elofizetesek;
+
+        const allapotBadge = s => {
+            const m = {
+                fizetve: ["success", "accBillPaid"], kiallitva: ["warning", "accBillOpen"], lejart: ["danger", "accBillLate"],
+                sztorno: ["secondary", "accBillCancelled"]
+            }[s] || ["secondary", s];
+            return `<span class="badge text-bg-${m[0]}">${esc(I18n.t(m[1]))}</span>`;
+        };
+
+        const elofStatusz = e => {
+            if (e.statusz === "fuggo") return `<span class="badge text-bg-warning">${I18n.t("accSubPending")}</span>`;
+            if (e.vege && e.vege < ma) return `<span class="badge text-bg-secondary">${I18n.t("accSubEnded")}</span>`;
+            if (e.vege) return `<span class="badge text-bg-info">${I18n.f("accSubEnds", { d: Svc.nap(e.vege) })}</span>`;
+            if (e.statusz === "aktiv") return `<span class="badge text-bg-success">${I18n.t("accSubActive")}</span>`;
+            return `<span class="badge text-bg-secondary">${esc(e.statusz)}</span>`;
+        };
+
+        el.innerHTML = `
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="card abPlan">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <span class="kpiIcon green"><i class="fa-solid fa-receipt" aria-hidden="true"></i></span>
+                                <div>
+                                    <small class="text-body-secondary">${I18n.t("prYourPlan")}</small>
+                                    <h5 class="mb-0">${j.csomagok ? I18n.f("prYourPlanN", { n: j.csomagok }) : I18n.t("prYourPlanFree")}</h5>
+                                </div>
+                            </div>
+                            ${h.limit ? `
+                                <div class="d-flex justify-content-between small mb-1"><span>${I18n.t("accActiveListings")}</span><b>${h.db} / ${h.limit}</b></div>
+                                <div class="progress mb-3" role="progressbar" aria-valuenow="${szazalek}" aria-valuemin="0" aria-valuemax="100" style="height:8px"><div class="progress-bar ${szazalek >= 100 ? "bg-danger" : ""}" style="width:${szazalek}%"></div></div>` : ""}
+                            <ul class="prList mb-3">${jogok.map(x => `<li><i class="fa-solid fa-check" aria-hidden="true"></i> ${esc(x)}</li>`).join("")}</ul>
+                            ${!h.korlatok_be ? `<p class="small text-body-secondary mb-3">${I18n.t("prLimitsOff")}</p>` : ""}
+                            <a class="btn btn-primary w-100" href="#csomagok"><i class="fa-solid fa-tags" aria-hidden="true"></i> ${I18n.t("accSeePackages")}</a>
+                        </div>
+                    </div>
+
+                    ${d.irodak.length ? d.irodak.map(i => `
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center gap-2 mb-2"><i class="fa-solid fa-briefcase text-body-secondary" aria-hidden="true"></i> <b>${esc(i.nev)}</b></div>
+                                <div class="small">${i.limit === null ? I18n.f("prUsageUnlimited", { db: i.db }) : I18n.f("prUsage", { db: i.db, limit: i.limit })}</div>
+                                <div class="small text-body-secondary">${i.csomagok ? I18n.f("prYourPlanN", { n: i.csomagok }) : I18n.t("prYourPlanFree")}</div>
+                                <a class="btn btn-sm btn-outline-primary mt-2" href="#csomagok/iroda">${I18n.t("accAgencyPackages")}</a>
+                            </div>
+                        </div>`).join("") : ""}
+                </div>
+
+                <div class="col-lg-7">
+
+                    ${fuggok.length ? `
+                        <div class="card abPending mb-4">
+                            <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> ${I18n.t("accPendingOrders")}</h5></div>
+                            <div class="card-body">
+                                ${fuggok.map(r => `
+                                    <div class="abOrder">
+                                        <div class="d-flex flex-wrap justify-content-between gap-2">
+                                            <div>
+                                                <b>${esc(Svc.rovidNev({ nev: r.csomag_nev || r.megnevezes, nev_ro: r.nev_ro, nev_en: r.nev_en }))}</b>
+                                                ${r.iroda_nev ? `<span class="small text-body-secondary"> · ${esc(r.iroda_nev)}</span>` : ""}
+                                                <div class="small text-body-secondary">${I18n.t("prProforma")}: <b>${esc(r.sorszam || "–")}</b> · ${I18n.t("prDue")}: ${esc(Svc.nap(r.esedekes))}</div>
+                                            </div>
+                                            <b class="fs-5">${esc(Svc.penz(r.ar, r.penznem))}</b>
+                                        </div>
+                                        <div class="prPayBox compact mt-2">
+                                            <div><span>${I18n.t("prBeneficiary")}</span><b>${esc(d.fizetes.kedvezmenyezett || "IngatlanPro")}</b></div>
+                                            <div><span>IBAN</span><b class="${d.fizetes.iban ? "prIban" : ""}">${esc(d.fizetes.iban || I18n.t("prIbanSoon"))}</b></div>
+                                            ${d.fizetes.bank ? `<div><span>${I18n.t("prBank")}</span><b>${esc(d.fizetes.bank)}</b></div>` : ""}
+                                            <div><span>${I18n.t("prReference")}</span><b>${esc(r.sorszam || "")}</b></div>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-2 mt-2">
+                                            ${r.szamla_id ? `<a class="btn btn-sm btn-outline-secondary" href="/api/sajat-csomag/szamlak/${r.szamla_id}/nyomtat" target="_blank" rel="noopener"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("prOpenProforma")}</a>` : ""}
+                                            <button type="button" class="btn btn-sm btn-link text-danger" data-visszavon="${r.id}">${I18n.t("accCancelOrder")}</button>
+                                        </div>
+                                    </div>`).join("")}
+                                <p class="small text-body-secondary mb-0 mt-2">${I18n.t("prAfterPay")}</p>
+                            </div>
+                        </div>` : ""}
+
+                    <div class="card mb-4">
+                        <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> ${I18n.t("accSubscriptions")}</h5></div>
+                        <div class="card-body">
+                            ${elof.length ? `
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead><tr><th>${I18n.t("accPackage")}</th><th class="text-end">${I18n.t("prAmount")}</th><th>${I18n.t("accPaidUntil")}</th><th></th><th></th></tr></thead>
+                                        <tbody>
+                                            ${elof.map(e => `
+                                                <tr>
+                                                    <td><b>${esc(Svc.rovidNev({ nev: e.csomag_nev || e.megnevezes, nev_ro: e.nev_ro, nev_en: e.nev_en }))}</b>${e.iroda_id ? `<div class="small text-body-secondary">${esc(e.ugyfel_nev)}</div>` : ""}</td>
+                                                    <td class="text-end text-nowrap">${esc(Svc.penz(e.ar * (e.mennyiseg || 1), e.penznem))} <small class="text-body-secondary">/ ${esc(Svc.idoszak(e.idoszak))}</small></td>
+                                                    <td class="text-nowrap">${e.fizetve_ig ? esc(Svc.nap(e.fizetve_ig)) : "–"}</td>
+                                                    <td>${elofStatusz(e)}</td>
+                                                    <td class="text-end">${e.statusz === "aktiv" && !e.vege ? `<button type="button" class="btn btn-sm btn-link text-danger p-0" data-lemond="${e.id}">${I18n.t("accCancelSub")}</button>` : ""}</td>
+                                                </tr>`).join("")}
+                                        </tbody>
+                                    </table>
+                                </div>` : `<p class="text-body-secondary mb-0">${I18n.t("accNoSubs")}</p>`}
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("accInvoices")}</h5></div>
+                        <div class="card-body">
+                            ${d.szamlak.length ? `
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead><tr><th>${I18n.t("accDocNo")}</th><th>${I18n.t("accDocDate")}</th><th class="text-end">${I18n.t("prAmount")}</th><th></th><th></th></tr></thead>
+                                        <tbody>
+                                            ${d.szamlak.map(s => `
+                                                <tr>
+                                                    <td><b>${esc(s.sorszam)}</b><div class="small text-body-secondary text-truncate" style="max-width:260px" title="${esc(s.tetelek || "")}">${esc(s.tetelek || "")}</div>${s.kulso_szam ? `<div class="small">${I18n.t("accOfficialNo")}: ${esc(s.kulso_szam)}</div>` : ""}</td>
+                                                    <td class="text-nowrap">${esc(Svc.nap(s.kiallitva))}</td>
+                                                    <td class="text-end text-nowrap">${esc(Svc.penz(s.brutto, s.penznem))}</td>
+                                                    <td>${allapotBadge(s.allapot)}</td>
+                                                    <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/api/sajat-csomag/szamlak/${s.id}/nyomtat" target="_blank" rel="noopener" title="${esc(I18n.t("prOpenProforma"))}"><i class="fa-solid fa-print" aria-hidden="true"></i></a></td>
+                                                </tr>`).join("")}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p class="small text-body-secondary mt-2 mb-0">${I18n.t("accInvoiceNote")}</p>` : `<p class="text-body-secondary mb-0">${I18n.t("accNoInvoices")}</p>`}
+                        </div>
+                    </div>
+
+                </div>
+            </div>`;
+
+        el.querySelectorAll("[data-lemond]").forEach(b => {
+            b.onclick = () => {
+                if (!confirm(I18n.t("accCancelSubConfirm"))) return;
+                b.disabled = true;
+                Svc.api(`/api/sajat-csomag/elofizetes/${b.dataset.lemond}/lemond`, { method: "POST" })
+                    .then(v => { Utils.toast && Utils.toast(I18n.f("accCancelSubDone", { d: Svc.nap(v.vege) })); AccountBilling.render(el); })
+                    .catch(e => { b.disabled = false; alert(Svc.hiba(e)); });
+            };
+        });
+
+        el.querySelectorAll("[data-visszavon]").forEach(b => {
+            b.onclick = () => {
+                if (!confirm(I18n.t("accCancelOrderConfirm"))) return;
+                b.disabled = true;
+                Svc.api(`/api/sajat-csomag/rendeles/${b.dataset.visszavon}/visszavon`, { method: "POST" })
+                    .then(() => AccountBilling.render(el))
+                    .catch(e => { b.disabled = false; alert(Svc.hiba(e)); });
+            };
+        });
+
+    }
+
+}

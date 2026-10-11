@@ -5,6 +5,8 @@
 //   #fiok/keresesek    mentett keresések (új találatok)
 //   #fiok/igenyek      a keresési igényeim és a rájuk jött válaszok
 //   #fiok/uzenetek     üzenetek
+//   #fiok/csomag       csomagom, rendeléseim, díjbekérőim (services/accountBilling.js)
+//   #fiok/megbizasok   „Eladjuk helyetted” megbízásaim (services/myMandates.js)
 // ============================================================
 
 class AccountPage {
@@ -17,7 +19,9 @@ class AccountPage {
         { key: "hirdetesek", icon: "fa-solid fa-house-user", label: "accTabListings" },
         { key: "keresesek", icon: "fa-solid fa-bookmark", label: "accTabSearches" },
         { key: "igenyek", icon: "fa-solid fa-bullhorn", label: "accTabRequests" },
-        { key: "uzenetek", icon: "fa-solid fa-envelope", label: "accTabMessages" }
+        { key: "uzenetek", icon: "fa-solid fa-envelope", label: "accTabMessages" },
+        { key: "csomag", icon: "fa-solid fa-receipt", label: "accTabBilling" },
+        { key: "megbizasok", icon: "fa-solid fa-key", label: "accTabMandates" }
     ];
 
     static show(param) {
@@ -68,7 +72,9 @@ class AccountPage {
                 const ny = AccountPage.nyitando;
                 AccountPage.nyitando = null;
                 Messages.render(body, ny);
-            }
+            },
+            csomag: () => AccountBilling.render(body),
+            megbizasok: () => MyMandates.render(body)
         })[AccountPage.tab]();
 
     }

@@ -26,7 +26,8 @@
 
 const db = require("../db/database");
 
-const KATEGORIAK = ["iroda_elofizetes", "extra_hirdetes", "reklammentes", "pro_statisztika", "kiemeles", "reklamfelulet", "egyeb"];
+// kozvetites: az „Eladjuk helyetted” megbízások sikerdíja, díjas szolgáltatásai
+const KATEGORIAK = ["iroda_elofizetes", "extra_hirdetes", "reklammentes", "pro_statisztika", "kiemeles", "reklamfelulet", "kozvetites", "egyeb"];
 const IDOSZAKOK = ["egyszeri", "havi", "negyedeves", "eves"];
 const HONAP = { havi: 1, negyedeves: 3, eves: 12 };
 const PENZNEMEK = ["RON", "EUR"];
@@ -35,7 +36,9 @@ const SZAMLA_STATUSZOK = ["piszkozat", "kiallitva", "fizetve", "sztorno"];
 const FIZETESI_MODOK = ["atutalas", "kartya", "keszpenz", "online", "egyeb"];
 const KIADAS_KATEGORIAK = ["tarhely", "domain", "szoftver", "marketing", "konyveles", "adok", "bank", "egyeb"];
 const UGYFEL_TIPUSOK = ["maganszemely", "pfa", "ceg"];
-const ELOFIZETES_STATUSZOK = ["aktiv", "szunetel", "lemondva"];
+// fuggo: megrendelve, de még nincs kifizetve (a befizetéskor lesz aktív)
+const ELOFIZETES_STATUSZOK = ["aktiv", "fuggo", "szunetel", "lemondva"];
+const CELCSOPORTOK = ["maganszemely", "iroda", "mindenki"];
 
 const BEALLITAS_KULCS = "penzugy";
 
@@ -203,28 +206,101 @@ function ronban(osszeg, penznem, b) {
 const ALAP_CSOMAGOK = [
     { kod: "iroda_alap", nev: "Ingatlaniroda – alap (havi)", nev_ro: "Agenție imobiliară – de bază (lunar)", nev_en: "Real estate agency – basic (monthly)",
       kategoria: "iroda_elofizetes", ar: 99, idoszak: "havi", jogosultsag: { hirdetes_limit: 30, iroda_profil: true },
-      leiras: "Irodaprofil, ügynökök, legfeljebb 30 aktív hirdetés." },
+      leiras: "Irodaprofil, ügynökök, legfeljebb 30 aktív hirdetés.", celcsoport: "iroda" },
     { kod: "iroda_pro", nev: "Ingatlaniroda – pro (havi)", nev_ro: "Agenție imobiliară – pro (lunar)", nev_en: "Real estate agency – pro (monthly)",
       kategoria: "iroda_elofizetes", ar: 199, idoszak: "havi", jogosultsag: { korlatlan_hirdetes: true, iroda_profil: true, pro_statisztika: true, kiemeles: 2 },
-      leiras: "Korlátlan hirdetés, részletes statisztika, havi 2 kiemelés." },
+      leiras: "Korlátlan hirdetés, részletes statisztika, havi 2 kiemelés.", celcsoport: "iroda", kiemelt: true },
     { kod: "extra_5", nev: "+5 hirdetés (havi)", nev_ro: "+5 anunțuri (lunar)", nev_en: "+5 listings (monthly)",
       kategoria: "extra_hirdetes", ar: 19, idoszak: "havi", jogosultsag: { hirdetes_plusz: 5 },
-      leiras: "A 2 ingyenes hirdetésen felül még 5 aktív hirdetés." },
+      leiras: "A 2 ingyenes hirdetésen felül még 5 aktív hirdetés.", celcsoport: "maganszemely" },
     { kod: "reklammentes", nev: "Reklámmentes oldal (havi)", nev_ro: "Fără reclame (lunar)", nev_en: "Ad-free (monthly)",
       kategoria: "reklammentes", ar: 9, idoszak: "havi", jogosultsag: { reklammentes: true },
-      leiras: "Belépve nem jelennek meg reklámok." },
+      leiras: "Belépve nem jelennek meg reklámok.", celcsoport: "mindenki" },
     { kod: "pro_stat", nev: "Részletes statisztikák (havi)", nev_ro: "Statistici detaliate (lunar)", nev_en: "Detailed statistics (monthly)",
       kategoria: "pro_statisztika", ar: 29, idoszak: "havi", jogosultsag: { pro_statisztika: true, reklammentes: true },
-      leiras: "Részletes piaci elemzés, ártrendek, exportálás – és reklámmentes." },
+      leiras: "Részletes piaci elemzés, ártrendek, exportálás – és reklámmentes.", celcsoport: "mindenki" },
     { kod: "kiemeles_7", nev: "Kiemelt hirdetés (7 nap)", nev_ro: "Anunț promovat (7 zile)", nev_en: "Featured listing (7 days)",
       kategoria: "kiemeles", ar: 15, idoszak: "egyszeri", jogosultsag: { kiemeles: 1 },
-      leiras: "A hirdetés 7 napig a találatok elején." },
+      leiras: "A hirdetés 7 napig a találatok elején.", celcsoport: "mindenki" },
     { kod: "reklam_honap", nev: "Reklámfelület (havi)", nev_ro: "Spațiu publicitar (lunar)", nev_en: "Ad space (monthly)",
       kategoria: "reklamfelulet", ar: 250, idoszak: "havi", jogosultsag: {},
-      leiras: "Egy reklám a kiválasztott reklámhelyeken egy hónapig." }
+      leiras: "Egy reklám a kiválasztott reklámhelyeken egy hónapig.", celcsoport: "iroda", nyilvanos: false }
+];
+
+// 8. változat: az árlista (Csomagok és árak oldal) adatai a kezdő csomagokhoz –
+// kinek szól, előnyök három nyelven. Csak egyszer fut, utána az adminban szerkeszthető.
+const CSOMAG_V2 = {
+    iroda_alap: {
+        celcsoport: "iroda",
+        elonyok: "Ellenőrzött irodaprofil logóval\nÜgynökök a hirdetéseken\nLegfeljebb 30 aktív hirdetés\nÜzenetek az érdeklődőktől",
+        elonyok_ro: "Profil de agenție verificat, cu logo\nAgenți pe anunțuri\nPână la 30 de anunțuri active\nMesaje de la cei interesați",
+        elonyok_en: "Verified agency profile with logo\nAgents on listings\nUp to 30 active listings\nMessages from interested buyers",
+        leiras_ro: "Profil de agenție, agenți, până la 30 de anunțuri active.",
+        leiras_en: "Agency profile, agents, up to 30 active listings."
+    },
+    iroda_pro: {
+        celcsoport: "iroda", kiemelt: true,
+        elonyok: "Korlátlan aktív hirdetés\nRészletes piaci statisztikák\nHavi 2 kiemelt hirdetés\nReklámmentes felület",
+        elonyok_ro: "Anunțuri active nelimitate\nStatistici de piață detaliate\n2 anunțuri promovate pe lună\nFără reclame",
+        elonyok_en: "Unlimited active listings\nDetailed market statistics\n2 featured listings a month\nAd-free",
+        leiras_ro: "Anunțuri nelimitate, statistici detaliate, 2 promovări pe lună.",
+        leiras_en: "Unlimited listings, detailed statistics, 2 featured listings a month."
+    },
+    extra_5: {
+        celcsoport: "maganszemely",
+        elonyok: "+5 aktív hirdetés\nBármikor lemondható",
+        elonyok_ro: "+5 anunțuri active\nSe poate anula oricând",
+        elonyok_en: "+5 active listings\nCancel any time",
+        leiras_ro: "Încă 5 anunțuri active peste cele gratuite.",
+        leiras_en: "5 more active listings on top of the free ones."
+    },
+    reklammentes: {
+        celcsoport: "mindenki",
+        elonyok: "Belépve nincs reklám sehol az oldalon",
+        elonyok_ro: "Fără reclame pe site când ești autentificat",
+        elonyok_en: "No ads anywhere on the site while logged in",
+        leiras_ro: "Fără reclame când ești autentificat.",
+        leiras_en: "No ads while logged in."
+    },
+    pro_stat: {
+        celcsoport: "mindenki",
+        elonyok: "Részletes piaci elemzés kerületenként\nÁrtrendek, exportálás\nReklámmentes",
+        elonyok_ro: "Analiză de piață detaliată pe cartiere\nTendințe de preț, export\nFără reclame",
+        elonyok_en: "Detailed market analysis by district\nPrice trends, export\nAd-free",
+        leiras_ro: "Analiză de piață detaliată, tendințe, export – și fără reclame.",
+        leiras_en: "Detailed market analysis, trends, export – and ad-free."
+    },
+    kiemeles_7: {
+        celcsoport: "mindenki",
+        elonyok: "7 napig a találatok elején\nKiemelt keret a kártyán",
+        elonyok_ro: "7 zile în fruntea rezultatelor\nCadru evidențiat pe card",
+        elonyok_en: "7 days at the top of the results\nHighlighted card",
+        leiras_ro: "Anunțul apare 7 zile în fruntea rezultatelor.",
+        leiras_en: "The listing stays at the top of the results for 7 days."
+    },
+    reklam_honap: { celcsoport: "iroda", nyilvanos: false }
+};
+
+// Új javasolt csomag magánszemélyeknek (8. változat)
+const UJ_CSOMAGOK_V2 = [
+    { kod: "magan_plusz", nev: "Magánszemély Plusz (havi)", nev_ro: "Persoană fizică Plus (lunar)", nev_en: "Private Plus (monthly)",
+      kategoria: "extra_hirdetes", ar: 29, idoszak: "havi", celcsoport: "maganszemely", kiemelt: true,
+      jogosultsag: { hirdetes_limit: 10, kiemeles: 1, reklammentes: true },
+      leiras: "Legfeljebb 10 aktív hirdetés, havi 1 kiemelés, reklámmentes.",
+      leiras_ro: "Până la 10 anunțuri active, 1 promovare pe lună, fără reclame.",
+      leiras_en: "Up to 10 active listings, 1 featured listing a month, ad-free.",
+      elonyok: "Legfeljebb 10 aktív hirdetés\nHavi 1 kiemelt hirdetés (7 nap)\nReklámmentes felület\nBármikor lemondható",
+      elonyok_ro: "Până la 10 anunțuri active\n1 anunț promovat pe lună (7 zile)\nFără reclame\nSe poate anula oricând",
+      elonyok_en: "Up to 10 active listings\n1 featured listing a month (7 days)\nAd-free\nCancel any time",
+      sorrend: 1 }
 ];
 
 async function kesz() {
+    await keszV1();
+    await keszV2();
+}
+
+async function keszV1() {
     try {
         const r = await db.query("SELECT ertek FROM beallitasok WHERE kulcs = 'penzugy_csomagok_v1'");
         if (r.rowCount) return;
@@ -238,6 +314,37 @@ async function kesz() {
         await db.query("INSERT INTO beallitasok (kulcs, ertek) VALUES ('penzugy_csomagok_v1', '1') ON CONFLICT (kulcs) DO NOTHING");
     } catch (e) {
         console.error("Pénzügy kezdő csomagok:", e.message);
+    }
+}
+
+// Az árlista adatai a kezdő csomagokhoz + az új magánszemély-csomag (egyszer)
+let v2Kesz = false;
+async function keszV2() {
+    if (v2Kesz) return;
+    try {
+        const r = await db.query("SELECT ertek FROM beallitasok WHERE kulcs = 'penzugy_csomagok_v2'");
+        if (r.rowCount) { v2Kesz = true; return; }
+        for (const [kod, d] of Object.entries(CSOMAG_V2)) {
+            await db.query(`
+                UPDATE penzugy_csomagok SET celcsoport = $2, kiemelt = $3, nyilvanos = $4,
+                       elonyok = COALESCE(elonyok, $5), elonyok_ro = COALESCE(elonyok_ro, $6), elonyok_en = COALESCE(elonyok_en, $7),
+                       leiras_ro = COALESCE(leiras_ro, $8), leiras_en = COALESCE(leiras_en, $9)
+                WHERE kod = $1`,
+                [kod, d.celcsoport, !!d.kiemelt, d.nyilvanos !== false, d.elonyok || null, d.elonyok_ro || null, d.elonyok_en || null, d.leiras_ro || null, d.leiras_en || null]);
+        }
+        for (const c of UJ_CSOMAGOK_V2) {
+            await db.query(`
+                INSERT INTO penzugy_csomagok (kod, nev, nev_ro, nev_en, kategoria, ar, penznem, idoszak, leiras, leiras_ro, leiras_en,
+                       elonyok, elonyok_ro, elonyok_en, jogosultsag, sorrend, celcsoport, kiemelt, nyilvanos)
+                VALUES ($1,$2,$3,$4,$5,$6,'RON',$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15,$16,$17,true)
+                ON CONFLICT (kod) DO NOTHING`,
+                [c.kod, c.nev, c.nev_ro, c.nev_en, c.kategoria, c.ar, c.idoszak, c.leiras, c.leiras_ro, c.leiras_en,
+                 c.elonyok, c.elonyok_ro, c.elonyok_en, JSON.stringify(c.jogosultsag), c.sorrend, c.celcsoport, !!c.kiemelt]);
+        }
+        await db.query("INSERT INTO beallitasok (kulcs, ertek) VALUES ('penzugy_csomagok_v2', '1') ON CONFLICT (kulcs) DO NOTHING");
+        v2Kesz = true;
+    } catch (e) {
+        console.error("Pénzügy csomagok (v2):", e.message);
     }
 }
 
@@ -255,7 +362,9 @@ function jogTisztit(j) {
 async function csomagok() {
     const r = await db.query(`
         SELECT c.*,
-               (SELECT COUNT(*) FROM penzugy_elofizetesek e WHERE e.csomag_id = c.id AND e.statusz = 'aktiv')::int AS elofizetok
+               (SELECT COUNT(*) FROM penzugy_elofizetesek e WHERE e.csomag_id = c.id AND e.statusz = 'aktiv')::int AS elofizetok,
+               (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id)::int AS rendelesek,
+               (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id AND r.statusz = 'fizetesre_var')::int AS fizetesre_var
         FROM penzugy_csomagok c ORDER BY c.aktiv DESC, c.sorrend, c.id`);
     return r.rows.map(c => szamosit(c, ["ar"]));
 }
@@ -273,24 +382,36 @@ async function csomagMent(id, b) {
         leiras: sz(b.leiras, 1000),
         jogosultsag: jogTisztit(b.jogosultsag),
         aktiv: b.aktiv !== false,
-        sorrend: Math.round(szam(b.sorrend) || 0)
+        sorrend: Math.round(szam(b.sorrend) || 0),
+        celcsoport: CELCSOPORTOK.includes(b.celcsoport) ? b.celcsoport : "mindenki",
+        nyilvanos: b.nyilvanos !== false,
+        kiemelt: !!b.kiemelt,
+        leiras_ro: sz(b.leiras_ro, 1000),
+        leiras_en: sz(b.leiras_en, 1000),
+        elonyok: sz(b.elonyok, 2000),
+        elonyok_ro: sz(b.elonyok_ro, 2000),
+        elonyok_en: sz(b.elonyok_en, 2000)
     };
     if (!d.nev) throw hibaKod("missing_name");
 
-    const ertekek = [d.kod, d.nev, d.nev_ro, d.nev_en, d.kategoria, d.ar, d.penznem, d.idoszak, d.leiras, JSON.stringify(d.jogosultsag), d.aktiv, d.sorrend];
+    const ertekek = [d.kod, d.nev, d.nev_ro, d.nev_en, d.kategoria, d.ar, d.penznem, d.idoszak, d.leiras, JSON.stringify(d.jogosultsag), d.aktiv, d.sorrend,
+        d.celcsoport, d.nyilvanos, d.kiemelt, d.leiras_ro, d.leiras_en, d.elonyok, d.elonyok_ro, d.elonyok_en];
 
     try {
         if (id) {
             const r = await db.query(`
                 UPDATE penzugy_csomagok SET kod=$1, nev=$2, nev_ro=$3, nev_en=$4, kategoria=$5, ar=$6, penznem=$7, idoszak=$8,
-                       leiras=$9, jogosultsag=$10::jsonb, aktiv=$11, sorrend=$12, updated_at=NOW()
-                WHERE id=$13 RETURNING id`, [...ertekek, id]);
+                       leiras=$9, jogosultsag=$10::jsonb, aktiv=$11, sorrend=$12,
+                       celcsoport=$13, nyilvanos=$14, kiemelt=$15, leiras_ro=$16, leiras_en=$17, elonyok=$18, elonyok_ro=$19, elonyok_en=$20,
+                       updated_at=NOW()
+                WHERE id=$21 RETURNING id`, [...ertekek, id]);
             if (!r.rowCount) throw hibaKod("not_found");
             return r.rows[0].id;
         }
         const r = await db.query(`
-            INSERT INTO penzugy_csomagok (kod, nev, nev_ro, nev_en, kategoria, ar, penznem, idoszak, leiras, jogosultsag, aktiv, sorrend)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) RETURNING id`, ertekek);
+            INSERT INTO penzugy_csomagok (kod, nev, nev_ro, nev_en, kategoria, ar, penznem, idoszak, leiras, jogosultsag, aktiv, sorrend,
+                   celcsoport, nyilvanos, kiemelt, leiras_ro, leiras_en, elonyok, elonyok_ro, elonyok_en)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id`, ertekek);
         return r.rows[0].id;
     } catch (e) {
         if (e.code === "23505") throw hibaKod("duplicate_code");
@@ -444,7 +565,8 @@ async function elofizetesMent(id, b) {
 
 async function elofizetesTorol(id) {
     const r = await db.query("SELECT COUNT(*)::int AS n FROM penzugy_szamlak WHERE elofizetes_id = $1 AND statusz <> 'sztorno'", [id]);
-    if (r.rows[0].n) {
+    const rr = await db.query("SELECT COUNT(*)::int AS n FROM penzugy_rendelesek WHERE elofizetes_id = $1", [id]);
+    if (r.rows[0].n || rr.rows[0].n) {
         await db.query("UPDATE penzugy_elofizetesek SET statusz = 'lemondva', vege = COALESCE(vege, $2::date), updated_at = NOW() WHERE id = $1", [id, ma()]);
         return { lemondva: true };
     }
@@ -688,6 +810,7 @@ async function szamlaMent(id, b) {
         }
 
         await client.query("COMMIT");
+        await rendelesSzinkron(szamlaId);
         return szamlaId;
     } catch (e) {
         await client.query("ROLLBACK").catch(() => { });
@@ -710,6 +833,52 @@ async function szamlaAllapotValt(id, b) {
                kulso_szam = COALESCE($4, kulso_szam),
                updated_at = NOW()
         WHERE id = $5`, [uj, datum(b.fizetve) || ma(), FIZETESI_MODOK.includes(b.fizetesi_mod) ? b.fizetesi_mod : null, sz(b.kulso_szam, 60), id]);
+    await rendelesSzinkron(id);
+}
+
+// ===================== RENDELÉSEK ↔ BIZONYLAT =====================
+// Ha egy rendelés díjbekérőjét kifizetettnek jelölöd, a rendelés teljesül és
+// a függő előfizetés aktív lesz (a csomag jogai élnek). Sztornónál a rendelés
+// törlődik, a függő előfizetés lemondva. Visszaállításnál vissza.
+
+const rendelesFigyelok = [];
+function rendelesFigyelo(fn) { rendelesFigyelok.push(fn); }
+
+async function rendelesSzinkron(szamlaId) {
+    try {
+        const r = await db.query(`
+            SELECT r.*, s.statusz AS szamla_statusz FROM penzugy_rendelesek r
+            JOIN penzugy_szamlak s ON s.id = r.szamla_id
+            WHERE r.szamla_id = $1`, [szamlaId]);
+        for (const x of r.rows) {
+            let uj = x.statusz;
+            if (x.szamla_statusz === "fizetve") uj = x.elofizetes_id ? "aktiv" : "teljesitve";
+            else if (x.szamla_statusz === "sztorno") uj = x.statusz === "lemondva" ? "lemondva" : "torolve";
+            else if (x.szamla_statusz === "kiallitva") uj = "fizetesre_var";
+            if (uj === x.statusz) continue;
+
+            await db.query(`UPDATE penzugy_rendelesek SET statusz = $1, fizetve = CASE WHEN $1 IN ('aktiv', 'teljesitve') THEN COALESCE(fizetve, NOW()) ELSE NULL END, updated_at = NOW() WHERE id = $2`, [uj, x.id]);
+
+            if (x.elofizetes_id) {
+                if (uj === "aktiv") {
+                    await db.query(`UPDATE penzugy_elofizetesek SET statusz = 'aktiv', updated_at = NOW() WHERE id = $1 AND statusz = 'fuggo'`, [x.elofizetes_id]);
+                } else if (uj === "torolve" || uj === "lemondva") {
+                    await db.query(`UPDATE penzugy_elofizetesek SET statusz = 'lemondva', vege = COALESCE(vege, $2::date), updated_at = NOW() WHERE id = $1 AND statusz = 'fuggo'`, [x.elofizetes_id, ma()]);
+                } else if (uj === "fizetesre_var") {
+                    // Ha nincs más kifizetett bizonylata, újra függő
+                    await db.query(`
+                        UPDATE penzugy_elofizetesek e SET statusz = 'fuggo', updated_at = NOW()
+                        WHERE e.id = $1 AND e.statusz = 'aktiv'
+                          AND NOT EXISTS (SELECT 1 FROM penzugy_szamlak s WHERE s.elofizetes_id = e.id AND s.statusz = 'fizetve')`, [x.elofizetes_id]);
+                }
+            }
+            for (const fn of rendelesFigyelok) {
+                try { await fn({ ...x, statusz: uj, elozo: x.statusz }); } catch (e) { console.error("Rendelés értesítés:", e.message); }
+            }
+        }
+    } catch (e) {
+        console.error("Rendelés szinkron:", e.message);
+    }
 }
 
 async function szamlaTorol(id) {
@@ -869,9 +1038,10 @@ async function szamlalok() {
             SELECT COUNT(*) FILTER (WHERE statusz = 'kiallitva' AND esedekes < $1::date)::int AS lejart
             FROM penzugy_szamlak`, [ma()]);
         const e = await esedekesek(b);
-        return { penzugy_lejart: r.rows[0].lejart, penzugy_esedekes: e.length };
+        const rend = await db.query("SELECT COUNT(*)::int AS n FROM penzugy_rendelesek WHERE statusz = 'fizetesre_var'").catch(() => ({ rows: [{ n: 0 }] }));
+        return { penzugy_lejart: r.rows[0].lejart, penzugy_esedekes: e.length, penzugy_rendeles: rend.rows[0].n };
     } catch (e) {
-        return { penzugy_lejart: 0, penzugy_esedekes: 0 };
+        return { penzugy_lejart: 0, penzugy_esedekes: 0, penzugy_rendeles: 0 };
     }
 }
 
@@ -1023,7 +1193,7 @@ async function napi() {
 }
 
 module.exports = {
-    KATEGORIAK, IDOSZAKOK, PENZNEMEK, SZAMLA_TIPUSOK, SZAMLA_STATUSZOK, FIZETESI_MODOK, KIADAS_KATEGORIAK, UGYFEL_TIPUSOK, ELOFIZETES_STATUSZOK,
+    KATEGORIAK, IDOSZAKOK, PENZNEMEK, SZAMLA_TIPUSOK, SZAMLA_STATUSZOK, FIZETESI_MODOK, KIADAS_KATEGORIAK, UGYFEL_TIPUSOK, ELOFIZETES_STATUSZOK, CELCSOPORTOK, HONAP,
     kesz, beallitas, beallitasMent, bnrArfolyam,
     csomagok, csomagMent, csomagTorol,
     ugyfelek, ugyfelMent, ugyfelTorol, ugyfelJavaslat,
@@ -1033,6 +1203,7 @@ module.exports = {
     attekintes, szamlalok,
     jogosultsag, irodaJogosultsag, hirdetesKorlat, korlatElonezet,
     exportSzamlak, exportKiadasok, napi,
+    rendelesSzinkron, rendelesFigyelo, szamlaAllapot, honapHozzaad, napHozzaad, ma, kerek, pgDatum, szamosit,
     // tesztekhez
     _: { honapHozzaad, napHozzaad, tetelSzamol, jogOsszevon, datum, ma }
 };

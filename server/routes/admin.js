@@ -88,9 +88,12 @@ router.get("/api/admin/counts", csakAdmin, async (req, res) => {
         // Pénzügyek: lejárt díjbekérők, esedékes előfizetések
         const penzugy = await require("../services/penzugy").szamlalok();
 
+        // Eladjuk helyetted: új megbízások, új ajánlatok, kért megtekintések
+        const megbizasUj = await require("../services/megbizas").szamlalo();
+
         res.json({
             ...r.rows[0], ...w.rows[0], ...ir.rows[0], ...egyeb.rows[0], ...penzugy,
-            kornyek_javaslat: kornyek, reklam_fut: reklamFut, reklam_lejaro: reklamLejaro, ai: ai.elerheto()
+            kornyek_javaslat: kornyek, megbizas_uj: megbizasUj, reklam_fut: reklamFut, reklam_lejaro: reklamLejaro, ai: ai.elerheto()
         });
     } catch (err) {
         hiba(res, err);

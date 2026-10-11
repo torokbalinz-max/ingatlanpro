@@ -367,4 +367,6 @@ ${nyomtat ? `<div class="eszkoz"><button type="button" onclick="window.print()">
 </html>`;
 }
 
+router.bizonylatHtml = bizonylatHtml;
+
 module.exports = router;

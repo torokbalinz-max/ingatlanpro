@@ -24,7 +24,9 @@ class HomePage {
         { cls: "featWide", icon: "fa-solid fa-calculator", cim: "homeFeatValTitle", szoveg: "homeFeatValText", hova: "valuation" },
         { cls: "featThird", icon: "fa-solid fa-chart-line", cim: "homeFeatMarketTitle", szoveg: "homeFeatMarketText", hova: "market" },
         { cls: "featThird", icon: "fa-solid fa-bullhorn", cim: "homeFeatReqTitle", szoveg: "homeFeatReqText", hova: "igenyek" },
-        { cls: "featThird", icon: "fa-solid fa-briefcase", cim: "homeFeatAgTitle", szoveg: "homeFeatAgText", hova: "irodak" }
+        { cls: "featThird", icon: "fa-solid fa-briefcase", cim: "homeFeatAgTitle", szoveg: "homeFeatAgText", hova: "irodak" },
+        { cls: "featWide featTint", icon: "fa-solid fa-key", cim: "homeFeatSellTitle", szoveg: "homeFeatSellText", hova: "eladjuk" },
+        { cls: "featWide", icon: "fa-solid fa-tags", cim: "homeFeatPricesTitle", szoveg: "homeFeatPricesText", hova: "csomagok" }
     ];
 
     static stats() {
