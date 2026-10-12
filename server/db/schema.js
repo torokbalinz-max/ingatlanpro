@@ -966,6 +966,99 @@ async function createSchema(db) {
     // A megbízásos hirdetés jelölése (a hirdetés oldalán: „Az IngatlanPro értékesíti”)
     await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS megbizas_id INTEGER`);
 
+    // ---------- Megbízások 2: felelősök, ajánlat-mód, szerződés-folyamat, iratok ----------
+    const mbOszlopok = [
+        "felelos_id INTEGER",            // ki viszi (értékesítő)
+        "fotos_id INTEGER",              // ki fotózza
+        "bemutato_id INTEGER",           // ki mutatja be
+        "ajanlat_mod TEXT",              // jovahagyas | azonnal | NULL = a beállítás szerint
+        "szerzodes_allapot TEXT DEFAULT 'tervezet'",   // tervezet | elkuldve | elfogadva | alairva
+        "szerzodes_elkuldve TIMESTAMP",
+        "szerzodes_elfogadva TIMESTAMP",
+        "szerzodes_elfogadva_ip TEXT",
+        "iratok JSONB DEFAULT '{}'::jsonb",            // { kod: { megvan, datum, megj } }
+        "dijbekero_id INTEGER",
+        "elso_kapcsolat TIMESTAMP"
+    ];
+    for (const o of mbOszlopok) await db.query(`ALTER TABLE megbizasok ADD COLUMN IF NOT EXISTS ${o}`);
+
+    const ajOszlopok = [
+        "vegso_osszeg DOUBLE PRECISION",
+        "ellen_vevonek BOOLEAN",   // az eladó ellenajánlatát a vevő is látja
+        "tovabbitva_at TIMESTAMP",
+        "emlekeztetve TIMESTAMP",
+        "vevo_valasz TEXT"
+    ];
+    for (const o of ajOszlopok) await db.query(`ALTER TABLE megbizas_ajanlatok ADD COLUMN IF NOT EXISTS ${o}`);
+    // A régi (már az eladónál lévő) ajánlatok: mikor kerültek hozzá
+    await db.query(`UPDATE megbizas_ajanlatok SET tovabbitva_at = COALESCE(updated_at, created_at)
+                    WHERE tovabbitva_at IS NULL AND statusz IN ('tovabbitva', 'ellenajanlat', 'elfogadva')`);
+    // Az eddigi ellenajánlatokat a vevő is látta
+    await db.query(`UPDATE megbizas_ajanlatok SET ellen_vevonek = true WHERE statusz = 'ellenajanlat' AND ellen_vevonek IS NULL`);
+    // A régi aláírt megbízások szerződés-állapota
+    await db.query(`UPDATE megbizasok SET szerzodes_allapot = 'alairva' WHERE alairva IS NOT NULL AND COALESCE(szerzodes_allapot, 'tervezet') = 'tervezet'`);
+
+    const mtOszlopok = [
+        "bemutato_id INTEGER",
+        "emlekeztetve TIMESTAMP",
+        "visszajelzes_kerve TIMESTAMP"
+    ];
+    for (const o of mtOszlopok) await db.query(`ALTER TABLE megbizas_megtekintesek ADD COLUMN IF NOT EXISTS ${o}`);
+
+    await db.query(`ALTER TABLE megbizas_erdeklodok ADD COLUMN IF NOT EXISTS forras TEXT`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_erd_user ON megbizas_erdeklodok (user_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_ajanlat_erd ON megbizas_ajanlatok (erdeklodo_id)`);
+
+    // Üzenetek egy megbízáshoz: az eladóval (erdeklodo_id NULL) vagy egy vevővel
+    //  irany: 'be' = az ügyfél írta, 'ki' = mi (admin / munkatárs)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megbizas_uzenetek (
+            id SERIAL PRIMARY KEY,
+            megbizas_id INTEGER REFERENCES megbizasok(id) ON DELETE CASCADE,
+            erdeklodo_id INTEGER REFERENCES megbizas_erdeklodok(id) ON DELETE CASCADE,
+            irany TEXT DEFAULT 'ki',
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            szoveg TEXT,
+            olvasva BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_uzenet ON megbizas_uzenetek (megbizas_id, erdeklodo_id)`);
+
+    // ---------- Csapat: munkatársak és jogosultságaik ----------
+    // Egy munkatárs (fotós, bemutató, régiós kezelő, értékesítő) a saját
+    // fiókjával lép be, és csak ahhoz fér hozzá, amire az admin engedélyt adott.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS csapat_tagok (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+            szerep TEXT DEFAULT 'egyeni',
+            aktiv BOOLEAN DEFAULT true,
+            megjegyzes TEXT,
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
+    // Egy hozzáférés: milyen jogok (kepek, hirdetes, megtekintes, megbizas_lat,
+    // megbizas) mire (mind | varos [+ tipus] | megbizas | ingatlan), meddig
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS csapat_jogok (
+            id SERIAL PRIMARY KEY,
+            tag_id INTEGER REFERENCES csapat_tagok(id) ON DELETE CASCADE,
+            jogok JSONB DEFAULT '[]'::jsonb,
+            hatokor TEXT DEFAULT 'varos',
+            varos TEXT,
+            tipus TEXT,
+            megbizas_id INTEGER REFERENCES megbizasok(id) ON DELETE CASCADE,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            lejar DATE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_csapat_jogok_tag ON csapat_jogok (tag_id)`);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

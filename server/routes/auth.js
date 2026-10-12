@@ -68,6 +68,7 @@ router.get("/api/me", async (req, res) => {
         let irodak = [];
         let irodaMeghivasok = [];
         let csomag = null;
+        let csapat = null;
 
         if (req.user) {
             const r = await db.query("SELECT COUNT(*)::int AS n FROM uzenetek WHERE cimzett_id = $1 AND NOT olvasva", [req.user.id]);
@@ -76,6 +77,8 @@ router.get("/api/me", async (req, res) => {
             irodaMeghivasok = await require("./irodak").meghivasok(req.user.id).catch(() => []);
             // Az előfizetett csomagok jogai (reklámmentes, hirdetésszám...) – Admin → Pénzügyek
             csomag = await require("../services/penzugy").jogosultsag(req.user.id).catch(() => null);
+            // Munkatárs (Admin → Csapat és jogosultságok): mihez fér hozzá
+            csapat = await require("../services/csapat").osszegzes(req).catch(() => null);
         }
 
         res.json({
@@ -90,6 +93,7 @@ router.get("/api/me", async (req, res) => {
             irodak,
             irodaMeghivasok,
             csomag,
+            csapat,
             // Az ÁSZF (új változatát) még nem fogadta el -> a weboldal megkérdezi
             aszfKell: !!(req.user && req.valodiSzerep !== "admin" && req.user.aszf_verzio !== ASZF_VERZIO)
         });

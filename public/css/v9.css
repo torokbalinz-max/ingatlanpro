@@ -1,0 +1,184 @@
+/* ============================================================
+   9. változat: értékesítési asztal (megbízások), csapat és
+   jogosultságok, Munkaterületem, fotókezelő, eladói és vevői nézet
+   ============================================================ */
+
+.min-w-0 { min-width: 0; }
+
+/* Rövid visszajelzés (mentve, elküldve) */
+.mdToast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 2000;
+    background: var(--ip-text); color: var(--ip-surface); padding: 0.6rem 1rem; border-radius: 10px; box-shadow: var(--ip-shadow-lift, 0 6px 24px rgba(0,0,0,.18)); font-size: 0.92rem; transition: opacity .2s, transform .2s; max-width: calc(100vw - 32px); }
+.mdToast.show { opacity: 1; transform: translate(-50%, 0); }
+.mdToast[data-tipus="danger"] { background: var(--ip-danger, #dc2626); color: #fff; }
+
+/* Teendők */
+.mdTodoList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.mdTodo { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.7rem; border: 1px solid var(--ip-border); border-radius: 10px; background: var(--ip-surface); }
+.mdTodoDot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 10px; background: var(--ip-muted); }
+.mdTodo.magas { border-left: 4px solid var(--ip-danger, #dc2626); }
+.mdTodo.magas .mdTodoDot { background: var(--ip-danger, #dc2626); }
+.mdTodo.kozepes { border-left: 4px solid var(--ip-warn, #d97706); }
+.mdTodo.kozepes .mdTodoDot { background: var(--ip-warn, #d97706); }
+.mdTodo.info { border-left: 4px solid var(--ip-border); }
+
+/* Közelgő megtekintések */
+.mdUpcoming { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; max-height: 340px; overflow-y: auto; }
+.mdUpcomingBtn { width: 100%; text-align: left; border: 1px solid var(--ip-border); background: var(--ip-bg); border-radius: 10px; padding: 0.5rem 0.7rem; color: var(--ip-text); }
+.mdUpcomingBtn:hover { border-color: var(--ip-accent); }
+
+/* Eszköztár, lista */
+.mdToolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.9rem; }
+.mdSearch { max-width: 320px; flex: 1 1 220px; }
+.mdTableWrap { border: 1px solid var(--ip-border); border-radius: 12px; background: var(--ip-surface); }
+.mdTable tbody tr { cursor: pointer; }
+.mdTable tbody tr:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: -2px; }
+.mdTable th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--ip-muted); font-weight: 600; white-space: nowrap; }
+.mdCellMain { min-width: 220px; }
+.mdActivity span { display: inline-block; margin: 0 0.25rem; color: var(--ip-muted); }
+.mdActivity span.warn { color: var(--ip-warn, #d97706); font-weight: 700; }
+.mbDot.mb-egyeztetes { background: #0ea5e9; }
+.mbDot.mb-szerzodes { background: #14b8a6; }
+.mbDot.mb-fotozas { background: #a855f7; }
+.mbDot.mb-hirdetes { background: var(--ip-accent); }
+
+/* Egy megbízás: fejléc */
+.mdHead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+.mdChips { display: grid; grid-template-columns: repeat(2, minmax(130px, 1fr)); gap: 0.5rem; }
+.mdChip { background: var(--ip-bg); border: 1px solid var(--ip-border); border-radius: 10px; padding: 0.45rem 0.7rem; display: flex; flex-direction: column; }
+.mdChip span { font-size: 0.74rem; color: var(--ip-muted); }
+.mdChip b { font-size: 0.98rem; }
+.mdChip small { color: var(--ip-muted); }
+
+/* Fülek */
+.mdTabs { display: flex; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid var(--ip-border); margin-bottom: 1.1rem; scrollbar-width: thin; }
+.mdTab { display: inline-flex; align-items: center; gap: 0.4rem; border: 0; background: none; padding: 0.55rem 0.8rem; border-bottom: 3px solid transparent; color: var(--ip-muted); font-weight: 600; font-size: 0.9rem; white-space: nowrap; text-decoration: none; }
+.mdTab:hover { color: var(--ip-text); }
+.mdTab.active { color: var(--ip-accent); border-bottom-color: var(--ip-accent); }
+.mdTabCount { background: var(--ip-bg); color: var(--ip-muted); border-radius: 999px; font-size: 0.72rem; padding: 0.05rem 0.45rem; }
+.mdTabCount.warn { background: var(--ip-danger, #dc2626); color: #fff; }
+.mdTabsSm .mdTab { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
+.mdGroupHead { font-size: 0.82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ip-muted); }
+
+/* Vevők */
+.mdBuyerGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.8rem; }
+.mdBuyer { border: 1px solid var(--ip-border); border-radius: 12px; padding: 0.75rem 0.85rem; background: var(--ip-surface); border-left: 4px solid var(--ip-border); }
+.mdBuyer.st-vevo { border-left-color: var(--ip-accent); }
+.mdBuyer.st-ajanlat { border-left-color: #7c3aed; }
+.mdBuyer.st-megtekintes { border-left-color: #0ea5e9; }
+.mdBuyer.st-uj { border-left-color: var(--ip-warn, #d97706); }
+.mdBuyer.st-elutasitva { opacity: 0.7; }
+.mdBuyerSt { max-width: 150px; }
+.mdMini { list-style: none; padding: 0; margin: 0.5rem 0 0; font-size: 0.84rem; display: flex; flex-direction: column; gap: 0.2rem; }
+
+/* Ajánlatok */
+.mdOffers { display: flex; flex-direction: column; gap: 0.6rem; }
+.mdOffer { border: 1px solid var(--ip-border); border-radius: 12px; padding: 0.75rem 0.9rem; background: var(--ip-surface); }
+.mdOffer.st-uj { border-color: var(--ip-warn, #d97706); box-shadow: 0 0 0 3px var(--ip-warn-soft, rgba(217,119,6,.15)); }
+.mdOffer.st-elfogadva { border-color: var(--ip-accent); box-shadow: 0 0 0 3px var(--ip-accent-soft); }
+.mdOffer.st-elutasitva, .mdOffer.st-visszavonva { opacity: 0.65; }
+.mdOffer.best { border-width: 2px; }
+
+/* Üzenetek */
+.mdChat { display: grid; grid-template-columns: 260px 1fr; border: 1px solid var(--ip-border); border-radius: 12px; overflow: hidden; background: var(--ip-surface); min-height: 420px; }
+.mdThreads { border-right: 1px solid var(--ip-border); background: var(--ip-bg); overflow-y: auto; max-height: 560px; }
+.mdThread { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--ip-border); background: none; padding: 0.6rem 0.75rem; color: var(--ip-text); }
+.mdThread.active { background: var(--ip-surface); box-shadow: inset 3px 0 0 var(--ip-accent); }
+.mdConv { display: flex; flex-direction: column; min-width: 0; }
+.mdConvHead { padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--ip-border); }
+.mdBubbles { flex: 1 1 auto; overflow-y: auto; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 420px; }
+.mdBubble { max-width: 80%; display: flex; flex-direction: column; }
+.mdBubble.be { align-self: flex-start; }
+.mdBubble.ki { align-self: flex-end; align-items: flex-end; }
+.mdBubbleText { padding: 0.5rem 0.75rem; border-radius: 14px; white-space: pre-line; word-break: break-word; }
+.mdBubble.be .mdBubbleText { background: var(--ip-bg); border: 1px solid var(--ip-border); border-bottom-left-radius: 4px; }
+.mdBubble.ki .mdBubbleText { background: var(--ip-accent); color: var(--ip-accent-contrast); border-bottom-right-radius: 4px; }
+.mdBubble small { color: var(--ip-muted); font-size: 0.72rem; margin-top: 0.15rem; }
+.mdCompose { border-top: 1px solid var(--ip-border); padding: 0.7rem 0.9rem; }
+.mdTpl { font-size: 0.76rem; padding: 0.1rem 0.5rem; }
+
+/* Szerződés: iratok */
+.mdDocs { list-style: none; padding: 0; margin: 0 0 0.75rem; display: flex; flex-direction: column; gap: 0.55rem; }
+.mdLogFull { max-height: 640px; }
+.mdSaveBar { position: sticky; bottom: 0; padding: 0.6rem 0; background: linear-gradient(transparent, var(--ip-bg) 40%); }
+
+/* Csapat */
+.tmGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.9rem; }
+.tmCard { border: 1px solid var(--ip-border); border-radius: 14px; background: var(--ip-surface); padding: 0.85rem 1rem; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: var(--ip-shadow); }
+.tmCard.inactive { opacity: 0.65; }
+.tmRole { background: var(--ip-accent-soft); color: var(--ip-accent); font-weight: 600; }
+.tmRole.r-fotos { background: rgba(168, 85, 247, 0.14); color: #9333ea; }
+.tmRole.r-bemutato { background: rgba(14, 165, 233, 0.14); color: #0284c7; }
+.tmRole.r-regios { background: rgba(217, 119, 6, 0.14); color: #b45309; }
+.tmRole.r-ertekesito { background: var(--ip-accent-soft); color: var(--ip-accent); }
+.tmRole.r-egyeni { background: var(--ip-bg); color: var(--ip-muted); }
+.tmAccess { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.tmAccess li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.35rem 0.75rem; padding: 0.45rem 0.6rem; background: var(--ip-bg); border-radius: 8px; font-size: 0.88rem; }
+.tmScope { font-weight: 600; }
+.tmPerms { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; color: var(--ip-muted); font-size: 0.82rem; }
+.tmPerms i { color: var(--ip-accent); }
+.tmTalalat { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; max-height: 300px; overflow-y: auto; box-shadow: var(--ip-shadow); }
+.tmRow { border: 1px solid var(--ip-border); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.6rem; background: var(--ip-bg); }
+.tmPermPick { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.4rem; margin-top: 0.3rem; }
+.tmPermChk { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.45rem 0.55rem; border: 1px solid var(--ip-border); border-radius: 10px; background: var(--ip-surface); cursor: pointer; }
+.tmPermChk .form-check-input { margin-top: 0.2rem; flex: 0 0 auto; }
+.tmPermChk i { color: var(--ip-accent); margin-top: 0.25rem; }
+.tmPermChk span { display: flex; flex-direction: column; font-size: 0.86rem; }
+.tmPermChk small { color: var(--ip-muted); font-size: 0.76rem; line-height: 1.3; }
+.tmPermChk:has(input:checked) { border-color: var(--ip-accent); box-shadow: 0 0 0 2px var(--ip-accent-soft); }
+
+/* Fotókezelő */
+.pmDrop { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; padding: 1.2rem; border: 2px dashed var(--ip-border); border-radius: 12px; cursor: pointer; color: var(--ip-muted); text-align: center; }
+.pmDrop i { font-size: 1.6rem; color: var(--ip-accent); }
+.pmDrop.over, .pmDrop:hover { border-color: var(--ip-accent); background: var(--ip-accent-soft); }
+.pmGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.6rem; }
+.pmItem { position: relative; margin: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--ip-border); background: var(--ip-bg); aspect-ratio: 4 / 3; }
+.pmItem img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pmItem.cover { outline: 3px solid var(--ip-accent); outline-offset: -3px; }
+.pmItem.drag { opacity: 0.4; }
+.pmItem figcaption { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 0.25rem; padding: 0.3rem; background: linear-gradient(transparent, rgba(0,0,0,.55)); }
+.pmItem figcaption .btn { padding: 0.1rem 0.4rem; font-size: 0.78rem; }
+.pmCover, .pmNew { position: absolute; top: 6px; left: 6px; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--ip-accent); color: var(--ip-accent-contrast); }
+.pmNew { left: auto; right: 6px; background: var(--ip-warn, #d97706); color: #fff; }
+
+/* Munkaterületem */
+.wsHead { margin-bottom: 1rem; }
+.wsHead h2 { font-size: 1.5rem; }
+.wsShortcuts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+.wsShortcut { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.9rem 1rem; border: 1px solid var(--ip-border); border-radius: 12px; background: var(--ip-surface); color: var(--ip-text); text-decoration: none; box-shadow: var(--ip-shadow); }
+.wsShortcut i { font-size: 1.3rem; color: var(--ip-accent); }
+.wsShortcut small { color: var(--ip-muted); }
+.wsShortcut:hover { border-color: var(--ip-accent); }
+.wsListings { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.75rem; }
+.wsListing { display: flex; gap: 0.75rem; border: 1px solid var(--ip-border); border-radius: 12px; padding: 0.6rem; background: var(--ip-surface); }
+.wsThumb { flex: 0 0 96px; height: 96px; border-radius: 9px; overflow: hidden; background: var(--ip-bg); display: grid; place-items: center; color: var(--ip-muted); font-size: 1.5rem; }
+.wsThumb img { width: 100%; height: 100%; object-fit: cover; }
+.wsListingCard { border: 2px solid var(--ip-accent-soft); }
+
+/* Eladó: Megbízásaim */
+.mmContact { display: flex; gap: 0.5rem; align-items: center; padding: 0.5rem 0.75rem; background: var(--ip-bg); border-radius: 10px; margin-top: 0.75rem; font-size: 0.92rem; }
+.mmContact i { color: var(--ip-accent); }
+.mmTodos { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.75rem; padding: 0.6rem 0.75rem; border-radius: 10px; background: var(--ip-warn-soft, rgba(217,119,6,.1)); }
+.mmTodo { border: 1px solid var(--ip-warn, #d97706); background: var(--ip-surface); color: var(--ip-text); border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.85rem; }
+.mmTodo.info { border-color: var(--ip-border); }
+.mmTodo i { color: var(--ip-warn, #d97706); }
+.mmContractBox { border: 2px solid var(--ip-accent); border-radius: 12px; padding: 0.8rem 0.9rem; background: var(--ip-accent-soft); }
+.mmDocs { list-style: none; padding: 0; margin: 0 0 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; }
+.mmDocs li i { color: var(--ip-border); }
+.mmDocs li.ok i { color: var(--ip-accent); }
+.mmDocs li.ok { color: var(--ip-muted); }
+.mmBubbles { max-height: 320px; border: 1px solid var(--ip-border); border-radius: 12px; }
+
+/* Vevő: a hirdetés kártyája */
+.lmChat { margin-top: 0.9rem; border-top: 1px solid var(--ip-border); padding-top: 0.75rem; }
+.lmBubbles { max-height: 240px; padding: 0.4rem 0; }
+.lmCounter { margin: 0.35rem 0 0.2rem 1.3rem; padding: 0.5rem 0.65rem; border-radius: 10px; background: var(--ip-accent-soft); }
+.lmOfferRow { display: flex; flex-direction: column; gap: 0.15rem; }
+
+@media (max-width: 767.98px) {
+    .mdChat { grid-template-columns: 1fr; }
+    .mdThreads { max-height: 190px; border-right: 0; border-bottom: 1px solid var(--ip-border); }
+    .mdChips { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+    .mdBuyerGrid, .tmGrid, .wsListings { grid-template-columns: 1fr; }
+    .mdBubble { max-width: 92%; }
+    .pmGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

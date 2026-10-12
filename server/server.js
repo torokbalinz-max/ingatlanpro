@@ -84,6 +84,7 @@ app.use(require("./routes/reklam"));
 app.use(require("./routes/penzugy"));
 app.use(require("./routes/csomagok"));
 app.use(require("./routes/megbizas"));
+app.use(require("./routes/csapat"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {
@@ -117,4 +118,8 @@ app.listen(PORT, () => {
     const penzugy = require("./services/penzugy");
     setTimeout(() => penzugy.kesz().then(() => penzugy.napi()), 20 * 1000);
     setInterval(() => penzugy.napi(), 6 * 3600 * 1000).unref();
+    // Megbízások: emlékeztetők, megtekintés előtti / utáni levelek (óránként)
+    const mbAuto = () => require("./services/megbizasAuto").futtat().catch(() => { });
+    setTimeout(mbAuto, 90 * 1000);
+    setInterval(mbAuto, 3600 * 1000).unref();
 });

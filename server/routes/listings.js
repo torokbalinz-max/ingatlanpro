@@ -13,6 +13,7 @@ const location = require("../services/location");
 const districts = require("../services/districts");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
 const { LISTA_MEZOK } = require("../lib/sql");
+const csapat = require("../services/csapat");
 const acc = require("../services/accounts");
 const kornyek = require("../services/kornyek");
 const Telepulesek = require("../../public/js/core/telepulesek");
@@ -121,11 +122,18 @@ async function kornyekMezok(d, body) {
 // Szerkesztheti / törölheti-e: az admin mindent, a felhasználó a sajátját,
 // az ingatlaniroda tagja az iroda hirdetéseit
 async function sajatVagyAdmin(req, id) {
-    const r = await db.query("SELECT id, owner_id, iroda_id FROM ingatlanok WHERE id = $1", [id]);
+    const r = await db.query("SELECT id, owner_id, iroda_id, megbizas_id FROM ingatlanok WHERE id = $1", [id]);
     if (!r.rowCount) return { nincs: true };
+    // Megbízásos (Eladjuk helyetted) hirdetést csak az admin törölhet
+    if (req.szerep !== "admin" && r.rows[0].megbizas_id) {
+        const ok = (req.user && r.rows[0].owner_id === req.user.id) || await csapat.hirdetesJog(req, id, "hirdetes");
+        return { ok, admin: false, csapat: true };
+    }
     if (req.szerep === "admin") return { ok: true, admin: true };
     if (req.user && r.rows[0].owner_id === req.user.id) return { ok: true, admin: false };
     if (r.rows[0].iroda_id && (await irodak.jog(req, r.rows[0].iroda_id)).tag) return { ok: true, admin: false, iroda: true };
+    // Munkatárs, akinek az admin szerkesztési jogot adott (Admin → Csapat és jogosultságok)
+    if (await csapat.hirdetesJog(req, id, "hirdetes")) return { ok: true, admin: false, csapat: true };
     return { ok: false, admin: false };
 }
 
@@ -286,7 +294,9 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
         await irodaMent(client, id, iroda);
 
         // Eladjuk helyetted: az admin a megbízás adataiból adta fel → a hirdetés a megbízásé
-        const megbizasId = req.szerep === "admin" ? Number(req.body.megbizas_id) || null : null;
+        //  (vagy a megbízás kezelésére jogosult munkatárs)
+        let megbizasId = Number(req.body.megbizas_id) || null;
+        if (megbizasId && req.szerep !== "admin" && !(await csapat.megbizasJog(req, megbizasId, "megbizas"))) megbizasId = null;
         if (megbizasId) {
             const mr = await client.query("UPDATE megbizasok SET ingatlan_id = $1, updated_at = NOW() WHERE id = $2 RETURNING id", [id, megbizasId]);
             if (mr.rowCount) {
@@ -297,6 +307,9 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
         }
 
         await client.query("COMMIT");
+
+        // A megbízás: ha a szerződés már megvan, „hirdetés kint van”
+        if (megbizasId) await require("../services/megbizas").hirdetesKapcsolva(megbizasId, req.user.id).catch(() => { });
 
         res.json({ siker: true, id, varos: d.varos, athelyezve: !!at.athelyezve, telepules: d.telepules });
 
@@ -476,7 +489,8 @@ router.delete("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 
         const jog = await sajatVagyAdmin(req, Number(req.params.id));
         if (jog.nincs) return res.json({ siker: true });
-        if (!jog.ok) return res.status(403).json({ error: "not_owner" });
+        // A munkatárs szerkesztheti, de nem törölheti
+        if (!jog.ok || jog.csapat) return res.status(403).json({ error: "not_owner" });
 
         await db.query("DELETE FROM favorites WHERE property_id = $1", [req.params.id]);
         await db.query("DELETE FROM ingatlanok WHERE id = $1", [req.params.id]);

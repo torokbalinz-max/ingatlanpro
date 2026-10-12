@@ -41,6 +41,7 @@
     <link rel="stylesheet" href="css/v6.css">
     <link rel="stylesheet" href="css/v7.css">
     <link rel="stylesheet" href="css/v8.css">
+    <link rel="stylesheet" href="css/v9.css">
 </head>
 
 <body>
@@ -136,6 +137,7 @@
                     <a class="dropdown-item" href="#new" data-page="new"><i class="fa-solid fa-circle-plus"></i><span><b data-i18n="menuUj">Új ingatlan</b><small data-i18n="menuUjDesc">Hirdetés feltöltése</small></span></a>
                     <a class="dropdown-item" href="#fiok" data-page="fiok"><i class="fa-solid fa-circle-user"></i><span><b data-i18n="menuFiok">Fiókom</b><small data-i18n="menuFiokDesc">Hirdetéseim, keresések, üzenetek</small></span></a>
                     <a class="dropdown-item" href="#iroda" data-page="iroda"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agMyAgency">Irodám kezelése</b><small data-i18n="agMenuDesc">Az iroda hirdetései, ügynökei</small></span> <span class="badge text-bg-danger ms-1 navInviteCount" hidden></span></a>
+                    <a class="dropdown-item team-only" hidden href="#munka" data-page="munka"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="wsTitle">Munkaterületem</b><small data-i18n="wsMenuDesc">Fotók, hirdetések, megbízások, bemutatások</small></span></a>
                     <a class="dropdown-item" href="#sugo" data-page="sugo"><i class="fa-solid fa-circle-question"></i><span><b data-i18n="menuSugo">Súgó</b><small data-i18n="menuSugoDesc">Használati útmutató, kérdések</small></span></a>
                     <a class="dropdown-item admin-only" hidden href="#admin" data-page="admin"><i class="fa-solid fa-user-shield"></i><span><b data-i18n="menuAdmin">Admin</b><small data-i18n="menuAdminDesc">Import, jóváhagyás, duplikátumok</small></span></a>
                 </div>
@@ -192,6 +194,7 @@
                     <li><a class="dropdown-item" href="#favorites"><i class="fa-solid fa-star"></i> <span data-i18n="menuKedvencek">Kedvencek</span></a></li>
                     <li><a class="dropdown-item" href="#fiok/csomag"><i class="fa-solid fa-receipt"></i> <span data-i18n="accTabBilling">Csomagom és számláim</span></a></li>
                     <li><a class="dropdown-item" href="#fiok/megbizasok"><i class="fa-solid fa-key"></i> <span data-i18n="accTabMandates">Megbízásaim</span></a></li>
+                    <li class="team-only" hidden><a class="dropdown-item" href="#munka"><i class="fa-solid fa-briefcase"></i> <span data-i18n="wsTitle">Munkaterületem</span></a></li>
                     <li><a class="dropdown-item" href="#iroda"><i class="fa-solid fa-briefcase"></i> <span data-i18n="agMyAgency">Irodám kezelése</span> <span class="badge text-bg-danger ms-1 navInviteCount" hidden></span></a></li>
                     <li class="adminView-only" hidden><hr class="dropdown-divider"></li>
                     <li class="adminView-only" hidden><button class="dropdown-item" type="button" id="navViewToggle"><i class="fa-solid fa-eye"></i> <span id="navViewLabel" data-i18n="viewAsUser">Felhasználói nézet</span></button></li>
@@ -1249,6 +1252,14 @@
      CSOMAGOK ÉS ÁRAK, ELADJUK HELYETTED (megbízás)
      ===================================================================== -->
 
+<!-- =====================================================================
+     MUNKATERÜLETEM (a csapat tagjainak: fotós, bemutató, régiós kezelő...)
+     ===================================================================== -->
+
+<section id="page-munka" class="page" style="display:none;">
+    <div id="munkaContent"></div>
+</section>
+
 <section id="page-csomagok" class="page" style="display:none;">
     <div id="csomagokContent"></div>
 </section>
@@ -1328,6 +1339,7 @@
 <script src="js/core/i18n-v6.js"></script>
 <script src="js/core/i18n-v7.js"></script>
 <script src="js/core/i18n-v8.js"></script>
+<script src="js/core/i18n-v9.js"></script>
 <script src="js/core/telepulesek.js"></script>
 <script src="js/core/utils.js"></script>
 <script src="js/core/multiSelect.js"></script>
@@ -1405,8 +1417,11 @@
 <script src="js/services/sellForYouPage.js"></script>
 <script src="js/services/myMandates.js"></script>
 <script src="js/services/listingMandate.js"></script>
+<script src="js/services/mandateDesk.js"></script>
 <script src="js/admin/orders.js"></script>
 <script src="js/admin/mandates.js"></script>
+<script src="js/admin/team.js"></script>
+<script src="js/services/workspace.js"></script>
 <script src="js/help/helpContent.js"></script>
 <script src="js/help/helpContent-v8.js"></script>
 <script src="js/help/helpPage.js"></script>

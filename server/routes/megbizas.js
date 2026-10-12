@@ -1,14 +1,23 @@
 // ============================================================
-//  Eladjuk helyetted – megbízásos értékesítés: nyilvános ajánlat,
-//  megbízás leadása, az eladó (Fiókom → Megbízásaim), a vevő (a
-//  hirdetésen: megtekintés, ajánlat), Admin → Megbízások
-//  (a munka: services/megbizas.js)
+//  Eladjuk helyetted – megbízásos értékesítés: útvonalak
+//
+//   Nyilvános:   /api/megbizas/ajanlat, POST /api/megbizas (megbízás leadása)
+//   Az eladó:    /api/megbizas/sajat/...  (Fiókom → Megbízásaim)
+//   A vevő:      /api/megbizas/hirdetes/:ingatlanId/... (a hirdetés kártyája)
+//   Az asztal:   /api/ertekesites/megbizasok/... – az admin és a jogosult
+//                munkatárs (Admin → Megbízások, Munkaterületem)
+//   Bemutató:    /api/csapat/megtekintesek
+//   Beállítások: /api/admin/megbizas-beallitas
+//
+//  A munka: services/megbizas.js; levelek: services/megbizasLevel.js;
+//  időzített automatizmusok: services/megbizasAuto.js
 // ============================================================
 
 const express = require("express");
 const mb = require("../services/megbizas");
+const csapat = require("../services/csapat");
+const level = require("../services/megbizasLevel");
 const pu = require("../services/penzugy");
-const mail = require("../services/mail");
 const oldalAdatok = require("../services/oldalAdatok");
 const db = require("../db/database");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
@@ -21,25 +30,13 @@ const STATUSZ_NEV = {
     eladva: "Eladva / Vândut", lezarva: "Lezárva / Închis", elutasitva: "Nem vállaltuk / Respins"
 };
 
-// Levél (ha az e-mail be van állítva) – a hibák nem akadályozzák a kérést
-function level(to, cim, sorok, link, gomb) {
-    if (!mail.elerheto() || !to) return;
-    const t = mail.sablon({ cim, sorok, link, gomb });
-    mail.kuld({ to, subject: cim, html: t.html, text: t.text }).catch(e => console.error("Megbízás e-mail:", e.message));
-}
+const ip = req => req.ip || (req.socket && req.socket.remoteAddress) || "";
 
-async function adminLevel(req, cim, sorok, id) {
-    const u = await oldalAdatok.nyilvanos();
-    level(u.email, cim, sorok, mail.oldalCim(req) + "/#admin/megbizasok" + (id ? "/" + id : ""), "Megbízás megnyitása");
-}
+// Háttérben futó értesítés – a hiba nem akadályozza a választ
+const hatter = (fn) => { Promise.resolve().then(fn).catch(e => console.error("Megbízás értesítés:", e.message)); };
 
-async function eladoLevel(req, m, cim, sorok) {
-    let to = m.email;
-    if (!to && m.user_id) {
-        const r = await db.query("SELECT email FROM users WHERE id = $1", [m.user_id]);
-        to = r.rows[0] && r.rows[0].email;
-    }
-    level(to, cim, sorok, mail.oldalCim(req) + "/#fiok/megbizasok", "Megbízásaim");
+async function megbizasSor(id) {
+    return (await db.query("SELECT * FROM megbizasok WHERE id = $1", [Number(id) || 0])).rows[0];
 }
 
 // ===================== NYILVÁNOS =====================
@@ -53,11 +50,23 @@ router.post("/api/megbizas", csakBelepve, async (req, res) => {
         const v = await mb.letrehoz(req.user, req.body || {});
         res.json({ siker: true, ...v });
         const b = req.body || {};
-        adminLevel(req, `Új megbízás: ${v.szam}`, [
-            `${b.nev || "–"} (${b.telefon || ""} ${b.email || ""}) megbízott minket: ${b.ugylet === "kiado" ? "kiadás" : "eladás"}, ${b.tipus || ""}, ${b.varos || ""} ${b.cim || ""}`,
-            b.kert_ar ? `Elképzelt ár: ${b.kert_ar}` : "",
-            "Vedd fel vele a kapcsolatot az egyeztetéshez."
-        ].filter(Boolean), v.id).catch(() => { });
+        hatter(async () => {
+            const m = await megbizasSor(v.id);
+            const be = await mb.beallitas();
+            await level.csapatnak(req, m, `Új megbízás: ${v.szam}`, [
+                `${b.nev || "–"} (${b.telefon || ""} ${b.email || ""}) megbízott minket: ${b.ugylet === "kiado" ? "kiadás" : "eladás"}, ${b.tipus || ""}, ${b.varos || ""} ${b.cim || ""}`,
+                b.kert_ar ? `Elképzelt ár: ${b.kert_ar}` : "",
+                b.elerhetoseg ? `Mikor hívható: ${b.elerhetoseg}` : "",
+                "Vedd fel vele a kapcsolatot az egyeztetéshez."
+            ]);
+            if (be.auto_visszaigazolas) {
+                await level.eladonak(req, m, `Megkaptuk a megbízásod / Am primit mandatul tău (${v.szam})`, [
+                    "Köszönjük! Hamarosan (legkésőbb 1 munkanapon belül) felhívunk, és megbeszéljük a részleteket.",
+                    "A megbízás állapotát, a szerződést és az üzeneteinket a fiókodban, a Megbízásaim részen látod.",
+                    "Mulțumim! Te sunăm în curând (cel târziu într-o zi lucrătoare). Starea mandatului, contractul și mesajele le găsești în cont, la Mandatele mele."
+                ]);
+            }
+        });
     } catch (err) { hiba(res, err); }
 });
 
@@ -71,10 +80,32 @@ router.post("/api/megbizas/sajat/:id/ajanlat/:aid/valasz", csakBelepve, async (r
     try {
         const v = await mb.eladoValasz(req.user, req.params.id, req.params.aid, req.body || {});
         res.json({ siker: true, statusz: v.statusz });
-        adminLevel(req, `Az eladó válaszolt az ajánlatra (${v.megbizas.szerzodes_szam})`, [
-            `Ajánlat: ${v.ajanlat.osszeg} ${v.ajanlat.penznem} → ${v.statusz}${req.body && req.body.osszeg ? ` (ellenajánlat: ${req.body.osszeg})` : ""}`,
-            req.body && req.body.uzenet ? `„${String(req.body.uzenet).slice(0, 500)}”` : ""
-        ].filter(Boolean), v.megbizas.id).catch(() => { });
+        hatter(async () => {
+            const m = v.megbizas;
+            const a = v.ajanlat;
+            await level.csapatnak(req, m, `Az eladó válaszolt az ajánlatra (${m.szerzodes_szam})`, [
+                `Ajánlat: ${level.penz(a.osszeg, a.penznem)} → ${v.statusz}${v.ellen ? ` (ellenajánlat: ${level.penz(v.ellen, a.penznem)})` : ""}`,
+                v.uzenet ? `„${v.uzenet}”` : "",
+                v.statusz === "ellenajanlat" && !v.ellenVevonek ? "Az ellenajánlat jóváhagyásra vár – a megbízás Ajánlatok fülén továbbíthatod a vevőnek." : ""
+            ], "ajanlatok");
+            const e = a.erdeklodo_id ? (await db.query("SELECT nev, email FROM megbizas_erdeklodok WHERE id = $1", [a.erdeklodo_id])).rows[0] : null;
+            if (v.statusz === "elfogadva") {
+                level.vevonek(req, m, e, "Elfogadták az ajánlatodat! / Oferta ta a fost acceptată!", [
+                    `Az eladó elfogadta a ${level.penz(a.osszeg, a.penznem)} összegű ajánlatodat. Hamarosan keresünk a következő lépésekkel (előszerződés, közjegyző).`,
+                    `Vânzătorul a acceptat oferta ta de ${level.penz(a.osszeg, a.penznem)}. Te contactăm în curând cu pașii următori (antecontract, notar).`
+                ]);
+            } else if (v.statusz === "elutasitva") {
+                level.vevonek(req, m, e, "Válasz az ajánlatodra / Răspuns la oferta ta", [
+                    `Az eladó most nem fogadta el a ${level.penz(a.osszeg, a.penznem)} összegű ajánlatot. Új ajánlatot a hirdetés oldalán tehetsz.`,
+                    `Vânzătorul nu a acceptat oferta de ${level.penz(a.osszeg, a.penznem)}. Poți face o ofertă nouă pe pagina anunțului.`
+                ]);
+            } else if (v.statusz === "ellenajanlat" && v.ellenVevonek) {
+                level.vevonek(req, m, e, "Ellenajánlatot kaptál / Ai primit o contraofertă", [
+                    `Az eladó ellenajánlata: ${level.penz(v.ellen, a.penznem)}. A hirdetés oldalán elfogadhatod, vagy új ajánlatot tehetsz.`,
+                    `Contraoferta vânzătorului: ${level.penz(v.ellen, a.penznem)}. O poți accepta pe pagina anunțului sau poți face o ofertă nouă.`
+                ]);
+            }
+        });
     } catch (err) { hiba(res, err); }
 });
 
@@ -82,16 +113,41 @@ router.post("/api/megbizas/sajat/:id/visszavon", csakBelepve, async (req, res) =
     try {
         const m = await mb.sajatVisszavon(req.user, req.params.id);
         res.json({ siker: true });
-        adminLevel(req, `Visszavont megbízás: ${m.szerzodes_szam}`, [`${m.nev || ""} visszavonta a megbízást.`], m.id).catch(() => { });
+        hatter(() => level.csapatnak(req, m, `Visszavont megbízás: ${m.szerzodes_szam}`, [`${m.nev || ""} visszavonta a megbízást.`]));
     } catch (err) { hiba(res, err); }
 });
 
-// A szerződés (tervezet) – az eladó a sajátját, az admin bármelyiket
+router.post("/api/megbizas/sajat/:id/uzenet", csakBelepve, async (req, res) => {
+    try {
+        const m = await mb.sajatUzenet(req.user, req.params.id, (req.body || {}).szoveg);
+        res.json({ siker: true });
+        hatter(() => level.csapatnak(req, m, `Üzenet az eladótól (${m.szerzodes_szam})`, [
+            `${m.nev || "Az eladó"}: „${String((req.body || {}).szoveg || "").slice(0, 1500)}”`
+        ], "uzenetek"));
+    } catch (err) { hiba(res, err); }
+});
+
+router.post("/api/megbizas/sajat/:id/olvasva", csakBelepve, async (req, res) => {
+    try { await mb.sajatOlvasott(req.user, req.params.id); res.json({ siker: true }); } catch (err) { hiba(res, err); }
+});
+
+router.post("/api/megbizas/sajat/:id/szerzodes-elfogad", csakBelepve, async (req, res) => {
+    try {
+        if (!(req.body && req.body.elfogad)) return res.status(400).json({ error: "must_accept" });
+        const m = await mb.szerzodesElfogad(req.user, req.params.id, ip(req));
+        res.json({ siker: true });
+        hatter(() => level.csapatnak(req, m, `Az eladó elfogadta a szerződést (${m.szerzodes_szam})`, [
+            `${m.nev || "Az eladó"} online elfogadta a megbízási szerződést.`,
+            "Következő lépés: a papír aláírása (ha kell), a fotózás és a hirdetés."
+        ], "szerzodes"));
+    } catch (err) { hiba(res, err); }
+});
+
+// A szerződés (tervezet) – az eladó a sajátját, az admin és a jogosult munkatárs
 router.get("/api/megbizas/:id/szerzodes", csakBelepve, async (req, res) => {
     try {
-        const m = req.szerep === "admin"
-            ? (await db.query("SELECT * FROM megbizasok WHERE id = $1", [Number(req.params.id) || 0])).rows[0]
-            : await mb.sajatMegbizas(req.user, req.params.id);
+        let m = await mb.sajatMegbizas(req.user, req.params.id);
+        if (!m && await csapat.megbizasJog(req, req.params.id, "megbizas_lat")) m = await megbizasSor(req.params.id);
         if (!m) return res.status(404).send("Nincs ilyen megbízás / Mandat inexistent");
         res.set("Content-Type", "text/html; charset=utf-8");
         res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:");
@@ -108,68 +164,270 @@ router.get("/api/megbizas/hirdetes/:id", async (req, res) => {
 router.post("/api/megbizas/hirdetes/:id/keres", csakBelepve, async (req, res) => {
     try {
         const v = await mb.vevoKeres(req.user, req.params.id, req.body || {});
-        res.json({ siker: true, ...v });
+        res.json({ siker: true, megbizas_id: v.megbizas_id, erdeklodo_id: v.erdeklodo_id, tipus: v.tipus, tovabbitva: v.tovabbitva });
         const b = req.body || {};
-        adminLevel(req, v.tipus === "ajanlat" ? "Új vételi ajánlat" : v.tipus === "megtekintes" ? "Megtekintési kérés" : "Kérdés egy megbízásos hirdetésről", [
-            `${b.nev || ""} (${b.telefon || ""} ${b.email || ""}) – hirdetés #${req.params.id}`,
-            v.tipus === "ajanlat" ? `Ajánlat: ${b.osszeg} ${b.penznem === "RON" ? "RON" : "EUR"}` : "",
-            b.javasolt ? `Javasolt időpont: ${b.javasolt}` : "",
-            b.uzenet ? `„${String(b.uzenet).slice(0, 500)}”` : ""
-        ].filter(Boolean), v.megbizas_id).catch(() => { });
+        hatter(async () => {
+            const m = v.megbizas;
+            const be = await mb.beallitas();
+            const e = v.erdeklodo;
+            await level.csapatnak(req, m,
+                v.tipus === "ajanlat" ? `Új vételi ajánlat (${m.szerzodes_szam})` : v.tipus === "megtekintes" ? `Megtekintési kérés (${m.szerzodes_szam})` : `Kérdés egy megbízásos hirdetésről (${m.szerzodes_szam})`, [
+                    `${e.nev || ""} (${e.telefon || ""} ${e.email || ""}) – ${level.hely(m)}`,
+                    v.tipus === "ajanlat" ? `Ajánlat: ${level.penz(v.osszeg, b.penznem === "RON" ? "RON" : "EUR")}${v.tovabbitva ? " – automatikusan továbbítva az eladónak" : " – jóváhagyásra vár"}` : "",
+                    b.javasolt ? `Javasolt időpont: ${b.javasolt}` : "",
+                    b.uzenet ? `„${String(b.uzenet).slice(0, 500)}”` : ""
+                ], v.tipus === "ajanlat" ? "ajanlatok" : v.tipus === "megtekintes" ? "megtekintesek" : "uzenetek");
+            if (be.auto_visszaigazolas) {
+                level.vevonek(req, m, e,
+                    v.tipus === "ajanlat" ? "Megkaptuk az ajánlatodat / Am primit oferta ta" : v.tipus === "megtekintes" ? "Megkaptuk a megtekintési kérésed / Am primit cererea de vizionare" : "Megkaptuk a kérdésed / Am primit întrebarea ta", [
+                        v.tipus === "ajanlat" ? "Az ajánlatodat továbbítjuk az eladónak; a válaszát a hirdetés oldalán és e-mailben is megkapod."
+                            : v.tipus === "megtekintes" ? "Hamarosan jelentkezünk egy időponttal. Az egyeztetett időpontot a hirdetés oldalán is látod."
+                                : "Hamarosan válaszolunk – a választ a hirdetés oldalán, az üzeneteknél látod.",
+                        v.tipus === "ajanlat" ? "Transmitem oferta vânzătorului; răspunsul îl vei vedea pe pagina anunțului și pe e-mail."
+                            : v.tipus === "megtekintes" ? "Revenim în curând cu o oră. Ora stabilită o vezi și pe pagina anunțului."
+                                : "Îți răspundem în curând – răspunsul îl găsești pe pagina anunțului, la mesaje."
+                    ]);
+            }
+            if (v.tipus === "ajanlat" && v.tovabbitva) {
+                await level.eladonak(req, m, `Vételi ajánlat érkezett / Ai primit o ofertă (${m.szerzodes_szam})`, [
+                    `Ajánlat: ${level.penz(v.osszeg, b.penznem === "RON" ? "RON" : "EUR")}${b.feltetelek ? ` – ${b.feltetelek}` : ""}`,
+                    "A fiókodban elfogadhatod, elutasíthatod, vagy ellenajánlatot tehetsz. / Poți accepta, refuza sau face o contraofertă în cont."
+                ]);
+            }
+            if (v.tipus === "megtekintes" && m.bemutato_id) {
+                level.munkatarsnak(req, m.bemutato_id, `Megtekintési kérés: ${level.hely(m)}`, [
+                    `${e.nev || "Egy vevő"} megtekintést kér${b.javasolt ? ` (${b.javasolt})` : ""}.`,
+                    "Az időpontot a megbízás felelőse / az admin egyezteti."
+                ], "/#munka/megtekintesek");
+            }
+        });
     } catch (err) { hiba(res, err); }
 });
 
-// ===================== ADMIN =====================
-
-router.get("/api/admin/megbizasok", csakAdmin, async (req, res) => {
-    try { res.json(await mb.adminLista()); } catch (err) { hiba(res, err); }
+router.post("/api/megbizas/hirdetes/:id/uzenet", csakBelepve, async (req, res) => {
+    try {
+        const v = await mb.vevoUzenet(req.user, req.params.id, req.body || {});
+        res.json({ siker: true });
+        hatter(() => level.csapatnak(req, v.megbizas, `Üzenet egy vevőtől (${v.megbizas.szerzodes_szam})`, [
+            `${v.erdeklodo.nev || "Vevő"}: „${String((req.body || {}).szoveg || "").slice(0, 1500)}”`
+        ], "uzenetek"));
+    } catch (err) { hiba(res, err); }
 });
 
-router.get("/api/admin/megbizasok/:id", csakAdmin, async (req, res) => {
+router.post("/api/megbizas/hirdetes/:id/ajanlat/:aid/elfogad", csakBelepve, async (req, res) => {
     try {
-        const m = await mb.adminReszlet(req.params.id);
+        const v = await mb.vevoEllenElfogad(req.user, req.params.id, req.params.aid);
+        res.json({ siker: true });
+        hatter(async () => {
+            const a = v.ajanlat;
+            await level.csapatnak(req, v.megbizas, `A vevő elfogadta az ellenajánlatot (${v.megbizas.szerzodes_szam})`, [
+                `Megállapodás: ${level.penz(a.ellenajanlat, a.penznem)}. Következő lépés: előszerződés, közjegyző.`
+            ], "ajanlatok");
+            await level.eladonak(req, v.megbizas, `Megállapodás: ${level.penz(a.ellenajanlat, a.penznem)} / Acord`, [
+                `A vevő elfogadta az ellenajánlatodat (${level.penz(a.ellenajanlat, a.penznem)}). Hamarosan keresünk a következő lépésekkel.`,
+                `Cumpărătorul a acceptat contraoferta ta (${level.penz(a.ellenajanlat, a.penznem)}). Te contactăm în curând.`
+            ]);
+        });
+    } catch (err) { hiba(res, err); }
+});
+
+router.post("/api/megbizas/hirdetes/:id/ajanlat/:aid/visszavon", csakBelepve, async (req, res) => {
+    try {
+        const v = await mb.vevoAjanlatVisszavon(req.user, req.params.id, req.params.aid);
+        res.json({ siker: true });
+        hatter(async () => {
+            await level.csapatnak(req, v.megbizas, `Visszavont ajánlat (${v.megbizas.szerzodes_szam})`, [`${level.penz(v.ajanlat.osszeg, v.ajanlat.penznem)}`], "ajanlatok");
+            if (v.ajanlat.tovabbitva_at) await level.eladonak(req, v.megbizas, "A vevő visszavonta az ajánlatát / Oferta a fost retrasă", [
+                `${level.penz(v.ajanlat.osszeg, v.ajanlat.penznem)} – a vevő visszavonta. / retrasă de cumpărător.`
+            ]);
+        });
+    } catch (err) { hiba(res, err); }
+});
+
+router.post("/api/megbizas/hirdetes/:id/megtekintes/:tid/lemond", csakBelepve, async (req, res) => {
+    try {
+        const v = await mb.vevoMegtekintesLemond(req.user, req.params.id, req.params.tid);
+        res.json({ siker: true });
+        hatter(async () => {
+            const t = v.megtekintes;
+            const ido = t.idopont ? level.idoSzoveg(t.idopont) : "";
+            await level.csapatnak(req, v.megbizas, `Lemondott megtekintés (${v.megbizas.szerzodes_szam})`, [`A vevő lemondta a megtekintést${ido ? ": " + ido : ""}.`], "megtekintesek");
+            if (t.idopont) await level.eladonak(req, v.megbizas, `Elmarad a megtekintés: ${ido} / Vizionare anulată`, [`A ${ido} időpontra egyeztetett megtekintés elmarad. / Vizionarea de la ${ido} a fost anulată.`]);
+            const bem = t.bemutato_id || v.megbizas.bemutato_id;
+            if (bem && t.idopont) level.munkatarsnak(req, bem, `Elmarad: ${ido} – ${level.hely(v.megbizas)}`, ["A vevő lemondta a megtekintést."], "/#munka/megtekintesek");
+        });
+    } catch (err) { hiba(res, err); }
+});
+
+// ===================== AZ ÉRTÉKESÍTÉSI ASZTAL (admin + munkatárs) =====================
+
+// Jogosultság: jog = megbizas_lat (olvasás) | megbizas (kezelés) | admin
+function asztal(jog) {
+    return async (req, res, next) => {
+        try {
+            if (!req.user) return res.status(401).json({ error: "login_required" });
+            if (jog === "admin") {
+                if (req.szerep !== "admin") return res.status(403).json({ error: "admin_only" });
+            } else {
+                const ok = req.params.id
+                    ? await csapat.megbizasJog(req, req.params.id, jog)
+                    : csapat.vanJoga(await csapat.kontextus(req), jog);
+                if (!ok) return res.status(403).json({ error: "forbidden" });
+            }
+            req.mbJog = { admin: req.szerep === "admin" };
+            next();
+        } catch (err) { hiba(res, err); }
+    };
+}
+
+const ASZTAL = "/api/ertekesites/megbizasok";
+
+router.get(ASZTAL, asztal("megbizas_lat"), async (req, res) => {
+    try { res.json(await mb.lista(req)); } catch (err) { hiba(res, err); }
+});
+
+router.get(ASZTAL + "/:id", asztal("megbizas_lat"), async (req, res) => {
+    try {
+        const m = await mb.reszlet(req, req.params.id);
         if (!m) return res.status(404).json({ error: "not_found" });
         res.json(m);
     } catch (err) { hiba(res, err); }
 });
 
-router.put("/api/admin/megbizasok/:id", csakAdmin, async (req, res) => {
+router.put(ASZTAL + "/:id", asztal("megbizas"), async (req, res) => {
     try {
-        const v = await mb.adminMent(req.params.id, req.body || {}, req.user && req.user.id);
+        const v = await mb.ment(req.params.id, req.body || {}, req.user.id, req.mbJog);
+        res.json({ siker: true, ujStatusz: v.ujStatusz });
+        hatter(async () => {
+            const m = await megbizasSor(v.id);
+            if (v.ujStatusz && v.ujStatusz !== "uj") {
+                await level.eladonak(req, m, `Megbízásod állapota: ${STATUSZ_NEV[v.ujStatusz] || v.ujStatusz}`, [
+                    `${m.szerzodes_szam}: ${STATUSZ_NEV[v.ujStatusz] || v.ujStatusz}`,
+                    v.ujStatusz === "hirdetes" && m.ingatlan_id ? "A hirdetésed elkészült és kint van – a fiókodban megnézheted. / Anunțul tău este publicat." : "",
+                    v.ujStatusz === "eladva" ? "Gratulálunk! Köszönjük a bizalmat. / Felicitări! Mulțumim pentru încredere." : "",
+                    "A részleteket a fiókodban látod. / Detaliile le găsești în contul tău."
+                ]);
+            }
+            // Eladás: a többi vevő értesítése
+            if (v.lezart) {
+                v.lezart.ajanlatok.forEach(x => level.vevonek(req, m, x, "Az ingatlan elkelt / Proprietatea a fost vândută", [
+                    "Köszönjük az ajánlatodat – az ingatlan időközben elkelt. Ha hasonlót keresel, nézd meg a többi hirdetést, vagy add fel a keresésed („Keresek”).",
+                    "Mulțumim pentru ofertă – proprietatea a fost vândută între timp."
+                ]));
+                v.lezart.megtekintesek.forEach(x => level.vevonek(req, m, x, "Elmarad a megtekintés – az ingatlan elkelt / Vizionare anulată", [
+                    "Sajnos a megtekintés elmarad: az ingatlan időközben elkelt.",
+                    "Din păcate vizionarea se anulează: proprietatea a fost vândută."
+                ]));
+            }
+            // Hozzárendelés: a munkatárs értesítése
+            for (const h of v.hozzarendelve) {
+                const mint = { felelos_id: "felelős (értékesítő)", fotos_id: "fotós", bemutato_id: "bemutató" }[h.szerep];
+                level.munkatarsnak(req, h.user_id, `Új feladat: ${m.szerzodes_szam} – ${mint}`, [
+                    `Hozzád rendeltük ${mint}ként: ${level.hely(m)}.`,
+                    "A részleteket a Munkaterületeden látod."
+                ], h.szerep === "felelos_id" ? `/#munka/megbizasok/${m.id}` : h.szerep === "bemutato_id" ? "/#munka/megtekintesek" : "/#munka/hirdetesek");
+            }
+        });
+    } catch (err) { hiba(res, err); }
+});
+
+router.post(ASZTAL + "/:id/naplo", asztal("megbizas"), async (req, res) => {
+    try {
+        await mb.naploHozzaad(req.params.id, req.body || {}, req.user.id);
         res.json({ siker: true });
-        if (v.ujStatusz && !["uj"].includes(v.ujStatusz)) {
-            eladoLevel(req, v.elozo, `Megbízásod állapota: ${STATUSZ_NEV[v.ujStatusz] || v.ujStatusz}`, [
-                `${v.elozo.szerzodes_szam}: ${STATUSZ_NEV[v.ujStatusz] || v.ujStatusz}`,
-                "A részleteket a fiókodban látod. / Detaliile le găsești în contul tău."
-            ]).catch(() => { });
+        if (req.body && req.body.lathato_eladonak) {
+            hatter(async () => {
+                const m = await megbizasSor(req.params.id);
+                if (m) await level.eladonak(req, m, `Új bejegyzés a megbízásodhoz (${m.szerzodes_szam})`, [String(req.body.szoveg || "").slice(0, 2000)]);
+            });
         }
     } catch (err) { hiba(res, err); }
 });
 
-router.post("/api/admin/megbizasok/:id/naplo", csakAdmin, async (req, res) => {
+// Üzenet az eladónak (erdeklodo_id nélkül) vagy egy vevőnek
+router.post(ASZTAL + "/:id/uzenet", asztal("megbizas"), async (req, res) => {
     try {
-        await mb.naploHozzaad(req.params.id, req.body || {}, req.user && req.user.id);
-        res.json({ siker: true });
-        if (req.body && req.body.lathato_eladonak) {
-            const m = (await db.query("SELECT * FROM megbizasok WHERE id = $1", [Number(req.params.id)])).rows[0];
-            if (m) eladoLevel(req, m, `Új üzenet a megbízásodhoz (${m.szerzodes_szam})`, [String(req.body.szoveg || "").slice(0, 2000)]).catch(() => { });
+        const b = req.body || {};
+        const id = Number(req.params.id);
+        const eid = Number(b.erdeklodo_id) || null;
+        let erd = null;
+        if (eid) {
+            erd = (await db.query("SELECT * FROM megbizas_erdeklodok WHERE id = $1 AND megbizas_id = $2", [eid, id])).rows[0];
+            if (!erd) return res.status(404).json({ error: "not_found" });
         }
+        await mb.uzenetIr(id, eid, "ki", req.user.id, b.szoveg);
+        await mb.olvasott(id, eid, "csapat");
+        res.json({ siker: true });
+        hatter(async () => {
+            const m = await megbizasSor(id);
+            const szoveg = String(b.szoveg || "").slice(0, 2000);
+            if (erd) level.vevonek(req, m, erd, "Üzenet az IngatlanPro-tól / Mesaj de la IngatlanPro", [szoveg, "Válaszolni a hirdetés oldalán tudsz. / Poți răspunde pe pagina anunțului."]);
+            else await level.eladonak(req, m, `Üzenet a megbízásodhoz (${m.szerzodes_szam}) / Mesaj nou`, [szoveg, "Válaszolni a fiókodban, a Megbízásaim részen tudsz. / Poți răspunde în cont, la Mandatele mele."]);
+        });
+    } catch (err) { hiba(res, err); }
+});
+
+router.post(ASZTAL + "/:id/olvasva", asztal("megbizas_lat"), async (req, res) => {
+    try {
+        await mb.olvasott(Number(req.params.id), Number((req.body || {}).erdeklodo_id) || null, "csapat");
+        res.json({ siker: true });
+    } catch (err) { hiba(res, err); }
+});
+
+router.post(ASZTAL + "/:id/szerzodes-kuld", asztal("admin"), async (req, res) => {
+    try {
+        const m = await mb.szerzodesKuld(Number(req.params.id), req.user.id);
+        res.json({ siker: true });
+        hatter(() => level.eladonak(req, m, `A megbízási szerződésed / Contractul tău de intermediere (${m.szerzodes_szam})`, [
+            "Elkészült a megbízási szerződés. A fiókodban (Megbízásaim) elolvashatod, kinyomtathatod, és egy kattintással elfogadhatod.",
+            "Contractul de intermediere este gata. În cont (Mandatele mele) îl poți citi, tipări și accepta cu un clic."
+        ]));
+    } catch (err) { hiba(res, err); }
+});
+
+// Ajánlat: tovabbit (az eladónak) | elutasit | ellen_tovabbit (a vevőnek)
+router.post(ASZTAL + "/:id/ajanlatok/:aid/:muvelet", asztal("megbizas"), async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const muvelet = req.params.muvelet;
+        const a = await mb.ajanlatMuvelet(id, req.params.aid, muvelet, req.user.id);
+        res.json({ siker: true });
+        hatter(async () => {
+            const m = await megbizasSor(id);
+            const e = a.erdeklodo_id ? (await db.query("SELECT nev, email FROM megbizas_erdeklodok WHERE id = $1", [a.erdeklodo_id])).rows[0] : null;
+            if (muvelet === "tovabbit") {
+                await level.eladonak(req, m, `Vételi ajánlat érkezett / Ai primit o ofertă (${m.szerzodes_szam})`, [
+                    `Ajánlat: ${level.penz(a.osszeg, a.penznem)}${a.feltetelek ? ` – ${a.feltetelek}` : ""}`,
+                    "A fiókodban elfogadhatod, elutasíthatod, vagy ellenajánlatot tehetsz. / Poți accepta, refuza sau face o contraofertă în cont."
+                ]);
+            } else if (muvelet === "ellen_tovabbit") {
+                level.vevonek(req, m, e, "Ellenajánlatot kaptál / Ai primit o contraofertă", [
+                    `Az eladó ellenajánlata: ${level.penz(a.ellenajanlat, a.penznem)}. A hirdetés oldalán elfogadhatod, vagy új ajánlatot tehetsz.`,
+                    `Contraoferta vânzătorului: ${level.penz(a.ellenajanlat, a.penznem)}. O poți accepta pe pagina anunțului sau poți face o ofertă nouă.`
+                ]);
+            } else if (muvelet === "elutasit" && (req.body || {}).ertesit) {
+                level.vevonek(req, m, e, "Válasz az ajánlatodra / Răspuns la oferta ta", [
+                    `A ${level.penz(a.osszeg, a.penznem)} összegű ajánlatot most nem tudjuk elfogadni. Új ajánlatot a hirdetés oldalán tehetsz.`,
+                    `Oferta de ${level.penz(a.osszeg, a.penznem)} nu poate fi acceptată acum. Poți face o ofertă nouă pe pagina anunțului.`
+                ]);
+            }
+        });
     } catch (err) { hiba(res, err); }
 });
 
 const ALRESZ = { erdeklodok: mb.erdeklodoMent, megtekintesek: mb.megtekintesMent, ajanlatok: mb.ajanlatMent };
 
-router.post("/api/admin/megbizasok/:id/:resz", csakAdmin, async (req, res, next) => {
+router.post(ASZTAL + "/:id/:resz", asztal("megbizas"), async (req, res, next) => {
     const fn = ALRESZ[req.params.resz];
     if (!fn) return next();
     try {
         const id = await fn(Number(req.params.id), null, req.body || {});
         res.json({ siker: true, id });
-        await utanaErtesit(req, req.params.resz, Number(req.params.id), id, null);
+        hatter(() => utanaErtesit(req, req.params.resz, Number(req.params.id), id, null));
     } catch (err) { hiba(res, err); }
 });
 
-router.put("/api/admin/megbizasok/:id/:resz/:rid", csakAdmin, async (req, res, next) => {
+router.put(ASZTAL + "/:id/:resz/:rid", asztal("megbizas"), async (req, res, next) => {
     const fn = ALRESZ[req.params.resz];
     if (!fn) return next();
     try {
@@ -180,47 +438,69 @@ router.put("/api/admin/megbizasok/:id/:resz/:rid", csakAdmin, async (req, res, n
                 : null;
         const id = await fn(Number(req.params.id), Number(req.params.rid), req.body || {});
         res.json({ siker: true, id });
-        await utanaErtesit(req, req.params.resz, Number(req.params.id), id, elozo);
+        hatter(() => utanaErtesit(req, req.params.resz, Number(req.params.id), id, elozo));
     } catch (err) { hiba(res, err); }
 });
 
-router.delete("/api/admin/megbizasok/:id/:resz/:rid", csakAdmin, async (req, res) => {
+router.delete(ASZTAL + "/:id/:resz/:rid", asztal("admin"), async (req, res) => {
     try { await mb.torol(req.params.resz, req.params.id, req.params.rid); res.json({ siker: true }); } catch (err) { hiba(res, err); }
 });
 
-// Az eladó értesítése: továbbított ajánlat, egyeztetett megtekintés
+// Értesítések: továbbított ajánlat (az eladónak), egyeztetett megtekintés (mindenkinek)
 async function utanaErtesit(req, resz, megbizasId, id, elozo) {
-    try {
-        const m = (await db.query("SELECT * FROM megbizasok WHERE id = $1", [megbizasId])).rows[0];
-        if (!m) return;
-        if (resz === "ajanlatok") {
-            const a = (await db.query("SELECT * FROM megbizas_ajanlatok WHERE id = $1", [id])).rows[0];
-            if (a && a.statusz === "tovabbitva" && (!elozo || elozo.statusz !== "tovabbitva")) {
-                await db.query(`INSERT INTO megbizas_naplo (megbizas_id, tipus, szoveg, lathato_eladonak, created_by) VALUES ($1, 'ajanlat', $2, true, $3)`,
-                    [m.id, `Vételi ajánlat érkezett: ${a.osszeg} ${a.penznem}`, req.user && req.user.id]);
-                eladoLevel(req, m, `Vételi ajánlat érkezett (${m.szerzodes_szam})`, [
-                    `Ajánlat: ${a.osszeg} ${a.penznem}${a.feltetelek ? ` – ${a.feltetelek}` : ""}`,
-                    "A fiókodban elfogadhatod, elutasíthatod, vagy ellenajánlatot tehetsz. / Poți accepta, refuza sau face o contraofertă în cont."
-                ]).catch(() => { });
-            }
+    const m = await megbizasSor(megbizasId);
+    if (!m) return;
+    if (resz === "ajanlatok") {
+        const a = (await db.query("SELECT * FROM megbizas_ajanlatok WHERE id = $1", [id])).rows[0];
+        if (a && a.statusz === "tovabbitva" && (!elozo || elozo.statusz !== "tovabbitva")) {
+            await mb.naploIr(m.id, "ajanlat", `Vételi ajánlat érkezett: ${a.osszeg} ${a.penznem}`, true, req.user && req.user.id);
+            await level.eladonak(req, m, `Vételi ajánlat érkezett / Ai primit o ofertă (${m.szerzodes_szam})`, [
+                `Ajánlat: ${level.penz(a.osszeg, a.penznem)}${a.feltetelek ? ` – ${a.feltetelek}` : ""}`,
+                "A fiókodban elfogadhatod, elutasíthatod, vagy ellenajánlatot tehetsz. / Poți accepta, refuza sau face o contraofertă în cont."
+            ]);
         }
-        if (resz === "megtekintesek") {
-            const t = (await db.query("SELECT * FROM megbizas_megtekintesek WHERE id = $1", [id])).rows[0];
-            const ujIdopont = t && t.idopont && (!elozo || String(elozo.idopont) !== String(t.idopont) || elozo.statusz !== "egyeztetve");
-            if (t && t.statusz === "egyeztetve" && ujIdopont) {
-                const ido = new Date(t.idopont).toLocaleString("hu-HU", { timeZone: "Europe/Bucharest", dateStyle: "medium", timeStyle: "short" });
-                await db.query(`INSERT INTO megbizas_naplo (megbizas_id, tipus, szoveg, lathato_eladonak, created_by) VALUES ($1, 'megtekintes', $2, true, $3)`,
-                    [m.id, `Megtekintés egyeztetve: ${ido}`, req.user && req.user.id]);
-                eladoLevel(req, m, `Megtekintés: ${ido}`, [
-                    `Egy érdeklődő megnézi az ingatlant: ${ido}.`,
-                    "Vizionare programată – detalii în contul tău."
-                ]).catch(() => { });
-            }
+    }
+    if (resz === "megtekintesek") {
+        const t = (await db.query("SELECT * FROM megbizas_megtekintesek WHERE id = $1", [id])).rows[0];
+        const ujIdopont = t && t.idopont && (!elozo || String(elozo.idopont) !== String(t.idopont) || elozo.statusz !== "egyeztetve");
+        if (t && t.statusz === "egyeztetve" && ujIdopont) {
+            const ido = level.idoSzoveg(t.idopont);
+            await mb.naploIr(m.id, "megtekintes", `Megtekintés egyeztetve: ${ido}`, true, req.user && req.user.id);
+            await level.eladonak(req, m, `Megtekintés: ${ido} / Vizionare: ${ido}`, [
+                `Egy érdeklődő megnézi az ingatlant: ${ido}.`,
+                `Un cumpărător interesat vine la vizionare: ${ido}.`
+            ]);
+            const e = t.erdeklodo_id ? (await db.query("SELECT nev, email FROM megbizas_erdeklodok WHERE id = $1", [t.erdeklodo_id])).rows[0] : null;
+            level.vevonek(req, m, e, `Megtekintés időpontja: ${ido} / Ora vizionării`, [
+                `Várunk: ${level.hely(m)} – ${ido}.`,
+                "Ha mégsem érsz rá, a hirdetés oldalán lemondhatod.",
+                `Te așteptăm: ${level.hely(m)} – ${ido}. Dacă nu poți ajunge, anulează pe pagina anunțului.`
+            ]);
+            const bem = t.bemutato_id || m.bemutato_id;
+            if (bem) level.munkatarsnak(req, bem, `Bemutatás: ${ido} – ${level.hely(m)}`, [
+                `Megtekintés: ${ido}`, `Cím: ${level.hely(m)}`, e ? `Vevő: ${e.nev || "–"}` : ""
+            ], "/#munka/megtekintesek");
         }
-    } catch (e) {
-        console.error("Megbízás értesítés:", e.message);
     }
 }
+
+// ===================== BEMUTATÓ (munkatárs): megtekintések =====================
+
+router.get("/api/csapat/megtekintesek", csakBelepve, async (req, res) => {
+    try { res.json(await mb.sajatMegtekintesek(req)); } catch (err) { hiba(res, err); }
+});
+
+router.put("/api/csapat/megtekintesek/:tid", csakBelepve, async (req, res) => {
+    try {
+        const mid = await mb.megtekintesJog(req, req.params.tid);
+        if (!mid) return res.status(403).json({ error: "forbidden" });
+        await mb.megtekintesLezar(mid, req.params.tid, req.body || {});
+        await mb.naploIr(mid, "megtekintes", `Megtekintés: ${(req.body || {}).statusz}${(req.body || {}).visszajelzes ? ` – „${String(req.body.visszajelzes).slice(0, 300)}”` : ""}`, false, req.user.id);
+        res.json({ siker: true });
+    } catch (err) { hiba(res, err); }
+});
+
+// ===================== BEÁLLÍTÁSOK, DÍJBEKÉRŐ (admin) =====================
 
 router.get("/api/admin/megbizas-beallitas", csakAdmin, async (req, res) => {
     try { res.json(await mb.beallitas()); } catch (err) { hiba(res, err); }
@@ -231,9 +511,9 @@ router.put("/api/admin/megbizas-beallitas", csakAdmin, async (req, res) => {
 });
 
 // Díjbekérő a sikerdíjról (és a fizetős opciókról) – a Pénzügyekbe kerül
-router.post("/api/admin/megbizasok/:id/dijbekero", csakAdmin, async (req, res) => {
+router.post(ASZTAL + "/:id/dijbekero", asztal("admin"), async (req, res) => {
     try {
-        const m = (await db.query("SELECT * FROM megbizasok WHERE id = $1", [Number(req.params.id) || 0])).rows[0];
+        const m = await megbizasSor(req.params.id);
         if (!m) return res.status(404).json({ error: "not_found" });
         const dij = await mb.dijSzamol(m);
         const b = req.body || {};
@@ -271,8 +551,8 @@ router.post("/api/admin/megbizasok/:id/dijbekero", csakAdmin, async (req, res) =
             tipus: "dijbekero", ugyfel_id: ugyfelId, penznem, tetelek,
             megjegyzes: `Megbízás / Mandat: ${m.szerzodes_szam}`
         });
-        await db.query(`INSERT INTO megbizas_naplo (megbizas_id, tipus, szoveg, lathato_eladonak, created_by) VALUES ($1, 'jegyzet', $2, false, $3)`,
-            [m.id, `Díjbekérő készült (#${szamlaId})`, req.user && req.user.id]);
+        await db.query("UPDATE megbizasok SET dijbekero_id = $2, updated_at = NOW() WHERE id = $1", [m.id, szamlaId]);
+        await mb.naploIr(m.id, "jegyzet", `Díjbekérő készült (#${szamlaId})`, false, req.user.id);
         res.json({ siker: true, szamla_id: szamlaId });
     } catch (err) { hiba(res, err); }
 });
@@ -322,6 +602,7 @@ async function szerzodesHtml(m) {
   ul { margin: 4px 0 10px 18px; padding: 0; }
   .alair { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; font-family: Arial, sans-serif; font-size: 13px; }
   .alair div { border-top: 1px solid #1c2321; padding-top: 6px; text-align: center; }
+  .elfogadva { margin-top: 28px; font-family: Arial, sans-serif; font-size: 12.5px; background: #e8f4ef; border: 1px solid #9fd0bd; color: #14523f; border-radius: 8px; padding: 8px 12px; }
   .eszkoz { text-align: center; margin: 16px 0 32px; font-family: Arial, sans-serif; }
   .eszkoz button { font-size: 15px; padding: 9px 18px; border-radius: 8px; border: 0; background: #1f6f5c; color: #fff; cursor: pointer; }
   @media print { body { background: #fff; } .lap { box-shadow: none; margin: 0; max-width: none; padding: 0; } .eszkoz { display: none; } }
@@ -395,6 +676,8 @@ async function szerzodesHtml(m) {
   ${p("A szerződésre a román jog, különösen a Polgári Törvénykönyv közvetítési szerződésre vonatkozó rendelkezései irányadók. A szerződés két eredeti példányban készült.",
       "Contractul este guvernat de legea română, în special de dispozițiile Codului civil privind contractul de intermediere. Contractul s-a încheiat în două exemplare originale.")}
   ${be.szerzodes_megjegyzes ? `<p style="white-space:pre-line">${esc(be.szerzodes_megjegyzes)}</p>` : ""}
+
+  ${m.szerzodes_elfogadva ? `<div class="elfogadva">Elektronikusan elfogadva / Acceptat electronic: <b>${esc(new Date(m.szerzodes_elfogadva).toLocaleString("hu-HU", { timeZone: "Europe/Bucharest" }))}</b>${m.szerzodes_elfogadva_ip ? ` · IP: ${esc(m.szerzodes_elfogadva_ip)}` : ""}</div>` : ""}
 
   <div class="alair">
     <div>Megbízott / Intermediar<br><br>${esc(u.nev || "IngatlanPro")}</div>

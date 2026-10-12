@@ -29,6 +29,7 @@ router.post("/api/cron/run", async (req, res) => {
         .then(() => { const j = imagehash.indit(300); return j && j.promise; })
         .then(() => napiErtesito(req))
         .then(() => require("./statistics").havontaMent())
+        .then(() => require("../services/megbizasAuto").futtat())
         .catch(err => console.error("Cron hiba:", err));
 
 });
