@@ -103,6 +103,10 @@ class NavMenu {
                 }
             }
         });
+        // A közvetlen menüpontok (Ingatlanok, Térkép, Keresek, Eladjuk helyetted)
+        document.querySelectorAll(".navLinks > .navLink[data-page]").forEach(a => {
+            a.classList.toggle("active", a.dataset.page === oldal);
+        });
         document.querySelectorAll(".navPanel [data-page]").forEach(a => {
             a.classList.toggle("active", a.dataset.page === oldal);
         });

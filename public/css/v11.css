@@ -5,24 +5,66 @@
    – a vevő oldala: Érdeklődéseim
    ============================================================ */
 
-/* ---------- Admin menü: összecsukható csoportok ---------- */
-.adminNavSec { display: flex; flex-direction: column; gap: 2px; }
-.adminNavGroupBtn { display: flex; align-items: center; gap: 0.4rem; width: calc(100% - 1.2rem); border: 0; background: transparent; padding: 0; text-align: left; cursor: pointer; }
-.adminNavGroupBtn:hover { color: var(--ip-text); }
-.adminNavGroupBtn:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 3px; border-radius: 4px; }
-.adminNavGroupBtn > span:first-child { flex: 1 1 auto; }
-.adminNavGroupBtn > i { font-size: 0.65rem; transition: transform .15s; }
-.adminNavSec.csukott .adminNavGroupBtn > i { transform: rotate(-90deg); }
-.adminNavSec.csukott .adminNavSecItems { display: none; }
-.adminNavSecItems { display: flex; flex-direction: column; gap: 2px; }
-.adminNavGroupDb { min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--ip-warn-soft, #fef3c7); color: var(--ip-warn, #b45309);
-    font-size: 0.68rem; font-weight: 700; letter-spacing: 0; text-align: center; line-height: 18px; }
-.adminNavSec:not(.csukott) .adminNavGroupDb { display: none; }
-.adminNavGroupDb[hidden] { display: none; }
+/* ---------- Admin: a teljes képernyő, felül a modulok ---------- */
+body[data-page="admin"] .appMain { max-width: none; padding-left: clamp(1rem, 2.2vw, 2.5rem); padding-right: clamp(1rem, 2.2vw, 2.5rem); padding-top: 0; }
+#page-admin .adminShell { display: block; }
+#page-admin .adminNav, #page-admin .adminNavMobile { display: none !important; }
+#page-admin .adminCrumb { display: none; }
+#page-admin .adminHeader { margin: 1.1rem 0 1.25rem; }
+#page-admin .adminHeader h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#page-admin .adminHeader p { font-size: 0.92rem; max-width: 110ch; }
 
-@media (max-width: 991.98px) {
-    .adminNavSec, .adminNavSecItems, .adminNavSec.csukott .adminNavSecItems { display: contents; }
+.admTopWrap { position: sticky; top: var(--ip-nav-h); z-index: 1020; margin: 0 calc(-1 * clamp(1rem, 2.2vw, 2.5rem)); padding: 0 clamp(1rem, 2.2vw, 2.5rem);
+    background: color-mix(in srgb, var(--ip-bg) 92%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--ip-border); }
+.admTop { display: flex; align-items: center; gap: 1rem; padding: 0.55rem 0; }
+.admModulok { display: flex; gap: 0.25rem; overflow-x: auto; scrollbar-width: none; flex: 1 1 auto; min-width: 0; }
+.admModulok::-webkit-scrollbar { display: none; }
+.admModul { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.95rem; border-radius: 999px; border: 1px solid transparent;
+    background: transparent; color: var(--ip-muted); font-weight: 600; font-size: 0.95rem; white-space: nowrap; transition: background .15s, color .15s; }
+.admModul:hover { background: var(--ip-surface); color: var(--ip-text); border-color: var(--ip-border); }
+.admModul.active { background: var(--ip-accent); color: var(--ip-accent-contrast, #fff); }
+.admModul:focus-visible, .admLap:focus-visible, .admUgras:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+.admModulDb { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ip-warn, #d97706); color: #fff; font-size: 0.7rem; font-weight: 700; line-height: 20px; text-align: center; }
+.admModulDb[hidden] { display: none; }
+.admModul.active .admModulDb { background: #fff; color: var(--ip-accent); }
+
+.admUgras { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.45rem 0.6rem 0.45rem 0.85rem; border-radius: 10px;
+    border: 1px solid var(--ip-border); background: var(--ip-surface); color: var(--ip-muted); font-size: 0.88rem; min-width: 220px; }
+.admUgras span { flex: 1 1 auto; text-align: left; }
+.admUgras:hover { border-color: var(--ip-accent); color: var(--ip-text); }
+.admUgras kbd, .admUgrasKeres kbd { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 5px; background: var(--ip-bg); color: var(--ip-muted); border: 1px solid var(--ip-border); }
+
+.admLapok { display: flex; align-items: center; gap: 0.15rem; overflow-x: auto; scrollbar-width: none; padding: 0 0 0.5rem; }
+.admLapok::-webkit-scrollbar { display: none; }
+.admLap { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.75rem; border: 0; border-radius: 8px; background: transparent;
+    color: var(--ip-text); font-size: 0.88rem; font-weight: 500; white-space: nowrap; position: relative; }
+.admLap > i { color: var(--ip-muted); font-size: 0.85rem; }
+.admLap:hover { background: var(--ip-surface); }
+.admLap.active { background: var(--ip-accent-soft); color: var(--ip-accent); font-weight: 650; }
+.admLap.active > i { color: var(--ip-accent); }
+.admLap .navCount { margin-left: 0.15rem; }
+.admLapSep { width: 1px; height: 20px; background: var(--ip-border); margin: 0 0.5rem; flex: 0 0 1px; }
+
+@media (max-width: 767.98px) {
+    .admUgras { min-width: 0; padding: 0.45rem 0.6rem; }
+    .admUgras span, .admUgras kbd { display: none; }
+    .admModul { padding: 0.5rem 0.75rem; font-size: 0.9rem; }
 }
+
+/* Ugrás… ablak */
+.admUgrasAblak { position: fixed; inset: 0; z-index: 2050; background: rgba(15, 23, 42, .35); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 1rem 1rem; }
+.admUgrasPanel { width: min(640px, 100%); background: var(--ip-surface); border: 1px solid var(--ip-border); border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.25); overflow: hidden; }
+.admUgrasKeres { display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; border-bottom: 1px solid var(--ip-border); }
+.admUgrasKeres i { color: var(--ip-muted); }
+.admUgrasKeres input { flex: 1 1 auto; border: 0; outline: none; background: transparent; color: var(--ip-text); font-size: 1.05rem; }
+.admUgrasLista { list-style: none; margin: 0; padding: 0.4rem; max-height: 55vh; overflow-y: auto; }
+.admUgrasLista li { display: flex; align-items: center; gap: 0.8rem; padding: 0.55rem 0.7rem; border-radius: 9px; cursor: pointer; }
+.admUgrasLista li > i { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 8px; background: var(--ip-accent-soft); color: var(--ip-accent); }
+.admUgrasLista li b { display: block; font-size: 0.93rem; }
+.admUgrasLista li small { display: block; color: var(--ip-muted); font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admUgrasLista li em { font-style: normal; font-size: 0.72rem; color: var(--ip-muted); white-space: nowrap; }
+.admUgrasLista li.jelolt { background: var(--ip-accent-soft); }
+.admUgrasLista li.ures { color: var(--ip-muted); cursor: default; }
 
 /* ---------- Mai teendők ---------- */
 .ovGyors { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6rem; }
@@ -62,7 +104,7 @@
 .pathItem.fo { border: 1px solid var(--ip-accent); background: var(--ip-surface); margin-bottom: 0.3rem; }
 .pathItem.fo > i:first-child { background: var(--ip-accent); color: var(--ip-accent-contrast, #fff); }
 
-.toolGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.toolGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
 @media (max-width: 767.98px) { .toolGrid { grid-template-columns: 1fr; } }
 .toolCard { display: flex; gap: 0.8rem; align-items: flex-start; padding: 1rem; border: 1px solid var(--ip-border); border-radius: var(--ip-radius); background: var(--ip-surface); color: var(--ip-text); text-decoration: none; }
 .toolCard span:last-child { display: flex; flex-direction: column; gap: 0.15rem; }
@@ -117,3 +159,31 @@
     .byFelso { flex-direction: column; }
     .byKep { width: 100%; height: 140px; }
 }
+
+/* ---------- Ma: teendők + röviden ---------- */
+.ovRacs { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1.25rem; align-items: start; }
+@media (max-width: 1199.98px) { .ovRacs { grid-template-columns: 1fr; } }
+.ovRoviden ul { list-style: none; margin: 0; padding: 0.5rem 1rem; }
+.ovRoviden li { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--ip-border); }
+.ovRoviden li:last-child { border-bottom: 0; }
+.ovRoviden li > i { width: 1.1rem; text-align: center; color: var(--ip-accent); }
+.ovRoviden li small { display: block; color: var(--ip-muted); font-size: 0.76rem; }
+.ovRoviden li b { font-size: 1.1rem; }
+
+/* ---------- Fejléc: közvetlen menüpontok ---------- */
+.navLinkFeature { color: var(--ip-accent); }
+.navLinkFeature:hover { color: var(--ip-accent-strong, var(--ip-accent)); }
+@media (min-width: 992px) and (max-width: 1279.98px) {
+    .navLinks > .navLink > i:first-child { display: none; }
+    .navLinks > .navLink { padding: 0 0.6rem; }
+}
+
+/* A közvetlen menüpontok 1280 px-től férnek el; alatta a lenyíló menü */
+@media (min-width: 992px) and (max-width: 1279.98px) {
+    .navLinks { display: none !important; }
+    .navDropdown { display: block !important; }
+}
+@media (max-width: 640px) {
+    .navMenuGrouped.show { position: fixed !important; inset: var(--ip-nav-h) 12px auto 12px !important; transform: none !important; min-width: 0 !important; }
+}
+.navMenuGrouped .dropdown-item { white-space: normal; }

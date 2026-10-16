@@ -194,8 +194,9 @@ class AuthManager {
             badge.hidden = !(AuthManager.olvasatlan > 0);
             badge.innerText = AuthManager.olvasatlan > 9 ? "9+" : AuthManager.olvasatlan;
         });
-        // A fiók ikonján: az üzenetek + ami a vevőre vár (Érdeklődéseim)
-        const osszes = (AuthManager.olvasatlan || 0) + (AuthManager.vevo ? AuthManager.vevo.teendo || 0 : 0);
+        // A fiók ikonján: az üzenetek + ami a vevőre (Érdeklődéseim) és az eladóra (Ingatlanom eladása) vár
+        const osszes = (AuthManager.olvasatlan || 0) + (AuthManager.vevo ? AuthManager.vevo.teendo || 0 : 0)
+            + (AuthManager.megbizas ? AuthManager.megbizas.teendo || 0 : 0);
         document.querySelectorAll("#navMsgCount").forEach(badge => {
             badge.hidden = !(osszes > 0);
             badge.innerText = osszes > 9 ? "9+" : osszes;

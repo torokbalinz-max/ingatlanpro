@@ -211,7 +211,7 @@ class MandateDesk {
                 </div>
 
                 <div class="row g-4 mb-4">
-                    <div class="col-xl-8">
+                    <div class="col-12">
                         <section class="card dkMa h-100" aria-labelledby="dkMaCim">
                             <div class="card-header d-flex flex-wrap justify-content-between align-items-baseline gap-2">
                                 <h5 class="mb-0" id="dkMaCim">${I18n.t("dk_ma")} <span class="small text-body-secondary fw-normal">· ${I18n.f("dk_maDb", { n: sajat.length })}</span></h5>
@@ -225,24 +225,6 @@ class MandateDesk {
                                     <h6 class="mdGroupHead mt-3">${I18n.t("dk_masraCim")}</h6>
                                     <ul class="dkTodo">${masra.map(x => MandateDesk.maSor(x)).join("")}</ul>
                                 </div>
-                            </div>
-                        </section>
-                    </div>
-                    <div class="col-xl-4">
-                        <section class="card h-100" aria-labelledby="dkKozCim">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0" id="dkKozCim">${I18n.t("mdUpcoming")}</h5>
-                                <a class="small" href="#admin/naptar">${I18n.t("nt_megnyit")} →</a>
-                            </div>
-                            <div class="card-body">
-                                ${d.kozelgo.length ? `<ul class="mdUpcoming">${d.kozelgo.map(t => `
-                                    <li>
-                                        <button type="button" class="mdUpcomingBtn" data-md-go="${t.megbizas_id}" data-md-ful="megtekintesek">
-                                            <b>${esc(Svc.ido(t.idopont))}</b>
-                                            <span class="d-block small text-truncate">${esc(MandateDesk.hely(t))}</span>
-                                            <span class="d-block small text-body-secondary text-truncate">${esc(t.erdeklodo_nev || "–")}${t.bemutato_nev ? ` · <i class="fa-solid fa-door-open" aria-hidden="true"></i> ${esc(t.bemutato_nev)}` : ""}</span>
-                                        </button>
-                                    </li>`).join("")}</ul>` : `<p class="text-body-secondary small mb-0">${I18n.t("mdNoUpcoming")}</p>`}
                             </div>
                         </section>
                     </div>

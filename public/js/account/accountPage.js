@@ -20,8 +20,7 @@ class AccountPage {
         { key: "keresesek", icon: "fa-solid fa-bookmark", label: "accTabSearches" },
         { key: "igenyek", icon: "fa-solid fa-bullhorn", label: "accTabRequests" },
         { key: "uzenetek", icon: "fa-solid fa-envelope", label: "accTabMessages" },
-        { key: "csomag", icon: "fa-solid fa-receipt", label: "accTabBilling" },
-        { key: "megbizasok", icon: "fa-solid fa-key", label: "el_menu" }
+        { key: "csomag", icon: "fa-solid fa-receipt", label: "accTabBilling" }
     ];
 
     static show(param) {

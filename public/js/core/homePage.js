@@ -36,7 +36,6 @@ class HomePage {
                 { icon: "fa-solid fa-key", cim: "menuEladjuk", szoveg: "homeFeatSellText", hova: "eladjuk", fo: true },
                 { icon: "fa-solid fa-circle-plus", cim: "navSellPost", szoveg: "navSellPostDesc", hova: "new" },
                 { icon: "fa-solid fa-calculator", cim: "navSellValue", szoveg: "homeFeatValText", hova: "valuation" },
-                { icon: "fa-solid fa-users", cim: "navSellBuyers", szoveg: "navSellBuyersDesc", hova: "igenyek" },
                 { icon: "fa-solid fa-tags", cim: "menuCsomagok", szoveg: "homeFeatPricesText", hova: "csomagok" }
             ]
         }
@@ -45,7 +44,6 @@ class HomePage {
     // A piac eszközei (mindenkinek)
     static ESZKOZOK = [
         { icon: "fa-solid fa-chart-line", cim: "homeFeatMarketTitle", szoveg: "homeFeatMarketText", hova: "market" },
-        { icon: "fa-solid fa-calculator", cim: "homeFeatValTitle", szoveg: "homeToolValText", hova: "valuation" },
         { icon: "fa-solid fa-briefcase", cim: "homeFeatAgTitle", szoveg: "homeFeatAgText", hova: "irodak" }
     ];
 

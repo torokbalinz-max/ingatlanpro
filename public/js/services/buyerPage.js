@@ -60,12 +60,6 @@ class BuyerPage {
                     <h1 class="h3 mb-1"><i class="fa-solid fa-house-circle-check" aria-hidden="true"></i> ${I18n.t("by_cim")}</h1>
                     <p class="text-body-secondary mb-0">${I18n.t("by_alcim")}</p>
                 </div>
-                <nav class="byLinkek" aria-label="${esc(I18n.t("by_kapcsolodo"))}">
-                    <a href="#favorites"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("menuKedvencek")}</a>
-                    <a href="#fiok/keresesek"><i class="fa-solid fa-bookmark" aria-hidden="true"></i> ${I18n.t("accTabSearches")}</a>
-                    <a href="#fiok/igenyek"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> ${I18n.t("accTabRequests")}</a>
-                    <a href="#fiok/uzenetek"><i class="fa-solid fa-envelope" aria-hidden="true"></i> ${I18n.t("accTabMessages")}</a>
-                </nav>
             </header>`;
 
         if (!lista.length) {

@@ -59,7 +59,7 @@
 .dkMikor { font-size: 0.78rem; color: var(--ip-muted); white-space: nowrap; }
 
 .dkBoardWrap { overflow-x: auto; padding-bottom: 0.5rem; margin: 0 -0.25rem; }
-.dkBoard { display: grid; grid-template-columns: repeat(7, minmax(220px, 1fr)); gap: 0.6rem; padding: 0 0.25rem; min-width: min-content; }
+.dkBoard { display: grid; grid-template-columns: repeat(7, minmax(180px, 1fr)); gap: 0.6rem; padding: 0 0.25rem; min-width: min-content; }
 .dkCol { background: var(--ip-bg); border: 1px solid var(--ip-border); border-radius: 12px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.45rem; min-height: 120px; }
 .dkCol > header { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 700; color: var(--ip-muted); padding: 0.1rem 0.25rem 0.25rem; }
 .dkColDb { background: var(--ip-surface); border: 1px solid var(--ip-border); border-radius: 999px; padding: 0 0.5rem; font-weight: 600; }

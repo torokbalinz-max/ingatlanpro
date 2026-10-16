@@ -49,30 +49,6 @@ AdminManager.renderOverview = function () {
         const n = v => Utils.num(v || 0);
         const esc = Utils.escape;
         const admin = AuthManager.isAdmin();
-        const lat = tab => AdminManager.TABS[tab] && AdminManager.lathato(AdminManager.TABS[tab]);
-
-        const tile = (tab, icon, color, label, value, sub) => `
-            <div class="col-sm-6 col-xxl-3">
-                <button type="button" class="kpiCard kpiLink w-100" ${tab ? `data-go="${tab}"` : ""}>
-                    <span class="kpiIcon ${color}"><i class="${icon}"></i></span>
-                    <div class="text-start">
-                        <small>${label}</small>
-                        <h3>${value}</h3>
-                        ${sub ? `<p class="kpiNote">${sub}</p>` : ""}
-                    </div>
-                </button>
-            </div>`;
-
-        // Gyors műveletek: amit a legtöbbször csinálsz
-        const gyors = [
-            { tab: "import", icon: "fa-solid fa-file-import", cim: "ovQuickImport" },
-            { href: "#new", icon: "fa-solid fa-circle-plus", cim: "ovQuickNew", ha: admin || AuthManager.resz("hirdetes") },
-            { tab: "hirdetesek", icon: "fa-solid fa-pen-to-square", cim: "adminTabListingsManage" },
-            { tab: "review", icon: "fa-solid fa-list-check", cim: "adminTabReview" },
-            { tab: "megbizasok", icon: "fa-solid fa-key", cim: "adminTabMandates" },
-            { tab: "naptar", icon: "fa-regular fa-calendar-days", cim: "nt_cim" }
-        ].filter(g => g.tab ? lat(g.tab) : g.ha);
-
         const teendok = AdminManager.maTeendok(c);
         const szintek = [0, 1, 2].map(sz => teendok.filter(t => t.szint === sz)).map((l, i) => l.length ? `
             <h6 class="ovSzint">${I18n.t("ovSzint" + i)}</h6>
@@ -85,66 +61,38 @@ AdminManager.renderOverview = function () {
                     </div>`).join("")}
             </div>` : "").join("");
 
-        // A menü egy pillantásra (csoportonként, egy-egy mondattal)
-        const csoportok = AdminManager.GROUPS.filter(g => g.key !== "napi").map(g => {
-            const pontok = Object.entries(AdminManager.TABS).filter(([, t]) => t.group === g.key && AdminManager.lathato(t));
-            if (!pontok.length) return "";
-            return `
-                <div class="col-md-6 col-xxl-4">
-                    <div class="card h-100 ovGroup">
-                        <div class="card-header"><h6 class="mb-0"><i class="${g.icon}" aria-hidden="true"></i> ${esc(I18n.t(g.label))}</h6></div>
-                        <div class="list-group list-group-flush">
-                            ${pontok.map(([k, t]) => `
-                                <button type="button" class="list-group-item list-group-item-action ovGroupItem" data-go="${k}">
-                                    <i class="${t.icon}" aria-hidden="true"></i>
-                                    <span class="flex-fill">
-                                        <b>${esc(I18n.t(t.title))}</b>
-                                        <small>${esc(I18n.t(t.desc))}</small>
-                                    </span>
-                                    ${t.count && c[AdminManager.COUNT_KEY[t.count]] ? `<span class="navCount ${t.warn ? "warn" : ""}">${n(c[AdminManager.COUNT_KEY[t.count]])}</span>` : ""}
-                                </button>`).join("")}
-                        </div>
-                    </div>
-                </div>`;
-        }).join("");
+        // Röviden: az oldal állapota (csak az adminnak)
+        const sor = (icon, cimke, ertek, sugo) => `
+            <li><i class="${icon}" aria-hidden="true"></i><span class="flex-fill">${cimke}${sugo ? `<small>${sugo}</small>` : ""}</span><b>${ertek}</b></li>`;
 
         AdminManager.box().innerHTML = `
 
             <div id="ovRunning"></div>
 
-            ${gyors.length ? `
-            <div class="ovGyors mb-4">
-                ${gyors.map(g => g.tab
-                    ? `<button type="button" class="ovGyorsGomb" data-go="${g.tab}"><i class="${g.icon}" aria-hidden="true"></i><span>${esc(I18n.t(g.cim))}</span></button>`
-                    : `<a class="ovGyorsGomb" href="${g.href}"><i class="${g.icon}" aria-hidden="true"></i><span>${esc(I18n.t(g.cim))}</span></a>`).join("")}
-            </div>` : ""}
-
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-clipboard-check"></i> ${I18n.t("ovTodo")}</h5></div>
-                <div class="card-body">
-                    ${teendok.length ? szintek : `
-                        <div class="emptyState py-4">
-                            <i class="fa-solid fa-circle-check text-success"></i>
-                            <h5>${I18n.t("ovTodoNone")}</h5>
-                        </div>`}
-                </div>
-            </div>
-
-            ${admin ? `
-            <div class="row g-3 g-xxl-4 mb-4">
-                ${tile("", "fa-solid fa-house", "blue", I18n.t("ovActive"), n(c.aktiv),
-                    I18n.f("ovActiveSub", { ok: n(c.ellenorzott), foto: n(c.fotos) }))}
-                ${tile("review", "fa-solid fa-list-check", "orange", I18n.t("adminTabReview"), n(c.review),
-                    I18n.t("ovReviewSub"))}
-                ${tile("reklam", "fa-solid fa-rectangle-ad", "purple", I18n.t("ovAdsRunning"), n(c.reklam_fut),
-                    c.reklam_lejaro ? I18n.f("ovAdsExpiringSub", { n: c.reklam_lejaro }) : I18n.t("ovAdsSub"))}
-                ${tile("watch", "fa-solid fa-binoculars", "cyan", I18n.t("adminTabWatch"), n(c.figyelt),
-                    `${I18n.t("ovLastRun")}: ${c.utolso_futas ? Utils.ago(c.utolso_futas) : I18n.t("ovNever")}`)}
-            </div>` : ""}
-
-            ${csoportok.trim() ? `
-            ${AdminManager.section("fa-solid fa-sitemap", I18n.t("ovMapTitle"), I18n.t("ovMapNote"))}
-            <div class="row g-4">${csoportok}</div>` : ""}`;
+            <div class="ovRacs">
+                <section class="card">
+                    <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-clipboard-check"></i> ${I18n.t("ovTodo")}</h5></div>
+                    <div class="card-body">
+                        ${teendok.length ? szintek : `
+                            <div class="emptyState py-4">
+                                <i class="fa-solid fa-circle-check text-success"></i>
+                                <h5>${I18n.t("ovTodoNone")}</h5>
+                            </div>`}
+                    </div>
+                </section>
+                ${admin ? `
+                <aside class="card ovRoviden">
+                    <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-gauge-high"></i> ${I18n.t("ovShort")}</h5></div>
+                    <ul>
+                        ${sor("fa-solid fa-house", I18n.t("ovActive"), n(c.aktiv), I18n.f("ovActiveSub", { ok: n(c.ellenorzott), foto: n(c.fotos) }))}
+                        ${sor("fa-solid fa-user-pen", I18n.t("ovOwnListings"), n(c.kezi))}
+                        ${sor("fa-solid fa-city", I18n.t("ovCities"), n(c.varosok))}
+                        ${sor("fa-solid fa-rectangle-ad", I18n.t("ovAdsRunning"), n(c.reklam_fut))}
+                        ${sor("fa-solid fa-binoculars", I18n.t("adminTabWatch"), n(c.figyelt), `${I18n.t("ovLastRun")}: ${c.utolso_futas ? Utils.ago(c.utolso_futas) : I18n.t("ovNever")}`)}
+                    </ul>
+                    <div class="card-body pt-0"><p class="small text-body-secondary mb-0">${I18n.t("ovJumpHint")}</p></div>
+                </aside>` : ""}
+            </div>`;
 
         AdminManager.box().querySelectorAll("[data-go]").forEach(b => {
             b.onclick = () => AdminManager.open(b.dataset.go);
