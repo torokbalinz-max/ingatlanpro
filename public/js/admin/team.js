@@ -1,17 +1,32 @@
 // ============================================================
 //  Admin → Csapat és jogosultságok (#admin/csapat)
 //
-//  Munkatársak (a saját fiókjukkal lépnek be) és a hozzáféréseik:
-//  milyen jog (fotók, hirdetés szerkesztése, megtekintések, megbízások
-//  megtekintése / kezelése) mire (minden, egy város [+ típus], egy
-//  megbízás, egy hirdetés), meddig. A munkatárs a Munkaterületem
-//  oldalon (#munka) dolgozik.
+//  Munkatársak (a saját fiókjukkal lépnek be). Akinek részt adsz az admin
+//  felületből, az ugyanezt az admin felületet látja – csak a neki kiadott
+//  részekkel –, és azokon belül ugyanazt tudja, mint te.
+//
+//  Két fajta rész:
+//   - Az admin felület részei az egész oldalra: hirdetések ellenőrzése,
+//     beolvasás, helyek, ingatlanirodák, reklám, pénzügyek, látogatottság,
+//     beállítások.
+//   - Az értékesítés részei hatókörrel (minden / egy város [+ típus] /
+//     egy megbízás / egy hirdetés): megbízások kezelése (mint az admin),
+//     megbízások megtekintése, megtekintési naptár, hirdetések
+//     szerkesztése, fotók.
+//  Mindkettőhöz megadható lejárat.
+//
+//  Ez a rész (Csapat és jogosultságok) mindig csak az adminé.
 //
 //  Szerver: /api/admin/csapat (server/routes/csapat.js)
 // ============================================================
 
-AdminManager.TEAM_JOGOK = ["kepek", "hirdetes", "megtekintes", "megbizas_lat", "megbizas"];
-AdminManager.TEAM_IKON = { kepek: "fa-solid fa-camera", hirdetes: "fa-solid fa-pen-to-square", megtekintes: "fa-solid fa-door-open", megbizas_lat: "fa-regular fa-eye", megbizas: "fa-solid fa-key" };
+AdminManager.TEAM_IKON = {
+    megbizas: "fa-solid fa-key", megbizas_lat: "fa-regular fa-eye", megtekintes: "fa-regular fa-calendar", hirdetes: "fa-solid fa-pen-to-square", kepek: "fa-solid fa-camera",
+    ellenorzes: "fa-solid fa-list-check", beolvasas: "fa-solid fa-file-import", helyek: "fa-solid fa-map-location-dot", irodak: "fa-solid fa-briefcase",
+    reklam: "fa-solid fa-rectangle-ad", penzugy: "fa-solid fa-coins", statisztika: "fa-solid fa-chart-column", beallitasok: "fa-solid fa-sliders"
+};
+AdminManager.TEAM_HATOKOROS = ["megbizas", "megbizas_lat", "megtekintes", "hirdetes", "kepek"];
+AdminManager.TEAM_GLOBALIS = ["ellenorzes", "beolvasas", "helyek", "irodak", "reklam", "penzugy", "statisztika", "beallitasok"];
 
 AdminManager.teamHatokor = function (h) {
     const esc = Utils.escape;
@@ -20,6 +35,24 @@ AdminManager.teamHatokor = function (h) {
     if (h.hatokor === "megbizas") return `${esc(I18n.t("tmScope_megbizas"))}: ${esc(h.szerzodes_szam || "#" + h.megbizas_id)}${h.megbizas_nev ? " – " + esc(h.megbizas_nev) : ""}`;
     if (h.hatokor === "ingatlan") return `${esc(I18n.t("tmScope_ingatlan"))}: <a href="#listing/${h.ingatlan_id}">#${h.ingatlan_id}</a>${h.ingatlan_cim ? " – " + esc(h.ingatlan_cim) : ""}`;
     return "–";
+};
+
+// A hozzáférések szétválasztása: admin részek (egész oldal) + értékesítés (hatókörrel)
+AdminManager.teamSzet = function (hozzaferesek) {
+    const G = AdminManager.TEAM_GLOBALIS;
+    const glob = { jogok: [], lejar: "" };
+    const sorok = [];
+    (hozzaferesek || []).forEach(h => {
+        const jogok = h.jogok || [];
+        if (h.hatokor === "mind") {
+            const g = jogok.filter(j => G.includes(j));
+            if (g.length) { glob.jogok.push(...g); if (h.lejar && !glob.lejar) glob.lejar = h.lejar; }
+        }
+        const s = jogok.filter(j => !G.includes(j));
+        if (s.length) sorok.push({ ...h, jogok: s });
+    });
+    glob.jogok = [...new Set(glob.jogok)];
+    return { glob, sorok };
 };
 
 AdminManager.renderTeam = function () {
@@ -31,6 +64,8 @@ AdminManager.renderTeam = function () {
         const box = AdminManager.box();
         const esc = Utils.escape;
         AdminManager.teamAdat = d;
+        if (Array.isArray(d.globalis)) AdminManager.TEAM_GLOBALIS = d.globalis;
+        if (Array.isArray(d.hatokoros)) AdminManager.TEAM_HATOKOROS = d.hatokoros;
 
         box.innerHTML = `
             <div class="row g-4 mb-4">
@@ -38,7 +73,7 @@ AdminManager.renderTeam = function () {
                     <div class="card h-100">
                         <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> ${I18n.t("tmAdd")}</h5></div>
                         <div class="card-body">
-                            <p class="small text-body-secondary">${I18n.t("tmAddHelp")}</p>
+                            <p class="small text-body-secondary">${I18n.t("cs2_addSugo")}</p>
                             <div class="position-relative">
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
@@ -55,13 +90,15 @@ AdminManager.renderTeam = function () {
                         <div class="card-body small">
                             ${d.szerepek.filter(s => s !== "egyeni").map(s => `
                                 <div class="mb-2"><span class="badge tmRole r-${s}">${esc(I18n.t("tmRole_" + s))}</span> ${esc(I18n.t("tmRoleHelp_" + s))}</div>`).join("")}
-                            <div class="text-body-secondary">${I18n.t("tmRolesNote")}</div>
+                            <div class="text-body-secondary">${I18n.t("cs2_rolesNote")}</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            ${d.tagok.length ? `<div class="tmGrid">${d.tagok.map(t => `
+            ${d.tagok.length ? `<div class="tmGrid">${d.tagok.map(t => {
+                const { glob, sorok } = AdminManager.teamSzet(t.hozzaferesek);
+                return `
                 <article class="tmCard ${t.aktiv ? "" : "inactive"}">
                     <header class="d-flex justify-content-between gap-2">
                         <div class="min-w-0">
@@ -71,19 +108,25 @@ AdminManager.renderTeam = function () {
                         <span class="badge tmRole r-${esc(t.szerep)} align-self-start">${esc(I18n.t("tmRole_" + t.szerep))}</span>
                     </header>
                     ${!t.aktiv ? `<div class="small text-warning mt-1"><i class="fa-solid fa-pause" aria-hidden="true"></i> ${I18n.t("tmInactive")}</div>` : ""}
+                    ${glob.jogok.length ? `
+                    <div>
+                        <div class="small fw-semibold mb-1">${I18n.t("cs2_adminReszek")}${glob.lejar ? ` <small class="text-body-secondary">(${I18n.t("tmUntil")} ${esc(Svc.nap(glob.lejar))})</small>` : ""}</div>
+                        <div class="tmPerms">${glob.jogok.map(j => `<span><i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i> ${esc(I18n.t("cs2_resz_" + j))}</span>`).join("")}</div>
+                    </div>` : ""}
                     <ul class="tmAccess">
-                        ${t.hozzaferesek.length ? t.hozzaferesek.map(h => `
+                        ${sorok.length ? sorok.map(h => `
                             <li>
                                 <span class="tmScope">${AdminManager.teamHatokor(h)}${h.lejar ? ` <small class="text-body-secondary">(${I18n.t("tmUntil")} ${esc(Svc.nap(h.lejar))})</small>` : ""}</span>
-                                <span class="tmPerms">${(h.jogok || []).map(j => `<span title="${esc(I18n.t("tmPerm_" + j))}"><i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i> ${esc(I18n.t("tmPermShort_" + j))}</span>`).join("")}</span>
-                            </li>`).join("") : `<li class="text-body-secondary small">${I18n.t("tmNoAccess")}</li>`}
+                                <span class="tmPerms">${(h.jogok || []).map(j => `<span title="${esc(I18n.t("cs2_reszSugo_" + j))}"><i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i> ${esc(I18n.t("cs2_resz_" + j))}</span>`).join("")}</span>
+                            </li>`).join("") : !glob.jogok.length ? `<li class="text-body-secondary small">${I18n.t("tmNoAccess")}</li>` : ""}
                     </ul>
                     <footer class="d-flex flex-wrap gap-2 align-items-center small text-body-secondary">
                         <span><i class="fa-solid fa-key" aria-hidden="true"></i> ${I18n.f("tmMandates", { n: t.megbizas_db })}</span>
                         <span>${I18n.t("tmLastLogin")}: ${t.utolso_belepes ? esc(Utils.ago(t.utolso_belepes)) : "–"}</span>
                         <button type="button" class="btn btn-sm btn-outline-primary ms-auto" data-tm-szerk="${t.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${I18n.t("tmEdit")}</button>
                     </footer>
-                </article>`).join("")}</div>` : `
+                </article>`;
+            }).join("")}</div>` : `
                 <div class="emptyState">
                     <i class="fa-solid fa-people-group"></i>
                     <h5>${I18n.t("tmNone")}</h5>
@@ -111,7 +154,7 @@ AdminManager.renderTeam = function () {
                             lista.hidden = true;
                             inp.value = "";
                             const u = talalat.find(x => String(x.id) === b.dataset.tmUj);
-                            AdminManager.teamSzerk({ user_id: u.id, nev: u.nev, email: u.email, szerep: "fotos", aktiv: true, hozzaferesek: [] }, true);
+                            AdminManager.teamSzerk({ user_id: u.id, nev: u.nev, email: u.email, szerep: "ertekesito", aktiv: true, hozzaferesek: [] }, true);
                         };
                     });
                 }).catch(() => { });
@@ -131,12 +174,26 @@ AdminManager.teamSzerk = function (t, uj) {
 
     const esc = Utils.escape;
     const d = AdminManager.teamAdat;
+    const G = AdminManager.TEAM_GLOBALIS;
+    const H = AdminManager.TEAM_HATOKOROS;
     const { tartalom, modal } = Svc.modal("tmModal", "modal-xl");
-    let hozz = (t.hozzaferesek || []).map(h => ({ ...h, jogok: [...(h.jogok || [])] }));
+    const szet = AdminManager.teamSzet(t.hozzaferesek);
+    let glob = { jogok: [...szet.glob.jogok], lejar: szet.glob.lejar || "" };
+    let hozz = szet.sorok.map(h => ({ ...h, jogok: [...(h.jogok || [])] }));
     let megbizasok = null;
 
-    // Az új tag első hozzáférése a szerep szerinti jogokkal, a kiválasztott városra
-    if (uj && !hozz.length) hozz.push({ hatokor: "varos", varos: DataManager.currentCity || "", tipus: "", jogok: [...(d.szerep_jogok[t.szerep] || [])] });
+    // Az új tag első hozzáférése a szerep szerinti jogokkal
+    const szerepSzerint = szerep => {
+        const javasolt = d.szerep_jogok[szerep] || [];
+        const g = javasolt.filter(j => G.includes(j));
+        const h = javasolt.filter(j => H.includes(j));
+        return { g, h };
+    };
+    if (uj && !hozz.length && !glob.jogok.length) {
+        const j = szerepSzerint(t.szerep);
+        glob.jogok = j.g;
+        if (j.h.length) hozz.push({ hatokor: "varos", varos: DataManager.currentCity || "", tipus: "", jogok: j.h });
+    }
 
     const varosOpt = sel => (CityManager.varosok || []).map(v => v.nev)
         .sort((a, b) => CityManager.displayName(a).localeCompare(CityManager.displayName(b), "hu"))
@@ -182,17 +239,21 @@ AdminManager.teamSzerk = function (t, uj) {
                     <button type="button" class="btn btn-sm btn-outline-danger" data-tm-torol-sor="${i}" aria-label="${esc(I18n.t("finDelete"))}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
                 </div>
                 <div class="col-12 tmPermPick">
-                    ${d.jogok.map(j => `
+                    ${H.map(j => `
                         <label class="tmPermChk">
                             <input type="checkbox" class="form-check-input" data-jog="${j}" ${h.jogok.includes(j) ? "checked" : ""}>
                             <i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i>
-                            <span><b>${esc(I18n.t("tmPermShort_" + j))}</b><small>${esc(I18n.t("tmPerm_" + j))}</small></span>
+                            <span><b>${esc(I18n.t("cs2_resz_" + j))}</b><small>${esc(I18n.t("cs2_reszSugo_" + j))}</small></span>
                         </label>`).join("")}
                 </div>
             </div>
         </div>`;
 
     const olvas = () => {
+        glob = {
+            jogok: [...tartalom.querySelectorAll("[data-glob]:checked")].map(c => c.dataset.glob),
+            lejar: (tartalom.querySelector("#tmGlobLejar") || {}).value || ""
+        };
         hozz = [...tartalom.querySelectorAll(".tmRow")].map(el => {
             const h = { jogok: [...el.querySelectorAll("[data-jog]:checked")].map(c => c.dataset.jog) };
             el.querySelectorAll("[data-k]").forEach(inp => { h[inp.dataset.k] = inp.value; });
@@ -226,12 +287,42 @@ AdminManager.teamSzerk = function (t, uj) {
                         </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="mb-0">${I18n.t("tmAccessTitle")}</h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="tmUjSor"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("tmAddAccess")}</button>
-                </div>
-                <p class="small text-body-secondary">${I18n.t("tmAccessHelp")}</p>
-                <div id="tmSorok">${hozz.map(sor).join("") || `<p class="text-body-secondary small">${I18n.t("tmNoAccess")}</p>`}</div>
+
+                <div class="alert alert-light small d-flex gap-2"><i class="fa-solid fa-circle-info mt-1" aria-hidden="true"></i><div>${I18n.t("cs2_mintAzAdmin")}</div></div>
+
+                <section class="tmBlokk mb-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+                        <div>
+                            <h6 class="mb-0">${I18n.t("cs2_adminReszek")}</h6>
+                            <p class="small text-body-secondary mb-0">${I18n.t("cs2_adminReszekSugo")}</p>
+                        </div>
+                        <div><label class="form-label small mb-1" for="tmGlobLejar">${I18n.t("tmUntil")}</label>
+                            <input class="form-control form-control-sm" id="tmGlobLejar" type="date" value="${esc(glob.lejar || "")}"></div>
+                    </div>
+                    <div class="tmPermPick">
+                        ${G.map(j => `
+                            <label class="tmPermChk">
+                                <input type="checkbox" class="form-check-input" data-glob="${j}" ${glob.jogok.includes(j) ? "checked" : ""}>
+                                <i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i>
+                                <span><b>${esc(I18n.t("cs2_resz_" + j))}</b><small>${esc(I18n.t("cs2_reszSugo_" + j))}</small></span>
+                            </label>`).join("")}
+                        <div class="tmPermChk tmTiltott" aria-disabled="true">
+                            <i class="fa-solid fa-people-group" aria-hidden="true"></i>
+                            <span><b>${I18n.t("tmTeamTitle")}</b><small>${I18n.t("cs2_csakAdmin")}</small></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tmBlokk">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h6 class="mb-0">${I18n.t("cs2_ertekesites")}</h6>
+                            <p class="small text-body-secondary mb-0">${I18n.t("cs2_ertekesitesSugo")}</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="tmUjSor"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("tmAddAccess")}</button>
+                    </div>
+                    <div id="tmSorok">${hozz.map(sor).join("") || `<p class="text-body-secondary small">${I18n.t("tmNoAccess")}</p>`}</div>
+                </section>
             </div>
             <div class="modal-footer">
                 ${!uj ? `<button type="button" class="btn btn-outline-danger me-auto" id="tmTorol"><i class="fa-solid fa-user-minus" aria-hidden="true"></i> ${I18n.t("tmRemove")}</button>` : ""}
@@ -259,23 +350,30 @@ AdminManager.teamSzerk = function (t, uj) {
         });
         $("#tmUjSor").onclick = () => {
             olvas();
-            hozz.push({ hatokor: "varos", varos: DataManager.currentCity || "", tipus: "", jogok: [...(d.szerep_jogok[$("#tmSzerep").value] || [])] });
+            const j = szerepSzerint($("#tmSzerep").value);
+            hozz.push({ hatokor: "varos", varos: DataManager.currentCity || "", tipus: "", jogok: j.h.length ? j.h : ["megbizas"] });
             rajzol();
         };
-        // Szerep váltása: a javasolt jogok minden hozzáférésre (ha kéri)
+        // Szerep váltása: a javasolt jogok (ha kéri)
         $("#tmSzerep").onchange = e => {
             t.szerep = e.target.value;
-            const javasolt = d.szerep_jogok[t.szerep] || [];
-            if (javasolt.length && hozz.length && confirm(I18n.t("tmApplyConfirm"))) {
+            const j = szerepSzerint(t.szerep);
+            if ((j.g.length || j.h.length) && confirm(I18n.t("tmApplyConfirm"))) {
                 olvas();
-                hozz.forEach(h => { h.jogok = [...javasolt]; });
+                glob.jogok = [...new Set([...glob.jogok, ...j.g])];
+                if (j.h.length) {
+                    if (hozz.length) hozz.forEach(h => { h.jogok = [...j.h]; });
+                    else hozz.push({ hatokor: "varos", varos: DataManager.currentCity || "", tipus: "", jogok: [...j.h] });
+                }
                 rajzol();
             }
         };
 
         $("#tmMent").onclick = () => {
             olvas();
-            const body = { szerep: $("#tmSzerep").value, aktiv: $("#tmAktiv").checked, megjegyzes: $("#tmMegj").value, hozzaferesek: hozz };
+            const lista = [...hozz];
+            if (glob.jogok.length) lista.unshift({ hatokor: "mind", jogok: glob.jogok, lejar: glob.lejar || null });
+            const body = { szerep: $("#tmSzerep").value, aktiv: $("#tmAktiv").checked, megjegyzes: $("#tmMegj").value, hozzaferesek: lista };
             const ures = hozz.filter(h => !h.jogok.length).length;
             if (ures && !confirm(I18n.t("tmEmptyRows"))) return;
             $("#tmMent").disabled = true;

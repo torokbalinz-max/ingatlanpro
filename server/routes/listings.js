@@ -62,6 +62,17 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
             return res.status(404).json({ error: "not_found" });
         }
 
+        // Megbízásos hirdetés előnézete (még nem nyilvános): az admin, a hirdető,
+        // a megbízás eladója és a jogosult munkatárs látja
+        if (i.statusz === "elonezet" && req.szerep !== "admin" && !(req.user && req.user.id === i.owner_id)) {
+            const elado = i.megbizas_id && req.user
+                ? (await db.query("SELECT 1 FROM megbizasok WHERE id = $1 AND user_id = $2", [i.megbizas_id, req.user.id])).rowCount
+                : 0;
+            if (!elado && !(await csapat.hirdetesJog(req, i.id, "kepek")) && !(i.megbizas_id && await csapat.megbizasJog(req, i.megbizas_id, "megbizas_lat"))) {
+                return res.status(404).json({ error: "not_found" });
+            }
+        }
+
         // Ingatlanirodás hirdetés: az iroda és az ügynök elérhetősége
         let iroda = null, ugynok = null, belso = {};
 
@@ -125,11 +136,13 @@ async function sajatVagyAdmin(req, id) {
     const r = await db.query("SELECT id, owner_id, iroda_id, megbizas_id FROM ingatlanok WHERE id = $1", [id]);
     if (!r.rowCount) return { nincs: true };
     // Megbízásos (Eladjuk helyetted) hirdetést csak az admin törölhet
-    if (req.szerep !== "admin" && r.rows[0].megbizas_id) {
+    if (req.szerep !== "admin" && r.rows[0].megbizas_id && !(req.user && csapat.globalis(await csapat.kontextus(req), "ellenorzes"))) {
         const ok = (req.user && r.rows[0].owner_id === req.user.id) || await csapat.hirdetesJog(req, id, "hirdetes");
         return { ok, admin: false, csapat: true };
     }
     if (req.szerep === "admin") return { ok: true, admin: true };
+    // A hirdetések ellenőrzését megkapott munkatárs: mint az admin
+    if (req.user && csapat.globalis(await csapat.kontextus(req), "ellenorzes")) return { ok: true, admin: true };
     if (req.user && r.rows[0].owner_id === req.user.id) return { ok: true, admin: false };
     if (r.rows[0].iroda_id && (await irodak.jog(req, r.rows[0].iroda_id)).tag) return { ok: true, admin: false, iroda: true };
     // Munkatárs, akinek az admin szerkesztési jogot adott (Admin → Csapat és jogosultságok)
@@ -504,7 +517,7 @@ router.delete("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 });
 
 // Tömeges kerület-beállítás
-router.patch("/api/ingatlanok/bulk-kerulet", csakAdmin, async (req, res) => {
+router.patch("/api/ingatlanok/bulk-kerulet", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 

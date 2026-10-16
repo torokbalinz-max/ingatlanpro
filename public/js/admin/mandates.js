@@ -2,9 +2,13 @@
 //  Admin → Értékesítés (Eladjuk helyetted) és Csapat
 //
 //  #admin/megbizasok[/<id>[/<fül>]]   az értékesítési asztal (services/mandateDesk.js)
-//  #admin/megbizasBeall               díjak, ajánlat-kezelés, automatizmusok, szolgáltatások
+//  #admin/naptar                      megtekintési naptár (services/viewingCalendar.js)
+//  #admin/hirdetesek                  fotók, hirdetések (a fotósnak, régiós kezelőnek)
+//  #admin/megbizasBeall               díjak, ajánlatok, naptár, automatizmusok, szolgáltatások
 //  #admin/csapat                      munkatársak és jogosultságaik (admin/team.js)
 //
+//  A munkatárs ugyanezt a felületet látja, csak azokat a menüpontokat,
+//  amelyekre jogot kapott (jog: ...).
 //  A szerver: server/routes/megbizas.js, server/routes/csapat.js
 // ============================================================
 
@@ -20,14 +24,18 @@
     for (const [k, v] of Object.entries(AdminManager.TABS)) {
         tabok[k] = v;
         if (k === "reklam") {
-            tabok.megbizasok = { group: "sales", icon: "fa-solid fa-key", title: "adminTabMandates", desc: "adminDescMandates", render: () => AdminManager.renderMandates(), count: "mandatesCount", warn: true };
-            tabok.megbizasBeall = { group: "sales", icon: "fa-solid fa-sliders", title: "adminTabMandateSettings", desc: "adminDescMandateSettings", render: () => AdminManager.renderMandateSettings() };
-            tabok.csapat = { group: "team", icon: "fa-solid fa-people-group", title: "tmTeamTitle", desc: "tmDesc", render: () => AdminManager.renderTeam() };
+            tabok.megbizasok = { group: "sales", jog: "megbizas_lat", icon: "fa-solid fa-key", title: "adminTabMandates", desc: "adminDescMandates", render: () => AdminManager.renderMandates(), count: "mandatesCount", warn: true };
+            tabok.naptar = { group: "sales", jog: "megtekintes", icon: "fa-regular fa-calendar-days", title: "nt_cim", desc: "nt_leiras", render: () => ViewingCalendar.nyit(AdminManager.box()), count: "naptarCount", warn: true };
+            tabok.hirdetesek = { group: "sales", jog: "kepek", icon: "fa-solid fa-images", title: "wsTab_hirdetesek", desc: "wsTabHelp_hirdetesek", render: () => Workspace.hirdetesek(AdminManager.box()) };
+            tabok.megbizasBeall = { group: "sales", jog: "beallitasok", icon: "fa-solid fa-sliders", title: "adminTabMandateSettings", desc: "adminDescMandateSettings", render: () => AdminManager.renderMandateSettings() };
+            tabok.csapat = { group: "team", jog: "admin", icon: "fa-solid fa-people-group", title: "tmTeamTitle", desc: "tmDesc", render: () => AdminManager.renderTeam() };
         }
     }
     AdminManager.TABS = tabok;
     AdminManager.ALIASES.megbizas = "megbizasok";
     AdminManager.ALIASES.mandates = "megbizasok";
+    AdminManager.ALIASES.megtekintesek = "naptar";
+    AdminManager.ALIASES.calendar = "naptar";
     AdminManager.ALIASES.team = "csapat";
     AdminManager.ALIASES.jogosultsagok = "csapat";
 
@@ -91,11 +99,16 @@ AdminManager.renderMandateSettings = function () {
                                     </div>`).join("")}
                                 <p class="small text-body-secondary mt-1">${I18n.t("mdModePerMandate")}</p>
                                 <label class="form-label fw-semibold mt-2">${I18n.t("mdWhoCanOffer")}</label>
-                                ${["kapcsolat_utan", "barki"].map(v => `
+                                ${["megtekintes_utan", "kapcsolat_utan", "barki"].map(v => `
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="mbsFelt" id="mbsFelt_${v}" value="${v}" ${(b.ajanlat_feltetel || "kapcsolat_utan") === v ? "checked" : ""}>
+                                        <input class="form-check-input" type="radio" name="mbsFelt" id="mbsFelt_${v}" value="${v}" ${(b.ajanlat_feltetel || "megtekintes_utan") === v ? "checked" : ""}>
                                         <label class="form-check-label" for="mbsFelt_${v}">${I18n.t("mdWho_" + v)}</label>
                                     </div>`).join("")}
+                                <div class="d-flex align-items-center gap-2 mt-3">
+                                    <label class="form-label small mb-0" for="mbsErv">${I18n.t("mdOfferValid")}</label>
+                                    <input class="form-control form-control-sm" style="max-width:90px" id="mbsErv" type="number" min="12" max="720" value="${b.ajanlat_ervenyes_ora ?? 72}">
+                                    <span class="small text-body-secondary">${I18n.t("mdHours")}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -107,6 +120,8 @@ AdminManager.renderMandateSettings = function () {
                                 ${kapcsolo("mbsAutoMegt", "auto_megtekintes_emlekezteto", "mdAutoViewing", "mdAutoViewingHelp")}
                                 ${kapcsolo("mbsAutoVj", "auto_visszajelzes", "mdAutoFeedback", "mdAutoFeedbackHelp")}
                                 ${kapcsolo("mbsAutoLezar", "auto_eladaskor_lezar", "mdAutoSold", "mdAutoSoldHelp")}
+                                ${kapcsolo("mbsAutoEllen", "auto_ellenjegyzes", "mdAutoCountersign", "mdAutoCountersignHelp")}
+                                ${kapcsolo("mbsAutoDij", "auto_dijbekero", "mdAutoInvoice", "mdAutoInvoiceHelp")}
                                 <div class="d-flex align-items-center gap-2 mt-2">
                                     <label class="form-label small mb-0" for="mbsEml">${I18n.t("mdAutoRemind")}</label>
                                     <input class="form-control form-control-sm" style="max-width:90px" id="mbsEml" type="number" min="0" max="720" value="${b.auto_elado_emlekezteto ?? 48}">
@@ -115,6 +130,14 @@ AdminManager.renderMandateSettings = function () {
                                 <p class="small text-body-secondary mt-2 mb-0">${I18n.t("mdAutoNote")}</p>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0"><i class="fa-regular fa-calendar-days" aria-hidden="true"></i> ${I18n.t("mdSetCalendar")}</h5></div>
+                    <div class="card-body">
+                        <p class="small text-body-secondary">${I18n.t("mdSetCalendarHelp")}</p>
+                        <div id="mbsNaptar"></div>
                     </div>
                 </div>
 
@@ -150,6 +173,12 @@ AdminManager.renderMandateSettings = function () {
 
                 <div class="text-end mdSaveBar"><button type="button" class="btn btn-primary" id="mbsMent"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("finSave")}</button></div>`;
 
+            NaptarSzerk.rajzol(box.querySelector("#mbsNaptar"), {
+                naptar: b.naptar, szerk: true, alap: true,
+                ment: n => Svc.api("/api/admin/megbizas-beallitas", { method: "PUT", body: { naptar: n } })
+                    .then(v => { b.naptar = v.beallitas.naptar; MandateDesk.jelez(I18n.t("adsSaved")); })
+            });
+
             const olvasOpciok = () => {
                 opciok = [...box.querySelectorAll(".mbOptEdit")].map(el => {
                     const o = { nev: {}, leiras: {} };
@@ -184,6 +213,8 @@ AdminManager.renderMandateSettings = function () {
                         ajanlat_mod: radio("mbsMod"), ajanlat_feltetel: radio("mbsFelt"),
                         auto_visszaigazolas: $("#mbsAutoVissza").checked, auto_megtekintes_emlekezteto: $("#mbsAutoMegt").checked,
                         auto_visszajelzes: $("#mbsAutoVj").checked, auto_eladaskor_lezar: $("#mbsAutoLezar").checked,
+                        auto_ellenjegyzes: $("#mbsAutoEllen").checked, auto_dijbekero: $("#mbsAutoDij").checked,
+                        ajanlat_ervenyes_ora: $("#mbsErv").value,
                         auto_elado_emlekezteto: $("#mbsEml").value
                     }
                 }).then(v => { b = v.beallitas; opciok = b.opciok.map(o => ({ ...o })); MandateDesk.jelez(I18n.t("adsSaved")); rajzol(); })

@@ -20,6 +20,7 @@ const crypto = require("crypto");
 const db = require("../db/database");
 const acc = require("../services/accounts");
 const { hiba, csakAdmin } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
@@ -126,7 +127,7 @@ router.post("/api/stat/pv", async (req, res) => {
 
 // ---------- admin kimutatás ----------
 
-router.get("/api/admin/oldalstat", csakAdmin, async (req, res) => {
+router.get("/api/admin/oldalstat", csapat.csakResz("statisztika"), async (req, res) => {
 
     try {
 

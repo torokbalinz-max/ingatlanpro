@@ -9,6 +9,7 @@ const express = require("express");
 const reklam = require("../services/reklam");
 const acc = require("../services/accounts");
 const { hiba, csakAdmin } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ const hibaKod = (res, err) => {
 
 // ---------- Admin: beállítások ----------
 
-router.get("/api/admin/reklam", csakAdmin, async (req, res) => {
+router.get("/api/admin/reklam", csapat.csakResz("reklam"), async (req, res) => {
     try {
         res.json({ adat: await reklam.olvas(), helyek: reklam.HELYEK });
     } catch (err) {
@@ -27,7 +28,7 @@ router.get("/api/admin/reklam", csakAdmin, async (req, res) => {
     }
 });
 
-router.put("/api/admin/reklam", csakAdmin, async (req, res) => {
+router.put("/api/admin/reklam", csapat.csakResz("reklam"), async (req, res) => {
     try {
         res.json({ siker: true, adat: await reklam.ment(req.body || {}) });
     } catch (err) {
@@ -37,7 +38,7 @@ router.put("/api/admin/reklam", csakAdmin, async (req, res) => {
 
 // ---------- Admin: hirdetések ----------
 
-router.get("/api/admin/reklamok", csakAdmin, async (req, res) => {
+router.get("/api/admin/reklamok", csapat.csakResz("reklam"), async (req, res) => {
     try {
         const napok = Math.min(Math.max(parseInt(req.query.napok, 10) || 30, 1), 365);
         const [lista, ossz, lejaro] = await Promise.all([reklam.lista(napok), reklam.osszesites(napok), reklam.lejarok(7)]);
@@ -47,7 +48,7 @@ router.get("/api/admin/reklamok", csakAdmin, async (req, res) => {
     }
 });
 
-router.post("/api/admin/reklamok", csakAdmin, async (req, res) => {
+router.post("/api/admin/reklamok", csapat.csakResz("reklam"), async (req, res) => {
     try {
         res.json({ siker: true, hirdetes: await reklam.letrehoz(req.body || {}) });
     } catch (err) {
@@ -55,7 +56,7 @@ router.post("/api/admin/reklamok", csakAdmin, async (req, res) => {
     }
 });
 
-router.put("/api/admin/reklamok/:id", csakAdmin, async (req, res) => {
+router.put("/api/admin/reklamok/:id", csapat.csakResz("reklam"), async (req, res) => {
     try {
         const h = await reklam.modosit(Number(req.params.id), req.body || {});
         if (!h) return res.status(404).json({ error: "not_found" });
@@ -65,7 +66,7 @@ router.put("/api/admin/reklamok/:id", csakAdmin, async (req, res) => {
     }
 });
 
-router.delete("/api/admin/reklamok/:id", csakAdmin, async (req, res) => {
+router.delete("/api/admin/reklamok/:id", csapat.csakResz("reklam"), async (req, res) => {
     try {
         await reklam.torol(Number(req.params.id));
         res.json({ siker: true });
@@ -74,7 +75,7 @@ router.delete("/api/admin/reklamok/:id", csakAdmin, async (req, res) => {
     }
 });
 
-router.get("/api/admin/reklamok/:id/stat", csakAdmin, async (req, res) => {
+router.get("/api/admin/reklamok/:id/stat", csapat.csakResz("reklam"), async (req, res) => {
     try {
         res.json({ napi: await reklam.napiStat(Number(req.params.id), 60) });
     } catch (err) {

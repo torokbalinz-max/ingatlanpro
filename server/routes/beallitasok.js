@@ -9,10 +9,11 @@ const oldalAdatok = require("../services/oldalAdatok");
 const anaf = require("../services/anaf");
 const acc = require("../services/accounts");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
-router.get("/api/admin/oldal-adatok", csakAdmin, async (req, res) => {
+router.get("/api/admin/oldal-adatok", csapat.csakResz("beallitasok"), async (req, res) => {
     try {
         res.json({ adat: await oldalAdatok.olvas(), adminEmail: await oldalAdatok.adminEmail() });
     } catch (err) {
@@ -20,7 +21,7 @@ router.get("/api/admin/oldal-adatok", csakAdmin, async (req, res) => {
     }
 });
 
-router.put("/api/admin/oldal-adatok", csakAdmin, async (req, res) => {
+router.put("/api/admin/oldal-adatok", csapat.csakResz("beallitasok"), async (req, res) => {
     try {
         res.json({ siker: true, adat: await oldalAdatok.ment(req.body || {}) });
     } catch (err) {

@@ -118,8 +118,9 @@ app.listen(PORT, () => {
     const penzugy = require("./services/penzugy");
     setTimeout(() => penzugy.kesz().then(() => penzugy.napi()), 20 * 1000);
     setInterval(() => penzugy.napi(), 6 * 3600 * 1000).unref();
-    // Megbízások: emlékeztetők, megtekintés előtti / utáni levelek (óránként)
+    // Megbízások: emlékeztetők (24 és 2 órával a megtekintés előtt), lejárt ajánlatok,
+    // lezáratlan megtekintések, a szakaszok kapui (15 percenként)
     const mbAuto = () => require("./services/megbizasAuto").futtat().catch(() => { });
     setTimeout(mbAuto, 90 * 1000);
-    setInterval(mbAuto, 3600 * 1000).unref();
+    setInterval(mbAuto, 15 * 60 * 1000).unref();
 });

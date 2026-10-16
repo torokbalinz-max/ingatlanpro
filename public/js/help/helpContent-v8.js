@@ -25,16 +25,19 @@
                     { h: "Mi ez?", p: "Ha nincs időd eladni (vagy kiadni) az ingatlanodat, megbízhatsz minket: lefotózzuk, meghirdetjük, kezeljük az érdeklődőket, megtekintéseket, ajánlatokat, és végigvisszük a közjegyzőig. Csak sikerdíjat fizetsz, az eladáskor." },
                     { h: "Hogyan indul?", steps: [
                         "Szolgáltatások → Eladjuk helyetted: válaszd ki a szolgáltatásokat, add meg az alapadatokat és az elérhetőséged.",
-                        "Felhívunk, megbeszéljük az árat és a részleteket, megbízási szerződést kötünk.",
-                        "Fotózunk, feltöltjük a hirdetést („Az IngatlanPro értékesíti” jelöléssel).",
-                        "A Fiókom → Megbízásaim részen követed: hol tart, hány érdeklődő van, a megtekintéseket, és a neked továbbított ajánlatokat – ezeket elfogadhatod, elutasíthatod, vagy ellenajánlatot tehetsz."
+                        "Felhívunk, megbeszéljük az árat és a részleteket; a csomag-ajánlatot e-mailben kapod, és egy kattintással jóváhagyod.",
+                        "A megbízási szerződést online írod alá (e-mailben kapott kóddal), vagy személyesen.",
+                        "Fotózunk, elkészítjük a hirdetést; az előnézetet te hagyod jóvá, utána nyilvános.",
+                        "Az Ingatlanom eladása oldalon (a fejlécben) mindent látsz: mi vár rád, a megtekintéseket, a neked továbbított ajánlatokat (elfogadhatod, elutasíthatod, ellenajánlatot tehetsz), az iratokat és az üzeneteket."
                     ] },
-                    { h: "Vevőként", p: "Egy megbízásos hirdetésen megtekintést kérhetsz, vételi ajánlatot tehetsz vagy kérdezhetsz – ezek hozzánk jönnek, mi továbbítjuk az eladónak." }
+                    { h: "Vevőként", p: "Egy megbízásos hirdetésen a naptárból magad foglalsz időpontot a megtekintésre (ha egyik sem jó, várólistára jelentkezhetsz). A megtekintés után vételi ajánlatot tehetsz – a finanszírozással (készpénz / hitel), foglalóval és határidőkkel együtt; mi továbbítjuk az eladónak." }
                 ] }
             ],
             admin: [
                 { h: "Pénzügyek → Rendelések", p: "A Csomagok és árak oldalról érkező rendelések: ki, mit, mennyiért; csomagonként hányan vették meg (magánszemély / iroda), mennyi folyt be, ki fizetett. A „Fizetve” gomb kifizetettnek jelöli a díjbekérőt – a csomag ekkor bekapcsol, a vevő e-mailt kap. A csomagok szövegeit, célcsoportját, „Legnépszerűbb” jelölését a Díjcsomagok, árak részen állítod." },
-                { h: "Értékesítés → Megbízások", p: "Az „Eladjuk helyetted” kérések állapot szerint oszlopokban. Egy megbízásra kattintva: az ingatlan adatai, a kért szolgáltatások, a hirdetés (feladás a megbízás adataiból, vagy egy meglévő kapcsolása), érdeklődők (a hirdetésre jött üzenetekből is felvehetők), megtekintések, ajánlatok („Továbbítás” az eladónak), napló (az eladó is láthatja), szerződés (nyomtatható tervezet) és díjbekérő a sikerdíjról. A díjakat és a szolgáltatásokat a Megbízás beállításai részen állítod." },
+                { h: "Értékesítés → Megbízások", p: "Fent a „Ma teendő” lista, alatta a megbízások 7 szakaszban (Igénylés → Adásvétel). A megbízás magától lép tovább, ha a feltétel teljesül; mindegyiknél látszik a következő lépés és egy gomb hozzá. Egy megbízás fülei: Vevők és ajánlatok, Megtekintések, Szerződés és iratok, Csomag és hirdetés, Üzenetek. A díjakat, az ajánlatok szabályait, az alap naptárt és az automatizmusokat a Megbízás beállításai részen állítod." },
+                { h: "Értékesítés → Megtekintési naptár", p: "Heti nézet az összes ingatlan megtekintéseiről: szabad, foglalt, lezárandó, lezárt. Egy elemre kattintva lezárhatod (megtörtént / elmaradt), áthelyezheted, lemondhatod; a várólistásoknak időpontot adhatsz." },
+                { h: "Csapat és jogosultságok", p: "A munkatárs ugyanazt az admin felületet látja, de csak azokat a menüpontokat, amelyekre jogot adtál – és ott ugyanazt tudja, mint te. Az értékesítési jogok egy városra, megbízásra vagy hirdetésre is szűkíthetők." },
                 { h: "Duplikátumok – saját feltöltés", p: "Ha egy felhasználó feltölt egy ingatlant, ami más oldalon is fent van, ugyanúgy összevonhatod: az ő hirdetése marad (adatai, elérhetősége, üzenetei), a másik oldal linkje „Hol van meghirdetve?” alatt jelenik meg. Két különböző felhasználó hirdetése nem vonható össze." }
             ]
         },
@@ -58,9 +61,10 @@
                         "Services → We sell it for you: choose the services, give the basics and your contact.",
                         "We call you, agree on the price and details, and sign a mandate contract.",
                         "We take photos and publish the listing (marked \"Sold by IngatlanPro\").",
-                        "In My account → My mandates you follow everything and answer the offers we send you."
+                        "You approve the package by email, sign the mandate online (with an emailed code) or in person, and approve the listing preview before it goes live.",
+                        "On the Selling my property page (in the header) you see everything: what's waiting for you, viewings, offers, documents and messages."
                     ] },
-                    { h: "As a buyer", p: "On a mandate listing you can request a viewing, make an offer or ask – it comes to us and we pass it to the seller." }
+                    { h: "As a buyer", p: "On a mandate listing you book a viewing time yourself from the calendar (or join the waiting list). After the viewing you can make an offer – with financing, deposit and deadlines – and we pass it to the seller." }
                 ] }
             ],
             admin: [
@@ -88,7 +92,8 @@
                         "Servicii → Vindem noi pentru tine: alegi serviciile și dai datele de bază.",
                         "Te sunăm, stabilim prețul și semnăm contractul de intermediere.",
                         "Fotografiem și publicăm anunțul („Vândut prin IngatlanPro”).",
-                        "În Contul meu → Mandatele mele urmărești totul și răspunzi la oferte."
+                        "Aprobi pachetul pe e-mail, semnezi contractul online (cu cod primit pe e-mail) sau în persoană și aprobi previzualizarea anunțului.",
+                        "Pe pagina Vânzarea proprietății mele (în antet) vezi tot: ce te așteaptă, vizionări, oferte, acte și mesaje."
                     ] }
                 ] }
             ],

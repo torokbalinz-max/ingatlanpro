@@ -9,6 +9,7 @@ const pu = require("../services/penzugy");
 const oldalAdatok = require("../services/oldalAdatok");
 const mail = require("../services/mail");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
@@ -19,11 +20,11 @@ const id = req => {
 
 // ===================== ÁTTEKINTÉS, BEÁLLÍTÁSOK =====================
 
-router.get("/api/admin/penzugy/attekintes", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/attekintes", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json(await pu.attekintes()); } catch (err) { hiba(res, err); }
 });
 
-router.get("/api/admin/penzugy/beallitas", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/beallitas", csapat.csakResz("penzugy"), async (req, res) => {
     try {
         res.json({
             beallitas: await pu.beallitas(),
@@ -37,11 +38,11 @@ router.get("/api/admin/penzugy/beallitas", csakAdmin, async (req, res) => {
     } catch (err) { hiba(res, err); }
 });
 
-router.put("/api/admin/penzugy/beallitas", csakAdmin, async (req, res) => {
+router.put("/api/admin/penzugy/beallitas", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, beallitas: await pu.beallitasMent(req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.post("/api/admin/penzugy/arfolyam", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/arfolyam", csapat.csakResz("penzugy"), async (req, res) => {
     try {
         const a = await pu.bnrArfolyam();
         res.json({ siker: true, ...a, beallitas: await pu.beallitasMent({ eur_arfolyam: a.eur, arfolyam_datum: a.datum }) });
@@ -50,80 +51,80 @@ router.post("/api/admin/penzugy/arfolyam", csakAdmin, async (req, res) => {
     }
 });
 
-router.get("/api/admin/penzugy/korlat-elonezet", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/korlat-elonezet", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json(await pu.korlatElonezet()); } catch (err) { hiba(res, err); }
 });
 
 // ===================== DÍJCSOMAGOK =====================
 
-router.get("/api/admin/penzugy/csomagok", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/csomagok", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json(await pu.csomagok()); } catch (err) { hiba(res, err); }
 });
 
-router.post("/api/admin/penzugy/csomagok", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/csomagok", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.csomagMent(null, req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.put("/api/admin/penzugy/csomagok/:id", csakAdmin, async (req, res) => {
+router.put("/api/admin/penzugy/csomagok/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.csomagMent(id(req), req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.delete("/api/admin/penzugy/csomagok/:id", csakAdmin, async (req, res) => {
+router.delete("/api/admin/penzugy/csomagok/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, ...(await pu.csomagTorol(id(req))) }); } catch (err) { hiba(res, err); }
 });
 
 // ===================== ÜGYFELEK =====================
 
-router.get("/api/admin/penzugy/ugyfelek", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/ugyfelek", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json(await pu.ugyfelek()); } catch (err) { hiba(res, err); }
 });
 
-router.get("/api/admin/penzugy/ugyfel-javaslat", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/ugyfel-javaslat", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json(await pu.ugyfelJavaslat(req.query.q)); } catch (err) { hiba(res, err); }
 });
 
-router.post("/api/admin/penzugy/ugyfelek", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/ugyfelek", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.ugyfelMent(null, req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.put("/api/admin/penzugy/ugyfelek/:id", csakAdmin, async (req, res) => {
+router.put("/api/admin/penzugy/ugyfelek/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.ugyfelMent(id(req), req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.delete("/api/admin/penzugy/ugyfelek/:id", csakAdmin, async (req, res) => {
+router.delete("/api/admin/penzugy/ugyfelek/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { await pu.ugyfelTorol(id(req)); res.json({ siker: true }); } catch (err) { hiba(res, err); }
 });
 
 // ===================== ELŐFIZETÉSEK =====================
 
-router.get("/api/admin/penzugy/elofizetesek", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/elofizetesek", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json(await pu.elofizetesek()); } catch (err) { hiba(res, err); }
 });
 
-router.post("/api/admin/penzugy/elofizetesek", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/elofizetesek", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.elofizetesMent(null, req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.put("/api/admin/penzugy/elofizetesek/:id", csakAdmin, async (req, res) => {
+router.put("/api/admin/penzugy/elofizetesek/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.elofizetesMent(id(req), req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.delete("/api/admin/penzugy/elofizetesek/:id", csakAdmin, async (req, res) => {
+router.delete("/api/admin/penzugy/elofizetesek/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, ...(await pu.elofizetesTorol(id(req))) }); } catch (err) { hiba(res, err); }
 });
 
 // Az esedékes előfizetések díjbekérőinek elkészítése
-router.post("/api/admin/penzugy/esedekes-dijbekerok", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/esedekes-dijbekerok", csapat.csakResz("penzugy"), async (req, res) => {
     try { const ids = await pu.esedekesDijbekerok(); res.json({ siker: true, db: ids.length, ids }); } catch (err) { hiba(res, err); }
 });
 
 // ===================== DÍJBEKÉRŐK / SZÁMLÁK =====================
 
-router.get("/api/admin/penzugy/szamlak", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/szamlak", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json(await pu.szamlak({ tol: req.query.tol, ig: req.query.ig, ugyfel_id: req.query.ugyfel })); } catch (err) { hiba(res, err); }
 });
 
-router.get("/api/admin/penzugy/szamlak/:id", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/szamlak/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try {
         const s = await pu.szamla(id(req));
         if (!s) return res.status(404).json({ error: "not_found" });
@@ -131,24 +132,24 @@ router.get("/api/admin/penzugy/szamlak/:id", csakAdmin, async (req, res) => {
     } catch (err) { hiba(res, err); }
 });
 
-router.post("/api/admin/penzugy/szamlak", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/szamlak", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.szamlaMent(null, req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.put("/api/admin/penzugy/szamlak/:id", csakAdmin, async (req, res) => {
+router.put("/api/admin/penzugy/szamlak/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.szamlaMent(id(req), req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.post("/api/admin/penzugy/szamlak/:id/allapot", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/szamlak/:id/allapot", csapat.csakResz("penzugy"), async (req, res) => {
     try { await pu.szamlaAllapotValt(id(req), req.body || {}); res.json({ siker: true }); } catch (err) { hiba(res, err); }
 });
 
-router.delete("/api/admin/penzugy/szamlak/:id", csakAdmin, async (req, res) => {
+router.delete("/api/admin/penzugy/szamlak/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { await pu.szamlaTorol(id(req)); res.json({ siker: true }); } catch (err) { hiba(res, err); }
 });
 
 // Nyomtatható díjbekérő (új lapon nyílik; a böngészőből PDF-be menthető)
-router.get("/api/admin/penzugy/szamlak/:id/nyomtat", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/szamlak/:id/nyomtat", csapat.csakResz("penzugy"), async (req, res) => {
     try {
         const s = await pu.szamla(id(req));
         if (!s) return res.status(404).send("Nincs ilyen bizonylat");
@@ -160,7 +161,7 @@ router.get("/api/admin/penzugy/szamlak/:id/nyomtat", csakAdmin, async (req, res)
 });
 
 // Díjbekérő küldése e-mailben a vevőnek
-router.post("/api/admin/penzugy/szamlak/:id/email", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/szamlak/:id/email", csapat.csakResz("penzugy"), async (req, res) => {
     try {
         if (!mail.elerheto()) return res.status(400).json({ error: "mail_not_configured" });
         const s = await pu.szamla(id(req));
@@ -182,25 +183,25 @@ router.post("/api/admin/penzugy/szamlak/:id/email", csakAdmin, async (req, res) 
 
 // ===================== KIADÁSOK =====================
 
-router.get("/api/admin/penzugy/kiadasok", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/kiadasok", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json(await pu.kiadasok({ tol: req.query.tol, ig: req.query.ig })); } catch (err) { hiba(res, err); }
 });
 
-router.post("/api/admin/penzugy/kiadasok", csakAdmin, async (req, res) => {
+router.post("/api/admin/penzugy/kiadasok", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.kiadasMent(null, req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.put("/api/admin/penzugy/kiadasok/:id", csakAdmin, async (req, res) => {
+router.put("/api/admin/penzugy/kiadasok/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { res.json({ siker: true, id: await pu.kiadasMent(id(req), req.body || {}) }); } catch (err) { hiba(res, err); }
 });
 
-router.delete("/api/admin/penzugy/kiadasok/:id", csakAdmin, async (req, res) => {
+router.delete("/api/admin/penzugy/kiadasok/:id", csapat.csakResz("penzugy"), async (req, res) => {
     try { await pu.kiadasTorol(id(req)); res.json({ siker: true }); } catch (err) { hiba(res, err); }
 });
 
 // ===================== EXPORT (könyvelőnek, CSV / Excel) =====================
 
-router.get("/api/admin/penzugy/export/:mit", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/export/:mit", csapat.csakResz("penzugy"), async (req, res) => {
     try {
         const f = { tol: req.query.tol, ig: req.query.ig };
         const mit = req.params.mit === "kiadasok" ? "kiadasok" : "szamlak";

@@ -19,6 +19,7 @@ const acc = require("../services/accounts");
 const mail = require("../services/mail");
 const { ASZF_VERZIO } = require("../lib/jogi");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
@@ -223,7 +224,7 @@ router.post("/api/jogi/bejelentes", async (req, res) => {
 
 // ===================== ADMIN: BEJELENTÉSEK =====================
 
-router.get("/api/jogi/bejelentesek", csakAdmin, async (req, res) => {
+router.get("/api/jogi/bejelentesek", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 
@@ -243,7 +244,7 @@ router.get("/api/jogi/bejelentesek", csakAdmin, async (req, res) => {
 
 });
 
-router.put("/api/jogi/bejelentesek/:id", csakAdmin, async (req, res) => {
+router.put("/api/jogi/bejelentesek/:id", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 

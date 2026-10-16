@@ -1,16 +1,15 @@
 // ============================================================
-//  Munkaterületem (#munka) – a munkatársak „kis admin” felülete
+//  Fotók és hirdetések a munkatársnak (Admin → Értékesítés → Hirdetések)
 //
-//  Aki az admintól jogot kapott (Admin → Csapat és jogosultságok), itt
-//  csak azt látja és kezeli, amire engedélye van:
-//    #munka                    áttekintés: a jogaim, mi vár rám
-//    #munka/hirdetesek         a hatókörömbe tartozó hirdetések: fotók
-//                              (feltöltés, törlés, sorrend), szerkesztés
-//    #munka/megbizasok[/id]    megbízások (értékesítési asztal)
-//    #munka/megtekintesek      bemutatások: időpont, cím, vevő, lezárás
+//  Aki az admintól jogot kapott (Admin → Csapat és jogosultságok), az
+//  admin felületen ugyanazt látja, mint az admin – de csak azokat a
+//  részeket, amelyekre engedélye van. A régi #munka oldal helyett
+//  (a régi linkek átirányítanak: services/sellerPage.js).
 //
 //  PhotoManager: fotók kezelése egy hirdetéshez (a munkatársnak és az adminnak)
-//  A szerver: server/routes/csapat.js, /api/ertekesites (megbizas.js)
+//  Workspace.hirdetesek: a hatókörébe tartozó hirdetések (#admin/hirdetesek)
+//  Workspace.hirdetesHook: a hirdetés oldalán a munkatárs gombjai
+//  A szerver: server/routes/csapat.js
 // ============================================================
 
 class PhotoManager {
@@ -162,144 +161,7 @@ class PhotoManager {
 
 class Workspace {
 
-    static FULEK = [
-        { k: "attekintes", ikon: "fa-solid fa-gauge", jog: null },
-        { k: "hirdetesek", ikon: "fa-solid fa-images", jog: "kepek" },
-        { k: "megbizasok", ikon: "fa-solid fa-key", jog: "megbizas_lat" },
-        { k: "megtekintesek", ikon: "fa-solid fa-door-open", jog: "megtekintes" }
-    ];
-
     static szuro = { q: "", varos: "", foto: "", megbizas: "" };
-
-    static jogom(j) {
-        const c = AuthManager.csapat;
-        return !!(c && c.jogok && c.jogok[j]);
-    }
-
-    static show(param) {
-
-        const box = document.getElementById("munkaContent");
-        if (!box) return;
-        const esc = Utils.escape;
-        const c = AuthManager.csapat;
-
-        if (!c) {
-            box.innerHTML = AuthManager.isAdmin() ? `
-                <div class="emptyState">
-                    <i class="fa-solid fa-user-shield"></i>
-                    <h5>${I18n.t("wsAdminTitle")}</h5>
-                    <p>${I18n.t("wsAdminText")}</p>
-                    <a class="btn btn-primary" href="#admin/csapat">${I18n.t("tmTeamTitle")}</a>
-                </div>` : `
-                <div class="emptyState">
-                    <i class="fa-solid fa-lock"></i>
-                    <h5>${I18n.t("wsNoAccessTitle")}</h5>
-                    <p>${I18n.t("wsNoAccessText")}</p>
-                </div>`;
-            return;
-        }
-
-        const fulek = Workspace.FULEK.filter(f => !f.jog || Workspace.jogom(f.jog));
-        const m = location.hash.match(/^#munka\/([a-z]+)/);
-        let ful = m ? m[1] : (param || "attekintes");
-        if (!fulek.some(f => f.k === ful)) ful = "attekintes";
-
-        box.innerHTML = `
-            <div class="wsHead">
-                <div>
-                    <h2 class="mb-1"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> ${I18n.t("wsTitle")}</h2>
-                    <p class="text-body-secondary mb-0">${esc(AuthManager.user ? AuthManager.user.nev : "")} · <span class="badge tmRole r-${esc(c.szerep)}">${esc(I18n.t("tmRole_" + c.szerep))}</span></p>
-                </div>
-            </div>
-            <nav class="mdTabs mb-3" role="tablist" aria-label="${esc(I18n.t("wsTitle"))}">
-                ${fulek.map(f => `
-                    <a role="tab" class="mdTab ${f.k === ful ? "active" : ""}" href="#munka/${f.k}" aria-selected="${f.k === ful}">
-                        <i class="${f.ikon}" aria-hidden="true"></i><span>${I18n.t("wsTab_" + f.k)}</span>
-                    </a>`).join("")}
-            </nav>
-            <div id="wsFul"></div>`;
-
-        const hova = box.querySelector("#wsFul");
-        if (ful === "hirdetesek") Workspace.hirdetesek(hova);
-        else if (ful === "megbizasok") MandateDesk.nyit(hova, { base: "#munka/megbizasok" });
-        else if (ful === "megtekintesek") Workspace.megtekintesek(hova);
-        else Workspace.attekintes(hova, fulek);
-
-    }
-
-    // ---------- Áttekintés ----------
-
-    static attekintes(hova, fulek) {
-
-        const esc = Utils.escape;
-        const c = AuthManager.csapat;
-
-        hova.innerHTML = `
-            <div class="row g-4">
-                <div class="col-lg-6">
-                    <div class="card h-100">
-                        <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-key" aria-hidden="true"></i> ${I18n.t("wsMyAccess")}</h5></div>
-                        <div class="card-body">
-                            <ul class="tmAccess">
-                                ${c.hozzaferesek.map(h => `
-                                    <li>
-                                        <span class="tmScope">${AdminManager.teamHatokor(h)}${h.lejar ? ` <small class="text-body-secondary">(${I18n.t("tmUntil")} ${esc(Svc.nap(h.lejar))})</small>` : ""}</span>
-                                        <span class="tmPerms">${h.jogok.filter(j => AdminManager.TEAM_JOGOK.includes(j)).map(j => `<span><i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i> ${esc(I18n.t("tmPermShort_" + j))}</span>`).join("")}</span>
-                                    </li>`).join("")}
-                                ${c.hozzarendelt.map(h => `
-                                    <li>
-                                        <span class="tmScope"><a href="#munka/megbizasok/${h.megbizas_id}">${I18n.t("tmScope_megbizas")} #${h.megbizas_id}</a> <small class="text-body-secondary">(${I18n.t("wsAssigned")})</small></span>
-                                        <span class="tmPerms">${h.jogok.filter(j => AdminManager.TEAM_JOGOK.includes(j)).map(j => `<span><i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i> ${esc(I18n.t("tmPermShort_" + j))}</span>`).join("")}</span>
-                                    </li>`).join("")}
-                                ${!c.hozzaferesek.length && !c.hozzarendelt.length ? `<li class="text-body-secondary small">${I18n.t("tmNoAccess")}</li>` : ""}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="card h-100">
-                        <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${I18n.t("wsWaiting")}</h5></div>
-                        <div class="card-body"><ul class="mdTodoList" id="wsTodo"><li class="small text-body-secondary">…</li></ul></div>
-                    </div>
-                </div>
-            </div>
-            <div class="wsShortcuts mt-4">
-                ${fulek.filter(f => f.k !== "attekintes").map(f => `
-                    <a class="wsShortcut" href="#munka/${f.k}">
-                        <i class="${f.ikon}" aria-hidden="true"></i>
-                        <b>${I18n.t("wsTab_" + f.k)}</b>
-                        <small>${I18n.t("wsTabHelp_" + f.k)}</small>
-                    </a>`).join("")}
-            </div>`;
-
-        // Mi vár rám: fotó nélküli hirdetések, megbízás-teendők, közelgő bemutatások
-        const sorok = [];
-        const keresek = [];
-        if (Workspace.jogom("kepek")) keresek.push(Svc.api("/api/csapat/hirdetesek?foto=nincs").then(l => {
-            if (l.length) sorok.push({ szint: "kozepes", szoveg: I18n.f("wsTodoNoPhotos", { n: l.length }), link: "#munka/hirdetesek" });
-        }).catch(() => { }));
-        if (Workspace.jogom("megbizas_lat")) keresek.push(Svc.api("/api/ertekesites/megbizasok").then(d => {
-            d.teendok.forEach(x => sorok.push({ szint: x.szint, szoveg: `${MandateDesk.teendoSzoveg(x)} – ${x.szam || ""}`, link: `#munka/megbizasok/${x.megbizas_id}/${x.ful}` }));
-        }).catch(() => { }));
-        if (Workspace.jogom("megtekintes")) keresek.push(Svc.api("/api/csapat/megtekintesek").then(l => {
-            const kov = l.filter(t => t.statusz === "egyeztetve" && t.idopont && new Date(t.idopont) > Date.now() - 2 * 3600 * 1000);
-            kov.slice(0, 5).forEach(t => sorok.push({ szint: "info", szoveg: `${I18n.t("wsViewingAt")} ${Svc.ido(t.idopont)} – ${MandateDesk.hely(t)}`, link: "#munka/megtekintesek" }));
-        }).catch(() => { }));
-
-        Promise.all(keresek).then(() => {
-            const ul = hova.querySelector("#wsTodo");
-            if (!ul) return;
-            const sorrend = { magas: 0, kozepes: 1, info: 2 };
-            sorok.sort((a, b) => sorrend[a.szint] - sorrend[b.szint]);
-            ul.innerHTML = sorok.length ? sorok.slice(0, 12).map(x => `
-                <li class="mdTodo ${x.szint}">
-                    <span class="mdTodoDot" aria-hidden="true"></span>
-                    <div class="flex-fill min-w-0">${esc(x.szoveg)}</div>
-                    <a class="btn btn-sm btn-outline-primary text-nowrap" href="${x.link}">${I18n.t("mdOpen")}</a>
-                </li>`).join("") : `<li class="text-body-secondary small"><i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${I18n.t("mdNoTodos")}</li>`;
-        });
-
-    }
 
     // ---------- Hirdetések (fotók, szerkesztés) ----------
 
@@ -308,7 +170,8 @@ class Workspace {
         const esc = Utils.escape;
         const sz = Workspace.szuro;
         const c = AuthManager.csapat;
-        const varosok = [...new Set(c.hozzaferesek.filter(h => h.hatokor === "varos").map(h => h.varos))];
+        const varosok = AuthManager.isAdmin() || !c ? CityManager.varosok.map(v => v.nev)
+            : [...new Set(c.hozzaferesek.filter(h => h.hatokor === "varos").map(h => h.varos))];
 
         hova.innerHTML = `
             <div class="mdToolbar">
@@ -378,106 +241,11 @@ class Workspace {
 
     }
 
-    // ---------- Megtekintések (bemutató) ----------
-
-    static megtekintesek(hova) {
-
-        const esc = Utils.escape;
-        hova.innerHTML = `<div class="emptyState"><div class="spinner-border text-primary"></div></div>`;
-
-        Svc.api("/api/csapat/megtekintesek").then(lista => {
-
-            const most = Date.now();
-            const csop = {
-                kozelgo: lista.filter(t => t.statusz === "egyeztetve" && t.idopont && new Date(t.idopont) >= most - 2 * 3600 * 1000),
-                lezarando: lista.filter(t => t.statusz === "egyeztetve" && t.idopont && new Date(t.idopont) < most - 2 * 3600 * 1000),
-                kert: lista.filter(t => t.statusz === "kert"),
-                korabbi: lista.filter(t => ["megtortent", "elmaradt", "lemondva"].includes(t.statusz))
-            };
-
-            const sor = t => `
-                <li class="${t.statusz}">
-                    <div class="d-flex flex-wrap justify-content-between gap-2">
-                        <div class="min-w-0">
-                            <b>${t.idopont ? esc(Svc.ido(t.idopont)) : esc(t.javasolt || I18n.t("mbNoTimeYet"))}</b>
-                            ${t.enyem ? ` <span class="badge text-bg-primary">${I18n.t("wsMine")}</span>` : ""}
-                            <div class="small"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${esc(MandateDesk.hely(t))} · ${esc(Types.label(t.tipus))}
-                                ${t.cim || t.varos ? ` · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([t.cim, t.telepules, t.varos].filter(Boolean).join(", "))}" target="_blank" rel="noopener">${I18n.t("wsMap")}</a>` : ""}
-                                ${t.ingatlan_id ? ` · <a href="#listing/${t.ingatlan_id}">${I18n.t("mmListing")}</a>` : ""}</div>
-                            <div class="small"><i class="fa-solid fa-user" aria-hidden="true"></i> ${esc(t.erdeklodo_nev || "–")} ${MandateDesk.tel(t.erdeklodo_telefon)}</div>
-                            <div class="small text-body-secondary"><i class="fa-solid fa-user-tag" aria-hidden="true"></i> ${I18n.t("mdSeller")}: ${esc(t.elado_nev || "–")} ${MandateDesk.tel(t.elado_telefon)}</div>
-                        </div>
-                        <span class="badge text-bg-light align-self-start">${esc(I18n.t("mbVw_" + t.statusz))}</span>
-                    </div>
-                    ${t.visszajelzes ? `<div class="small mt-1"><i class="fa-regular fa-comment" aria-hidden="true"></i> ${esc(t.visszajelzes)}</div>` : ""}
-                    ${t.statusz === "egyeztetve" ? `
-                    <div class="d-flex flex-wrap gap-1 mt-2">
-                        <button type="button" class="btn btn-sm btn-success" data-ws-lezar="${t.id}:megtortent"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("mbVw_megtortent")}</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-ws-lezar="${t.id}:elmaradt">${I18n.t("mbVw_elmaradt")}</button>
-                    </div>` : ""}
-                </li>`;
-
-            const blokk = (k, ikon) => csop[k].length ? `
-                <h6 class="mdGroupHead mt-3"><i class="${ikon}" aria-hidden="true"></i> ${I18n.t("mdVwGroup_" + k)} <span class="badge text-bg-light">${csop[k].length}</span></h6>
-                <ul class="mbTimeline">${csop[k].map(sor).join("")}</ul>` : "";
-
-            hova.innerHTML = lista.length ? `
-                <p class="small text-body-secondary">${I18n.t("wsViewingsHelp")}</p>
-                ${blokk("lezarando", "fa-solid fa-flag-checkered")}
-                ${blokk("kozelgo", "fa-regular fa-calendar-check")}
-                ${blokk("kert", "fa-solid fa-hourglass-half")}
-                ${blokk("korabbi", "fa-solid fa-box-archive")}` : `
-                <div class="emptyState"><i class="fa-regular fa-calendar"></i><h5>${I18n.t("mbNoViewings")}</h5><p>${I18n.t("wsNoViewingsText")}</p></div>`;
-
-            hova.querySelectorAll("[data-ws-lezar]").forEach(b => {
-                b.onclick = () => {
-                    const [tid, statusz] = b.dataset.wsLezar.split(":");
-                    const vj = prompt(I18n.t(statusz === "megtortent" ? "mdFeedbackPrompt" : "wsMissedPrompt"), "");
-                    if (vj === null) return;
-                    b.disabled = true;
-                    Svc.api("/api/csapat/megtekintesek/" + tid, { method: "PUT", body: { statusz, visszajelzes: vj } })
-                        .then(() => { MandateDesk.jelez(I18n.t("adsSaved")); Workspace.megtekintesek(hova); })
-                        .catch(e => { b.disabled = false; MandateDesk.hiba(e); });
-                };
-            });
-
-        }).catch(() => { hova.innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`; });
-
-    }
-
 }
 
-// ===================== BEKÖTÉS: oldal, menü, hirdetés =====================
+// ===================== BEKÖTÉS: a hirdetés oldala =====================
 
-// A pageManager.js a lap végén töltődik: a bekötés a DOMContentLoaded-kor (az app indulása előtt)
 document.addEventListener("DOMContentLoaded", () => {
-
-    // Az oldal: #munka (belépés kell)
-    PageManager.PAGES.munka = { icon: "fa-solid fa-briefcase", label: "wsTitle", login: true };
-    if (!PageManager.LOGIN_KELL.includes("munka")) PageManager.LOGIN_KELL.push("munka");
-
-    const show = PageManager.show;
-    PageManager.show = function (target, opts) {
-        const r = show.call(this, target, opts);
-        if (PageManager.current === "munka" && /^munka/.test(String(target || "").replace(/^#/, ""))) Workspace.show(PageManager.parse(target).param);
-        return r;
-    };
-
-    // A munkatárs adatai a /api/me-ből; a menüpont csak neki (és az adminnak) látszik
-    const setMe = AuthManager.setMe;
-    AuthManager.setMe = function (me) {
-        AuthManager.csapat = (me && me.csapat) || null;
-        const r = setMe.call(this, me);
-        Workspace.menu();
-        return r;
-    };
-
-    const apply = AuthManager.apply;
-    AuthManager.apply = function () {
-        const r = apply.call(this);
-        Workspace.menu();
-        return r;
-    };
 
     // A hirdetés oldalán: a munkatárs gombjai (fotók, szerkesztés)
     if (typeof ListingPage !== "undefined" && !ListingPage._csapatHook) {
@@ -490,11 +258,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 });
-
-Workspace.menu = function () {
-    const lathato = !!AuthManager.csapat;
-    document.querySelectorAll(".team-only").forEach(el => { el.hidden = !lathato; });
-};
 
 // A munkatárs (nem tulajdonos, nem admin) a jogai szerint
 Workspace.hirdetesHook = function (i) {

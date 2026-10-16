@@ -5,6 +5,7 @@
 const express = require("express");
 const db = require("../db/database");
 const { hiba, csakAdmin } = require("../lib/http");
+const csapat = require("../services/csapat");
 const location = require("../services/location");
 const districts = require("../services/districts");
 const kornyek = require("../services/kornyek");
@@ -32,7 +33,7 @@ router.get("/api/varosok", async (req, res) => {
 });
 
 // "<város> és környéke" város létrehozása (vagy a meglévő) egy városhoz
-router.post("/api/varosok/:id/kornyek", csakAdmin, async (req, res) => {
+router.post("/api/varosok/:id/kornyek", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
 
@@ -56,7 +57,7 @@ router.post("/api/varosok/:id/kornyek", csakAdmin, async (req, res) => {
 
 });
 
-router.post("/api/varosok", csakAdmin, async (req, res) => {
+router.post("/api/varosok", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
 
@@ -93,7 +94,7 @@ router.post("/api/varosok", csakAdmin, async (req, res) => {
 });
 
 // Város adatai: román név, megye, közép (térképen kattintva), méret km-ben
-router.put("/api/varosok/:id", csakAdmin, async (req, res) => {
+router.put("/api/varosok/:id", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
 
@@ -162,7 +163,7 @@ const tisztaSzint = v => {
 
 // Új kerület: magyar név (nev) + román név (nev_ro) + más oldalak nevei (aliasok).
 // Elég az egyik név – ha csak román van, az lesz a magyar is.
-router.post("/api/keruletek", csakAdmin, async (req, res) => {
+router.post("/api/keruletek", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
 
@@ -192,7 +193,7 @@ router.post("/api/keruletek", csakAdmin, async (req, res) => {
 });
 
 // Kerület módosítása. Ha a magyar név változik, a hirdetéseken is átírjuk.
-router.put("/api/keruletek/:id", csakAdmin, async (req, res) => {
+router.put("/api/keruletek/:id", csapat.csakResz("helyek"), async (req, res) => {
 
     const client = await db.connect();
 
@@ -233,7 +234,7 @@ router.put("/api/keruletek/:id", csakAdmin, async (req, res) => {
 });
 
 // Kerület törlése – a hirdetéseken üres lesz a kerület
-router.delete("/api/keruletek/:id", csakAdmin, async (req, res) => {
+router.delete("/api/keruletek/:id", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
 
@@ -257,7 +258,7 @@ router.delete("/api/keruletek/:id", csakAdmin, async (req, res) => {
 
 // Egy kerület határának mentése (null = törlés). Utána a város hirdetéseit
 // újra besoroljuk.
-router.put("/api/keruletek/:id/hatar", csakAdmin, async (req, res) => {
+router.put("/api/keruletek/:id/hatar", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
 
@@ -285,7 +286,7 @@ router.put("/api/keruletek/:id/hatar", csakAdmin, async (req, res) => {
 });
 
 // Az összes hirdetés újra besorolása a határok alapján
-router.post("/api/keruletek/besorol", csakAdmin, async (req, res) => {
+router.post("/api/keruletek/besorol", csapat.csakResz("helyek"), async (req, res) => {
     try {
         districts.cacheUrit();
         res.json({ siker: true, ...(await besorol(String(req.body.varos || ""))) });
@@ -295,7 +296,7 @@ router.post("/api/keruletek/besorol", csakAdmin, async (req, res) => {
 });
 
 // Kerület-ellenőrzés: pontos helyű hirdetések, amelyek kerülete eltér a térképtől
-router.get("/api/keruletek/ellenorzes", csakAdmin, async (req, res) => {
+router.get("/api/keruletek/ellenorzes", csapat.csakResz("helyek"), async (req, res) => {
     try {
         districts.cacheUrit();
         res.json(await districts.ellenorzes(String(req.query.varos || "")));

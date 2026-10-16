@@ -7,6 +7,7 @@
 const express = require("express");
 const kornyek = require("../services/kornyek");
 const { hiba, csakAdmin } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ async function anyavaros(nev) {
     return (await kornyek.anyaVarosa(n)) || n;
 }
 
-router.get("/api/admin/kornyek", csakAdmin, async (req, res) => {
+router.get("/api/admin/kornyek", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
 
@@ -46,7 +47,7 @@ router.get("/api/admin/kornyek", csakAdmin, async (req, res) => {
 });
 
 // Automatikus rendezés most (a rossz települések javítása + a biztos esetek áthelyezése)
-router.post("/api/admin/kornyek/futtat", csakAdmin, async (req, res) => {
+router.post("/api/admin/kornyek/futtat", csapat.csakResz("helyek"), async (req, res) => {
     try {
         const base = await anyavaros(req.body.varos);
         const e = await kornyek.rendez({ varos: base || undefined });
@@ -58,7 +59,7 @@ router.post("/api/admin/kornyek/futtat", csakAdmin, async (req, res) => {
 });
 
 // Kézi áthelyezés: cel = "kornyek" (a faluba) | "varos" (vissza a városba)
-router.post("/api/admin/kornyek/athelyez", csakAdmin, async (req, res) => {
+router.post("/api/admin/kornyek/athelyez", csapat.csakResz("helyek"), async (req, res) => {
     try {
         const base = await anyavaros(req.body.varos);
         const ids = idLista(req.body.ids);
@@ -71,7 +72,7 @@ router.post("/api/admin/kornyek/athelyez", csakAdmin, async (req, res) => {
 });
 
 // "Marad a városban": a javaslat többé nem jelenik meg
-router.post("/api/admin/kornyek/marad", csakAdmin, async (req, res) => {
+router.post("/api/admin/kornyek/marad", csapat.csakResz("helyek"), async (req, res) => {
     try {
         const ids = idLista(req.body.ids);
         if (!ids.length) return res.status(400).json({ error: "bad_request" });
@@ -82,7 +83,7 @@ router.post("/api/admin/kornyek/marad", csakAdmin, async (req, res) => {
 });
 
 // A település (falu) beállítása több hirdetésre
-router.post("/api/admin/kornyek/telepules", csakAdmin, async (req, res) => {
+router.post("/api/admin/kornyek/telepules", csapat.csakResz("helyek"), async (req, res) => {
     try {
         const ids = idLista(req.body.ids);
         if (!ids.length) return res.status(400).json({ error: "bad_request" });

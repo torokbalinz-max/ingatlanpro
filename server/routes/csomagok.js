@@ -11,6 +11,7 @@ const mail = require("../services/mail");
 const oldalAdatok = require("../services/oldalAdatok");
 const db = require("../db/database");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
@@ -122,7 +123,7 @@ router.post("/api/sajat-csomag/rendeles/:id/visszavon", csakBelepve, async (req,
 
 // ===================== ADMIN =====================
 
-router.get("/api/admin/penzugy/rendelesek", csakAdmin, async (req, res) => {
+router.get("/api/admin/penzugy/rendelesek", csapat.csakResz("penzugy"), async (req, res) => {
     try {
         res.json(await rendeles.adminLista({ statusz: req.query.statusz, celcsoport: req.query.celcsoport, csomag_id: req.query.csomag_id }));
     } catch (err) { hiba(res, err); }

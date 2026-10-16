@@ -33,6 +33,7 @@ const mail = require("../services/mail");
 const oldalAdatok = require("../services/oldalAdatok");
 const { parseKepek } = require("../services/listing");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
+const csapat = require("../services/csapat");
 const { LISTA_MEZOK } = require("../lib/sql");
 
 const router = express.Router();
@@ -492,7 +493,7 @@ router.put("/api/irodak/:id", csakBelepve, async (req, res) => {
 });
 
 // Régi végpont (az adatlap admin kapcsolója): jóváhagyás / visszavonás
-router.put("/api/irodak/:id/ellenorzott", csakAdmin, async (req, res) => {
+router.put("/api/irodak/:id/ellenorzott", csapat.csakResz("irodak"), async (req, res) => {
     try {
         const statusz = req.body.ellenorzott ? "jovahagyva" : "fuggo";
         await db.query("UPDATE irodak SET ellenorzott = $1, statusz = $2, dontes_ido = NOW() WHERE id = $3", [statusz === "jovahagyva", statusz, req.params.id]);
@@ -880,7 +881,7 @@ router.post("/api/irodak/:id/atvetel", csakBelepve, async (req, res) => {
 // ===================== ADMIN: JÓVÁHAGYÁS =====================
 
 // Minden iroda az ellenőrzési adatokkal (ANAF), a létrehozóval és a számokkal
-router.get("/api/admin/irodak", csakAdmin, async (req, res) => {
+router.get("/api/admin/irodak", csapat.csakResz("irodak"), async (req, res) => {
 
     try {
 
@@ -905,7 +906,7 @@ router.get("/api/admin/irodak", csakAdmin, async (req, res) => {
 });
 
 // Döntés: { statusz: jovahagyva | elutasitva | felfuggesztve | fuggo, ok }
-router.post("/api/admin/irodak/:id/dontes", csakAdmin, async (req, res) => {
+router.post("/api/admin/irodak/:id/dontes", csapat.csakResz("irodak"), async (req, res) => {
 
     try {
 
@@ -934,7 +935,7 @@ router.post("/api/admin/irodak/:id/dontes", csakAdmin, async (req, res) => {
 });
 
 // Az ANAF-adatok újra lekérése (ha korábban nem volt elérhető)
-router.post("/api/admin/irodak/:id/anaf", csakAdmin, async (req, res) => {
+router.post("/api/admin/irodak/:id/anaf", csapat.csakResz("irodak"), async (req, res) => {
 
     try {
 

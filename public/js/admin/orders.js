@@ -14,7 +14,7 @@
         tabok[k] = v;
         if (k === "penzugy") {
             tabok.rendelesek = {
-                group: "finance", icon: "fa-solid fa-cart-shopping", title: "adminTabOrders", desc: "adminDescOrders",
+                group: "finance", jog: "penzugy", icon: "fa-solid fa-cart-shopping", title: "adminTabOrders", desc: "adminDescOrders",
                 render: () => AdminManager.renderOrders(), count: "ordersCount", warn: true
             };
         }
@@ -29,7 +29,15 @@
         eredeti.call(this, c);
         AdminManager.setCount("ordersCount", c.penzugy_rendeles);
         AdminManager.setCount("mandatesCount", c.megbizas_uj);
-        AdminManager.setCount("navAdminCount", (c.review || 0) + (c.iroda_fuggo || 0) + (c.bejelentes_uj || 0) + (c.penzugy_rendeles || 0) + (c.megbizas_uj || 0));
+        AdminManager.setCount("naptarCount", c.naptar_teendo);
+        // A fejléc számlálója: csak abból, amit ő kezelhet (a munkatársnak a saját részei)
+        const r = k => AuthManager.resz(k);
+        AdminManager.setCount("navAdminCount",
+            (r("ellenorzes") ? (c.review || 0) + (c.bejelentes_uj || 0) : 0) +
+            (r("irodak") ? c.iroda_fuggo || 0 : 0) +
+            (r("penzugy") ? c.penzugy_rendeles || 0 : 0) +
+            (r("megbizas_lat") ? c.megbizas_uj || 0 : 0) +
+            (r("megtekintes") ? c.naptar_teendo || 0 : 0));
     };
 
 })();

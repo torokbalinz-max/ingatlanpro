@@ -69,36 +69,36 @@ class AdminManager {
 
     // A menüpontok: csoport, ikon, cím + rövid leírás a tartalom fölött, számláló
     static TABS = {
-        overview:    { group: "dash",     icon: "fa-solid fa-gauge-high",          title: "adminTabOverview",    desc: "adminDescOverview",    render: () => AdminManager.renderOverview() },
-        sitestats:   { group: "dash",     icon: "fa-solid fa-chart-column",        title: "adminTabSiteStats",   desc: "adminDescSiteStats",   render: () => AdminManager.renderSiteStats() },
+        overview:    { group: "dash", jog: "admin",     icon: "fa-solid fa-gauge-high",          title: "adminTabOverview",    desc: "adminDescOverview",    render: () => AdminManager.renderOverview() },
+        sitestats:   { group: "dash", jog: "statisztika",     icon: "fa-solid fa-chart-column",        title: "adminTabSiteStats",   desc: "adminDescSiteStats",   render: () => AdminManager.renderSiteStats() },
 
-        review:      { group: "listings", icon: "fa-solid fa-list-check",          title: "adminTabReview",      desc: "adminDescReview",      render: () => AdminManager.renderReview(),      count: "pendingCount", warn: true },
-        allapot:     { group: "listings", icon: "fa-solid fa-screwdriver-wrench",  title: "adminTabAllapot",     desc: "adminDescAllapot",     render: () => AdminManager.renderConditions(),  count: "allapotCount" },
-        dups:        { group: "listings", icon: "fa-solid fa-clone",               title: "adminTabDups",        desc: "adminDescDups",        render: () => AdminManager.renderDups() },
-        unavailable: { group: "listings", icon: "fa-solid fa-ban",                 title: "adminTabUnavailable", desc: "adminDescUnavailable", render: () => AdminManager.renderUnavailable(), count: "unavailableCount" },
-        reports:     { group: "listings", icon: "fa-solid fa-flag",                title: "adminTabReports",     desc: "adminDescReports",     render: () => AdminManager.renderReports(),     count: "reportCount", warn: true },
+        review:      { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-list-check",          title: "adminTabReview",      desc: "adminDescReview",      render: () => AdminManager.renderReview(),      count: "pendingCount", warn: true },
+        allapot:     { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-screwdriver-wrench",  title: "adminTabAllapot",     desc: "adminDescAllapot",     render: () => AdminManager.renderConditions(),  count: "allapotCount" },
+        dups:        { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-clone",               title: "adminTabDups",        desc: "adminDescDups",        render: () => AdminManager.renderDups() },
+        unavailable: { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-ban",                 title: "adminTabUnavailable", desc: "adminDescUnavailable", render: () => AdminManager.renderUnavailable(), count: "unavailableCount" },
+        reports:     { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-flag",                title: "adminTabReports",     desc: "adminDescReports",     render: () => AdminManager.renderReports(),     count: "reportCount", warn: true },
 
-        import:      { group: "import",   icon: "fa-solid fa-file-import",         title: "adminTabImport",      desc: "adminDescImport",      render: () => AdminManager.renderImport() },
-        watch:       { group: "import",   icon: "fa-solid fa-binoculars",          title: "adminTabWatch",       desc: "adminDescWatch",       render: () => AdminManager.renderWatch() },
-        tools:       { group: "import",   icon: "fa-solid fa-toolbox",             title: "adminTabTools",       desc: "adminDescTools",       render: () => AdminManager.renderMaintenance() },
+        import:      { group: "import", jog: "beolvasas",   icon: "fa-solid fa-file-import",         title: "adminTabImport",      desc: "adminDescImport",      render: () => AdminManager.renderImport() },
+        watch:       { group: "import", jog: "beolvasas",   icon: "fa-solid fa-binoculars",          title: "adminTabWatch",       desc: "adminDescWatch",       render: () => AdminManager.renderWatch() },
+        tools:       { group: "import", jog: "beolvasas",   icon: "fa-solid fa-toolbox",             title: "adminTabTools",       desc: "adminDescTools",       render: () => AdminManager.renderMaintenance() },
 
-        places:      { group: "places",   icon: "fa-solid fa-city",                title: "adminTabPlaces",      desc: "adminDescPlaces",      render: () => AdminManager.renderPlaces() },
-        kornyek:     { group: "places",   icon: "fa-solid fa-tree-city",           title: "adminTabKornyek",     desc: "adminDescKornyek",     render: () => AdminManager.renderKornyek(),     count: "kornyekCount", warn: true },
-        helyek:      { group: "places",   icon: "fa-solid fa-location-crosshairs", title: "adminTabLocCheck",    desc: "adminDescLocCheck",    render: () => AdminManager.renderLocationCheck(), count: "helyCount" },
+        places:      { group: "places", jog: "helyek",   icon: "fa-solid fa-city",                title: "adminTabPlaces",      desc: "adminDescPlaces",      render: () => AdminManager.renderPlaces() },
+        kornyek:     { group: "places", jog: "helyek",   icon: "fa-solid fa-tree-city",           title: "adminTabKornyek",     desc: "adminDescKornyek",     render: () => AdminManager.renderKornyek(),     count: "kornyekCount", warn: true },
+        helyek:      { group: "places", jog: "helyek",   icon: "fa-solid fa-location-crosshairs", title: "adminTabLocCheck",    desc: "adminDescLocCheck",    render: () => AdminManager.renderLocationCheck(), count: "helyCount" },
 
-        irodak:      { group: "partners", icon: "fa-solid fa-briefcase",           title: "adminTabAgencies",    desc: "adminDescAgencies",    render: () => AdminManager.renderAgencies(),    count: "irodaCount", warn: true },
-        reklam:      { group: "partners", icon: "fa-solid fa-rectangle-ad",        title: "adminTabAds",         desc: "adminDescAds",         render: () => AdminManager.renderAds(),         count: "reklamCount" },
+        irodak:      { group: "partners", jog: "irodak", icon: "fa-solid fa-briefcase",           title: "adminTabAgencies",    desc: "adminDescAgencies",    render: () => AdminManager.renderAgencies(),    count: "irodaCount", warn: true },
+        reklam:      { group: "partners", jog: "reklam", icon: "fa-solid fa-rectangle-ad",        title: "adminTabAds",         desc: "adminDescAds",         render: () => AdminManager.renderAds(),         count: "reklamCount" },
 
-        penzugy:     { group: "finance",  icon: "fa-solid fa-chart-pie",           title: "adminTabFinOverview", desc: "adminDescFinOverview", render: () => AdminManager.renderFinOverview() },
-        szamlak:     { group: "finance",  icon: "fa-solid fa-file-invoice",        title: "adminTabFinInvoices", desc: "adminDescFinInvoices", render: () => AdminManager.renderFinInvoices(),  count: "finLateCount", warn: true },
-        elofizetesek:{ group: "finance",  icon: "fa-solid fa-arrows-rotate",       title: "adminTabFinSubs",     desc: "adminDescFinSubs",     render: () => AdminManager.renderFinSubscriptions(), count: "finDueCount" },
-        ugyfelek:    { group: "finance",  icon: "fa-solid fa-address-book",        title: "adminTabFinCustomers", desc: "adminDescFinCustomers", render: () => AdminManager.renderFinCustomers() },
-        csomagok:    { group: "finance",  icon: "fa-solid fa-tags",                title: "adminTabFinPackages", desc: "adminDescFinPackages", render: () => AdminManager.renderFinPackages() },
-        kiadasok:    { group: "finance",  icon: "fa-solid fa-receipt",             title: "adminTabFinExpenses", desc: "adminDescFinExpenses", render: () => AdminManager.renderFinExpenses() },
-        penzugyBeall:{ group: "finance",  icon: "fa-solid fa-building-columns",    title: "adminTabFinSettings", desc: "adminDescFinSettings", render: () => AdminManager.renderFinSettings() },
+        penzugy:     { group: "finance", jog: "penzugy",  icon: "fa-solid fa-chart-pie",           title: "adminTabFinOverview", desc: "adminDescFinOverview", render: () => AdminManager.renderFinOverview() },
+        szamlak:     { group: "finance", jog: "penzugy",  icon: "fa-solid fa-file-invoice",        title: "adminTabFinInvoices", desc: "adminDescFinInvoices", render: () => AdminManager.renderFinInvoices(),  count: "finLateCount", warn: true },
+        elofizetesek:{ group: "finance", jog: "penzugy",  icon: "fa-solid fa-arrows-rotate",       title: "adminTabFinSubs",     desc: "adminDescFinSubs",     render: () => AdminManager.renderFinSubscriptions(), count: "finDueCount" },
+        ugyfelek:    { group: "finance", jog: "penzugy",  icon: "fa-solid fa-address-book",        title: "adminTabFinCustomers", desc: "adminDescFinCustomers", render: () => AdminManager.renderFinCustomers() },
+        csomagok:    { group: "finance", jog: "penzugy",  icon: "fa-solid fa-tags",                title: "adminTabFinPackages", desc: "adminDescFinPackages", render: () => AdminManager.renderFinPackages() },
+        kiadasok:    { group: "finance", jog: "penzugy",  icon: "fa-solid fa-receipt",             title: "adminTabFinExpenses", desc: "adminDescFinExpenses", render: () => AdminManager.renderFinExpenses() },
+        penzugyBeall:{ group: "finance", jog: "penzugy",  icon: "fa-solid fa-building-columns",    title: "adminTabFinSettings", desc: "adminDescFinSettings", render: () => AdminManager.renderFinSettings() },
 
-        allapotok:   { group: "settings", icon: "fa-solid fa-sliders",             title: "adminTabConditions",  desc: "adminDescConditions",  render: () => AdminManager.renderConditionList() },
-        webhely:     { group: "settings", icon: "fa-solid fa-id-card",             title: "adminTabSite",        desc: "adminDescSite",        render: () => AdminManager.renderSiteSettings() }
+        allapotok:   { group: "settings", jog: "beallitasok", icon: "fa-solid fa-sliders",             title: "adminTabConditions",  desc: "adminDescConditions",  render: () => AdminManager.renderConditionList() },
+        webhely:     { group: "settings", jog: "beallitasok", icon: "fa-solid fa-id-card",             title: "adminTabSite",        desc: "adminDescSite",        render: () => AdminManager.renderSiteSettings() }
     };
 
     // Régi nevek (könyvjelzők, más modulok)
@@ -109,6 +109,23 @@ class AdminManager {
         I18n.onChange(() => AdminManager.renderNav());
     }
 
+    // Látja-e ezt a menüpontot: az admin mindet; a munkatárs a neki kiadott részeket
+    // (Admin → Csapat és jogosultságok)
+    static lathato(t) {
+        if (!t) return false;
+        if (AuthManager.isAdmin()) return true;
+        const jogok = Array.isArray(t.jog) ? t.jog : [t.jog || "admin"];
+        return jogok.some(j => AuthManager.resz(j));
+    }
+
+    // Az első menüpont, amit láthat (az adminnak az Áttekintés)
+    static elsoTab() {
+        if (AuthManager.isAdmin()) return "overview";
+        const elso = ["megbizasok", "naptar", "hirdetesek"].find(k => AdminManager.TABS[k] && AdminManager.lathato(AdminManager.TABS[k]))
+            || Object.keys(AdminManager.TABS).find(k => AdminManager.lathato(AdminManager.TABS[k]));
+        return elso || "overview";
+    }
+
     // A menü (bal oldalon) és a telefonos választó a TABS / GROUPS alapján
     static renderNav() {
 
@@ -117,9 +134,9 @@ class AdminManager {
         if (!nav) return;
 
         const esc = Utils.escape;
-        const pontok = g => Object.entries(AdminManager.TABS).filter(([, t]) => t.group === g.key);
+        const pontok = g => Object.entries(AdminManager.TABS).filter(([, t]) => t.group === g.key && AdminManager.lathato(t));
 
-        nav.innerHTML = AdminManager.GROUPS.map((g, gi) => `
+        nav.innerHTML = AdminManager.GROUPS.filter(g => pontok(g).length).map((g, gi) => `
             ${gi ? `<div class="adminNavGroup">${esc(I18n.t(g.label))}</div>` : ""}
             ${pontok(g).map(([k, t]) => `
                 <button class="adminNavItem ${k === AdminManager.tab ? "active" : ""}" data-tab="${k}" type="button">
@@ -132,7 +149,7 @@ class AdminManager {
         });
 
         if (sel) {
-            sel.innerHTML = AdminManager.GROUPS.map(g => `
+            sel.innerHTML = AdminManager.GROUPS.filter(g => pontok(g).length).map(g => `
                 <optgroup label="${esc(I18n.t(g.label))}">
                     ${pontok(g).map(([k, t]) => `<option value="${k}" ${k === AdminManager.tab ? "selected" : ""} data-label="${esc(I18n.t(t.title))}" ${t.count ? `data-count="${t.count}"` : ""}>${esc(I18n.t(t.title))}</option>`).join("")}
                 </optgroup>`).join("");
@@ -147,7 +164,7 @@ class AdminManager {
     // A címsorból (#admin/<rész>) vagy a legutóbbi részre
     static show(param) {
 
-        if (!AuthManager.isAdmin()) {
+        if (!AuthManager.panel()) {
             document.getElementById("adminPageTitle").innerText = I18n.t("adminTitle");
             document.getElementById("adminPageDesc").innerText = "";
             const bc = document.getElementById("adminCrumb");
@@ -160,15 +177,16 @@ class AdminManager {
 
         AdminManager.refreshPendingCount();
 
+        AdminManager.renderNav();
         const tab = param ? (AdminManager.ALIASES[param] || param) : AdminManager.tab;
-        AdminManager.open(AdminManager.TABS[tab] ? tab : "overview", { fromHash: !!param });
+        AdminManager.open(AdminManager.TABS[tab] && AdminManager.lathato(AdminManager.TABS[tab]) ? tab : AdminManager.elsoTab(), { fromHash: !!param });
 
     }
 
     static open(tab, opts = {}) {
 
         tab = AdminManager.ALIASES[tab] || tab;
-        if (!AdminManager.TABS[tab]) tab = "overview";
+        if (!AdminManager.TABS[tab] || !AdminManager.lathato(AdminManager.TABS[tab])) tab = AdminManager.elsoTab();
 
         AdminManager.tab = tab;
 
@@ -231,7 +249,7 @@ class AdminManager {
     // A menü melletti számlálók (és a fejléc admin gombja)
     static refreshPendingCount() {
 
-        if (!AuthManager.isAdmin()) return Promise.resolve();
+        if (!AuthManager.panel()) return Promise.resolve();
 
         return fetch("/api/admin/counts")
             .then(r => r.json())

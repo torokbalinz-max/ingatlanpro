@@ -11,12 +11,13 @@ const ai = require("../services/ai");
 const autofix = require("../services/autofix");
 const quality = require("../services/quality");
 const { hiba, csakAdmin } = require("../lib/http");
+const csapat = require("../services/csapat");
 const { LISTA_MEZOK } = require("../lib/sql");
 
 const router = express.Router();
 
 // Ellenőrizendő hirdetések: hiányos / gyanús adatok (és a régi "függő" importok)
-router.get("/api/admin/review", csakAdmin, async (req, res) => {
+router.get("/api/admin/review", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
         const r = await db.query(`
@@ -33,10 +34,10 @@ router.get("/api/admin/review", csakAdmin, async (req, res) => {
 });
 
 // Régi név megtartása
-router.get("/api/admin/pending", csakAdmin, (req, res) => res.redirect(307, "/api/admin/review"));
+router.get("/api/admin/pending", csapat.csakResz("ellenorzes"), (req, res) => res.redirect(307, "/api/admin/review"));
 
 // Már nem elérhető (eladott / törölt) hirdetések
-router.get("/api/admin/unavailable", csakAdmin, async (req, res) => {
+router.get("/api/admin/unavailable", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
         const r = await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.statusz = 'nem_elerheto' ORDER BY i.utolso_ellenorzes DESC NULLS LAST`);
@@ -47,7 +48,21 @@ router.get("/api/admin/unavailable", csakAdmin, async (req, res) => {
 
 });
 
-router.get("/api/admin/counts", csakAdmin, async (req, res) => {
+// A naptár számlálója: lezáratlan (elmúlt) megtekintések + várólista
+async function naptarSzamlalo(req) {
+    const k = await csapat.kontextus(req);
+    const params = [];
+    const hol = csapat.hatokorSql(k, "megtekintes", params, { varos: "m.varos", tipus: "m.tipus", megbizas: "m.id", ingatlan: "m.ingatlan_id" });
+    params.push(req.user ? req.user.id : 0);
+    const r = await db.query(`
+        SELECT COUNT(*)::int AS n FROM megbizas_megtekintesek t JOIN megbizasok m ON m.id = t.megbizas_id
+        WHERE (${hol} OR COALESCE(t.bemutato_id, m.bemutato_id) = $${params.length})
+          AND m.statusz IN ('hirdetes', 'targyalas', 'adasvetel')
+          AND ((t.statusz = 'egyeztetve' AND t.idopont < NOW() - INTERVAL '1 hour') OR t.statusz = 'kert')`, params);
+    return r.rows[0].n;
+}
+
+router.get("/api/admin/counts", csapat.csakPanel, async (req, res) => {
 
     try {
         const r = await db.query(`
@@ -89,11 +104,13 @@ router.get("/api/admin/counts", csakAdmin, async (req, res) => {
         const penzugy = await require("../services/penzugy").szamlalok();
 
         // Eladjuk helyetted: új megbízások, új ajánlatok, kért megtekintések
-        const megbizasUj = await require("../services/megbizas").szamlalo();
+        const megbizasUj = await require("../services/megbizas").szamlalo(req);
+        // A megtekintési naptár: lezárandó megtekintések és várólista (a hatókörben)
+        const naptarDb = await naptarSzamlalo(req).catch(() => 0);
 
         res.json({
             ...r.rows[0], ...w.rows[0], ...ir.rows[0], ...egyeb.rows[0], ...penzugy,
-            kornyek_javaslat: kornyek, megbizas_uj: megbizasUj, reklam_fut: reklamFut, reklam_lejaro: reklamLejaro, ai: ai.elerheto()
+            kornyek_javaslat: kornyek, megbizas_uj: megbizasUj, naptar_teendo: naptarDb, reklam_fut: reklamFut, reklam_lejaro: reklamLejaro, ai: ai.elerheto()
         });
     } catch (err) {
         hiba(res, err);
@@ -102,7 +119,7 @@ router.get("/api/admin/counts", csakAdmin, async (req, res) => {
 });
 
 // Gyors jóváhagyás (az adatok rendben vannak)
-router.post("/api/admin/review/:id/approve", csakAdmin, async (req, res) => {
+router.post("/api/admin/review/:id/approve", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 
@@ -124,7 +141,7 @@ router.post("/api/admin/review/:id/approve", csakAdmin, async (req, res) => {
 });
 
 // Nem elérhető hirdetés visszaállítása (ha tévedés volt)
-router.post("/api/admin/unavailable/:id/restore", csakAdmin, async (req, res) => {
+router.post("/api/admin/unavailable/:id/restore", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
         await db.query("UPDATE ingatlanok SET statusz = 'aktiv', updated_at = NOW() WHERE id = $1", [req.params.id]);
@@ -136,7 +153,7 @@ router.post("/api/admin/unavailable/:id/restore", csakAdmin, async (req, res) =>
 });
 
 // Egy hirdetés azonnali újraolvasása a forrásoldalról
-router.post("/api/admin/listing/:id/refresh", csakAdmin, async (req, res) => {
+router.post("/api/admin/listing/:id/refresh", csapat.csakResz("ellenorzes", "beolvasas"), async (req, res) => {
 
     try {
 
@@ -158,7 +175,7 @@ router.post("/api/admin/listing/:id/refresh", csakAdmin, async (req, res) => {
 });
 
 // Meglévő hirdetések ellenőrzése a forrásoldalon (háttérben)
-router.post("/api/admin/recheck", csakAdmin, (req, res) => {
+router.post("/api/admin/recheck", csapat.csakResz("ellenorzes", "beolvasas"), (req, res) => {
 
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : null;
     const limit = Math.min(Number(req.body.limit) || 100, 500);
@@ -170,7 +187,7 @@ router.post("/api/admin/recheck", csakAdmin, (req, res) => {
 });
 
 // AI-ellenőrzés (ha be van állítva az ANTHROPIC_API_KEY)
-router.post("/api/admin/ai-check/:id", csakAdmin, async (req, res) => {
+router.post("/api/admin/ai-check/:id", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 
@@ -193,12 +210,12 @@ router.post("/api/admin/ai-check/:id", csakAdmin, async (req, res) => {
 // kerület, település, közelítő hely...), és újraértékeli, mit kell még
 // kézzel ellenőrizni.
 
-router.post("/api/admin/autofix", csakAdmin, (req, res) => {
+router.post("/api/admin/autofix", csapat.csakResz("beolvasas"), (req, res) => {
     const j = autofix.indit({ mind: req.body.mind !== false });
     res.json(autofix.allapot() || { allapot: j.allapot });
 });
 
-router.get("/api/admin/autofix", csakAdmin, async (req, res) => {
+router.get("/api/admin/autofix", csapat.csakResz("beolvasas"), async (req, res) => {
     try {
         res.json({ ...(autofix.allapot() || {}), utolso: await autofix.beallitas("autofix_v" + autofix.VERZIO) });
     } catch (err) {
@@ -212,7 +229,7 @@ router.get("/api/admin/autofix", csakAdmin, async (req, res) => {
 // az összes ilyen nevű hirdetés megkapja a kerületet, és a név
 // megjegyződik (legközelebb magától megy).
 
-router.get("/api/admin/unmatched-areas", csakAdmin, async (req, res) => {
+router.get("/api/admin/unmatched-areas", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
         const r = await db.query(`
@@ -237,7 +254,7 @@ router.get("/api/admin/unmatched-areas", csakAdmin, async (req, res) => {
 
 });
 
-router.post("/api/admin/unmatched-areas/assign", csakAdmin, async (req, res) => {
+router.post("/api/admin/unmatched-areas/assign", csapat.csakResz("helyek"), async (req, res) => {
 
     try {
 
@@ -278,7 +295,7 @@ router.post("/api/admin/unmatched-areas/assign", csakAdmin, async (req, res) => 
 });
 
 // Duplikátumok
-router.get("/api/admin/duplicates", csakAdmin, async (req, res) => {
+router.get("/api/admin/duplicates", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
         res.json(await duplikatumok.keres());
@@ -288,7 +305,7 @@ router.get("/api/admin/duplicates", csakAdmin, async (req, res) => {
 
 });
 
-router.post("/api/admin/duplicates/clean", csakAdmin, async (req, res) => {
+router.post("/api/admin/duplicates/clean", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
         res.json(await duplikatumok.biztosTorlese());
@@ -299,7 +316,7 @@ router.post("/api/admin/duplicates/clean", csakAdmin, async (req, res) => {
 });
 
 // Több csoport összevonása egyszerre: { csoportok: [{ megtart, torlendo: [...] }] }
-router.post("/api/admin/duplicates/merge-bulk", csakAdmin, async (req, res) => {
+router.post("/api/admin/duplicates/merge-bulk", csapat.csakResz("ellenorzes"), async (req, res) => {
     try {
         const cs = Array.isArray(req.body.csoportok) ? req.body.csoportok.slice(0, 500) : [];
         if (!cs.length) return res.status(400).json({ error: "bad_request" });
@@ -310,7 +327,7 @@ router.post("/api/admin/duplicates/merge-bulk", csakAdmin, async (req, res) => {
 });
 
 // "Nem ugyanaz" – a csoport tagjai között (vagy egy tag kivétele a csoportból)
-router.post("/api/admin/duplicates/ignore", csakAdmin, async (req, res) => {
+router.post("/api/admin/duplicates/ignore", csapat.csakResz("ellenorzes"), async (req, res) => {
     try {
         const ids = (req.body.ids || []).map(Number).filter(Boolean);
         if (ids.length < 2) return res.status(400).json({ error: "bad_request" });
@@ -322,13 +339,13 @@ router.post("/api/admin/duplicates/ignore", csakAdmin, async (req, res) => {
 });
 
 // A képek ujjlenyomatának elkészítése (háttérben)
-router.post("/api/admin/duplicates/images", csakAdmin, (req, res) => {
+router.post("/api/admin/duplicates/images", csapat.csakResz("ellenorzes"), (req, res) => {
     const j = imagehash.indit(Math.min(Number(req.body.limit) || 400, 2000));
     if (!j) return res.status(400).json({ error: "sharp_missing" });
     res.json(imagehash.allapot());
 });
 
-router.get("/api/admin/duplicates/images", csakAdmin, async (req, res) => {
+router.get("/api/admin/duplicates/images", csapat.csakResz("ellenorzes"), async (req, res) => {
     try {
         res.json({ ...(imagehash.allapot() || {}), hianyzik: await imagehash.hianyzoSzam(), elerheto: imagehash.elerheto() });
     } catch (err) {
@@ -337,7 +354,7 @@ router.get("/api/admin/duplicates/images", csakAdmin, async (req, res) => {
 });
 
 // Hibás alapadatú hirdetések törlése (a kijelölt azonosítók)
-router.post("/api/admin/invalid/delete", csakAdmin, async (req, res) => {
+router.post("/api/admin/invalid/delete", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 
@@ -356,7 +373,7 @@ router.post("/api/admin/invalid/delete", csakAdmin, async (req, res) => {
 
 });
 
-router.post("/api/admin/duplicates/merge", csakAdmin, async (req, res) => {
+router.post("/api/admin/duplicates/merge", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 
@@ -374,7 +391,7 @@ router.post("/api/admin/duplicates/merge", csakAdmin, async (req, res) => {
 });
 
 // Tömeges beolvasás linkekről
-router.post("/api/admin/import", csakAdmin, async (req, res) => {
+router.post("/api/admin/import", csapat.csakResz("beolvasas"), async (req, res) => {
 
     try {
 
@@ -404,7 +421,7 @@ router.post("/api/admin/import", csakAdmin, async (req, res) => {
 
 });
 
-router.get("/api/admin/import/:id", csakAdmin, (req, res) => {
+router.get("/api/admin/import/:id", csapat.csakResz("beolvasas"), (req, res) => {
 
     const j = importer.allapot(req.params.id);
 
@@ -415,7 +432,7 @@ router.get("/api/admin/import/:id", csakAdmin, (req, res) => {
 });
 
 // Figyelt oldalak
-router.get("/api/admin/watch", csakAdmin, async (req, res) => {
+router.get("/api/admin/watch", csapat.csakResz("beolvasas"), async (req, res) => {
 
     try {
         const r = await db.query("SELECT * FROM figyelt_oldalak ORDER BY id");
@@ -426,7 +443,7 @@ router.get("/api/admin/watch", csakAdmin, async (req, res) => {
 
 });
 
-router.post("/api/admin/watch", csakAdmin, async (req, res) => {
+router.post("/api/admin/watch", csapat.csakResz("beolvasas"), async (req, res) => {
 
     try {
 
@@ -448,7 +465,7 @@ router.post("/api/admin/watch", csakAdmin, async (req, res) => {
 
 });
 
-router.delete("/api/admin/watch/:id", csakAdmin, async (req, res) => {
+router.delete("/api/admin/watch/:id", csapat.csakResz("beolvasas"), async (req, res) => {
 
     try {
         await db.query("DELETE FROM figyelt_oldalak WHERE id = $1", [req.params.id]);
@@ -459,7 +476,7 @@ router.delete("/api/admin/watch/:id", csakAdmin, async (req, res) => {
 
 });
 
-router.post("/api/admin/watch/:id/run", csakAdmin, async (req, res) => {
+router.post("/api/admin/watch/:id/run", csapat.csakResz("beolvasas"), async (req, res) => {
 
     try {
 

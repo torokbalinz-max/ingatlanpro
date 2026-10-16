@@ -41,7 +41,12 @@ class Svc {
     static ido(d) {
         if (!d) return "–";
         const x = new Date(d);
-        return isNaN(x) ? "–" : x.toLocaleString(Utils.locale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        // Romániai idő (a megtekintések időpontjai is ebben vannak) – külföldről nézve is ugyanaz
+        try {
+            return isNaN(x) ? "–" : x.toLocaleString(Utils.locale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Bucharest" });
+        } catch (e) {
+            return isNaN(x) ? "–" : x.toLocaleString(Utils.locale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        }
     }
 
     static api(ut, opts = {}) {

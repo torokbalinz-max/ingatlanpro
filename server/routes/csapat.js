@@ -8,7 +8,7 @@
 //     PUT    /api/admin/csapat/:id             szerep, aktív, hozzáférések
 //     DELETE /api/admin/csapat/:id
 //
-//   A munkatárs (Munkaterületem, #munka):
+//   A munkatárs (az admin felület neki kiadott részei):
 //     GET    /api/csapat/en                    mit tudok (jogok, hatókörök)
 //     GET    /api/csapat/hirdetesek            a hatókörömbe tartozó hirdetések
 //     GET    /api/csapat/hirdetesek/:id/kepek  egy hirdetés fotói
@@ -31,7 +31,8 @@ router.get("/api/admin/csapat", csakAdmin, async (req, res) => {
     try {
         res.json({
             tagok: await csapat.lista(),
-            jogok: csapat.JOGOK, hatokorok: csapat.HATOKOROK, szerepek: csapat.SZEREPEK, szerep_jogok: csapat.SZEREP_JOGOK
+            jogok: csapat.JOGOK, hatokoros: csapat.HATOKOROS, globalis: csapat.GLOBALIS,
+            hatokorok: csapat.HATOKOROK, szerepek: csapat.SZEREPEK, szerep_jogok: csapat.SZEREP_JOGOK
         });
     } catch (err) { hiba(res, err); }
 });
@@ -45,9 +46,9 @@ router.post("/api/admin/csapat", csakAdmin, async (req, res) => {
         const v = await csapat.hozzaad(req.body || {}, req.user && req.user.id);
         res.json({ siker: true, ...v });
         level.munkatarsnak(req, v.user_id, "Bekerültél az IngatlanPro csapatába / Ai fost adăugat în echipa IngatlanPro", [
-            "Az admin munkatársként hozzáadott. Belépés után a menüben a „Munkaterületem” oldalon látod, mihez férsz hozzá.",
-            "Administratorul te-a adăugat ca membru al echipei. După autentificare, pagina „Spațiul meu de lucru” arată la ce ai acces."
-        ], "/#munka").catch(() => { });
+            "Az admin munkatársként hozzáadott. Belépés után a fejlécben az „Admin” gombbal éred el azokat a részeket, amelyekhez jogot kaptál.",
+            "Administratorul te-a adăugat ca membru al echipei. După autentificare, butonul „Admin” din antet deschide secțiunile la care ai acces."
+        ], "/#admin").catch(() => { });
     } catch (err) { hiba(res, err); }
 });
 
@@ -157,6 +158,10 @@ router.put("/api/csapat/hirdetesek/:id/kepek", csakBelepve, async (req, res) => 
                 [mb.rows[0].megbizas_id, `Fotók: +${uj.length} új, −${torol.length} törölve (összesen ${db2.rows[0].n})`, req.user.id]);
         }
         await client.query("COMMIT");
+        // Megbízásos hirdetés: a „fotó” előkészítő feladat magától kész
+        if (uj.length && mb.rows[0] && mb.rows[0].megbizas_id) {
+            require("../services/megbizas").fotokFeltoltve(id, req.user.id).catch(() => { });
+        }
         const k = await db.query("SELECT id FROM ingatlan_kepek WHERE ingatlan_id = $1 ORDER BY sorrend, id", [id]);
         res.json({ siker: true, kepek: k.rows.map(x => x.id), elutasitva: (Array.isArray(b.uj) ? b.uj.length : 0) - uj.length });
     } catch (err) {

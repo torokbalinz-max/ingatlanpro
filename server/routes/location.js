@@ -7,6 +7,7 @@ const express = require("express");
 const db = require("../db/database");
 const location = require("../services/location");
 const { hiba, csakBelepve, csakAdmin } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
@@ -76,7 +77,7 @@ router.post("/api/hely/ellenoriz", async (req, res) => {
 // honnan hová. Az admin elfogadhatja, vagy visszateheti az eredeti helyére
 // (ilyenkor az automatika többé nem mozgatja).
 
-router.get("/api/admin/hely-athelyezett", csakAdmin, async (req, res) => {
+router.get("/api/admin/hely-athelyezett", csapat.csakResz("helyek"), async (req, res) => {
     try {
         const r = await db.query(`
             SELECT i.id, i.cim, i.varos, i.kerulet, i.tipus, i.ugylet, i.ar, i.nm, i.x, i.y, i.hely_pontossag, i.hely_sugar,
@@ -98,7 +99,7 @@ router.get("/api/admin/hely-athelyezett", csakAdmin, async (req, res) => {
 });
 
 // Rendben van az új hely (eltűnik a listából, de az eredeti adat megmarad)
-router.post("/api/admin/hely-athelyezett/:id/elfogad", csakAdmin, async (req, res) => {
+router.post("/api/admin/hely-athelyezett/:id/elfogad", csapat.csakResz("helyek"), async (req, res) => {
     try {
         const ids = req.params.id === "mind" && Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [Number(req.params.id)];
         await db.query(`
@@ -112,7 +113,7 @@ router.post("/api/admin/hely-athelyezett/:id/elfogad", csakAdmin, async (req, re
 });
 
 // Vissza az eredeti helyre – kézi döntés: az automatika többé nem mozgatja
-router.post("/api/admin/hely-athelyezett/:id/vissza", csakAdmin, async (req, res) => {
+router.post("/api/admin/hely-athelyezett/:id/vissza", csapat.csakResz("helyek"), async (req, res) => {
     try {
         const r = await db.query("SELECT hely_eredeti, varos, tipus FROM ingatlanok WHERE id = $1", [req.params.id]);
         const e = r.rows[0] && r.rows[0].hely_eredeti;
@@ -154,7 +155,7 @@ router.post("/api/admin/hely-athelyezett/:id/vissza", csakAdmin, async (req, res
 //  body: { x, y, hely_pontossag: pontos|utca|kozelito|nincs, hely_sugar, kerulet? }
 //  kerulet: ha meg van adva (üres szöveg = nincs kerület), az kerül be;
 //           ha nincs a kérésben, pontos helynél a kerülethatárok döntenek.
-router.post("/api/admin/hely-athelyezett/:id/kezi", csakAdmin, async (req, res) => {
+router.post("/api/admin/hely-athelyezett/:id/kezi", csapat.csakResz("helyek"), async (req, res) => {
     try {
         const id = Number(req.params.id);
         const b = req.body || {};

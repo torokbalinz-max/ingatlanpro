@@ -21,7 +21,7 @@ class AccountPage {
         { key: "igenyek", icon: "fa-solid fa-bullhorn", label: "accTabRequests" },
         { key: "uzenetek", icon: "fa-solid fa-envelope", label: "accTabMessages" },
         { key: "csomag", icon: "fa-solid fa-receipt", label: "accTabBilling" },
-        { key: "megbizasok", icon: "fa-solid fa-key", label: "accTabMandates" }
+        { key: "megbizasok", icon: "fa-solid fa-key", label: "el_menu" }
     ];
 
     static show(param) {

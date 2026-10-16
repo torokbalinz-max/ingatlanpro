@@ -1059,6 +1059,93 @@ async function createSchema(db) {
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_csapat_jogok_tag ON csapat_jogok (tag_id)`);
 
+    // ---------- Megbízások 3: szakaszok és kapuk, naptár, ajánlat-adatok, iratfájlok ----------
+    // Egy megbízás = egy szál, hét szakasz (Igénylés → Egyeztetés → Szerződés →
+    // Előkészítés → Hirdetés és megtekintések → Ajánlatok → Adásvétel); a
+    // szakaszok közötti „kapuk” adatai, a megtekintési naptár, az adásvétel lépései.
+    const mb3 = [
+        "naptar JSONB",                         // idősávok, hossz, szünet, mód, kapacitás...
+        "feladatok JSONB DEFAULT '{}'::jsonb",  // előkészítés: { foto: { kesz, datum, ki } ... }
+        "csomag_kuldve TIMESTAMP",              // a végleges csomagot elküldtük jóváhagyásra
+        "csomag_jovahagyva TIMESTAMP",
+        "csomag_jovahagyta TEXT",               // elado | csapat (telefonon)
+        "hirdetes_kuldve TIMESTAMP",            // a hirdetés előnézetét elküldtük jóváhagyásra
+        "hirdetes_jovahagyva TIMESTAMP",
+        "hirdetve TIMESTAMP",                   // mikor lett nyilvános
+        "szerzodes_mod TEXT",                   // online | szemelyes
+        "szerzodes_kod_hash TEXT",
+        "szerzodes_kod_lejar TIMESTAMP",
+        "szerzodes_kod_proba INTEGER DEFAULT 0",
+        "szerzodes_kod_ok BOOLEAN",
+        "szerzodes_hash TEXT",                  // az elfogadott szöveg ujjlenyomata
+        "szerzodes_ua TEXT",
+        "korai_kezdes BOOLEAN",
+        "szemelyes_javaslat TEXT",
+        "ellenjegyezve TIMESTAMP",
+        "ellenjegyezte INTEGER",
+        "fotozas_idopont TIMESTAMP",
+        "eloszerzodes_datum DATE",
+        "foglalo DOUBLE PRECISION",
+        "kozjegyzo_idopont TIMESTAMP",
+        "kozjegyzo TEXT",
+        "kulcsatadas DATE",
+        "adasvetel_ajanlat_id INTEGER",
+        "statusz_valtva TIMESTAMP"
+    ];
+    for (const o of mb3) await db.query(`ALTER TABLE megbizasok ADD COLUMN IF NOT EXISTS ${o}`);
+    // A régi aláírt szerződések: ellenjegyzettnek számítanak
+    await db.query(`UPDATE megbizasok SET ellenjegyezve = alairva::timestamp WHERE alairva IS NOT NULL AND ellenjegyezve IS NULL`);
+    await db.query(`UPDATE megbizasok SET statusz_valtva = COALESCE(updated_at, created_at) WHERE statusz_valtva IS NULL`);
+    await db.query(`UPDATE megbizasok SET hirdetve = COALESCE(updated_at, created_at) WHERE hirdetve IS NULL AND statusz IN ('hirdetes', 'targyalas', 'eladva')`);
+
+    await db.query(`ALTER TABLE megbizas_erdeklodok ADD COLUMN IF NOT EXISTS ajanlat_engedve BOOLEAN DEFAULT false`);
+    await db.query(`ALTER TABLE megbizas_erdeklodok ADD COLUMN IF NOT EXISTS sorszam INTEGER`);
+    // A vevők sorszáma megbízásonként (az eladó „Vevő #3”-ként látja őket)
+    await db.query(`
+        UPDATE megbizas_erdeklodok e SET sorszam = x.n
+        FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY megbizas_id ORDER BY id) AS n FROM megbizas_erdeklodok) x
+        WHERE x.id = e.id AND e.sorszam IS NULL`);
+
+    for (const o of ["emlekeztetve2 TIMESTAMP", "forras TEXT", "varolista BOOLEAN DEFAULT false", "lezarta INTEGER", "lezarva_at TIMESTAMP"]) {
+        await db.query(`ALTER TABLE megbizas_megtekintesek ADD COLUMN IF NOT EXISTS ${o}`);
+    }
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_megt_ido ON megbizas_megtekintesek (idopont)`);
+
+    const aj3 = [
+        "finanszirozas TEXT",          // keszpenz | hitel | vegyes
+        "onero DOUBLE PRECISION",
+        "hitel_osszeg DOUBLE PRECISION",
+        "hitel_allapot TEXT",          // elozetes | folyamatban | nincs
+        "bank TEXT",
+        "foglalo DOUBLE PRECISION",
+        "eloszerzodes_ig DATE",
+        "kozjegyzo_ig DATE",
+        "ervenyes_ig TIMESTAMP",
+        "szandek BOOLEAN",
+        "igazolas_id INTEGER"
+    ];
+    for (const o of aj3) await db.query(`ALTER TABLE megbizas_ajanlatok ADD COLUMN IF NOT EXISTS ${o}`);
+
+    // Fájlok egy megbízáshoz: az eladó iratai, az aláírt szerződés (szkennelve),
+    // a vevő hitel-igazolása. Az adat az adatbázisban (nincs külön tárhely).
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megbizas_fajlok (
+            id SERIAL PRIMARY KEY,
+            megbizas_id INTEGER REFERENCES megbizasok(id) ON DELETE CASCADE,
+            tipus TEXT DEFAULT 'irat',
+            kod TEXT,
+            nev TEXT,
+            mime TEXT,
+            meret INTEGER,
+            adat BYTEA,
+            lathato_eladonak BOOLEAN DEFAULT true,
+            feltoltotte INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            erdeklodo_id INTEGER REFERENCES megbizas_erdeklodok(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_fajl ON megbizas_fajlok (megbizas_id)`);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

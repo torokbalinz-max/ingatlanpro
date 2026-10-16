@@ -114,7 +114,7 @@ class ListingPage {
             : "";
 
         // A saját hirdetésem (nem admin): szerkesztés, törlés
-        const sajatBox = !AuthManager.isAdmin() && AuthManager.canEdit(i) ? `
+        const sajatBox = !AuthManager.resz("ellenorzes") && AuthManager.canEdit(i) ? `
             <div class="card mt-4">
                 <div class="card-body">
                     <h6 class="mb-3"><i class="fa-solid fa-house-user"></i> ${I18n.t(i.iroda && !AuthManager.owns(i) ? "lpAgencyListing" : "lpOwnListing")}</h6>
@@ -177,7 +177,7 @@ class ListingPage {
                 </div>
             </div>` : "";
 
-        const adminBox = AuthManager.isAdmin() ? `
+        const adminBox = AuthManager.resz("ellenorzes") ? `
             <div class="card mt-4 listingAdminBox">
                 <div class="card-body">
                     <h6 class="mb-3"><i class="fa-solid fa-user-shield"></i> Admin</h6>

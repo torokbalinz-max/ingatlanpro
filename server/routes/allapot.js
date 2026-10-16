@@ -19,6 +19,7 @@ const quality = require("../services/quality");
 const allapotok = require("../services/allapotok");
 const { TIPUS_MEZOK } = require("../services/listing");
 const { hiba, csakAdmin } = require("../lib/http");
+const csapat = require("../services/csapat");
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ router.get("/api/allapotok", async (req, res) => {
 });
 
 // Admin: minden állapot, a kulcsszavakkal és a használat számával
-router.get("/api/admin/allapotok", csakAdmin, async (req, res) => {
+router.get("/api/admin/allapotok", csapat.csakResz("beallitasok", "ellenorzes"), async (req, res) => {
 
     try {
 
@@ -116,7 +117,7 @@ function mezok(b, regi = {}) {
 
 }
 
-router.post("/api/admin/allapotok", csakAdmin, async (req, res) => {
+router.post("/api/admin/allapotok", csapat.csakResz("beallitasok"), async (req, res) => {
 
     try {
 
@@ -151,7 +152,7 @@ router.post("/api/admin/allapotok", csakAdmin, async (req, res) => {
 
 });
 
-router.put("/api/admin/allapotok/:kulcs", csakAdmin, async (req, res) => {
+router.put("/api/admin/allapotok/:kulcs", csapat.csakResz("beallitasok"), async (req, res) => {
 
     try {
 
@@ -180,7 +181,7 @@ router.put("/api/admin/allapotok/:kulcs", csakAdmin, async (req, res) => {
 });
 
 // Sorrend: { kulcsok: [...] } – ebben a sorrendben jelennek meg mindenhol
-router.post("/api/admin/allapotok-sorrend", csakAdmin, async (req, res) => {
+router.post("/api/admin/allapotok-sorrend", csapat.csakResz("beallitasok"), async (req, res) => {
 
     try {
 
@@ -203,7 +204,7 @@ router.post("/api/admin/allapotok-sorrend", csakAdmin, async (req, res) => {
 
 // Törlés (csak a saját felvett állapot; a beépítettet ki lehet kapcsolni).
 // Ha hirdetések használják: ?atrak=<másik kulcs> (vagy üres = állapot nélkül)
-router.delete("/api/admin/allapotok/:kulcs", csakAdmin, async (req, res) => {
+router.delete("/api/admin/allapotok/:kulcs", csapat.csakResz("beallitasok"), async (req, res) => {
 
     try {
 
@@ -241,14 +242,14 @@ router.delete("/api/admin/allapotok/:kulcs", csakAdmin, async (req, res) => {
 });
 
 // Kipróbálás: mit ismerne fel ebből a szövegből?
-router.post("/api/admin/allapotok/teszt", csakAdmin, async (req, res) => {
+router.post("/api/admin/allapotok/teszt", csapat.csakResz("beallitasok"), async (req, res) => {
     await allapotok.kesz();
     const szoveg = String(req.body.szoveg || "").slice(0, 5000);
     res.json({ eredmeny: allapotok.felismer(szoveg, { evszam: req.body.evszam }) });
 });
 
 // Régi, szabad szöveges érték átsorolása egy állapotba: { regi, uj }
-router.post("/api/admin/allapotok/atsorol", csakAdmin, async (req, res) => {
+router.post("/api/admin/allapotok/atsorol", csapat.csakResz("beallitasok"), async (req, res) => {
     try {
         await allapotok.kesz();
         const regi = String(req.body.regi || "").trim();
@@ -267,7 +268,7 @@ router.post("/api/admin/allapotok/atsorol", csakAdmin, async (req, res) => {
 // Az állapot nélküli hirdetések kitöltése a leírásukból (és az építés évéből).
 // A kitöltöttek "bizonytalan" jelölést kapnak – az Állapot beállítása oldalon
 // gyorsan átnézhetők.
-router.post("/api/admin/allapotok/kitolt", csakAdmin, async (req, res) => {
+router.post("/api/admin/allapotok/kitolt", csapat.csakResz("beallitasok"), async (req, res) => {
 
     try {
 
@@ -306,7 +307,7 @@ router.post("/api/admin/allapotok/kitolt", csakAdmin, async (req, res) => {
 
 // A beállítandó hirdetések
 //  mod: hianyzo (nincs állapot) | bizonytalan (becsült / a szövegből kitöltött) | mind (az összes)
-router.get("/api/admin/allapot", csakAdmin, async (req, res) => {
+router.get("/api/admin/allapot", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 
@@ -360,7 +361,7 @@ router.get("/api/admin/allapot", csakAdmin, async (req, res) => {
 });
 
 // Állapot mentése egy vagy több hirdetésre: { ids: [..], allapot } vagy { valtozasok: [{ id, allapot }] }
-router.patch("/api/admin/allapot", csakAdmin, async (req, res) => {
+router.patch("/api/admin/allapot", csapat.csakResz("ellenorzes"), async (req, res) => {
 
     try {
 

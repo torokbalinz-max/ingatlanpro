@@ -3,44 +3,67 @@
 //
 //  Egy fiókkal nem lehet mindent irányítani, ezért az admin a saját
 //  fiókjukkal belépő munkatársaknak (fotós, bemutató, régiós kezelő,
-//  értékesítő) részjogokat ad – Admin → Csapat és jogosultságok.
+//  értékesítő, asszisztens) részeket ad ki az admin felületből –
+//  Admin → Csapat és jogosultságok. A munkatárs ugyanazt az admin
+//  felületet látja, csak a neki kiadott részekkel, és azokon belül
+//  ugyanazt tudja, mint az admin.
 //
 //  Egy munkatársnak több „hozzáférése” lehet, mindegyik:
-//     jogok:    kepek        fotók feltöltése, törlése, sorrendje
-//               hirdetes     hirdetések adatainak szerkesztése (+ fotók)
-//               megtekintes  megtekintések: időpont, vevő elérhetősége, lezárás
+//     jogok:    az értékesítés részei (hatókörrel szűkíthetők):
+//               megbizas     megbízások kezelése – mint az admin (vevők,
+//                            ajánlatok, szerződés, díj, iratok, hozzárendelés)
 //               megbizas_lat megbízások megtekintése (csak olvasás)
-//               megbizas     megbízások kezelése (vevők, ajánlatok, üzenetek)
+//               megtekintes  megtekintési naptár: idősávok, foglalások, lezárás
+//               hirdetes     hirdetések szerkesztése (+ fotók)
+//               kepek        fotók feltöltése, törlése, sorrendje
+//             az admin felület többi része (csak „mindenre” hatókörrel):
+//               ellenorzes   hirdetések ellenőrzése, állapot, duplikátumok,
+//                            nem elérhetők, bejelentések
+//               beolvasas    beolvasás linkről, figyelt oldalak, karbantartás
+//               helyek       városok, kerületek, város és környéke, hely-ellenőrzés
+//               irodak       ingatlanirodák jóváhagyása
+//               reklam       reklámfelületek
+//               penzugy      pénzügyek (számlák, előfizetések, rendelések...)
+//               statisztika  látogatottság
+//               beallitasok  állapotok listája, webhely adatai, megbízás-beállítások
 //     hatókör:  mind | varos (+ típus, pl. Sepsiszentgyörgy lakásai)
 //               | megbizas (egy megbízás és a hirdetése) | ingatlan (egy hirdetés)
 //     lejárat:  (nem kötelező) eddig érvényes
 //
+//  A Csapat és jogosultságok rész mindig csak az adminé (különben egy
+//  munkatárs magának is adhatna jogot).
+//
 //  Ezen felül a megbízáshoz rendelt munkatárs (felelős / fotós / bemutató)
 //  magától megkapja az ahhoz a megbízáshoz tartozó jogokat.
-//
-//  A munkatárs a „Munkaterületem” oldalon (#munka) dolgozik.
 // ============================================================
 
 const db = require("../db/database");
 
-const JOGOK = ["kepek", "hirdetes", "megtekintes", "megbizas_lat", "megbizas"];
+// Az értékesítés részei (hatókörrel)
+const HATOKOROS = ["megbizas", "megbizas_lat", "megtekintes", "hirdetes", "kepek"];
+// Az admin felület többi része (csak az egész oldalra)
+const GLOBALIS = ["ellenorzes", "beolvasas", "helyek", "irodak", "reklam", "penzugy", "statisztika", "beallitasok"];
+const JOGOK = [...HATOKOROS, ...GLOBALIS];
 const HATOKOROK = ["mind", "varos", "megbizas", "ingatlan"];
-const SZEREPEK = ["fotos", "bemutato", "regios", "ertekesito", "egyeni"];
+const SZEREPEK = ["ertekesito", "bemutato", "fotos", "regios", "asszisztens", "egyeni"];
 const TIPUSOK = ["lakas", "haz", "telek", "kereskedelmi", "iroda"];
 
 // Szerep → javasolt jogok (az adminban egy kattintással)
 const SZEREP_JOGOK = {
     fotos: ["kepek"],
     bemutato: ["megtekintes"],
-    regios: ["hirdetes", "kepek", "megbizas_lat"],
-    ertekesito: ["megbizas", "megtekintes", "hirdetes", "kepek"],
+    regios: ["hirdetes", "kepek", "megbizas_lat", "megtekintes"],
+    ertekesito: ["megbizas"],
+    asszisztens: ["ellenorzes", "beolvasas"],
     egyeni: []
 };
 
 // Melyik jog mit foglal magában
 const MAGABAN = {
+    megbizas: ["megbizas_lat", "megtekintes", "hirdetes", "kepek"],
     hirdetes: ["kepek"],
-    megbizas: ["megbizas_lat", "megtekintes"]
+    // A hirdetések ellenőrzése: bármelyik hirdetést szerkesztheti (mint az admin)
+    ellenorzes: ["hirdetes", "kepek"]
 };
 
 // A megbízáshoz rendelt munkatárs jogai (arra az egy megbízásra)
@@ -191,15 +214,64 @@ function hatokorSql(k, jog, params, { varos = "varos", tipus = "tipus", megbizas
 
 }
 
-// A /api/me-hez és a Munkaterületem oldalhoz: mit tud a munkatárs
+// Az admin felület egy része az egész oldalra (pl. pénzügyek)
+function globalis(k, jog) {
+    if (k.admin) return true;
+    if (!k.tag) return false;
+    return k.hozzaferesek.some(h => h.hatokor === "mind" && h.jogok.has(jog));
+}
+
+// Az admin felület részei, amelyeket lát (a menühöz)
+function reszek(k) {
+    if (k.admin) return [...JOGOK];
+    return JOGOK.filter(j => GLOBALIS.includes(j) ? globalis(k, j) : vanJoga(k, j));
+}
+
+// Útvonal-védelem: az admin, vagy aki a felsorolt részek valamelyikét
+// megkapta az egész oldalra (a hatókörös részeket a hívó ellenőrzi)
+function csakResz(...kodok) {
+    return async (req, res, next) => {
+        try {
+            if (req.szerep === "admin") return next();
+            if (!req.user) return res.status(401).json({ error: "login_required" });
+            const k = await kontextus(req);
+            if (kodok.some(kod => GLOBALIS.includes(kod) ? globalis(k, kod) : vanJoga(k, kod))) return next();
+            res.status(403).json({ error: "admin_only" });
+        } catch (err) {
+            next(err);
+        }
+    };
+}
+
+// Van-e bármilyen admin-része (az admin felület látszik-e neki)
+async function panel(req) {
+    if (req.szerep === "admin") return true;
+    const k = await kontextus(req);
+    return reszek(k).length > 0;
+}
+
+// Útvonal-védelem: bárki, akinek van része az admin felületből
+async function csakPanel(req, res, next) {
+    try {
+        if (req.szerep === "admin") return next();
+        if (!req.user) return res.status(401).json({ error: "login_required" });
+        if (await panel(req)) return next();
+        res.status(403).json({ error: "admin_only" });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// A /api/me-hez: mit tud a munkatárs (a menü, az admin felület részei)
 async function osszegzes(req) {
     const k = await kontextus(req);
     if (!k.tag) return null;
     const jogok = {};
-    JOGOK.forEach(j => { jogok[j] = vanJoga(k, j); });
+    JOGOK.forEach(j => { jogok[j] = GLOBALIS.includes(j) ? globalis(k, j) : vanJoga(k, j); });
     return {
         szerep: k.tag.szerep,
         jogok,
+        reszek: reszek(k),
         hozzaferesek: k.hozzaferesek.map(h => ({
             id: h.id, jogok: [...h.jogok], hatokor: h.hatokor, varos: h.varos, tipus: h.tipus,
             megbizas_id: h.megbizas_id, ingatlan_id: h.ingatlan_id, lejar: h.lejar
@@ -281,9 +353,11 @@ async function hozzaad(b, adminId) {
 }
 
 function hozzaferesTisztit(h) {
-    const jogok = [...new Set((Array.isArray(h.jogok) ? h.jogok : []).map(String))].filter(j => JOGOK.includes(j));
-    if (!jogok.length) return null;
     const hatokor = HATOKOROK.includes(h.hatokor) ? h.hatokor : "varos";
+    // Az admin felület többi része csak az egész oldalra adható
+    const jogok = [...new Set((Array.isArray(h.jogok) ? h.jogok : []).map(String))]
+        .filter(j => hatokor === "mind" ? JOGOK.includes(j) : HATOKOROS.includes(j));
+    if (!jogok.length) return null;
     const d = {
         jogok, hatokor,
         varos: hatokor === "varos" ? (String(h.varos || "").trim().slice(0, 80) || null) : null,
@@ -358,7 +432,7 @@ async function valaszthatok() {
 }
 
 module.exports = {
-    JOGOK, HATOKOROK, SZEREPEK, SZEREP_JOGOK,
-    kontextus, szabad, vanJoga, hirdetesJog, megbizasJog, hatokorSql, osszegzes,
+    JOGOK, HATOKOROS, GLOBALIS, HATOKOROK, SZEREPEK, SZEREP_JOGOK,
+    kontextus, szabad, vanJoga, globalis, reszek, csakResz, csakPanel, panel, hirdetesJog, megbizasJog, hatokorSql, osszegzes,
     lista, felhasznaloKeres, hozzaad, ment, torol, valaszthatok
 };

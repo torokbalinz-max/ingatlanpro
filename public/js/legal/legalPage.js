@@ -531,7 +531,7 @@ class LegalPage {
 
     static adminLista(box) {
 
-        if (typeof AuthManager === "undefined" || !AuthManager.isAdmin()) {
+        if (typeof AuthManager === "undefined" || !AuthManager.resz("ellenorzes")) {
             box.innerHTML = `<div class="emptyState">${I18n.t("rvAdminOnly")}</div>`;
             return;
         }

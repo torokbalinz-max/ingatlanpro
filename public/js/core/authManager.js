@@ -13,6 +13,8 @@
 class AuthManager {
 
     static szerep = "vendeg";
+    static csapat = null;           // munkatárs: jogok, részek (/api/me)
+    static megbizas = null;         // eladó: { db, aktiv, teendo } (/api/me)
     static felhasznalo = null;
     static user = null;
     static config = {};
@@ -29,6 +31,23 @@ class AuthManager {
         return AuthManager.szerep === "admin";
     }
 
+    // Munkatárs (Admin → Csapat és jogosultságok): az admin felület egy része
+    //   kod: megbizas | megbizas_lat | megtekintes | hirdetes | kepek | ellenorzes | beolvasas |
+    //        helyek | irodak | reklam | penzugy | statisztika | beallitasok | admin (csak az admin)
+    static resz(kod) {
+        if (AuthManager.isAdmin()) return true;
+        if (kod === "admin") return false;
+        const c = AuthManager.csapat;
+        return !!(c && c.jogok && c.jogok[kod]);
+    }
+
+    // Látja-e az admin felületet (az admin, vagy aki kapott belőle részt)
+    static panel() {
+        if (AuthManager.isAdmin()) return true;
+        const c = AuthManager.csapat;
+        return !!(c && Array.isArray(c.reszek) && c.reszek.length) || !!(c && c.hozzarendelt && c.hozzarendelt.length);
+    }
+
     static loggedIn() {
         return !!AuthManager.user;
     }
@@ -38,7 +57,7 @@ class AuthManager {
     }
 
     static canEdit(i) {
-        return AuthManager.isAdmin() || AuthManager.owns(i) || AuthManager.irodaTag(i && i.iroda_id);
+        return AuthManager.resz("ellenorzes") || AuthManager.owns(i) || AuthManager.irodaTag(i && i.iroda_id);
     }
 
     // Tagja-e az irodának (az iroda hirdetéseit kezelheti)
@@ -93,6 +112,9 @@ class AuthManager {
         AuthManager.adminNezet = !!me.adminNezet;
         AuthManager.irodak = Array.isArray(me.irodak) ? me.irodak : [];
         AuthManager.irodaMeghivasok = Array.isArray(me.irodaMeghivasok) ? me.irodaMeghivasok : [];
+        // Munkatárs: az admin felület részei; eladó: a megbízásai (Ingatlanom eladása)
+        AuthManager.csapat = me.csapat || null;
+        AuthManager.megbizas = me.megbizas || null;
 
         // Előfizetett csomag jogai (Admin → Pénzügyek): reklámmentes oldal, hirdetésszám...
         const voltReklammentes = !!(AuthManager.csomag && AuthManager.csomag.reklammentes);
@@ -122,6 +144,18 @@ class AuthManager {
         document.body.classList.toggle("is-logged-in", bent);
 
         document.querySelectorAll(".admin-only").forEach(el => { el.hidden = !admin; });
+        // Az admin felület (a munkatársnak is, ha kapott belőle részt)
+        const panel = AuthManager.panel();
+        document.querySelectorAll(".panel-only").forEach(el => { el.hidden = !panel; });
+        document.body.classList.toggle("is-panel", panel);
+        // Ingatlanom eladása: akinek van megbízása
+        const mb = AuthManager.megbizas;
+        document.querySelectorAll(".seller-only").forEach(el => { el.hidden = !(mb && mb.db); });
+        document.querySelectorAll(".navSellCount").forEach(b => {
+            const n = mb ? mb.teendo || 0 : 0;
+            b.hidden = !n;
+            b.innerText = n > 9 ? "9+" : n;
+        });
         document.querySelectorAll(".auth-only").forEach(el => { el.hidden = !bent; });
         document.querySelectorAll(".guest-only").forEach(el => { el.hidden = bent; });
 
