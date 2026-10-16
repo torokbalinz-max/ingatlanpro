@@ -1146,6 +1146,52 @@ async function createSchema(db) {
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_mb_fajl ON megbizas_fajlok (megbizas_id)`);
 
+    // Kiemelések (promóciók): a hirdetés ennyi ideig kiemelt – a lista elején,
+    // „Kiemelt” jelöléssel. Forrás: megvásárolt kiemelés (rendelés), a csomag
+    // havi kerete, vagy az admin adta.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS ingatlan_kiemelesek (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            kezdet TIMESTAMP NOT NULL DEFAULT NOW(),
+            vege TIMESTAMP NOT NULL,
+            forras TEXT DEFAULT 'admin',
+            rendeles_id INTEGER REFERENCES penzugy_rendelesek(id) ON DELETE SET NULL,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE SET NULL,
+            statusz TEXT DEFAULT 'aktiv',
+            megjegyzes TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_kiemeles_ingatlan ON ingatlan_kiemelesek (ingatlan_id, vege)`);
+
+    // Online fizetések (Stripe): egy díjbekérőhöz egy vagy több próbálkozás
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS online_fizetesek (
+            id SERIAL PRIMARY KEY,
+            szamla_id INTEGER REFERENCES penzugy_szamlak(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            szolgaltato TEXT DEFAULT 'stripe',
+            munkamenet TEXT UNIQUE,
+            fizetes_azon TEXT,
+            osszeg NUMERIC(12,2),
+            penznem TEXT,
+            statusz TEXT DEFAULT 'indult',
+            hiba TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            fizetve_at TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_online_fizetes_szamla ON online_fizetesek (szamla_id)`);
+
+    // A hivatalos számla (SmartBill / Oblio) adatai a díjbekérőn
+    await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS hivatalos_szamlazo TEXT`);
+    await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS hivatalos_link TEXT`);
+    await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS hivatalos_hiba TEXT`);
+    await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS hivatalos_at TIMESTAMP`);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

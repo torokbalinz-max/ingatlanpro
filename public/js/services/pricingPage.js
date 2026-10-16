@@ -49,6 +49,31 @@ class Svc {
         }
     }
 
+    // ---------- Online fizetés (bankkártya – Stripe) ----------
+    // A díjbekérő kifizetése: a szerver elindítja a fizetést, és a Stripe
+    // biztonságos oldalára visz (a kártyaadat nem hozzánk kerül).
+    static kartyaGomb(szamlaId, osztaly = "btn-success") {
+        return `<button type="button" class="btn ${osztaly} payCardBtn" data-kartya="${Number(szamlaId)}"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> ${I18n.t("payByCard")}</button>`;
+    }
+
+    static kartyaFizet(szamlaId, gomb) {
+        if (gomb) {
+            gomb.disabled = true;
+            gomb.dataset.eredeti = gomb.innerHTML;
+            gomb.innerHTML = `<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> ${I18n.t("payRedirecting")}`;
+        }
+        return Svc.api(`/api/fizetes/szamla/${Number(szamlaId)}`, { method: "POST", body: { nyelv: I18n.current } })
+            .then(v => { if (v.url) window.location.href = v.url; })
+            .catch(e => {
+                if (gomb) { gomb.disabled = false; gomb.innerHTML = gomb.dataset.eredeti; }
+                alert(Svc.hiba(e, "payErr_"));
+            });
+    }
+
+    static kartyaKot(el) {
+        el.querySelectorAll("[data-kartya]").forEach(b => { b.onclick = () => Svc.kartyaFizet(b.dataset.kartya, b); });
+    }
+
     static api(ut, opts = {}) {
         const o = { cache: "no-store", ...opts };
         if (o.body && typeof o.body !== "string") {
@@ -277,7 +302,7 @@ class PricingPage {
 
     // ===================== Megrendelés =====================
 
-    static rendeles(c) {
+    static rendeles(c, opts = {}) {
 
         const esc = Utils.escape;
         const { tartalom, modal } = Svc.modal("prOrderModal", "modal-lg");
@@ -345,7 +370,7 @@ class PricingPage {
                             <label class="form-label" for="prHirdetes">${I18n.t("prWhichListing")}</label>
                             <select class="form-select" id="prHirdetes">
                                 <option value="">${I18n.t("prListingLater")}</option>
-                                ${lista.filter(h => ["aktiv", "fuggo"].includes(h.statusz)).map(h => `<option value="${h.id}">#${h.id} · ${esc(h.cim || Types.label(h.tipus))} · ${esc(Utils.price(h))}</option>`).join("")}
+                                ${lista.filter(h => ["aktiv", "fuggo"].includes(h.statusz)).map(h => `<option value="${h.id}"${Number(opts.ingatlanId) === h.id ? " selected" : ""}>#${h.id} · ${esc(h.cim || Types.label(h.tipus))} · ${esc(Utils.price(h))}</option>`).join("")}
                             </select>
                         </div>` : ""}
 
@@ -498,7 +523,19 @@ class PricingPage {
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="OK"></button>
             </div>
             <div class="modal-body">
-                <p>${ingyen ? I18n.t("prThanksFree") : I18n.f("prThanksText", { nev: esc(PricingPage.rovid(c)) })}</p>
+                <p>${ingyen ? I18n.t("prThanksFree") : I18n.f(f.online ? "prThanksTextCard" : "prThanksText", { nev: esc(PricingPage.rovid(c)) })}</p>
+                ${!ingyen && f.online ? `
+                <div class="payCardBox">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <div class="flex-grow-1">
+                            <b>${I18n.t("payCardTitle")}</b>
+                            <div class="small text-body-secondary">${I18n.t("payCardHint")}</div>
+                        </div>
+                        ${Svc.kartyaGomb(s.id, "btn-success btn-lg")}
+                    </div>
+                    <div class="payCardLogos" aria-hidden="true"><i class="fa-brands fa-cc-visa"></i><i class="fa-brands fa-cc-mastercard"></i><i class="fa-brands fa-apple-pay"></i><i class="fa-brands fa-google-pay"></i> <span><i class="fa-solid fa-lock"></i> ${I18n.t("paySecure")}</span></div>
+                </div>
+                <div class="payOr"><span>${I18n.t("payOrTransfer")}</span></div>` : ""}
                 ${ingyen ? "" : `
                 <div class="prPayBox">
                     <div><span>${I18n.t("prProforma")}</span><b>${esc(s.sorszam)}</b></div>
@@ -516,6 +553,8 @@ class PricingPage {
                 ${ingyen ? "" : `<a class="btn btn-outline-secondary" href="/api/sajat-csomag/szamlak/${s.id}/nyomtat" target="_blank" rel="noopener"><i class="fa-solid fa-file-invoice"></i> ${I18n.t("prOpenProforma")}</a>`}
                 <a class="btn btn-primary" href="#fiok/csomag">${I18n.t("accTabBilling")}</a>
             </div>`;
+
+        Svc.kartyaKot(tartalom);
 
         const copy = tartalom.querySelector("#prIbanCopy");
         if (copy) copy.onclick = () => {

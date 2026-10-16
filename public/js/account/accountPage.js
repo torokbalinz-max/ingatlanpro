@@ -242,6 +242,10 @@ class AccountPage {
                     b.onclick = () => NewPropertyManager.startEdit({ id: Number(b.dataset.edit) });
                 });
 
+                el.querySelectorAll("[data-kiemel]").forEach(b => {
+                    b.onclick = () => FeatureModal.nyit(Number(b.dataset.kiemel), () => AccountPage.hirdetesek(el));
+                });
+
                 el.querySelectorAll("[data-del]").forEach(b => {
                     b.onclick = () => {
                         if (!confirm(I18n.t("alertConfirmDelete"))) return;
@@ -278,6 +282,9 @@ class AccountPage {
                     <div class="fw-bold mt-1">${Utils.price(i)} <span class="small fw-normal text-body-secondary">${i.nm ? Utils.nm(i.nm) : ""}</span></div>
                     <div class="d-flex gap-2 mt-2">
                         <button class="btn btn-sm btn-outline-secondary" data-edit="${i.id}"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
+                        ${["aktiv", "fuggo"].includes(i.statusz) ? (CardsView.kiemelt(i)
+                            ? `<button class="btn btn-sm btn-warning" data-kiemel="${i.id}" title="${Utils.escape(I18n.t("ftTitle"))}"><i class="fa-solid fa-star"></i> ${I18n.f("ftUntilShort", { d: Svc.nap(i.kiemelt_ig) })}</button>`
+                            : `<button class="btn btn-sm btn-outline-warning" data-kiemel="${i.id}"><i class="fa-regular fa-star"></i> ${I18n.t("ftButton")}</button>`) : ""}
                         <button class="btn btn-sm btn-outline-danger" data-del="${i.id}"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>

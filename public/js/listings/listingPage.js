@@ -124,6 +124,7 @@ class ListingPage {
                         ${i.iroda_megjegyzes ? `<div><i class="fa-regular fa-note-sticky"></i> ${Utils.escape(i.iroda_megjegyzes)}</div>` : ""}
                     </div>` : ""}
                     ${(i.problemak || []).includes("hely_tavol") ? `<div class="alert alert-warning small py-2">${I18n.t("prob_hely_tavol")}</div>` : ""}
+                    ${["aktiv", "fuggo"].includes(i.statusz) ? `<button class="btn ${CardsView.kiemelt(i) ? "btn-warning" : "btn-outline-warning"} btn-sm w-100 mb-2" id="lpFeature"><i class="fa-solid fa-star"></i> ${CardsView.kiemelt(i) ? I18n.f("ftUntilShort", { d: Svc.nap(i.kiemelt_ig) }) : I18n.t("ftButton")}</button>` : ""}
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-secondary btn-sm flex-fill" id="lpEdit"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
                         <button class="btn btn-outline-danger btn-sm flex-fill" id="lpDelete"><i class="fa-solid fa-trash"></i> ${I18n.t("detailDelete")}</button>
@@ -390,6 +391,9 @@ class ListingPage {
 
         const rev = document.getElementById("lpReview");
         if (rev) rev.onclick = () => { AdminManager.reviewFocusId = i.id; AdminManager.reviewVaros = i.varos || ""; AdminManager.tab = "review"; PageManager.show("admin/review"); };
+
+        const ft = document.getElementById("lpFeature");
+        if (ft) ft.onclick = () => FeatureModal.nyit(i.id, () => DataManager.init && DataManager.init());
 
         const edit = document.getElementById("lpEdit");
         if (edit) edit.onclick = () => NewPropertyManager.startEdit(i);

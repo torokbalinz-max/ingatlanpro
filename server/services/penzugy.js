@@ -133,7 +133,13 @@ function alapBeallitas() {
         korlatok_be: false,
         ingyenes_hirdetes: 2,       // magánszemély ennyi aktív hirdetést tehet fel ingyen
         iroda_ingyenes_hirdetes: 2, // iroda előfizetés nélkül
-        turelmi_nap: 10             // lejárt díjbekérő után ennyi napig még él a csomag
+        turelmi_nap: 10,            // lejárt díjbekérő után ennyi napig még él a csomag
+        // Online fizetés (bankkártya – a kulcsok a szerver beállításaiban: STRIPE_SECRET_KEY...)
+        online_fizetes: true,       // ha be van állítva a Stripe, a díjbekérő kártyával is fizethető
+        // Hivatalos számla a fizetés után (SmartBill / Oblio – SZAMLAZO=... a szerver beállításaiban)
+        auto_szamla: true,
+        // Kiemelés: a csomag havi keretéből egy kiemelés ennyi napig tart
+        kiemeles_nap: 7
     };
 }
 
@@ -172,6 +178,9 @@ async function beallitasMent(b) {
     if ("ingyenes_hirdetes" in b) a.ingyenes_hirdetes = Math.round(n(b.ingyenes_hirdetes, 0, 1000, 2));
     if ("iroda_ingyenes_hirdetes" in b) a.iroda_ingyenes_hirdetes = Math.round(n(b.iroda_ingyenes_hirdetes, 0, 1000, 2));
     if ("turelmi_nap" in b) a.turelmi_nap = Math.round(n(b.turelmi_nap, 0, 90, 10));
+    if ("online_fizetes" in b) a.online_fizetes = !!b.online_fizetes;
+    if ("auto_szamla" in b) a.auto_szamla = !!b.auto_szamla;
+    if ("kiemeles_nap" in b) a.kiemeles_nap = Math.round(n(b.kiemeles_nap, 1, 90, 7));
 
     if (a.iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(a.iban)) throw hibaKod("bad_iban");
 
@@ -355,6 +364,8 @@ function jogTisztit(j) {
     if (egesz(j.hirdetes_limit) !== null) out.hirdetes_limit = egesz(j.hirdetes_limit);
     if (egesz(j.hirdetes_plusz)) out.hirdetes_plusz = egesz(j.hirdetes_plusz);
     if (egesz(j.kiemeles)) out.kiemeles = egesz(j.kiemeles);
+    // A kiemelés hossza napban (az egyszeri kiemelés terméknél és a havi keretnél)
+    if (egesz(j.kiemeles_nap)) out.kiemeles_nap = Math.min(365, egesz(j.kiemeles_nap));
     ["korlatlan_hirdetes", "reklammentes", "pro_statisztika", "iroda_profil"].forEach(k => { if (j[k]) out[k] = true; });
     return out;
 }

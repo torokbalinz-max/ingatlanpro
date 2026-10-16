@@ -1,0 +1,294 @@
+// ============================================================
+//  Online fizetés bankkártyával – Stripe Checkout
+//
+//  Miért így biztonságos:
+//   - a kártyaadatot a Stripe saját, biztonságos oldala kéri be (3-D Secure
+//     ellenőrzéssel); hozzánk soha nem jut el kártyaszám
+//   - az összeget mindig a szerver veszi a díjbekérőből (a böngésző nem
+//     küldhet más összeget), és csak a saját díjbekérőjét fizetheti ki bárki
+//   - a fizetés sikerét csak a Stripe aláírt értesítése (webhook) vagy a
+//     Stripe-tól közvetlenül lekérdezett állapot igazolja – a visszatérő
+//     böngészőnek nem hiszünk
+//
+//  A menet:
+//   1. „Fizetés kártyával” → POST /api/fizetes/szamla/:id → a Stripe oldala
+//   2. a vevő fizet → a Stripe visszaküldi az oldalra (#fiok/csomag?fizetes=...)
+//   3. a Stripe értesít (webhook: checkout.session.completed) → a díjbekérő
+//      kifizetett (kártya) → a rendelés teljesül, a csomag / kiemelés él
+//      (penzugy.rendelesSzinkron), és elkészül a hivatalos számla (szamlazo.js)
+//
+//  Beállítás (a szerver környezeti változói – a Renderen: Environment):
+//    STRIPE_SECRET_KEY       sk_test_... (próba) vagy sk_live_... (éles)
+//    STRIPE_WEBHOOK_SECRET   whsec_... (a Stripe-ban a webhook végpontnál)
+//    A webhook címe:  https://<oldal>/api/fizetes/stripe/webhook
+//    események:       checkout.session.completed,
+//                     checkout.session.async_payment_succeeded,
+//                     checkout.session.expired
+//  Próbához Stripe nélkül (csak a saját gépen!): FIZETES_DEMO=1
+// ============================================================
+
+const crypto = require("crypto");
+const db = require("../db/database");
+const pu = require("./penzugy");
+
+const STRIPE = "https://api.stripe.com/v1";
+
+function hibaKod(kod) {
+    const e = new Error(kod);
+    e.kod = kod;
+    return e;
+}
+
+const stripeKulcs = () => (process.env.STRIPE_SECRET_KEY || "").trim();
+const webhookKulcs = () => (process.env.STRIPE_WEBHOOK_SECRET || "").trim();
+
+// A Stripe be van állítva? / demó mód (csak ha nincs Stripe)
+function stripeBe() { return /^sk_(test|live)_/.test(stripeKulcs()); }
+function demoBe() { return !stripeBe() && process.env.FIZETES_DEMO === "1"; }
+
+async function allapot() {
+    const be = await pu.beallitas();
+    const szolgaltato = stripeBe() ? "stripe" : demoBe() ? "demo" : null;
+    return {
+        elerheto: !!szolgaltato && be.online_fizetes !== false,
+        bekapcsolva: be.online_fizetes !== false,
+        szolgaltato,
+        mod: stripeBe() ? (stripeKulcs().startsWith("sk_live_") ? "eles" : "teszt") : demoBe() ? "demo" : null,
+        webhook: !!webhookKulcs()
+    };
+}
+
+// ---------- Stripe API (űrlap-kódolású kérések) ----------
+
+function urlap(obj, elotag = "", ki = []) {
+    for (const [k, v] of Object.entries(obj)) {
+        if (v === undefined || v === null) continue;
+        const kulcs = elotag ? `${elotag}[${k}]` : k;
+        if (typeof v === "object" && !Array.isArray(v)) urlap(v, kulcs, ki);
+        else if (Array.isArray(v)) v.forEach((x, i) => (typeof x === "object" ? urlap(x, `${kulcs}[${i}]`, ki) : ki.push([`${kulcs}[${i}]`, String(x)])));
+        else ki.push([kulcs, String(v)]);
+    }
+    return ki;
+}
+
+async function stripe(modszer, ut, adat, idempotencia) {
+    const fej = { Authorization: "Bearer " + stripeKulcs() };
+    let body;
+    if (adat) {
+        fej["Content-Type"] = "application/x-www-form-urlencoded";
+        body = new URLSearchParams(urlap(adat)).toString();
+    }
+    if (idempotencia) fej["Idempotency-Key"] = idempotencia;
+    const res = await fetch(STRIPE + ut, { method: modszer, headers: fej, body, signal: AbortSignal.timeout(20000) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const e = hibaKod("payment_provider_error");
+        e.reszlet = (j.error && j.error.message) || ("HTTP " + res.status);
+        throw e;
+    }
+    return j;
+}
+
+// A díjbekérő tételeiből a Stripe-on látszó megnevezés
+function megnevezes(s) {
+    const t = (s.tetelek || []).map(x => x.megnevezes).join(", ");
+    return `${s.sorszam} – ${t}`.slice(0, 250);
+}
+
+const centbe = v => Math.round(Number(v) * 100);
+
+// ===================== INDÍTÁS =====================
+
+// A felhasználó a saját, kiállított díjbekérőjét fizeti → { url }
+async function inditas(user, szamlaId, { alapCim, nyelv } = {}) {
+
+    const all = await allapot();
+    if (!all.elerheto) throw hibaKod("payment_off");
+
+    const s = await require("./rendeles").sajatSzamla(user, szamlaId);
+    if (!s) throw hibaKod("not_found");
+    if (s.statusz === "fizetve") throw hibaKod("already_paid");
+    if (s.statusz !== "kiallitva" || s.tipus !== "dijbekero") throw hibaKod("not_payable");
+    if (!(Number(s.brutto) > 0)) throw hibaKod("not_payable");
+
+    // Visszaélés ellen: óránként legfeljebb 20 indítás felhasználónként
+    const n = await db.query("SELECT COUNT(*)::int AS n FROM online_fizetesek WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'", [user.id]);
+    if (n.rows[0].n >= 20) throw hibaKod("too_many");
+
+    const f = await db.query(
+        `INSERT INTO online_fizetesek (szamla_id, user_id, szolgaltato, osszeg, penznem) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [s.id, user.id, all.szolgaltato, s.brutto, s.penznem]);
+    const fid = f.rows[0].id;
+
+    const vissza = (alapCim || "").replace(/\/+$/, "");
+
+    if (all.szolgaltato === "demo") {
+        const munkamenet = "demo_" + crypto.randomBytes(12).toString("hex");
+        await db.query("UPDATE online_fizetesek SET munkamenet = $2 WHERE id = $1", [fid, munkamenet]);
+        return { url: `${vissza}/api/fizetes/demo/${munkamenet}`, munkamenet };
+    }
+
+    const nyelvek = { hu: "hu", ro: "ro", en: "en" };
+    const ses = await stripe("POST", "/checkout/sessions", {
+        mode: "payment",
+        success_url: `${vissza}/?fizetes={CHECKOUT_SESSION_ID}#fiok/csomag`,
+        cancel_url: `${vissza}/?fizetes=megszakitva#fiok/csomag`,
+        client_reference_id: String(s.id),
+        customer_email: (s.vevo && s.vevo.email) || user.email || undefined,
+        locale: nyelvek[nyelv] || "auto",
+        line_items: [{
+            quantity: 1,
+            price_data: {
+                currency: String(s.penznem || "RON").toLowerCase(),
+                unit_amount: centbe(s.brutto),
+                product_data: { name: megnevezes(s) }
+            }
+        }],
+        metadata: { szamla_id: String(s.id), fizetes_id: String(fid), sorszam: s.sorszam },
+        payment_intent_data: { metadata: { szamla_id: String(s.id), sorszam: s.sorszam }, description: megnevezes(s) }
+    }, `ip-szamla-${s.id}-${fid}`);
+
+    await db.query("UPDATE online_fizetesek SET munkamenet = $2, updated_at = NOW() WHERE id = $1", [fid, ses.id]);
+    return { url: ses.url, munkamenet: ses.id };
+
+}
+
+// ===================== FELDOLGOZÁS (webhook / visszatérés) =====================
+
+// Egy kifizetett munkamenet: a díjbekérő kifizetett lesz (csak ha az összeg
+// és a pénznem egyezik). Többször is hívható – csak egyszer hat.
+async function kifizetve({ munkamenet, szamlaId, osszegCent, penznem, fizetesAzon }) {
+
+    const r = await db.query("SELECT * FROM online_fizetesek WHERE munkamenet = $1", [munkamenet]);
+    const f = r.rows[0];
+    const sid = Number(szamlaId) || (f && f.szamla_id);
+    const s = sid ? await pu.szamla(sid) : null;
+    if (!s) return { ok: false, ok_szoveg: "nincs díjbekérő" };
+
+    if (centbe(s.brutto) !== Number(osszegCent) || String(s.penznem).toLowerCase() !== String(penznem).toLowerCase()) {
+        await db.query("UPDATE online_fizetesek SET statusz = 'elteres', hiba = $2, updated_at = NOW() WHERE munkamenet = $1",
+            [munkamenet, `Összeg-eltérés: ${osszegCent} ${penznem} ≠ ${s.brutto} ${s.penznem}`]);
+        console.error("Online fizetés: összeg-eltérés", munkamenet, osszegCent, penznem, s.brutto, s.penznem);
+        return { ok: false };
+    }
+
+    const elso = await db.query(
+        `UPDATE online_fizetesek SET statusz = 'fizetve', fizetes_azon = COALESCE($2, fizetes_azon), fizetve_at = COALESCE(fizetve_at, NOW()), updated_at = NOW()
+         WHERE munkamenet = $1 AND statusz <> 'fizetve' RETURNING id`, [munkamenet, fizetesAzon || null]);
+
+    if (s.statusz !== "fizetve") {
+        await pu.szamlaAllapotValt(s.id, { statusz: "fizetve", fizetesi_mod: "kartya" });
+        await db.query(
+            `UPDATE penzugy_szamlak SET megjegyzes = TRIM(COALESCE(megjegyzes, '') || E'\\n' || $2), updated_at = NOW() WHERE id = $1`,
+            [s.id, `Online kártyás fizetés${fizetesAzon ? " (" + fizetesAzon + ")" : ""}.`]);
+    }
+
+    // Hivatalos számla (ha be van állítva a számlázó és kéri a beállítás)
+    if (elso.rowCount) {
+        const be = await pu.beallitas();
+        if (be.auto_szamla !== false) {
+            require("./szamlazo").kiallit(s.id, { fizetesiMod: "kartya" })
+                .catch(e => console.error("Hivatalos számla:", e.message));
+        }
+    }
+    return { ok: true, szamla_id: s.id };
+
+}
+
+async function munkamenetFeldolgoz(ses) {
+    if (!ses || !ses.id) return;
+    if (ses.payment_status === "paid") {
+        return kifizetve({
+            munkamenet: ses.id,
+            szamlaId: ses.metadata && ses.metadata.szamla_id,
+            osszegCent: ses.amount_total,
+            penznem: ses.currency,
+            fizetesAzon: typeof ses.payment_intent === "string" ? ses.payment_intent : (ses.payment_intent && ses.payment_intent.id)
+        });
+    }
+    if (ses.status === "expired") {
+        await db.query("UPDATE online_fizetesek SET statusz = 'lejart', updated_at = NOW() WHERE munkamenet = $1 AND statusz = 'indult'", [ses.id]);
+    }
+}
+
+// ---------- Webhook: a Stripe aláírásának ellenőrzése ----------
+
+function alairasOk(nyers, fejlec, titok, turesMp = 300) {
+    if (!fejlec || !titok) return false;
+    const v1 = [];
+    let t = null;
+    String(fejlec).split(",").forEach(x => {
+        const [k, v] = x.split("=");
+        if (k === "t") t = v;
+        else if (k === "v1") v1.push(v);
+    });
+    if (!t || !v1.length) return false;
+    if (Math.abs(Date.now() / 1000 - Number(t)) > turesMp) return false;
+    const vart = crypto.createHmac("sha256", titok).update(`${t}.${nyers}`, "utf8").digest("hex");
+    const vb = Buffer.from(vart, "hex");
+    return v1.some(s => {
+        const b = Buffer.from(String(s), "hex");
+        return b.length === vb.length && crypto.timingSafeEqual(b, vb);
+    });
+}
+
+async function webhook(nyers, fejlec) {
+    if (!alairasOk(nyers, fejlec, webhookKulcs())) throw hibaKod("bad_signature");
+    const e = JSON.parse(nyers);
+    const obj = e.data && e.data.object;
+    if (["checkout.session.completed", "checkout.session.async_payment_succeeded", "checkout.session.expired"].includes(e.type)) {
+        await munkamenetFeldolgoz(obj);
+    } else if (e.type === "checkout.session.async_payment_failed" && obj) {
+        await db.query("UPDATE online_fizetesek SET statusz = 'sikertelen', updated_at = NOW() WHERE munkamenet = $1 AND statusz = 'indult'", [obj.id]);
+    }
+    return { ok: true };
+}
+
+// ---------- Visszatérés: a böngésző megkérdezi, mi lett ----------
+// (ha a webhook még nem jött meg, a Stripe-tól kérdezzük le – az a biztos)
+
+async function ellenoriz(user, munkamenet) {
+    const r = await db.query("SELECT * FROM online_fizetesek WHERE munkamenet = $1 AND user_id = $2", [String(munkamenet || ""), user.id]);
+    const f = r.rows[0];
+    if (!f) throw hibaKod("not_found");
+    if (f.statusz !== "fizetve" && f.szolgaltato === "stripe" && stripeBe()) {
+        try {
+            const ses = await stripe("GET", "/checkout/sessions/" + encodeURIComponent(f.munkamenet));
+            await munkamenetFeldolgoz(ses);
+        } catch (e) { console.error("Fizetés ellenőrzése:", e.reszlet || e.message); }
+    }
+    const u = (await db.query("SELECT statusz, szamla_id FROM online_fizetesek WHERE id = $1", [f.id])).rows[0];
+    const s = await pu.szamla(u.szamla_id);
+    return { statusz: u.statusz, szamla: s ? { id: s.id, sorszam: s.sorszam, statusz: s.statusz, brutto: s.brutto, penznem: s.penznem } : null };
+}
+
+// ---------- Demó (csak FIZETES_DEMO=1, Stripe nélkül, a saját gépen) ----------
+
+async function demoFizet(munkamenet) {
+    if (!demoBe()) throw hibaKod("not_found");
+    const r = await db.query("SELECT * FROM online_fizetesek WHERE munkamenet = $1 AND szolgaltato = 'demo'", [String(munkamenet || "")]);
+    const f = r.rows[0];
+    if (!f) throw hibaKod("not_found");
+    return kifizetve({ munkamenet: f.munkamenet, szamlaId: f.szamla_id, osszegCent: centbe(f.osszeg), penznem: f.penznem, fizetesAzon: "demo" });
+}
+
+async function demoAdat(munkamenet) {
+    if (!demoBe()) return null;
+    const r = await db.query(`SELECT f.*, s.sorszam FROM online_fizetesek f JOIN penzugy_szamlak s ON s.id = f.szamla_id WHERE f.munkamenet = $1 AND f.szolgaltato = 'demo'`, [String(munkamenet || "")]);
+    return r.rows[0] || null;
+}
+
+// ---------- Admin: a legutóbbi online fizetések ----------
+
+async function adminLista() {
+    const r = await db.query(`
+        SELECT f.id, f.szamla_id, f.szolgaltato, f.munkamenet, f.fizetes_azon, f.osszeg, f.penznem, f.statusz, f.hiba, f.created_at, f.fizetve_at,
+               s.sorszam, s.kulso_szam, s.hivatalos_hiba, COALESCE(u.nev, u.felhasznalonev, u.email) AS user_nev
+        FROM online_fizetesek f
+        LEFT JOIN penzugy_szamlak s ON s.id = f.szamla_id
+        LEFT JOIN users u ON u.id = f.user_id
+        ORDER BY f.id DESC LIMIT 200`);
+    return r.rows.map(x => ({ ...x, osszeg: Number(x.osszeg) }));
+}
+
+module.exports = { allapot, inditas, webhook, ellenoriz, demoFizet, demoAdat, adminLista, _: { alairasOk, urlap } };

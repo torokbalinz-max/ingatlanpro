@@ -104,6 +104,10 @@ class HomePage {
 
         const db = tipus => lista.filter(i => (i.tipus || "lakas") === tipus).length;
 
+        // Kiemelt (promóciós) hirdetések – legfeljebb 6, véletlen sorrendben
+        const kiemeltek = lista.filter(i => CardsView.kiemelt(i))
+            .map(i => [Math.random(), i]).sort((a, b) => a[0] - b[0]).map(x => x[1]).slice(0, 6);
+
         const varosOpciok = [...CityManager.varosok].map(v => v.nev)
             .sort((a, b) => CityManager.displayName(a).localeCompare(CityManager.displayName(b), "hu"))
             .map(n => `<option value="${esc(n)}" ${n === DataManager.currentCity ? "selected" : ""}>${esc(CityManager.displayName(n))}</option>`).join("");
@@ -167,6 +171,15 @@ class HomePage {
             </section>
 
             ${typeof AdSlots !== "undefined" ? AdSlots.slot("home_top", "homeAd homeAdTop") : ""}
+
+            ${kiemeltek.length ? `
+            <section class="homeSection homeFeatured">
+                <div class="homeSectionHead">
+                    <h2 class="homeH2"><i class="fa-solid fa-star text-warning" aria-hidden="true"></i> ${t("ftHomeTitle")}</h2>
+                    <a href="#properties" class="homeAll">${t("homeAllListings")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                </div>
+                <div class="row g-3">${kiemeltek.map(i => CardsView.cardHtml(i)).join("")}</div>
+            </section>` : ""}
 
             <section class="homeSection">
                 <div class="homeSectionHead">
@@ -249,6 +262,19 @@ class HomePage {
         if (terkep) terkep.addEventListener("click", e => {
             e.preventDefault();
             HomePage.go({ ...ertek(), page: "map" });
+        });
+
+        box.querySelectorAll(".homeFeatured .listingCard").forEach(k => {
+            k.style.cursor = "pointer";
+            k.addEventListener("click", e => {
+                const fav = e.target.closest("[data-fav]");
+                if (fav) {
+                    e.stopPropagation();
+                    DataManager.toggleFavorite(Number(fav.dataset.fav));
+                    return;
+                }
+                window.location.hash = "listing/" + k.dataset.id;
+            });
         });
 
         box.querySelectorAll("[data-cat]").forEach(a => {

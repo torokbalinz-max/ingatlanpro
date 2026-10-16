@@ -254,7 +254,9 @@ async function rendel(user, b) {
 async function fizetesiAdatok() {
     const b = await pu.beallitas();
     const u = await require("./oldalAdatok").nyilvanos();
-    return { iban: b.iban || "", bank: b.bank || "", kedvezmenyezett: u.nev || "IngatlanPro", email: u.email || "" };
+    // online: kártyás fizetés elérhető (Stripe – services/fizetes.js)
+    const online = await require("./fizetes").allapot().then(a => a.elerheto).catch(() => false);
+    return { iban: b.iban || "", bank: b.bank || "", kedvezmenyezett: u.nev || "IngatlanPro", email: u.email || "", online };
 }
 
 // ===================== A FELHASZNÁLÓ SAJÁT ADATAI =====================
@@ -292,6 +294,7 @@ async function sajat(user) {
 
         const s = await db.query(`
             SELECT s.id, s.sorszam, s.tipus, s.kiallitva, s.esedekes, s.fizetve, s.statusz, s.brutto, s.penznem, s.kulso_szam,
+                   (s.kulso_szam IS NOT NULL AND s.hivatalos_link IS NOT NULL) AS hivatalos,
                    (SELECT string_agg(t.megnevezes, ' | ' ORDER BY t.sorrend) FROM penzugy_tetelek t WHERE t.szamla_id = s.id) AS tetelek
             FROM penzugy_szamlak s
             WHERE s.ugyfel_id = ANY($1::int[]) AND s.statusz <> 'piszkozat'

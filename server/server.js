@@ -59,6 +59,12 @@ app.use(express.static(PUBLIC, {
     }
 }));
 
+// ===================== ONLINE FIZETÉS: STRIPE ÉRTESÍTÉS =====================
+// A belépés és a JSON-olvasó előtt: a Stripe aláírását a nyers kéréstörzsön
+// kell ellenőrizni (routes/fizetes.js)
+
+app.use(require("./routes/fizetes").stripeWebhook);
+
 // ===================== BELÉPÉS =====================
 
 app.use(belepes());
@@ -93,6 +99,7 @@ app.use(require("./routes/penzugy"));
 app.use(require("./routes/csomagok"));
 app.use(require("./routes/megbizas"));
 app.use(require("./routes/csapat"));
+app.use(require("./routes/fizetes"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {

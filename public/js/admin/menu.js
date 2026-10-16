@@ -39,7 +39,7 @@
         ma: ["overview"],
         hird: ["review", "hirdetesek", "import", "reports", "|", "allapot", "dups", "unavailable", "watch"],
         ert: ["megbizasok", "naptar", "|", "megbizasBeall"],
-        penz: ["penzugy", "rendelesek", "szamlak", "elofizetesek", "ugyfelek", "kiadasok", "|", "csomagok", "penzugyBeall"],
+        penz: ["penzugy", "rendelesek", "szamlak", "onlinefiz", "elofizetesek", "ugyfelek", "kiadasok", "|", "csomagok", "kiemelesek", "penzugyBeall"],
         partner: ["irodak", "reklam"],
         rendszer: ["places", "kornyek", "helyek", "allapotok", "|", "webhely", "csapat", "tools", "sitestats"]
     };

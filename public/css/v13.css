@@ -1,0 +1,51 @@
+/* ============================================================
+   13. változat: online fizetés (kártya), kiemelt hirdetések
+   ============================================================ */
+
+/* ---------- Kiemelt hirdetés a listában ---------- */
+.listingCard.isFeatured {
+    box-shadow: 0 0 0 2px #f5b301, 0 6px 18px rgba(245, 179, 1, 0.18);
+}
+.listingThumb { position: relative; }
+.featuredBadge {
+    position: absolute; left: 10px; top: 10px; z-index: 2;
+    background: #f5b301; color: #2b2100; font-weight: 700; font-size: 0.75rem;
+    padding: 3px 9px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    display: inline-flex; align-items: center; gap: 5px;
+}
+
+/* ---------- Kártyás fizetés ---------- */
+.payCardBox {
+    border: 1px solid color-mix(in srgb, #16a34a 35%, var(--ip-border));
+    background: color-mix(in srgb, #16a34a 6%, var(--ip-surface));
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 4px;
+}
+.payCardLogos { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 1.5rem; color: var(--ip-muted); flex-wrap: wrap; }
+.payCardLogos span { font-size: 0.8rem; margin-left: auto; }
+.payOr { display: flex; align-items: center; gap: 10px; color: var(--ip-muted); font-size: 0.85rem; margin: 14px 0 10px; }
+.payOr::before, .payOr::after { content: ""; flex: 1; border-top: 1px solid var(--ip-border); }
+.payCardBtn { white-space: nowrap; }
+
+/* ---------- Kiemelés ablak ---------- */
+.ftHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.ftOpt {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    border: 1px solid var(--ip-border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+}
+.ftOptIcon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; flex: 0 0 auto; }
+.ftOptIcon.green { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+.ftOptIcon.blue  { background: rgba(37, 99, 235, 0.12); color: var(--ip-accent); }
+.ftOptIcon.gold  { background: rgba(245, 179, 1, 0.16); color: #c58f00; }
+@media (max-width: 575.98px) {
+    .ftOpt > .btn, .ftOpt > .text-end { width: 100%; text-align: left !important; }
+    .ftOpt > .btn { width: 100%; }
+}
+
+/* ---------- Admin: online fizetés állapota ---------- */
+.opStatus { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px dashed var(--ip-border); }
+.opStatus:last-of-type { border-bottom: 0; }
+.opStatus > i { font-size: 1.15rem; margin-top: 2px; }
+.opStatus.ok > i { color: #16a34a; }
+.opStatus.warn > i { color: #f59e0b; }
+.opStatus.no > i { color: #dc2626; }
+.opStatus .small { word-break: break-all; }

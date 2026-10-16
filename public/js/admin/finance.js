@@ -754,6 +754,10 @@ AdminManager.finCsomagSzerk = function (c) {
                     <label class="form-label small mb-1" for="fcKiemeles">${I18n.t("finRightFeaturedLabel")}</label>
                     <input type="number" min="0" step="1" class="form-control form-control-sm" id="fcKiemeles" value="${j.kiemeles ?? ""}" placeholder="–">
                 </div>
+                <div class="col-6 col-sm-4">
+                    <label class="form-label small mb-1" for="fcKiemelesNap">${I18n.t("finRightFeaturedDays")}</label>
+                    <input type="number" min="1" max="365" step="1" class="form-control form-control-sm" id="fcKiemelesNap" value="${j.kiemeles_nap ?? ""}" placeholder="7">
+                </div>
                 <div class="col-12 d-flex flex-wrap gap-3 mt-2">
                     ${[["korlatlan_hirdetes", "finRightUnlimited"], ["reklammentes", "finRightAdFree"], ["pro_statisztika", "finRightProStats"], ["iroda_profil", "finRightAgency"]].map(([k, l]) => `
                         <div class="form-check">
@@ -798,7 +802,7 @@ AdminManager.finCsomagSzerk = function (c) {
             leiras_ro: $("#fcLeirasRo").value, leiras_en: $("#fcLeirasEn").value,
             elonyok: $("#fcElony").value, elonyok_ro: $("#fcElonyRo").value, elonyok_en: $("#fcElonyEn").value,
             jogosultsag: {
-                hirdetes_limit: ures($("#fcLimit").value), hirdetes_plusz: ures($("#fcPlusz").value), kiemeles: ures($("#fcKiemeles").value),
+                hirdetes_limit: ures($("#fcLimit").value), hirdetes_plusz: ures($("#fcPlusz").value), kiemeles: ures($("#fcKiemeles").value), kiemeles_nap: ures($("#fcKiemelesNap").value),
                 korlatlan_hirdetes: $("#fcJ_korlatlan_hirdetes").checked, reklammentes: $("#fcJ_reklammentes").checked,
                 pro_statisztika: $("#fcJ_pro_statisztika").checked, iroda_profil: $("#fcJ_iroda_profil").checked
             }
@@ -1075,6 +1079,18 @@ AdminManager.renderFinSettings = function () {
                 </div>
 
                 <div class="card mb-4">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h5 class="mb-0"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> ${I18n.t("finOnlineTitle")}</h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-fin-go="onlinefiz">${I18n.t("adminTabOnlinePay")}</button>
+                    </div>
+                    <div class="card-body row g-3">
+                        ${kapcs("fbOnline", I18n.t("finOnlinePay"), b.online_fizetes !== false, I18n.t("finOnlinePayHelp"))}
+                        ${kapcs("fbAutoSzamla", I18n.t("finAutoInvoice"), b.auto_szamla !== false, I18n.t("finAutoInvoiceHelp"))}
+                        ${mezo("fbKiemelesNap", I18n.t("finFeaturedDays"), b.kiemeles_nap || 7, 'type="number" min="1" max="90"', "col-6 col-sm-3")}
+                    </div>
+                </div>
+
+                <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> ${I18n.t("finLimits")}</h5></div>
                     <div class="card-body row g-3">
                         <p class="sectionNote col-12 mb-0">${I18n.t("finLimitsNote")}</p>
@@ -1133,7 +1149,8 @@ AdminManager.renderFinSettings = function () {
                 afa_fizeto: $("#fbAfaFizeto").checked, afa_kulcs: $("#fbAfaKulcs").value, szamla_megjegyzes: $("#fbMegj").value,
                 auto_dijbekero: $("#fbAuto").checked, elore_nap: $("#fbElore").value, turelmi_nap: $("#fbTurelmi").value,
                 eur_arfolyam: $("#fbArfolyam").value,
-                ingyenes_hirdetes: $("#fbIngyenes").value, iroda_ingyenes_hirdetes: $("#fbIrodaIngyenes").value, korlatok_be: $("#fbKorlat").checked
+                ingyenes_hirdetes: $("#fbIngyenes").value, iroda_ingyenes_hirdetes: $("#fbIrodaIngyenes").value, korlatok_be: $("#fbKorlat").checked,
+                online_fizetes: $("#fbOnline").checked, auto_szamla: $("#fbAutoSzamla").checked, kiemeles_nap: $("#fbKiemelesNap").value
             };
             $("#fbMent").disabled = true;
             AdminManager.finApi("beallitas", { method: "PUT", body: d })

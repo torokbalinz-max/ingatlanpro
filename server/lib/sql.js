@@ -3,7 +3,8 @@
 // ============================================================
 
 // Az iroda neve csak a jóváhagyott irodáknál látszik (a jóváhagyásra váró
-// iroda hirdetése addig magánhirdetésként jelenik meg)
+// iroda hirdetése addig magánhirdetésként jelenik meg). A kiemelt_ig: ha a
+// hirdetés éppen kiemelt (promóció), meddig – services/kiemeles.js
 const LISTA_MEZOK = `
     i.id, i.link, i.ar, i.nm, i.arnm AS "arNm", i.szobak, i.emelet, i.allapot, i.allapot_forras, i.eladva,
     i.x, i.y, i.varos, i.kerulet, i.tipus, i.ugylet, i.cim, i.telek_nm, i.statusz,
@@ -14,7 +15,9 @@ const LISTA_MEZOK = `
     i.iroda_id, i.ugynok_id, i.iroda_ref,
     (SELECT ir.nev FROM irodak ir WHERE ir.id = i.iroda_id AND ir.statusz = 'jovahagyva') AS iroda_nev,
     (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id,
-    (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db
+    (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db,
+    (SELECT MAX(kk.vege) FROM ingatlan_kiemelesek kk WHERE kk.ingatlan_id = i.id AND kk.statusz = 'aktiv'
+        AND kk.kezdet <= NOW() AND kk.vege > NOW()) AS kiemelt_ig
 `;
 
 module.exports = { LISTA_MEZOK };

@@ -5,7 +5,8 @@
 //  - az irodáim csomagja (ha irodavezető vagyok)
 //  - előfizetéseim (lemondás: a kifizetett időszak végéig él)
 //  - fizetésre váró rendeléseim: átutalási adatok, díjbekérő, visszavonás
-//  - díjbekérőim / számláim (megnyitás, nyomtatás / PDF)
+//  - díjbekérőim / számláim (megnyitás, nyomtatás / PDF, hivatalos számla)
+//  - online fizetés bankkártyával (Stripe); visszatéréskor az eredmény
 // ============================================================
 
 class AccountBilling {
@@ -14,10 +15,56 @@ class AccountBilling {
 
         AccountPage.spinner(el);
 
-        Svc.api("/api/sajat-csomag/attekintes").then(d => AccountBilling.rajzol(el, d)).catch(() => {
+        AccountBilling.el = el;
+
+        // Visszatérés a kártyás fizetésből (?fizetes=<azonosító> / megszakitva)
+        const p = new URLSearchParams(window.location.search);
+        const fiz = p.get("fizetes");
+        if (fiz) {
+            p.delete("fizetes");
+            const q = p.toString();
+            try { history.replaceState(null, "", window.location.pathname + (q ? "?" + q : "") + window.location.hash); } catch (e) { /* nem kritikus */ }
+            AccountBilling.fizetesEredmeny(fiz, 0);
+        }
+
+        Svc.api("/api/sajat-csomag/attekintes").then(d => {
+            AccountBilling.rajzol(el, d);
+            AccountBilling.uzenetMutat();
+        }).catch(() => {
             el.innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`;
         });
 
+    }
+
+    // A kártyás fizetés eredménye (a szerver a Stripe-tól ellenőrzi).
+    // Az üzenet egy percig megmarad, akkor is, ha közben újrarajzol az oldal.
+    static uzenetMutat() {
+        const doboz = document.getElementById("abPayResult");
+        const u = AccountBilling.uzenet;
+        if (!doboz) return;
+        doboz.innerHTML = u ? `<div class="alert alert-${u.tipus} d-flex gap-2 align-items-start"><i class="fa-solid ${u.ikon} mt-1" aria-hidden="true"></i><div>${u.szoveg}</div></div>` : "";
+    }
+
+    static fizetesEredmeny(munkamenet, probalkozas) {
+        const mutat = (tipus, ikon, szoveg) => {
+            AccountBilling.uzenet = { tipus, ikon, szoveg };
+            clearTimeout(AccountBilling.uzenetIdo);
+            AccountBilling.uzenetIdo = setTimeout(() => { AccountBilling.uzenet = null; }, 60000);
+            AccountBilling.uzenetMutat();
+        };
+        if (munkamenet === "megszakitva") return mutat("secondary", "fa-circle-info", I18n.t("payCancelled"));
+        mutat("info", "fa-spinner fa-spin", I18n.t("payChecking"));
+        Svc.api(`/api/fizetes/ellenoriz/${encodeURIComponent(munkamenet)}`).then(v => {
+            if (v.statusz === "fizetve") {
+                mutat("success", "fa-circle-check", I18n.f("paySuccess", { sz: Utils.escape((v.szamla && v.szamla.sorszam) || "") }));
+                // a csomag / számla állapota frissüljön
+                if (AccountBilling.el && document.body.contains(AccountBilling.el)) AccountBilling.render(AccountBilling.el);
+            } else if (probalkozas < 6 && v.statusz === "indult") {
+                setTimeout(() => AccountBilling.fizetesEredmeny(munkamenet, probalkozas + 1), 2500);
+            } else {
+                mutat("warning", "fa-hourglass-half", I18n.t("payPending"));
+            }
+        }).catch(() => mutat("warning", "fa-hourglass-half", I18n.t("payPending")));
     }
 
     static rajzol(el, d) {
@@ -56,7 +103,11 @@ class AccountBilling {
             return `<span class="badge text-bg-secondary">${esc(e.statusz)}</span>`;
         };
 
+        const online = d.fizetes && d.fizetes.online;
+        const fizetheto = s => online && s.tipus === "dijbekero" && ["kiallitva", "lejart"].includes(s.allapot) && Number(s.brutto) > 0;
+
         el.innerHTML = `
+            <div id="abPayResult"></div>
             <div class="row g-4">
                 <div class="col-lg-5">
                     <div class="card abPlan">
@@ -104,6 +155,8 @@ class AccountBilling {
                                             </div>
                                             <b class="fs-5">${esc(Svc.penz(r.ar, r.penznem))}</b>
                                         </div>
+                                        ${online && r.szamla_id ? `<div class="d-flex flex-wrap align-items-center gap-2 mt-2">${Svc.kartyaGomb(r.szamla_id)}<span class="small text-body-secondary"><i class="fa-solid fa-lock" aria-hidden="true"></i> ${I18n.t("payCardHintShort")}</span></div>
+                                        <div class="small text-body-secondary mt-2">${I18n.t("payOrTransfer")}:</div>` : ""}
                                         <div class="prPayBox compact mt-2">
                                             <div><span>${I18n.t("prBeneficiary")}</span><b>${esc(d.fizetes.kedvezmenyezett || "IngatlanPro")}</b></div>
                                             <div><span>IBAN</span><b class="${d.fizetes.iban ? "prIban" : ""}">${esc(d.fizetes.iban || I18n.t("prIbanSoon"))}</b></div>
@@ -155,7 +208,11 @@ class AccountBilling {
                                                     <td class="text-nowrap">${esc(Svc.nap(s.kiallitva))}</td>
                                                     <td class="text-end text-nowrap">${esc(Svc.penz(s.brutto, s.penznem))}</td>
                                                     <td>${allapotBadge(s.allapot)}</td>
-                                                    <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/api/sajat-csomag/szamlak/${s.id}/nyomtat" target="_blank" rel="noopener" title="${esc(I18n.t("prOpenProforma"))}"><i class="fa-solid fa-print" aria-hidden="true"></i></a></td>
+                                                    <td class="text-end text-nowrap">
+                                                        ${fizetheto(s) ? Svc.kartyaGomb(s.id, "btn-sm btn-success") : ""}
+                                                        ${s.hivatalos ? `<a class="btn btn-sm btn-outline-primary" href="/api/sajat-csomag/szamlak/${s.id}/hivatalos" target="_blank" rel="noopener" title="${esc(I18n.t("payOfficialInvoice"))}"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> ${I18n.t("payInvoiceShort")}</a>` : ""}
+                                                        <a class="btn btn-sm btn-outline-secondary" href="/api/sajat-csomag/szamlak/${s.id}/nyomtat" target="_blank" rel="noopener" title="${esc(I18n.t("prOpenProforma"))}"><i class="fa-solid fa-print" aria-hidden="true"></i></a>
+                                                    </td>
                                                 </tr>`).join("")}
                                         </tbody>
                                     </table>
@@ -166,6 +223,8 @@ class AccountBilling {
 
                 </div>
             </div>`;
+
+        Svc.kartyaKot(el);
 
         el.querySelectorAll("[data-lemond]").forEach(b => {
             b.onclick = () => {
