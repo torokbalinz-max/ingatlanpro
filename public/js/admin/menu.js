@@ -15,6 +15,7 @@
 //    Értékesítés Megbízások · Naptár · Beállítások
 //    Pénzügy     Áttekintés · Rendelések · Díjbekérők · Előfizetések · Ügyfelek ·
 //                Kiadások | Csomagok · Számlázás
+//    Irattár     Számlák és pénzügyi iratok · Szerződések
 //    Partnerek   Ingatlanirodák · Reklámfelületek
 //    Rendszer    Városok · Környék · Hely-ellenőrzés · Állapotok | Webhely ·
 //                Csapat · Karbantartás · Látogatottság
@@ -30,6 +31,7 @@
         { key: "hird", label: "adminModListings", icon: "fa-solid fa-house" },
         { key: "ert", label: "adminModSales", icon: "fa-solid fa-key" },
         { key: "penz", label: "adminModFinance", icon: "fa-solid fa-coins" },
+        { key: "irat", label: "adminModArchive", icon: "fa-solid fa-box-archive" },
         { key: "partner", label: "adminModPartners", icon: "fa-solid fa-handshake" },
         { key: "rendszer", label: "adminModSystem", icon: "fa-solid fa-gear" }
     ];
@@ -40,6 +42,7 @@
         hird: ["review", "hirdetesek", "import", "reports", "|", "allapot", "dups", "unavailable", "watch"],
         ert: ["megbizasok", "naptar", "|", "megbizasBeall"],
         penz: ["penzugy", "rendelesek", "szamlak", "onlinefiz", "elofizetesek", "ugyfelek", "kiadasok", "|", "csomagok", "kiemelesek", "penzugyBeall"],
+        irat: ["irattarSzamla", "irattarSzerzodes"],
         partner: ["irodak", "reklam"],
         rendszer: ["places", "kornyek", "helyek", "allapotok", "|", "webhely", "csapat", "tools", "sitestats"]
     };

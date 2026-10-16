@@ -183,14 +183,7 @@ async function kifizetve({ munkamenet, szamlaId, osszegCent, penznem, fizetesAzo
             [s.id, `Online kártyás fizetés${fizetesAzon ? " (" + fizetesAzon + ")" : ""}.`]);
     }
 
-    // Hivatalos számla (ha be van állítva a számlázó és kéri a beállítás)
-    if (elso.rowCount) {
-        const be = await pu.beallitas();
-        if (be.auto_szamla !== false) {
-            require("./szamlazo").kiallit(s.id, { fizetesiMod: "kartya" })
-                .catch(e => console.error("Hivatalos számla:", e.message));
-        }
-    }
+    // A számla magától elkészül (services/szamlazo.js – a „kifizetett” jelzésre)
     return { ok: true, szamla_id: s.id };
 
 }

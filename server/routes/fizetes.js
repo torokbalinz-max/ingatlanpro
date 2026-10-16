@@ -11,6 +11,7 @@ const express = require("express");
 const fizetes = require("../services/fizetes");
 const szamlazo = require("../services/szamlazo");
 const kiemeles = require("../services/kiemeles");
+const efactura = require("../services/efactura");
 const rendeles = require("../services/rendeles");
 const pu = require("../services/penzugy");
 const mail = require("../services/mail");
@@ -114,6 +115,7 @@ router.get("/api/sajat-csomag/szamlak/:id/hivatalos", csakBelepve, async (req, r
         if (!s) return res.status(404).json({ error: "not_found" });
         const p = await szamlazo.pdf(s);
         if (!p) return res.status(404).json({ error: "not_found" });
+        if (p.belso) return res.redirect(302, `/api/sajat-csomag/szamlak/${p.belso}/nyomtat`);
         if (p.link) return res.redirect(302, p.link);
         res.set("Content-Type", "application/pdf");
         res.set("Content-Disposition", `inline; filename="${p.nev.replace(/[^\w.-]/g, "_")}"`);
@@ -147,7 +149,7 @@ router.get("/api/admin/fizetes/allapot", csapat.csakResz("penzugy"), async (req,
     try {
         res.json({
             fizetes: await fizetes.allapot(),
-            szamlazo: szamlazo.allapot(),
+            szamlazo: await szamlazo.allapot(),
             webhook_cim: mail.oldalCim(req) + "/api/fizetes/stripe/webhook"
         });
     } catch (err) { hiba(res, err); }
@@ -160,7 +162,7 @@ router.get("/api/admin/fizetes/lista", csapat.csakResz("penzugy"), async (req, r
 // Hivatalos számla kiállítása (újrapróbálás, vagy átutalásos fizetés után)
 router.post("/api/admin/penzugy/szamlak/:id/hivatalos", csapat.csakResz("penzugy"), async (req, res) => {
     try {
-        if (!szamlazo.melyik()) return res.status(400).json({ error: "no_invoicer" });
+        if (!(await szamlazo.melyik())) return res.status(400).json({ error: "no_invoicer" });
         res.json(await szamlazo.kiallit(req.params.id));
     } catch (err) {
         if (err && !err.kod) return res.status(502).json({ error: "invoicer_error", message: err.message });
@@ -173,9 +175,23 @@ router.get("/api/admin/penzugy/szamlak/:id/hivatalos", csapat.csakResz("penzugy"
         const s = await pu.szamla(Number(req.params.id) || 0);
         const p = await szamlazo.pdf(s);
         if (!p) return res.status(404).json({ error: "not_found" });
+        if (p.belso) return res.redirect(302, `/api/admin/penzugy/szamlak/${p.belso}/nyomtat`);
         if (p.link) return res.redirect(302, p.link);
         res.set("Content-Type", "application/pdf");
         res.send(p.pdf);
+    } catch (err) { hiba(res, err); }
+});
+
+// e-Factura XML (a saját számlából) – az ANAF SPV-be feltölthető
+router.get("/api/admin/penzugy/szamlak/:id/efactura.xml", csapat.csakResz("penzugy"), async (req, res) => {
+    try {
+        const s = await pu.szamla(Number(req.params.id) || 0);
+        if (!s) return res.status(404).json({ error: "not_found" });
+        const h = await efactura.hianyok(s);
+        if (h.length) return res.status(400).json({ error: "efactura_missing", hianyzik: h });
+        res.set("Content-Type", "application/xml; charset=utf-8");
+        if (req.query.letolt) res.set("Content-Disposition", `attachment; filename="${String(s.sorszam).replace(/[^\w.-]/g, "_")}.xml"`);
+        res.send(await efactura.xml(s));
     } catch (err) { hiba(res, err); }
 });
 

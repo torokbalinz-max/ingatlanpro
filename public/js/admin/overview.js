@@ -29,6 +29,8 @@ AdminManager.maTeendok = function (c) {
     todo(c.review, 1, "fa-solid fa-list-check", "orange", I18n.f("ovTodoReview", { n: c.review }), "review", I18n.t("ovTodoReviewBtn"));
     todo(c.iroda_fuggo, 1, "fa-solid fa-briefcase", "orange", I18n.f("ovTodoAgencies", { n: c.iroda_fuggo }), "irodak");
     todo(c.penzugy_esedekes, 1, "fa-solid fa-arrows-rotate", "orange", I18n.f("ovTodoFinDue", { n: c.penzugy_esedekes }), "elofizetesek");
+    todo(c.szerzodes_lejart, 1, "fa-solid fa-file-circle-exclamation", "red", I18n.f("ovTodoContractsExpired", { n: c.szerzodes_lejart }), "irattarSzerzodes");
+    todo(c.szerzodes_lejaro, 1, "fa-solid fa-file-signature", "orange", I18n.f("ovTodoContractsExpiring", { n: c.szerzodes_lejaro }), "irattarSzerzodes");
     todo(c.reklam_lejaro, 1, "fa-solid fa-rectangle-ad", "orange", I18n.f("ovTodoAdsExpiring", { n: c.reklam_lejaro }), "reklam");
     // Ha van időd: rendrakás
     todo(c.unavailable, 2, "fa-solid fa-ban", "red", I18n.f("ovTodoUnavailable", { n: c.unavailable }), "unavailable");
@@ -121,5 +123,5 @@ AdminManager.COUNT_KEY = {
     pendingCount: "review", unavailableCount: "unavailable", allapotCount: "allapot_hianyzo",
     irodaCount: "iroda_fuggo", kornyekCount: "kornyek_javaslat", reportCount: "bejelentes_uj",
     helyCount: "hely_athelyezett", reklamCount: "reklam_fut", finLateCount: "penzugy_lejart", finDueCount: "penzugy_esedekes",
-    mandatesCount: "megbizas_uj", naptarCount: "naptar_teendo", ordersCount: "penzugy_rendeles"
+    mandatesCount: "megbizas_uj", naptarCount: "naptar_teendo", ordersCount: "penzugy_rendeles", contractsCount: "szerzodes_teendo"
 };

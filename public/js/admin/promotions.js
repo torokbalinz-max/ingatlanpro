@@ -146,7 +146,9 @@ AdminManager.renderOnlinePay = function () {
                     <div class="card h-100">
                         <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("opInvoicerTitle")}</h5></div>
                         <div class="card-body">
-                            ${sor(sz.szamlazo ? true : sz.hianyos ? "warn" : false, I18n.t("opInvoicer"), sz.szamlazo ? esc(sz.szamlazo === "smartbill" ? "SmartBill" : "Oblio") : sz.hianyos ? I18n.t("opInvoicerIncomplete") : I18n.t("opInvoicerMissing"))}
+                            ${sor(sz.szamlazo === "sajat" ? "warn" : sz.szamlazo ? true : false, I18n.t("opInvoicer"),
+                                sz.szamlazo === "sajat" ? I18n.t("opInvoicerOwn") + (sz.hianyos ? " " + I18n.t("opInvoicerIncomplete") : "")
+                                : sz.szamlazo ? esc(sz.szamlazo === "smartbill" ? "SmartBill" : "Oblio") : I18n.t("opInvoicerMissing"))}
                             <p class="small text-body-secondary mt-3 mb-0">${I18n.t("opInvoicerHelp")}</p>
                         </div>
                     </div>

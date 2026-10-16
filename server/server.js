@@ -100,6 +100,7 @@ app.use(require("./routes/csomagok"));
 app.use(require("./routes/megbizas"));
 app.use(require("./routes/csapat"));
 app.use(require("./routes/fizetes"));
+app.use(require("./routes/irattar"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {

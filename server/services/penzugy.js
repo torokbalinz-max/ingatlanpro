@@ -136,8 +136,14 @@ function alapBeallitas() {
         turelmi_nap: 10,            // lejárt díjbekérő után ennyi napig még él a csomag
         // Online fizetés (bankkártya – a kulcsok a szerver beállításaiban: STRIPE_SECRET_KEY...)
         online_fizetes: true,       // ha be van állítva a Stripe, a díjbekérő kártyával is fizethető
-        // Hivatalos számla a fizetés után (SmartBill / Oblio – SZAMLAZO=... a szerver beállításaiban)
+        // Számla a fizetés után: a kifizetett díjbekérőből magától elkészül a számla –
+        // külső számlázóval (SmartBill / Oblio – SZAMLAZO=...), vagy ha az nincs,
+        // az app maga állítja ki (saját számla, „IP-<év>-<sorszám>”)
         auto_szamla: true,
+        sajat_szamla: true,
+        // e-Factura (UBL XML) a saját számlához: az eladó települése és megyéje
+        efactura_varos: "",
+        efactura_megye: "",
         // Kiemelés: a csomag havi keretéből egy kiemelés ennyi napig tart
         kiemeles_nap: 7
     };
@@ -180,6 +186,9 @@ async function beallitasMent(b) {
     if ("turelmi_nap" in b) a.turelmi_nap = Math.round(n(b.turelmi_nap, 0, 90, 10));
     if ("online_fizetes" in b) a.online_fizetes = !!b.online_fizetes;
     if ("auto_szamla" in b) a.auto_szamla = !!b.auto_szamla;
+    if ("sajat_szamla" in b) a.sajat_szamla = !!b.sajat_szamla;
+    if ("efactura_varos" in b) a.efactura_varos = sz(b.efactura_varos, 80) || "";
+    if ("efactura_megye" in b) a.efactura_megye = (sz(b.efactura_megye, 6) || "").toUpperCase().replace(/[^A-Z-]/g, "");
     if ("kiemeles_nap" in b) a.kiemeles_nap = Math.round(n(b.kiemeles_nap, 1, 90, 7));
 
     if (a.iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(a.iban)) throw hibaKod("bad_iban");
@@ -822,6 +831,7 @@ async function szamlaMent(id, b) {
 
         await client.query("COMMIT");
         await rendelesSzinkron(szamlaId);
+        if (d.statusz === "fizetve" && (!regi || regi.statusz !== "fizetve")) fizetveJelez(szamlaId);
         return szamlaId;
     } catch (e) {
         await client.query("ROLLBACK").catch(() => { });
@@ -845,6 +855,7 @@ async function szamlaAllapotValt(id, b) {
                updated_at = NOW()
         WHERE id = $5`, [uj, datum(b.fizetve) || ma(), FIZETESI_MODOK.includes(b.fizetesi_mod) ? b.fizetesi_mod : null, sz(b.kulso_szam, 60), id]);
     await rendelesSzinkron(id);
+    if (uj === "fizetve" && s.statusz !== "fizetve") fizetveJelez(id);
 }
 
 // ===================== RENDELÉSEK ↔ BIZONYLAT =====================
@@ -854,6 +865,18 @@ async function szamlaAllapotValt(id, b) {
 
 const rendelesFigyelok = [];
 function rendelesFigyelo(fn) { rendelesFigyelok.push(fn); }
+
+// Ha egy bizonylat kifizetett lett (bármilyen úton: kártya, az admin jelölte,
+// szerkesztés) – pl. a számla elkészítéséhez (services/szamlazo.js)
+const fizetveFigyelok = [];
+function fizetveFigyelo(fn) { fizetveFigyelok.push(fn); }
+function fizetveJelez(szamlaId) {
+    setImmediate(async () => {
+        for (const fn of fizetveFigyelok) {
+            try { await fn(szamlaId); } catch (e) { console.error("Fizetés utáni teendő:", e.message); }
+        }
+    });
+}
 
 async function rendelesSzinkron(szamlaId) {
     try {
@@ -1214,7 +1237,7 @@ module.exports = {
     attekintes, szamlalok,
     jogosultsag, irodaJogosultsag, hirdetesKorlat, korlatElonezet,
     exportSzamlak, exportKiadasok, napi,
-    rendelesSzinkron, rendelesFigyelo, szamlaAllapot, honapHozzaad, napHozzaad, ma, kerek, pgDatum, szamosit,
+    rendelesSzinkron, rendelesFigyelo, fizetveFigyelo, szamlaAllapot, honapHozzaad, napHozzaad, ma, kerek, pgDatum, szamosit,
     // tesztekhez
     _: { honapHozzaad, napHozzaad, tetelSzamol, jogOsszevon, datum, ma }
 };

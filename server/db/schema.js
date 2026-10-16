@@ -1192,6 +1192,48 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS hivatalos_hiba TEXT`);
     await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS hivatalos_at TIMESTAMP`);
 
+    // Saját számla: melyik díjbekérőből készült (a kifizetett díjbekérőből az
+    // app maga állítja ki a számlát, ha nincs külső számlázó)
+    await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS dijbekero_id INTEGER REFERENCES penzugy_szamlak(id) ON DELETE SET NULL`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_szamla_dijbekero ON penzugy_szamlak (dijbekero_id)`);
+
+    // Irattár: a cég iratai rendezetten – két rész:
+    //   szamla     számlák és pénzügyi iratok (bejövő számla, nyugta, bankkivonat...)
+    //   szerzodes  szerződések (ügyfél, partner, szolgáltató, bérleti...)
+    // A fájl az adatbázisban (bytea) – a lista nem tölti be.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS irattar (
+            id SERIAL PRIMARY KEY,
+            resz TEXT NOT NULL DEFAULT 'szamla',
+            kategoria TEXT NOT NULL DEFAULT 'egyeb',
+            cim TEXT NOT NULL,
+            partner TEXT,
+            szam TEXT,
+            datum DATE DEFAULT CURRENT_DATE,
+            osszeg NUMERIC(12,2),
+            penznem TEXT DEFAULT 'RON',
+            kezdet DATE,
+            lejar DATE,
+            felmondas_nap INTEGER,
+            statusz TEXT DEFAULT 'aktiv',
+            megjegyzes TEXT,
+            cimkek TEXT,
+            fajl_nev TEXT,
+            fajl_mime TEXT,
+            fajl_meret INTEGER,
+            fajl_hash TEXT,
+            fajl BYTEA,
+            szamla_id INTEGER REFERENCES penzugy_szamlak(id) ON DELETE SET NULL,
+            kiadas_id INTEGER REFERENCES penzugy_kiadasok(id) ON DELETE SET NULL,
+            megbizas_id INTEGER REFERENCES megbizasok(id) ON DELETE SET NULL,
+            feltoltotte INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_irattar_resz ON irattar (resz, kategoria, datum)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_irattar_kiadas ON irattar (kiadas_id)`);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

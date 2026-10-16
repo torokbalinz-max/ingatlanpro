@@ -118,6 +118,14 @@ AdminManager.finTile = function (icon, color, label, value, sub, go) {
         </div>`;
 };
 
+// Románia megyéi (ISO 3166-2:RO) – az e-Facturához
+AdminManager.MEGYEK = [["AB", "Alba"], ["AR", "Arad"], ["AG", "Argeș"], ["BC", "Bacău"], ["BH", "Bihor"], ["BN", "Bistrița-Năsăud"], ["BT", "Botoșani"],
+    ["BV", "Brașov"], ["BR", "Brăila"], ["B", "București"], ["BZ", "Buzău"], ["CS", "Caraș-Severin"], ["CL", "Călărași"], ["CJ", "Cluj"], ["CT", "Constanța"],
+    ["CV", "Covasna"], ["DB", "Dâmbovița"], ["DJ", "Dolj"], ["GL", "Galați"], ["GR", "Giurgiu"], ["GJ", "Gorj"], ["HR", "Harghita"], ["HD", "Hunedoara"],
+    ["IL", "Ialomița"], ["IS", "Iași"], ["IF", "Ilfov"], ["MM", "Maramureș"], ["MH", "Mehedinți"], ["MS", "Mureș"], ["NT", "Neamț"], ["OT", "Olt"],
+    ["PH", "Prahova"], ["SM", "Satu Mare"], ["SJ", "Sălaj"], ["SB", "Sibiu"], ["SV", "Suceava"], ["TR", "Teleorman"], ["TM", "Timiș"], ["TL", "Tulcea"],
+    ["VS", "Vaslui"], ["VL", "Vâlcea"], ["VN", "Vrancea"]];
+
 AdminManager.finBindGo = function (box) {
     box.querySelectorAll("[data-fin-go]").forEach(b => { b.onclick = () => AdminManager.open(b.dataset.finGo); });
 };
@@ -1086,6 +1094,16 @@ AdminManager.renderFinSettings = function () {
                     <div class="card-body row g-3">
                         ${kapcs("fbOnline", I18n.t("finOnlinePay"), b.online_fizetes !== false, I18n.t("finOnlinePayHelp"))}
                         ${kapcs("fbAutoSzamla", I18n.t("finAutoInvoice"), b.auto_szamla !== false, I18n.t("finAutoInvoiceHelp"))}
+                        ${kapcs("fbSajatSzamla", I18n.t("finOwnInvoice"), b.sajat_szamla !== false, I18n.t("finOwnInvoiceHelp"))}
+                        ${mezo("fbEfVaros", I18n.t("finEfCity"), b.efactura_varos || "", 'maxlength="80" placeholder="Sfântu Gheorghe"', "col-6 col-sm-3")}
+                        <div class="col-6 col-sm-3">
+                            <label class="form-label small mb-1" for="fbEfMegye">${I18n.t("finEfCounty")}</label>
+                            <select class="form-select form-select-sm" id="fbEfMegye">
+                                <option value="">–</option>
+                                ${AdminManager.MEGYEK.map(([k, n]) => `<option value="RO-${k}" ${b.efactura_megye === "RO-" + k ? "selected" : ""}>${esc(n)} (${k})</option>`).join("")}
+                            </select>
+                        </div>
+                        <p class="small text-body-secondary col-12 mb-0">${I18n.t("finEfHelp")}</p>
                         ${mezo("fbKiemelesNap", I18n.t("finFeaturedDays"), b.kiemeles_nap || 7, 'type="number" min="1" max="90"', "col-6 col-sm-3")}
                     </div>
                 </div>
@@ -1150,7 +1168,8 @@ AdminManager.renderFinSettings = function () {
                 auto_dijbekero: $("#fbAuto").checked, elore_nap: $("#fbElore").value, turelmi_nap: $("#fbTurelmi").value,
                 eur_arfolyam: $("#fbArfolyam").value,
                 ingyenes_hirdetes: $("#fbIngyenes").value, iroda_ingyenes_hirdetes: $("#fbIrodaIngyenes").value, korlatok_be: $("#fbKorlat").checked,
-                online_fizetes: $("#fbOnline").checked, auto_szamla: $("#fbAutoSzamla").checked, kiemeles_nap: $("#fbKiemelesNap").value
+                online_fizetes: $("#fbOnline").checked, auto_szamla: $("#fbAutoSzamla").checked, sajat_szamla: $("#fbSajatSzamla").checked,
+                efactura_varos: $("#fbEfVaros").value, efactura_megye: $("#fbEfMegye").value, kiemeles_nap: $("#fbKiemelesNap").value
             };
             $("#fbMent").disabled = true;
             AdminManager.finApi("beallitas", { method: "PUT", body: d })
