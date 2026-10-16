@@ -86,13 +86,16 @@ class NavMenu {
     // Az aktuális oldal csoportja kiemelve (PageManager hívja)
     static aktiv(oldal) {
         document.querySelectorAll(".navGroup").forEach(g => {
-            const van = !!g.querySelector(`.navPanel [data-page="${oldal}"]`);
+            // csak a látható menüpont számít (a „Több” alatt keskeny képernyőn ott van a Térkép is)
+            const lathato = el => el && getComputedStyle(el).display !== "none";
+            const pont = [...g.querySelectorAll(`.navPanel [data-page="${oldal}"]`)].find(lathato);
+            const van = !!pont;
             g.classList.toggle("active", van);
             const btn = g.querySelector(".navGroupBtn");
             if (btn) btn.classList.toggle("active", van);
             // Az aktív oldal neve a csoport neve mellett (pl. Piac › Értékbecslő)
             const cur = g.querySelector(".navGroupCur");
-            const b = van ? g.querySelector(`.navPanel [data-page="${oldal}"] b`) : null;
+            const b = van ? pont.querySelector("b") : null;
             if (cur) {
                 if (b && b.dataset.i18n) {
                     cur.setAttribute("data-i18n", b.dataset.i18n);

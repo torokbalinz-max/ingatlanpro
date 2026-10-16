@@ -72,37 +72,37 @@
                  Telefonon és iPaden állva: alul egy menüsáv (mobBar). -->
             <a class="navLink" href="#properties" data-page="properties"><i class="fa-solid fa-house" aria-hidden="true"></i><span data-i18n="menuIngatlanok">Ingatlanok</span></a>
             <a class="navLink nvXL" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i><span data-i18n="mapTitle">Térkép</span></a>
-            <a class="navLink nvXL" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i><span data-i18n="menuIgenyek">Keresek</span></a>
+            <a class="navLink nvXL" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator" aria-hidden="true"></i><span data-i18n="menuErtekbecslo">Értékbecslő</span></a>
             <a class="navLink navLinkFeature" href="#eladjuk" data-page="eladjuk"><i class="fa-solid fa-key" aria-hidden="true"></i><span data-i18n="menuEladjuk">Eladjuk helyetted</span></a>
 
-            <div class="navGroup nvKozep" data-group="tobb">
+            <!-- Több: témák szerint, fejlécekkel (keskenyebb képernyőn a Térkép és az Értékbecslő is ide kerül) -->
+            <div class="navGroup" data-group="tobb">
                 <button class="navLink navGroupBtn" type="button" aria-expanded="false" aria-haspopup="true">
                     <span data-i18n="navMore">Több</span><span class="navGroupCur" aria-hidden="true"></span><i class="fa-solid fa-chevron-down navCaret" aria-hidden="true"></i>
                 </button>
-                <div class="navPanel" role="menu">
-                    <div class="navPanelList">
-                        <a class="navPanelItem" role="menuitem" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot"></i><span><b data-i18n="mapTitle">Térkép</b><small data-i18n="menuMapDesc">Az ingatlanok a térképen</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Az eladók és az irodák ajánlanak neked</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#sugo"><i class="fa-solid fa-circle-question"></i><span><b data-i18n="menuSugo">Súgó</b><small data-i18n="menuSugoDesc">Használati útmutató, kérdések</small></span></a>
+                <div class="navPanel navPanelTobb" role="menu">
+                    <div class="navTobbOszlop">
+                        <h6 class="navMenuHead" data-i18n="navHeadBuyers">Vevőknek</h6>
+                        <div class="navPanelList">
+                            <a class="navPanelItem nvKozep" role="menuitem" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot"></i><span><b data-i18n="mapTitle">Térkép</b><small data-i18n="menuMapDesc">Az ingatlanok a térképen</small></span></a>
+                            <a class="navPanelItem" role="menuitem" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Add fel, mit keresel – az eladók ajánlanak neked</small></span></a>
+                        </div>
                     </div>
-                </div>
-            </div>
-
-            <div class="navGroup nvXL" data-group="piac">
-                <button class="navLink navGroupBtn" type="button" aria-expanded="false" aria-haspopup="true">
-                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i><span data-i18n="navGrpMarket">Piac</span><span class="navGroupCur" aria-hidden="true"></span><i class="fa-solid fa-chevron-down navCaret" aria-hidden="true"></i>
-                </button>
-                <div class="navPanel" role="menu">
-                    <div class="navPanelList">
-                        <a class="navPanelItem" role="menuitem" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
-                        <a class="navPanelItem" role="menuitem" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
+                    <div class="navTobbOszlop">
+                        <h6 class="navMenuHead" data-i18n="navHeadMarket">Piac</h6>
+                        <div class="navPanelList">
+                            <a class="navPanelItem nvKozep" role="menuitem" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a>
+                            <a class="navPanelItem" role="menuitem" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
+                        </div>
                     </div>
+                    <div class="navTobbOszlop">
+                        <h6 class="navMenuHead" data-i18n="navHeadPros">Hirdetőknek</h6>
+                        <div class="navPanelList">
+                            <a class="navPanelItem" role="menuitem" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
+                            <a class="navPanelItem" role="menuitem" href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
+                        </div>
+                    </div>
+                    <a class="navTobbSugo" role="menuitem" href="#sugo"><i class="fa-solid fa-circle-question" aria-hidden="true"></i> <span data-i18n="menuSugo">Súgó</span></a>
                 </div>
             </div>
 
@@ -220,11 +220,14 @@
             <button type="button" class="btn-close" id="mobSheetZar" aria-label="Bezár"></button>
         </div>
         <div class="mobSheetLista">
-            <a href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Az eladók és az irodák ajánlanak neked</small></span></a>
-            <a href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
+            <h6 class="navMenuHead" data-i18n="navHeadBuyers">Vevőknek</h6>
+            <a href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Add fel, mit keresel – az eladók ajánlanak neked</small></span></a>
+            <h6 class="navMenuHead" data-i18n="navHeadMarket">Piac</h6>
             <a href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a>
-            <a href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
+            <a href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
+            <h6 class="navMenuHead" data-i18n="navHeadPros">Hirdetőknek</h6>
             <a href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
+            <a href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
             <a href="#sugo" data-page="sugo"><i class="fa-solid fa-circle-question"></i><span><b data-i18n="menuSugo">Súgó</b><small data-i18n="menuSugoDesc">Használati útmutató, kérdések</small></span></a>
         </div>
         <div class="mobSheetBeall">

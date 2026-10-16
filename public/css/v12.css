@@ -95,3 +95,12 @@
 .mobSheetLista a.active, .mobSheetLista a:hover { background: var(--ip-accent-soft); }
 .mobSheetBeall { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--ip-border); }
 body.mobSheetNyitva { overflow: hidden; }
+
+/* ---------- A „Több” lenyíló: három téma egymás mellett ---------- */
+.navPanelTobb { width: 760px; min-width: 0; left: 50%; margin-left: -380px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.25rem 0.5rem; }
+.navTobbOszlop .navMenuHead { margin: 0.35rem 0.7rem 0.25rem; }
+.navTobbSugo { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; padding: 0.55rem 0.7rem; border-top: 1px solid var(--ip-border);
+    color: var(--ip-muted); font-size: 0.88rem; text-decoration: none; }
+.navTobbSugo:hover { color: var(--ip-accent); }
+.mobSheetLista .navMenuHead { grid-column: 1 / -1; margin: 0.6rem 0.6rem 0.15rem; }
+@media (max-width: 1279.98px) { .navGroupCur { display: none !important; } }

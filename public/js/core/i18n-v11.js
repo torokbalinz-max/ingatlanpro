@@ -8,6 +8,9 @@
 
     const V11 = {
         hu: {
+            navHeadBuyers: "Vevőknek",
+            navHeadMarket: "Piac",
+            navHeadPros: "Hirdetőknek",
             navMore: "Több",
             mobPost: "Feladás",
             mobSell: "Eladjuk",
@@ -132,6 +135,9 @@
             by_kuld: "Küldés",
         },
         en: {
+            navHeadBuyers: "For buyers",
+            navHeadMarket: "Market",
+            navHeadPros: "For advertisers",
             navMore: "More",
             mobPost: "Post",
             mobSell: "We sell",
@@ -256,6 +262,9 @@
             by_kuld: "Send",
         },
         ro: {
+            navHeadBuyers: "Pentru cumpărători",
+            navHeadMarket: "Piață",
+            navHeadPros: "Pentru agenți și firme",
             navMore: "Mai mult",
             mobPost: "Publică",
             mobSell: "Vindem",
