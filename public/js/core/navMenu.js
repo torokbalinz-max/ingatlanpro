@@ -103,10 +103,12 @@ class NavMenu {
                 }
             }
         });
-        // A közvetlen menüpontok (Ingatlanok, Térkép, Keresek, Eladjuk helyetted)
-        document.querySelectorAll(".navLinks > .navLink[data-page]").forEach(a => {
+        // A közvetlen menüpontok (Ingatlanok, Térkép, Keresek, Eladjuk helyetted) és az alsó sáv
+        document.querySelectorAll(".navLinks > .navLink[data-page], .mobBar [data-page], .mobSheetLista [data-page]").forEach(a => {
             a.classList.toggle("active", a.dataset.page === oldal);
         });
+        const mb = document.getElementById("mobMenuBtn");
+        if (mb) mb.classList.toggle("active", !!document.querySelector(`.mobSheetLista [data-page="${oldal}"]`));
         document.querySelectorAll(".navPanel [data-page]").forEach(a => {
             a.classList.toggle("active", a.dataset.page === oldal);
         });
@@ -114,4 +116,26 @@ class NavMenu {
 
 }
 
-document.addEventListener("DOMContentLoaded", () => NavMenu.init());
+// ---------- Telefon / iPad: az alsó sáv „Menü” lapja ----------
+
+NavMenu.lap = function (nyit) {
+    const lap = document.getElementById("mobSheet");
+    const gomb = document.getElementById("mobMenuBtn");
+    if (!lap || !gomb) return;
+    lap.hidden = !nyit;
+    gomb.setAttribute("aria-expanded", String(!!nyit));
+    document.body.classList.toggle("mobSheetNyitva", !!nyit);
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    NavMenu.init();
+    const gomb = document.getElementById("mobMenuBtn");
+    const lap = document.getElementById("mobSheet");
+    if (!gomb || !lap) return;
+    gomb.addEventListener("click", () => NavMenu.lap(lap.hidden));
+    document.getElementById("mobSheetZar").addEventListener("click", () => NavMenu.lap(false));
+    lap.addEventListener("click", e => { if (e.target === lap || e.target.closest("a[href]")) NavMenu.lap(false); });
+    document.getElementById("mobDark").addEventListener("click", () => { const d = document.getElementById("btnDarkMode"); if (d) d.click(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !lap.hidden) NavMenu.lap(false); });
+    window.addEventListener("hashchange", () => NavMenu.lap(false));
+});

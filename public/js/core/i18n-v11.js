@@ -8,6 +8,10 @@
 
     const V11 = {
         hu: {
+            navMore: "Több",
+            mobPost: "Feladás",
+            mobSell: "Eladjuk",
+            mobMenu: "Menü",
             adminModToday: "Ma",
             adminModListings: "Hirdetések",
             adminModSales: "Értékesítés",
@@ -128,6 +132,10 @@
             by_kuld: "Küldés",
         },
         en: {
+            navMore: "More",
+            mobPost: "Post",
+            mobSell: "We sell",
+            mobMenu: "Menu",
             adminModToday: "Today",
             adminModListings: "Listings",
             adminModSales: "Sales",
@@ -248,6 +256,10 @@
             by_kuld: "Send",
         },
         ro: {
+            navMore: "Mai mult",
+            mobPost: "Publică",
+            mobSell: "Vindem",
+            mobMenu: "Meniu",
             adminModToday: "Azi",
             adminModListings: "Anunțuri",
             adminModSales: "Vânzări",
