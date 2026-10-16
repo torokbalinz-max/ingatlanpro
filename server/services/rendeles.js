@@ -256,7 +256,10 @@ async function fizetesiAdatok() {
     const u = await require("./oldalAdatok").nyilvanos();
     // online: kártyás fizetés elérhető (Stripe – services/fizetes.js)
     const online = await require("./fizetes").allapot().then(a => a.elerheto).catch(() => false);
-    return { iban: b.iban || "", bank: b.bank || "", kedvezmenyezett: u.nev || "IngatlanPro", email: u.email || "", online };
+    return {
+        iban: b.iban || "", bank: b.bank || "", kedvezmenyezett: b.kedvezmenyezett || u.nev || "IngatlanPro", email: u.email || "", online,
+        revolut: b.revolut_link || ""
+    };
 }
 
 // ===================== A FELHASZNÁLÓ SAJÁT ADATAI =====================

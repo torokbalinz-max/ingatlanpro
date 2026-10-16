@@ -129,7 +129,41 @@ AdminManager.renderOnlinePay = function () {
         const modSzoveg = { eles: I18n.t("opModeLive"), teszt: I18n.t("opModeTest"), demo: I18n.t("opModeDemo") }[f.mod] || I18n.t("opNotSet");
         const stLabel = s => `<span class="badge text-bg-${{ fizetve: "success", indult: "light", lejart: "secondary", sikertelen: "danger", elteres: "danger" }[s] || "light"}">${esc(I18n.t("opSt_" + s))}</span>`;
 
-        box.innerHTML = `
+        // A bekapcsolás lépései (csak az adminnak – a kulcs titkos)
+        const kesz1 = !!f.kulcs_forras;
+        const kesz2 = !!f.webhook;
+        const lepes = (n, kesz, cim, tartalom) => `
+            <div class="opStep ${kesz ? "done" : ""}">
+                <span class="opStepNo">${kesz ? '<i class="fa-solid fa-check"></i>' : n}</span>
+                <div class="flex-grow-1"><b>${cim}</b><div class="small text-body-secondary mt-1">${tartalom}</div></div>
+            </div>`;
+        const beallito = AuthManager.isAdmin() && f.szolgaltato !== "demo" ? `
+            <div class="card mb-4 opSetup">
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h5 class="mb-0"><i class="fa-solid fa-plug-circle-check" aria-hidden="true"></i> ${I18n.t("opSetupTitle")}</h5>
+                    ${kesz1 && kesz2 ? `<span class="badge text-bg-success">${I18n.t(f.mod === "eles" ? "opSetupDoneLive" : "opSetupDoneTest")}</span>` : ""}
+                </div>
+                <div class="card-body">
+                    ${lepes(1, kesz1, I18n.t("opStep1"), `${I18n.t("opStep1Text")}
+                        <div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="https://dashboard.stripe.com/register" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${I18n.t("opStripeRegister")}</a></div>`)}
+                    ${lepes(2, kesz1, I18n.t("opStep2"), f.kulcs_forras === "szerver" ? I18n.f("opKeyFromServer", { v: esc(f.kulcs_vege || "") }) : `
+                        ${I18n.t("opStep2Text")} <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">dashboard.stripe.com/apikeys</a>
+                        ${f.kulcs_forras === "admin" ? `<div class="mt-2"><span class="badge text-bg-light">${I18n.f("opKeySaved", { v: esc(f.kulcs_vege || ""), mod: esc(modSzoveg) })}</span>
+                            <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2" id="opKeyDel">${I18n.t("opKeyDelete")}</button></div>` : ""}
+                        <form class="d-flex flex-wrap gap-2 mt-2" id="opKeyForm" autocomplete="off">
+                            <input type="password" class="form-control form-control-sm" id="opKey" style="max-width:360px" placeholder="sk_test_…" autocomplete="new-password" spellcheck="false">
+                            <button type="submit" class="btn btn-sm btn-primary">${I18n.t(f.kulcs_forras ? "opKeyReplace" : "opKeySave")}</button>
+                        </form>
+                        <div class="small mt-1" id="opKeyMsg"></div>`)}
+                    ${lepes(3, kesz2, I18n.t("opStep3"), f.webhook_forras === "szerver" ? I18n.t("opWebhookFromServer") : `
+                        ${I18n.f("opStep3Text", { url: esc(a.webhook_cim) })}
+                        <div class="mt-2"><button type="button" class="btn btn-sm ${kesz2 ? "btn-outline-secondary" : "btn-primary"}" id="opWh" ${kesz1 ? "" : "disabled"}><i class="fa-solid fa-bell"></i> ${I18n.t(kesz2 ? "opWebhookRedo" : "opWebhookOn")}</button></div>
+                        <div class="small mt-1" id="opWhMsg"></div>`)}
+                    ${lepes(4, kesz1 && kesz2 && f.mod === "eles", I18n.t("opStep4"), I18n.t("opStep4Text"))}
+                </div>
+            </div>` : "";
+
+        box.innerHTML = beallito + `
             <div class="row g-4 mb-4">
                 <div class="col-lg-6">
                     <div class="card h-100">
@@ -180,6 +214,42 @@ AdminManager.renderOnlinePay = function () {
                     </div>` : `<p class="text-body-secondary mb-0">${I18n.t("opNone")}</p>`}
                 </div>
             </div>`;
+
+        const kf = box.querySelector("#opKeyForm");
+        if (kf) kf.onsubmit = e => {
+            e.preventDefault();
+            const msg = box.querySelector("#opKeyMsg");
+            const k = box.querySelector("#opKey").value.trim();
+            if (!k) return;
+            msg.className = "small mt-1 text-body-secondary";
+            msg.textContent = I18n.t("opKeyChecking");
+            Svc.api("/api/admin/fizetes/stripe-kulcs", { method: "POST", body: { kulcs: k } })
+                .then(v => {
+                    Utils.toast && Utils.toast(I18n.f("opKeyOk", { fiok: v.fiok || "Stripe" }));
+                    AdminManager.renderOnlinePay();
+                })
+                .catch(err => {
+                    msg.className = "small mt-1 text-danger";
+                    msg.textContent = Svc.hiba(err, "opErr_") + (err.adat && err.adat.message ? " – " + err.adat.message : "");
+                });
+        };
+        const kd = box.querySelector("#opKeyDel");
+        if (kd) kd.onclick = () => {
+            if (!confirm(I18n.t("opKeyDeleteConfirm"))) return;
+            Svc.api("/api/admin/fizetes/stripe-kulcs", { method: "DELETE" }).then(() => AdminManager.renderOnlinePay()).catch(err => alert(Svc.hiba(err)));
+        };
+        const wh = box.querySelector("#opWh");
+        if (wh) wh.onclick = () => {
+            const msg = box.querySelector("#opWhMsg");
+            wh.disabled = true;
+            Svc.api("/api/admin/fizetes/stripe-webhook", { method: "POST" })
+                .then(() => { Utils.toast && Utils.toast(I18n.t("opWebhookDone")); AdminManager.renderOnlinePay(); })
+                .catch(err => {
+                    wh.disabled = false;
+                    msg.className = "small mt-1 text-danger";
+                    msg.textContent = Svc.hiba(err, "opErr_") + (err.adat && err.adat.message ? " – " + err.adat.message : "");
+                });
+        };
 
         box.querySelectorAll("[data-op-szamla]").forEach(b => {
             b.onclick = () => {

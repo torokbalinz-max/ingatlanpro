@@ -70,7 +70,32 @@ class Svc {
             });
     }
 
+    // Fizetés Revolut-linkkel (revolut.me): kártyával, Apple / Google Pay-jel vagy
+    // Revolut-utalással – a pénz a beállított Revolut-számlára érkezik. Nincs
+    // automatikus visszajelzés: a beérkezés után az admin jelöli kifizetettnek
+    // (akkor a csomag / kiemelés él, és elkészül a számla).
+    static revolutDoboz(f, sorszam, osszeg, penznem, kompakt) {
+        if (!f || !f.revolut) return "";
+        const esc = Utils.escape;
+        return `
+            <div class="payRevBox ${kompakt ? "compact" : ""}">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <div class="flex-grow-1">
+                        <b>${I18n.t("payRevTitle")}</b>
+                        <div class="small text-body-secondary">${I18n.f("payRevHint", { osszeg: esc(Svc.penz(osszeg, penznem)), sz: esc(sorszam) })}</div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-masol="${esc(sorszam)}" title="${esc(I18n.t("payRevCopy"))}"><i class="fa-regular fa-copy"></i> ${esc(sorszam)}</button>
+                        <a class="btn btn-dark ${kompakt ? "btn-sm" : ""}" href="${esc(f.revolut)}" target="_blank" rel="noopener"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> ${I18n.t("payRevBtn")}</a>
+                    </div>
+                </div>
+            </div>`;
+    }
+
     static kartyaKot(el) {
+        el.querySelectorAll("[data-masol]").forEach(b => {
+            b.onclick = () => navigator.clipboard && navigator.clipboard.writeText(b.dataset.masol).then(() => Utils.toast && Utils.toast(I18n.t("prCopied")));
+        });
         el.querySelectorAll("[data-kartya]").forEach(b => { b.onclick = () => Svc.kartyaFizet(b.dataset.kartya, b); });
     }
 
@@ -523,7 +548,7 @@ class PricingPage {
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="OK"></button>
             </div>
             <div class="modal-body">
-                <p>${ingyen ? I18n.t("prThanksFree") : I18n.f(f.online ? "prThanksTextCard" : "prThanksText", { nev: esc(PricingPage.rovid(c)) })}</p>
+                <p>${ingyen ? I18n.t("prThanksFree") : I18n.f(f.online || f.revolut ? "prThanksTextCard" : "prThanksText", { nev: esc(PricingPage.rovid(c)) })}</p>
                 ${!ingyen && f.online ? `
                 <div class="payCardBox">
                     <div class="d-flex align-items-center gap-3 flex-wrap">
@@ -536,6 +561,7 @@ class PricingPage {
                     <div class="payCardLogos" aria-hidden="true"><i class="fa-brands fa-cc-visa"></i><i class="fa-brands fa-cc-mastercard"></i><i class="fa-brands fa-apple-pay"></i><i class="fa-brands fa-google-pay"></i> <span><i class="fa-solid fa-lock"></i> ${I18n.t("paySecure")}</span></div>
                 </div>
                 <div class="payOr"><span>${I18n.t("payOrTransfer")}</span></div>` : ""}
+                ${!ingyen && f.revolut ? Svc.revolutDoboz(f, s.sorszam, s.brutto, s.penznem) + `<div class="payOr"><span>${I18n.t("payOrTransfer")}</span></div>` : ""}
                 ${ingyen ? "" : `
                 <div class="prPayBox">
                     <div><span>${I18n.t("prProforma")}</span><b>${esc(s.sorszam)}</b></div>

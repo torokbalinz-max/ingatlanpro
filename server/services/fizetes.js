@@ -31,7 +31,8 @@ const crypto = require("crypto");
 const db = require("../db/database");
 const pu = require("./penzugy");
 
-const STRIPE = "https://api.stripe.com/v1";
+// (a STRIPE_API_BASE csak a helyi tesztekhez: egy ál-Stripe szerverre mutat)
+const STRIPE = (process.env.STRIPE_API_BASE || "https://api.stripe.com").replace(/\/+$/, "") + "/v1";
 
 function hibaKod(kod) {
     const e = new Error(kod);
@@ -39,22 +40,59 @@ function hibaKod(kod) {
     return e;
 }
 
-const stripeKulcs = () => (process.env.STRIPE_SECRET_KEY || "").trim();
-const webhookKulcs = () => (process.env.STRIPE_WEBHOOK_SECRET || "").trim();
+// ---------- A kulcsok ----------
+// Két helyről jöhetnek: a szerver környezeti változóiból (STRIPE_SECRET_KEY,
+// STRIPE_WEBHOOK_SECRET – ez az erősebb), vagy az adminban megadva
+// (Admin → Pénzügy → Online fizetés). Az admin által megadott kulcsok külön
+// beállításban vannak (stripe_kulcsok), a böngészőbe soha nem kerülnek vissza.
+
+const KULCS_BEALLITAS = "stripe_kulcsok";
+let tarolt = { sk: "", wh: "", wh_id: "" };
+let toltve = 0;
+
+async function kulcsokTolt(friss) {
+    if (!friss && Date.now() - toltve < 30 * 1000) return;
+    try {
+        const r = await db.query("SELECT ertek FROM beallitasok WHERE kulcs = $1", [KULCS_BEALLITAS]);
+        tarolt = { sk: "", wh: "", wh_id: "", ...(r.rows[0] && r.rows[0].ertek ? JSON.parse(r.rows[0].ertek) : {}) };
+    } catch (e) { /* első indulás */ }
+    toltve = Date.now();
+}
+
+async function kulcsokMent(uj) {
+    await kulcsokTolt(true);
+    tarolt = { ...tarolt, ...uj };
+    await db.query(
+        `INSERT INTO beallitasok (kulcs, ertek, updated_at) VALUES ($1, $2, NOW())
+         ON CONFLICT (kulcs) DO UPDATE SET ertek = EXCLUDED.ertek, updated_at = NOW()`,
+        [KULCS_BEALLITAS, JSON.stringify(tarolt)]);
+    toltve = Date.now();
+}
+
+const envKulcs = () => (process.env.STRIPE_SECRET_KEY || "").trim();
+const stripeKulcs = () => envKulcs() || (tarolt.sk || "").trim();
+const webhookKulcs = () => (process.env.STRIPE_WEBHOOK_SECRET || "").trim() || (tarolt.wh || "").trim();
+const KULCS_MINTA = /^(sk|rk)_(test|live)_[A-Za-z0-9]{10,}$/;
 
 // A Stripe be van állítva? / demó mód (csak ha nincs Stripe)
-function stripeBe() { return /^sk_(test|live)_/.test(stripeKulcs()); }
+function stripeBe() { return KULCS_MINTA.test(stripeKulcs()); }
 function demoBe() { return !stripeBe() && process.env.FIZETES_DEMO === "1"; }
 
 async function allapot() {
+    await kulcsokTolt();
     const be = await pu.beallitas();
     const szolgaltato = stripeBe() ? "stripe" : demoBe() ? "demo" : null;
+    const k = stripeKulcs();
     return {
         elerheto: !!szolgaltato && be.online_fizetes !== false,
         bekapcsolva: be.online_fizetes !== false,
         szolgaltato,
-        mod: stripeBe() ? (stripeKulcs().startsWith("sk_live_") ? "eles" : "teszt") : demoBe() ? "demo" : null,
-        webhook: !!webhookKulcs()
+        mod: stripeBe() ? (/_live_/.test(k) ? "eles" : "teszt") : demoBe() ? "demo" : null,
+        webhook: !!webhookKulcs(),
+        // honnan jön a kulcs, és a vége (a kulcs maga soha nem megy ki)
+        kulcs_forras: envKulcs() ? "szerver" : tarolt.sk ? "admin" : null,
+        kulcs_vege: k ? k.slice(-4) : null,
+        webhook_forras: (process.env.STRIPE_WEBHOOK_SECRET || "").trim() ? "szerver" : tarolt.wh ? "admin" : null
     };
 }
 
@@ -71,8 +109,8 @@ function urlap(obj, elotag = "", ki = []) {
     return ki;
 }
 
-async function stripe(modszer, ut, adat, idempotencia) {
-    const fej = { Authorization: "Bearer " + stripeKulcs() };
+async function stripe(modszer, ut, adat, idempotencia, kulcs) {
+    const fej = { Authorization: "Bearer " + (kulcs || stripeKulcs()) };
     let body;
     if (adat) {
         fej["Content-Type"] = "application/x-www-form-urlencoded";
@@ -226,6 +264,7 @@ function alairasOk(nyers, fejlec, titok, turesMp = 300) {
 }
 
 async function webhook(nyers, fejlec) {
+    await kulcsokTolt();
     if (!alairasOk(nyers, fejlec, webhookKulcs())) throw hibaKod("bad_signature");
     const e = JSON.parse(nyers);
     const obj = e.data && e.data.object;
@@ -241,6 +280,7 @@ async function webhook(nyers, fejlec) {
 // (ha a webhook még nem jött meg, a Stripe-tól kérdezzük le – az a biztos)
 
 async function ellenoriz(user, munkamenet) {
+    await kulcsokTolt();
     const r = await db.query("SELECT * FROM online_fizetesek WHERE munkamenet = $1 AND user_id = $2", [String(munkamenet || ""), user.id]);
     const f = r.rows[0];
     if (!f) throw hibaKod("not_found");
@@ -271,6 +311,63 @@ async function demoAdat(munkamenet) {
     return r.rows[0] || null;
 }
 
+// ---------- Admin: a kulcs megadása, a webhook bekapcsolása ----------
+
+// A titkos kulcs mentése – előtte kipróbáljuk a Stripe-nál
+async function kulcsBeallit(kulcs) {
+    if (envKulcs()) throw hibaKod("key_from_server");
+    const k = String(kulcs || "").trim();
+    if (!KULCS_MINTA.test(k)) throw hibaKod("bad_key");
+    let fiok;
+    try {
+        fiok = await stripe("GET", "/account", null, null, k);
+    } catch (e) {
+        const h = hibaKod("key_rejected");
+        h.reszlet = e.reszlet;
+        throw h;
+    }
+    // új kulcsnál a régi webhook-titok már nem érvényes (más fiók / mód lehet)
+    const valt = tarolt.sk && tarolt.sk !== k;
+    await kulcsokMent({ sk: k, ...(valt ? { wh: "", wh_id: "" } : {}) });
+    return {
+        mod: /_live_/.test(k) ? "eles" : "teszt",
+        fiok: fiok && (fiok.business_profile && fiok.business_profile.name || fiok.email || fiok.id),
+        orszag: fiok && fiok.country,
+        fizethet: fiok ? fiok.charges_enabled !== false : null
+    };
+}
+
+async function kulcsTorol() {
+    await kulcsokMent({ sk: "", wh: "", wh_id: "" });
+}
+
+// A webhook (fizetési értesítés) létrehozása a Stripe-ban – egy kattintással.
+// A régi, ugyanerre a címre mutató végpontot előbb töröljük.
+const ESEMENYEK = ["checkout.session.completed", "checkout.session.async_payment_succeeded", "checkout.session.expired", "checkout.session.async_payment_failed"];
+
+async function webhookBeallit(alapCim) {
+    await kulcsokTolt(true);
+    if (!stripeBe()) throw hibaKod("no_key");
+    if ((process.env.STRIPE_WEBHOOK_SECRET || "").trim()) throw hibaKod("webhook_from_server");
+    const url = String(alapCim || "").replace(/\/+$/, "") + "/api/fizetes/stripe/webhook";
+    if (!/^https:\/\//.test(url) && !process.env.STRIPE_API_BASE) throw hibaKod("needs_https");
+    try {
+        const l = await stripe("GET", "/webhook_endpoints?limit=100");
+        for (const w of (l.data || []).filter(x => x.url === url)) {
+            await stripe("DELETE", "/webhook_endpoints/" + encodeURIComponent(w.id)).catch(() => { });
+        }
+        const w = await stripe("POST", "/webhook_endpoints", { url, enabled_events: ESEMENYEK, description: "IngatlanPro – fizetések" });
+        if (!w.secret) throw new Error("no secret");
+        await kulcsokMent({ wh: w.secret, wh_id: w.id });
+        return { url, id: w.id };
+    } catch (e) {
+        if (e.kod) throw e;
+        const h = hibaKod("payment_provider_error");
+        h.reszlet = e.message;
+        throw h;
+    }
+}
+
 // ---------- Admin: a legutóbbi online fizetések ----------
 
 async function adminLista() {
@@ -284,4 +381,4 @@ async function adminLista() {
     return r.rows.map(x => ({ ...x, osszeg: Number(x.osszeg) }));
 }
 
-module.exports = { allapot, inditas, webhook, ellenoriz, demoFizet, demoAdat, adminLista, _: { alairasOk, urlap } };
+module.exports = { allapot, kulcsBeallit, kulcsTorol, webhookBeallit, inditas, webhook, ellenoriz, demoFizet, demoAdat, adminLista, _: { alairasOk, urlap } };

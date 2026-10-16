@@ -358,6 +358,8 @@ async function bizonylatHtml(s, { nyomtat }) {
   ${s.statusz !== "fizetve" && s.statusz !== "sztorno" ? `
   <div class="fizetes">
     <b>Fizetés / Plata:</b> ${b.iban ? `átutalással / prin transfer bancar: <b>${esc(b.iban)}</b>${b.bank ? ` (${esc(b.bank)})` : ""}` : "a megadott módon / conform înțelegerii"}<br>
+    ${b.kedvezmenyezett ? `Kedvezményezett / Beneficiar: <b>${esc(b.kedvezmenyezett)}</b><br>` : ""}
+    ${b.revolut_link ? `Kártyával / Revolut: <a href="${esc(b.revolut_link)}">${esc(b.revolut_link.replace(/^https:\/\//, ""))}</a><br>` : ""}
     Közlemény / Detalii plată: <b>${esc(s.sorszam)}</b> · Határidő / Termen: <b>${nap(s.esedekes)}</b>
   </div>` : ""}
 

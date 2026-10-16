@@ -157,6 +157,7 @@ class AccountBilling {
                                         </div>
                                         ${online && r.szamla_id ? `<div class="d-flex flex-wrap align-items-center gap-2 mt-2">${Svc.kartyaGomb(r.szamla_id)}<span class="small text-body-secondary"><i class="fa-solid fa-lock" aria-hidden="true"></i> ${I18n.t("payCardHintShort")}</span></div>
                                         <div class="small text-body-secondary mt-2">${I18n.t("payOrTransfer")}:</div>` : ""}
+                                        ${d.fizetes.revolut && r.szamla_id ? `<div class="mt-2">${Svc.revolutDoboz(d.fizetes, r.sorszam, r.ar, r.penznem, true)}</div>${online ? "" : `<div class="small text-body-secondary mt-2">${I18n.t("payOrTransfer")}:</div>`}` : ""}
                                         <div class="prPayBox compact mt-2">
                                             <div><span>${I18n.t("prBeneficiary")}</span><b>${esc(d.fizetes.kedvezmenyezett || "IngatlanPro")}</b></div>
                                             <div><span>IBAN</span><b class="${d.fizetes.iban ? "prIban" : ""}">${esc(d.fizetes.iban || I18n.t("prIbanSoon"))}</b></div>

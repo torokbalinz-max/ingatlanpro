@@ -121,3 +121,19 @@
     .irTable tbody td.d-none { display: none !important; }
     .irNote { max-width: 100%; }
 }
+
+/* ---------- Fizetés Revolut-linkkel ---------- */
+.payRevBox {
+    border: 1px solid var(--ip-border); border-radius: 12px; padding: 14px 16px;
+    background: color-mix(in srgb, var(--ip-text, #1c2321) 4%, var(--ip-surface));
+}
+.payRevBox.compact { padding: 10px 12px; }
+
+/* ---------- Admin: a kártyás fizetés bekapcsolásának lépései ---------- */
+.opStep { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--ip-border); }
+.opStep:last-child { border-bottom: 0; }
+.opStepNo {
+    flex: 0 0 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
+    background: color-mix(in srgb, var(--ip-accent) 12%, transparent); color: var(--ip-accent);
+}
+.opStep.done .opStepNo { background: #16a34a; color: #fff; }

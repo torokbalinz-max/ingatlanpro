@@ -1051,6 +1051,9 @@ AdminManager.renderFinSettings = function () {
                     <div class="card-body row g-3">
                         ${mezo("fbBank", I18n.t("finBank"), b.bank, 'maxlength="120"')}
                         ${mezo("fbIban", "IBAN", b.iban, 'maxlength="40" autocomplete="off" spellcheck="false"')}
+                        ${mezo("fbKedv", I18n.t("finPayee"), b.kedvezmenyezett || "", `maxlength="120" placeholder="${esc(u.nev || "")}"`)}
+                        ${mezo("fbRevolut", I18n.t("finRevolut"), b.revolut_link || "", 'maxlength="80" placeholder="revolut.me/felhasznalonev" autocomplete="off" spellcheck="false"')}
+                        <p class="small text-body-secondary col-12 mb-0">${I18n.t("finRevolutHelp")}</p>
                         <div class="col-6 col-sm-3">
                             <label class="form-label small mb-1" for="fbPenznem">${I18n.t("finDefaultCurrency")}</label>
                             <select class="form-select form-select-sm" id="fbPenznem">${cfg.listak.penznemek.map(p => `<option ${b.penznem === p ? "selected" : ""}>${p}</option>`).join("")}</select>
@@ -1162,7 +1165,7 @@ AdminManager.renderFinSettings = function () {
             e.preventDefault();
             if ($("#fbKorlat").checked && !b.korlatok_be && !confirm(I18n.t("finEnforceConfirm"))) return;
             const d = {
-                bank: $("#fbBank").value, iban: $("#fbIban").value, penznem: $("#fbPenznem").value,
+                bank: $("#fbBank").value, iban: $("#fbIban").value, kedvezmenyezett: $("#fbKedv").value, revolut_link: $("#fbRevolut").value, penznem: $("#fbPenznem").value,
                 fizetesi_hatarido: $("#fbHatarido").value, dijbekero_elotag: $("#fbDbElotag").value, szamla_elotag: $("#fbSzElotag").value,
                 afa_fizeto: $("#fbAfaFizeto").checked, afa_kulcs: $("#fbAfaKulcs").value, szamla_megjegyzes: $("#fbMegj").value,
                 auto_dijbekero: $("#fbAuto").checked, elore_nap: $("#fbElore").value, turelmi_nap: $("#fbTurelmi").value,

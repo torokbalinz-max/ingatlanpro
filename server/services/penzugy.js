@@ -126,6 +126,8 @@ function alapBeallitas() {
         auto_dijbekero: false,      // naponta magától elkészíti az esedékes díjbekérőket
         bank: "",
         iban: "",
+        kedvezmenyezett: "",        // a számla tulajdonosa (ha más, mint az üzemeltető neve – pl. magánszámla)
+        revolut_link: "",           // revolut.me fizetési link (kártyával is fizethető, a pénz a Revolut-számlára jön)
         szamla_megjegyzes: "",
         eur_arfolyam: 5.0,          // 1 EUR = ? RON (az összesítésekhez)
         arfolyam_datum: null,
@@ -177,6 +179,13 @@ async function beallitasMent(b) {
     if ("auto_dijbekero" in b) a.auto_dijbekero = !!b.auto_dijbekero;
     if ("bank" in b) a.bank = sz(b.bank, 120) || "";
     if ("iban" in b) a.iban = (sz(b.iban, 40) || "").toUpperCase().replace(/\s+/g, "");
+    if ("kedvezmenyezett" in b) a.kedvezmenyezett = sz(b.kedvezmenyezett, 120) || "";
+    if ("revolut_link" in b) {
+        // "@nev", "revolut.me/nev" vagy "https://revolut.me/nev" → https://revolut.me/nev
+        const r = String(b.revolut_link || "").trim().replace(/^https?:\/\//i, "").replace(/^(www\.)?revolut\.me\//i, "").replace(/^@/, "").replace(/\/+$/, "");
+        if (r && !/^[A-Za-z0-9._-]{2,40}$/.test(r)) throw hibaKod("bad_revolut");
+        a.revolut_link = r ? "https://revolut.me/" + r : "";
+    }
     if ("szamla_megjegyzes" in b) a.szamla_megjegyzes = sz(b.szamla_megjegyzes, 600) || "";
     if ("eur_arfolyam" in b) a.eur_arfolyam = n(b.eur_arfolyam, 0.5, 50, 5);
     if ("arfolyam_datum" in b) a.arfolyam_datum = datum(b.arfolyam_datum);

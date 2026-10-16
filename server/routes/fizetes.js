@@ -15,7 +15,7 @@ const efactura = require("../services/efactura");
 const rendeles = require("../services/rendeles");
 const pu = require("../services/penzugy");
 const mail = require("../services/mail");
-const { hiba, csakBelepve } = require("../lib/http");
+const { hiba, csakBelepve, csakAdmin } = require("../lib/http");
 const csapat = require("../services/csapat");
 
 const router = express.Router();
@@ -153,6 +153,28 @@ router.get("/api/admin/fizetes/allapot", csapat.csakResz("penzugy"), async (req,
             webhook_cim: mail.oldalCim(req) + "/api/fizetes/stripe/webhook"
         });
     } catch (err) { hiba(res, err); }
+});
+
+// A Stripe kulcs megadása az adminban (csak az admin – a csapattag nem)
+router.post("/api/admin/fizetes/stripe-kulcs", csakAdmin, async (req, res) => {
+    try { res.json({ siker: true, ...(await fizetes.kulcsBeallit((req.body || {}).kulcs)) }); }
+    catch (err) {
+        if (err && err.kod === "key_rejected") return res.status(400).json({ error: "key_rejected", message: err.reszlet });
+        hiba(res, err);
+    }
+});
+
+router.delete("/api/admin/fizetes/stripe-kulcs", csakAdmin, async (req, res) => {
+    try { await fizetes.kulcsTorol(); res.json({ siker: true }); } catch (err) { hiba(res, err); }
+});
+
+// A fizetési értesítés (webhook) bekapcsolása a Stripe-ban egy kattintással
+router.post("/api/admin/fizetes/stripe-webhook", csakAdmin, async (req, res) => {
+    try { res.json({ siker: true, ...(await fizetes.webhookBeallit(mail.oldalCim(req))) }); }
+    catch (err) {
+        if (err && err.kod === "payment_provider_error") return res.status(502).json({ error: "payment_provider_error", message: err.reszlet });
+        hiba(res, err);
+    }
 });
 
 router.get("/api/admin/fizetes/lista", csapat.csakResz("penzugy"), async (req, res) => {
