@@ -13,6 +13,7 @@
 class AuthManager {
 
     static szerep = "vendeg";
+    static vevo = null;             // vevő: Érdeklődéseim (/api/me)
     static csapat = null;           // munkatárs: jogok, részek (/api/me)
     static megbizas = null;         // eladó: { db, aktiv, teendo } (/api/me)
     static felhasznalo = null;
@@ -115,6 +116,7 @@ class AuthManager {
         // Munkatárs: az admin felület részei; eladó: a megbízásai (Ingatlanom eladása)
         AuthManager.csapat = me.csapat || null;
         AuthManager.megbizas = me.megbizas || null;
+        AuthManager.vevo = me.vevo || null;
 
         // Előfizetett csomag jogai (Admin → Pénzügyek): reklámmentes oldal, hirdetésszám...
         const voltReklammentes = !!(AuthManager.csomag && AuthManager.csomag.reklammentes);
@@ -156,6 +158,13 @@ class AuthManager {
             b.hidden = !n;
             b.innerText = n > 9 ? "9+" : n;
         });
+        // Érdeklődéseim: hány dolog vár a vevőre (ellenajánlat, új üzenet)
+        const vv = AuthManager.vevo;
+        document.querySelectorAll(".navBuyCount").forEach(b => {
+            const n = vv ? vv.teendo || 0 : 0;
+            b.hidden = !n;
+            b.innerText = n > 9 ? "9+" : n;
+        });
         document.querySelectorAll(".auth-only").forEach(el => { el.hidden = !bent; });
         document.querySelectorAll(".guest-only").forEach(el => { el.hidden = bent; });
 
@@ -181,9 +190,15 @@ class AuthManager {
             badge.innerText = n;
         });
 
-        document.querySelectorAll("#navMsgCount, .navMsgCount2, .accMsgCount").forEach(badge => {
+        document.querySelectorAll(".navMsgCount2, .accMsgCount").forEach(badge => {
             badge.hidden = !(AuthManager.olvasatlan > 0);
             badge.innerText = AuthManager.olvasatlan > 9 ? "9+" : AuthManager.olvasatlan;
+        });
+        // A fiók ikonján: az üzenetek + ami a vevőre vár (Érdeklődéseim)
+        const osszes = (AuthManager.olvasatlan || 0) + (AuthManager.vevo ? AuthManager.vevo.teendo || 0 : 0);
+        document.querySelectorAll("#navMsgCount").forEach(badge => {
+            badge.hidden = !(osszes > 0);
+            badge.innerText = osszes > 9 ? "9+" : osszes;
         });
 
     }

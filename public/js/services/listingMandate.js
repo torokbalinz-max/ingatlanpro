@@ -18,6 +18,7 @@
 class ListingMandate {
 
     static allapot = {};        // hirdetésenként: { nap, ido } (a választott időpont)
+    static cel = null;          // { id, mit: "ajanlat" | "foglal" } – az Érdeklődéseim oldalról
 
     static init() {
         if (typeof ListingPage === "undefined" || ListingPage._mandateHook) return;
@@ -271,6 +272,16 @@ class ListingMandate {
             });
             gyors.onclick = kuld;
             inp.onkeydown = e => { if (e.key === "Enter") kuld(); };
+        }
+
+        // Az Érdeklődéseim oldalról jött: ajánlat ablak / ugrás a kártyához
+        const cel = ListingMandate.cel;
+        if (cel && cel.id === i.id) {
+            ListingMandate.cel = null;
+            setTimeout(() => {
+                kartya.scrollIntoView({ block: "start", behavior: "smooth" });
+                if (cel.mit === "ajanlat" && v.ajanlhat && !v.sajat) ListingMandate.ajanlatUrlap(i, v);
+            }, 300);
         }
 
     }

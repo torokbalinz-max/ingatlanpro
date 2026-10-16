@@ -192,6 +192,11 @@ class Workspace {
                     <input class="form-check-input" type="checkbox" role="switch" id="wsMb" ${sz.megbizas ? "checked" : ""}>
                     <label class="form-check-label small" for="wsMb">${I18n.t("wsOnlyMandate")}</label>
                 </div>
+                <div class="ms-auto d-flex flex-wrap gap-2">
+                    ${AuthManager.isAdmin() || AuthManager.resz("hirdetes") ? `<a class="btn btn-sm btn-primary" href="#new"><i class="fa-solid fa-circle-plus" aria-hidden="true"></i> ${I18n.t("ovQuickNew")}</a>` : ""}
+                    ${AuthManager.isAdmin() || AuthManager.resz("beolvasas") ? `<a class="btn btn-sm btn-outline-primary" href="#admin/import"><i class="fa-solid fa-file-import" aria-hidden="true"></i> ${I18n.t("ovQuickImport")}</a>` : ""}
+                    ${AuthManager.isAdmin() ? `<a class="btn btn-sm btn-outline-secondary" href="#properties" title="${Utils.escape(I18n.t("wsBulkHelp"))}"><i class="fa-solid fa-table" aria-hidden="true"></i> ${I18n.t("wsBulk")}</a>` : ""}
+                </div>
             </div>
             <div id="wsLista"><div class="emptyState"><div class="spinner-border text-primary"></div></div></div>`;
 

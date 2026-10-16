@@ -1177,6 +1177,90 @@ async function vevoAllapot(user, ingatlanId) {
     };
 }
 
+// ===================== A VEVŐ OLDALA (Érdeklődéseim) =====================
+
+// A vevő teendője egy ingatlannál (ami tőle vár)
+function vevoTeendo(ajanlatok, megtekintesek, olvasatlan) {
+    const t = [];
+    ajanlatok.filter(a => a.statusz === "ellenajanlat").forEach(a => t.push({ kod: "ellenajanlat", ajanlat_id: a.id }));
+    if (olvasatlan) t.push({ kod: "uzenet", n: olvasatlan });
+    return t;
+}
+
+// Minden ingatlan, ahol a felhasználó érdeklődő: foglalások, ajánlatok, üzenetek
+async function vevoLista(user) {
+    const r = await db.query(`
+        SELECT e.id AS erdeklodo_id, e.statusz AS erdeklodo_statusz, e.ajanlat_engedve, e.created_at AS ota,
+               m.id AS megbizas_id, m.statusz AS szakasz, m.penznem, m.user_id AS elado_id, m.naptar,
+               i.id AS ingatlan_id, i.cim, i.varos, i.kerulet, i.telepules, i.tipus, i.ugylet, i.ar, i.nm, i.szobak, i.statusz AS hirdetes_statusz,
+               (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS elso_kep,
+               (SELECT COUNT(*) FROM megbizas_uzenetek z WHERE z.erdeklodo_id = e.id AND z.irany = 'ki' AND NOT z.olvasva)::int AS olvasatlan,
+               (SELECT MAX(z.created_at) FROM megbizas_uzenetek z WHERE z.erdeklodo_id = e.id) AS utolso_uzenet
+        FROM megbizas_erdeklodok e
+        JOIN megbizasok m ON m.id = e.megbizas_id
+        LEFT JOIN ingatlanok i ON i.id = m.ingatlan_id
+        WHERE e.user_id = $1 AND m.user_id <> $1
+        ORDER BY e.updated_at DESC NULLS LAST, e.id DESC
+        LIMIT 100`, [user.id]);
+    if (!r.rowCount) return [];
+    const ids = r.rows.map(x => x.erdeklodo_id);
+    const [mt, aj] = await Promise.all([
+        db.query(`SELECT id, erdeklodo_id, idopont, javasolt, statusz, varolista FROM megbizas_megtekintesek
+                  WHERE erdeklodo_id = ANY($1::int[]) ORDER BY COALESCE(idopont, created_at) DESC`, [ids]),
+        db.query(`SELECT * FROM megbizas_ajanlatok WHERE erdeklodo_id = ANY($1::int[]) ORDER BY id DESC`, [ids])
+    ]);
+    const be = await beallitas();
+    const lista = [];
+    for (const x of r.rows) {
+        const n = naptarAdat({ naptar: x.naptar }, be);
+        const megtekintesek = mt.rows.filter(t => t.erdeklodo_id === x.erdeklodo_id).map(t => ({
+            id: t.id, idopont: t.idopont, javasolt: t.javasolt, statusz: t.statusz, varolista: t.varolista,
+            lemondhato: t.statusz === "kert" || (t.statusz === "egyeztetve" && t.idopont && new Date(t.idopont).getTime() - n.lemondas_ora * 3600000 > Date.now())
+        }));
+        const ajanlatok = aj.rows.filter(a => a.erdeklodo_id === x.erdeklodo_id).map(vevoAjanlat);
+        const nyitott = VEVOI.includes(x.szakasz) || x.szakasz === "adasvetel";
+        let ajanlhatE = false;
+        if (VEVOI.includes(x.szakasz)) {
+            if (x.ajanlat_engedve || (be.ajanlat_feltetel || "megtekintes_utan") !== "megtekintes_utan") ajanlhatE = true;
+            else ajanlhatE = megtekintesek.some(t => t.statusz === "megtortent");
+        }
+        const enyemElfogadva = ajanlatok.some(a => a.statusz === "elfogadva");
+        lista.push({
+            erdeklodo_id: x.erdeklodo_id, megbizas_id: x.megbizas_id, ingatlan_id: x.ingatlan_id,
+            cim: x.cim, varos: x.varos, kerulet: x.kerulet, telepules: x.telepules, tipus: x.tipus, ugylet: x.ugylet,
+            ar: x.ar !== null ? Number(x.ar) : null, nm: x.nm, szobak: x.szobak, penznem: x.penznem || be.penznem, elso_kep: x.elso_kep,
+            // A vevőnek csak annyi: még elérhető / foglalt (más vevővel megy az adásvétel) / eladva / lezárva
+            allapot: enyemElfogadva ? (x.szakasz === "eladva" ? "megvetted" : "te_veszed")
+                : x.szakasz === "eladva" ? "eladva" : x.szakasz === "adasvetel" ? "foglalt" : nyitott ? "elerheto" : "lezarva",
+            naptar: n.aktiv && VEVOI.includes(x.szakasz),
+            ajanlhat: ajanlhatE,
+            megtekintesek, ajanlatok,
+            olvasatlan: x.olvasatlan, utolso_uzenet: x.utolso_uzenet, ota: x.ota,
+            teendok: vevoTeendo(ajanlatok, megtekintesek, x.olvasatlan)
+        });
+    }
+    return lista;
+}
+
+// A fejléc jelvényéhez: hány ingatlannál érdeklődik, mennyi vár rá
+async function vevoOsszegzes(userId) {
+    try {
+        const r = await db.query(`
+            SELECT COUNT(DISTINCT e.id)::int AS db,
+                   (SELECT COUNT(*) FROM megbizas_ajanlatok a JOIN megbizas_erdeklodok e2 ON e2.id = a.erdeklodo_id
+                     WHERE e2.user_id = $1 AND a.statusz = 'ellenajanlat' AND COALESCE(a.ellen_vevonek, false))::int AS ellen,
+                   (SELECT COUNT(*) FROM megbizas_uzenetek z JOIN megbizas_erdeklodok e3 ON e3.id = z.erdeklodo_id
+                     WHERE e3.user_id = $1 AND z.irany = 'ki' AND NOT z.olvasva)::int AS olvasatlan
+            FROM megbizas_erdeklodok e JOIN megbizasok m ON m.id = e.megbizas_id
+            WHERE e.user_id = $1 AND m.user_id <> $1`, [userId]);
+        const x = r.rows[0];
+        if (!x || !x.db) return null;
+        return { db: x.db, teendo: x.ellen + x.olvasatlan };
+    } catch (e) {
+        return null;
+    }
+}
+
 // A vevő mint érdeklődő (új vagy meglévő). Telefonszám kell (a bemutató felhívhassa).
 async function vevoErdeklodo(m, user, b, { telefonKell = false } = {}) {
     const nev = sz(b.nev, 160) || user.nev || null;
@@ -2111,7 +2195,7 @@ module.exports = {
     letrehoz, sajatLista, sajatMegbizas, eladoValasz, sajatVisszavon, sajatUzenet, sajatOlvasott, szerzodesElfogad,
     szerzodesKod, szerzodesSzemelyes, sajatIrat, csomagJovahagy, hirdetesJovahagy, eladoOsszegzes,
     hirdetesMegbizas, vevoAllapot, vevoIdopontok, vevoFoglal, vevoVarolista, vevoAjanlatTesz, vevoEllenElfogad, vevoAjanlatVisszavon,
-    vevoMegtekintesLemond, vevoUzenet, varolistasok,
+    vevoMegtekintesLemond, vevoUzenet, varolistasok, vevoLista, vevoOsszegzes,
     lista, reszlet, ment, naploHozzaad, naploIr, erdeklodoMent, megtekintesMent, megtekintesLezar, megtekintesAthelyez, megtekintesLemond,
     ajanlatMent, ajanlatMuvelet, szerzodesKuld, hirdetesKapcsolva, uzenetIr, olvasott, szal, torol, szamlalo, dijSzamol, dijbekeroKeszit,
     teendok, kovetkezo, elorelep, lepes, feladat, fotokFeltoltve, ellenjegyez, csapatFajl, fajlTorol, fajlLetolt, fajlLista, naptarMent, naptarNezet,

@@ -17,16 +17,36 @@ class HomePage {
         kereskedelmi: "photo-1696783576440-be3ba9abfdf7"   // üzletes óvárosi utca (Segesvár)
     };
 
-    // "Mit tudsz itt csinálni?" – az oldal funkciói egy pillantásra
-    static FUNKCIOK = [
-        { cls: "featBig featTint", icon: "fa-solid fa-magnifying-glass-location", cim: "homeFeatPropsTitle", szoveg: "homeFeatPropsText", pontok: ["homeFeatPropsB1", "homeFeatPropsB2", "homeFeatPropsB3"], hova: "properties" },
-        { cls: "featWide", icon: "fa-solid fa-map-location-dot", cim: "homeFeatMapTitle", szoveg: "homeFeatMapText", hova: "map" },
-        { cls: "featWide", icon: "fa-solid fa-calculator", cim: "homeFeatValTitle", szoveg: "homeFeatValText", hova: "valuation" },
-        { cls: "featThird", icon: "fa-solid fa-chart-line", cim: "homeFeatMarketTitle", szoveg: "homeFeatMarketText", hova: "market" },
-        { cls: "featThird", icon: "fa-solid fa-bullhorn", cim: "homeFeatReqTitle", szoveg: "homeFeatReqText", hova: "igenyek" },
-        { cls: "featThird", icon: "fa-solid fa-briefcase", cim: "homeFeatAgTitle", szoveg: "homeFeatAgText", hova: "irodak" },
-        { cls: "featWide featTint", icon: "fa-solid fa-key", cim: "homeFeatSellTitle", szoveg: "homeFeatSellText", hova: "eladjuk" },
-        { cls: "featWide", icon: "fa-solid fa-tags", cim: "homeFeatPricesTitle", szoveg: "homeFeatPricesText", hova: "csomagok" }
+    // "Mit tudsz itt csinálni?" – két út: aki vásárolna / bérelne, és aki eladna / kiadna.
+    // Így mindenki a neki szóló funkciókat látja együtt (és rátalál, mi mindent tud az oldal).
+    static UTAK = [
+        {
+            k: "buy", icon: "fa-solid fa-magnifying-glass-location", cim: "homePathBuyTitle", szoveg: "homePathBuyText",
+            pontok: [
+                { icon: "fa-solid fa-house", cim: "menuIngatlanok", szoveg: "homePathBuy1", hova: "properties", fo: true },
+                { icon: "fa-solid fa-map-location-dot", cim: "mapTitle", szoveg: "homeFeatMapText", hova: "map" },
+                { icon: "fa-solid fa-calendar-check", cim: "homePathBuyViewing", szoveg: "homePathBuyViewingText", hova: "erdeklodes" },
+                { icon: "fa-solid fa-bullhorn", cim: "navBuyRequest", szoveg: "homeFeatReqText", hova: "igenyek" },
+                { icon: "fa-solid fa-star", cim: "menuKedvencek", szoveg: "homePathBuyFav", hova: "favorites" }
+            ]
+        },
+        {
+            k: "sell", icon: "fa-solid fa-key", cim: "homePathSellTitle", szoveg: "homePathSellText",
+            pontok: [
+                { icon: "fa-solid fa-key", cim: "menuEladjuk", szoveg: "homeFeatSellText", hova: "eladjuk", fo: true },
+                { icon: "fa-solid fa-circle-plus", cim: "navSellPost", szoveg: "navSellPostDesc", hova: "new" },
+                { icon: "fa-solid fa-calculator", cim: "navSellValue", szoveg: "homeFeatValText", hova: "valuation" },
+                { icon: "fa-solid fa-users", cim: "navSellBuyers", szoveg: "navSellBuyersDesc", hova: "igenyek" },
+                { icon: "fa-solid fa-tags", cim: "menuCsomagok", szoveg: "homeFeatPricesText", hova: "csomagok" }
+            ]
+        }
+    ];
+
+    // A piac eszközei (mindenkinek)
+    static ESZKOZOK = [
+        { icon: "fa-solid fa-chart-line", cim: "homeFeatMarketTitle", szoveg: "homeFeatMarketText", hova: "market" },
+        { icon: "fa-solid fa-calculator", cim: "homeFeatValTitle", szoveg: "homeToolValText", hova: "valuation" },
+        { icon: "fa-solid fa-briefcase", cim: "homeFeatAgTitle", szoveg: "homeFeatAgText", hova: "irodak" }
     ];
 
     static stats() {
@@ -170,16 +190,31 @@ class HomePage {
 
             <section class="homeSection">
                 <h2 class="homeH2">${t("homeFeaturesTitle")}</h2>
-                <div class="featGrid">
-                    ${HomePage.FUNKCIOK.map(f => `
-                        <a class="featCell ${f.cls}" href="#${f.hova}" data-feat="${f.hova}">
-                            <div class="featBody">
-                                <span class="featIcon"><i class="${f.icon}" aria-hidden="true"></i></span>
-                                <span class="featTitle">${t(f.cim)}</span>
-                                <span class="featText">${t(f.szoveg)}</span>
-                                ${f.pontok ? `<ul class="featList">${f.pontok.map(p => `<li><i class="fa-solid fa-check" aria-hidden="true"></i><span>${t(p)}</span></li>`).join("")}</ul>` : ""}
-                                <span class="featMore">${t("homeOpen")}<i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+                <div class="pathGrid">
+                    ${HomePage.UTAK.map(u => `
+                        <div class="pathCard path-${u.k}">
+                            <div class="pathHead">
+                                <span class="pathIcon"><i class="${u.icon}" aria-hidden="true"></i></span>
+                                <div>
+                                    <h3 class="pathTitle">${t(u.cim)}</h3>
+                                    <p class="pathText">${t(u.szoveg)}</p>
+                                </div>
                             </div>
+                            <div class="pathList">
+                                ${u.pontok.map(p => `
+                                    <a class="pathItem ${p.fo ? "fo" : ""}" href="#${p.hova}" ${p.hova === "map" ? 'data-feat="map"' : ""}>
+                                        <i class="${p.icon}" aria-hidden="true"></i>
+                                        <span><b>${t(p.cim)}</b><small>${t(p.szoveg)}</small></span>
+                                        <i class="fa-solid fa-arrow-right pathArrow" aria-hidden="true"></i>
+                                    </a>`).join("")}
+                            </div>
+                        </div>`).join("")}
+                </div>
+                <div class="toolGrid">
+                    ${HomePage.ESZKOZOK.map(f => `
+                        <a class="toolCard" href="#${f.hova}">
+                            <span class="featIcon"><i class="${f.icon}" aria-hidden="true"></i></span>
+                            <span><b>${t(f.cim)}</b><small>${t(f.szoveg)}</small></span>
                         </a>`).join("")}
                 </div>
             </section>

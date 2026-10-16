@@ -30,7 +30,7 @@
                         "Fotózunk, elkészítjük a hirdetést; az előnézetet te hagyod jóvá, utána nyilvános.",
                         "Az Ingatlanom eladása oldalon (a fejlécben) mindent látsz: mi vár rád, a megtekintéseket, a neked továbbított ajánlatokat (elfogadhatod, elutasíthatod, ellenajánlatot tehetsz), az iratokat és az üzeneteket."
                     ] },
-                    { h: "Vevőként", p: "Egy megbízásos hirdetésen a naptárból magad foglalsz időpontot a megtekintésre (ha egyik sem jó, várólistára jelentkezhetsz). A megtekintés után vételi ajánlatot tehetsz – a finanszírozással (készpénz / hitel), foglalóval és határidőkkel együtt; mi továbbítjuk az eladónak." }
+                    { h: "Vevőként", p: "Egy megbízásos hirdetésen a naptárból magad foglalsz időpontot a megtekintésre (ha egyik sem jó, várólistára jelentkezhetsz). A megtekintés után vételi ajánlatot tehetsz – a finanszírozással (készpénz / hitel), foglalóval és határidőkkel együtt; mi továbbítjuk az eladónak. Minden foglalásodat, ajánlatodat és az eladó válaszát (ellenajánlatát) az Érdeklődéseim oldalon látod (Vásárlás menü), és ott válaszolhatsz is." }
                 ] }
             ],
             admin: [
@@ -64,7 +64,7 @@
                         "You approve the package by email, sign the mandate online (with an emailed code) or in person, and approve the listing preview before it goes live.",
                         "On the Selling my property page (in the header) you see everything: what's waiting for you, viewings, offers, documents and messages."
                     ] },
-                    { h: "As a buyer", p: "On a mandate listing you book a viewing time yourself from the calendar (or join the waiting list). After the viewing you can make an offer – with financing, deposit and deadlines – and we pass it to the seller." }
+                    { h: "As a buyer", p: "On a mandate listing you book a viewing time yourself from the calendar (or join the waiting list). After the viewing you can make an offer – with financing, deposit and deadlines – and we pass it to the seller. All your bookings, offers and the seller's replies (counter-offers) are on the My enquiries page (Buy menu), where you can answer them." }
                 ] }
             ],
             admin: [

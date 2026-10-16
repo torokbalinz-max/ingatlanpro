@@ -254,6 +254,11 @@ router.get("/api/megbizas/fajl/:fid", csakBelepve, async (req, res) => {
 
 // ===================== A VEVŐ (megbízásos hirdetés) =====================
 
+// Érdeklődéseim: minden ingatlan, ahol a felhasználó vevőként érdeklődik
+router.get("/api/megbizas/vevo", csakBelepve, async (req, res) => {
+    try { res.json(await mb.vevoLista(req.user)); } catch (err) { hiba(res, err); }
+});
+
 router.get("/api/megbizas/hirdetes/:id", async (req, res) => {
     try { res.json(await mb.vevoAllapot(req.user, req.params.id)); } catch (err) { hiba(res, err); }
 });
