@@ -49,7 +49,15 @@ app.use(require("./routes/cron"));
 // A weboldal fájljai belépés nélkül is betöltődnek (a belépő ablak miatt);
 // az adatokat (API) a belépés védi.
 
-app.use(express.static(PUBLIC, { index: "index.html" }));
+// A böngésző minden betöltéskor rákérdez, változott-e a fájl (ETag) – így egy
+// frissítés után mindenki azonnal az új változatot kapja, nem a régit a gyorstárból.
+// (Ha nem változott, a válasz egy rövid 304, a fájl nem töltődik le újra.)
+app.use(express.static(PUBLIC, {
+    index: "index.html",
+    setHeaders: (res, fajl) => {
+        if (/\.(html|js|css)$/i.test(fajl)) res.setHeader("Cache-Control", "no-cache");
+    }
+}));
 
 // ===================== BELÉPÉS =====================
 
