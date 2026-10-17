@@ -15,6 +15,9 @@ require("dotenv").config({ quiet: true });
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+const compression = require("compression");
 
 const { belepes } = require("./middleware/auth");
 
@@ -37,6 +40,10 @@ app.use((req, res, next) => {
     next();
 });
 
+// Tömörítés (gzip): a HTML, JS, CSS és az API JSON-válaszai a töredékükre
+// mennek össze. A képeket, PDF-eket nem tömöríti (azok már tömörítettek).
+app.use(compression());
+
 // ===================== ÉLETJEL, IDŐZÍTÉS (jelszó nélkül) =====================
 
 app.get("/healthz", (req, res) => {
@@ -49,13 +56,62 @@ app.use(require("./routes/cron"));
 // A weboldal fájljai belépés nélkül is betöltődnek (a belépő ablak miatt);
 // az adatokat (API) a belépés védi.
 
-// A böngésző minden betöltéskor rákérdez, változott-e a fájl (ETag) – így egy
-// frissítés után mindenki azonnal az új változatot kapja, nem a régit a gyorstárból.
-// (Ha nem változott, a válasz egy rövid 304, a fájl nem töltődik le újra.)
+// Gyorstár: az index.html a saját JS- és CSS-fájljait egy „?v=<tartalom-ujjlenyomat>”
+// végződéssel hivatkozza. Ezeket a böngésző egy évig megtartja és nem kérdez rá
+// újra – ha egy fájl megváltozik, az ujjlenyomata is, így az új címet tölti le.
+// Az index.html-re (és a ?v nélküli fájlokra) továbbra is minden betöltéskor
+// rákérdez (ETag, egy rövid 304, ha nem változott), így egy frissítés után
+// mindenki azonnal az új változatot kapja.
+
+const ujjlenyomatok = new Map();   // fájl -> { mtime, v }
+
+function ujjlenyomat(rel) {
+    const f = path.join(PUBLIC, rel);
+    if (!f.startsWith(PUBLIC)) return null;
+    try {
+        const st = fs.statSync(f);
+        const c = ujjlenyomatok.get(f);
+        if (c && c.mtime === st.mtimeMs) return c.v;
+        const v = crypto.createHash("md5").update(fs.readFileSync(f)).digest("hex").slice(0, 10);
+        ujjlenyomatok.set(f, { mtime: st.mtimeMs, v });
+        return v;
+    } catch (e) {
+        return null;
+    }
+}
+
+let indexGyors = { ido: 0, html: null };
+
+function indexHtml() {
+    // Pár másodpercig ugyanazt adjuk (helyi szerkesztésnél is gyorsan frissül)
+    if (indexGyors.html && Date.now() - indexGyors.ido < 2000) return indexGyors.html;
+    const html = fs.readFileSync(path.join(PUBLIC, "index.html"), "utf8")
+        .replace(/(\s(?:src|href)=")((?:js|css)\/[^"?#]+\.(?:js|css))"/g, (m, elo, rel) => {
+            const v = ujjlenyomat(rel);
+            return v ? `${elo}${rel}?v=${v}"` : m;
+        });
+    indexGyors = { ido: Date.now(), html };
+    return html;
+}
+
+app.get(["/", "/index.html"], (req, res, next) => {
+    try {
+        res.set("Cache-Control", "no-cache");
+        res.type("html").send(indexHtml());
+    } catch (err) {
+        next();   // ha valamiért nem megy, a sima fájl (lent)
+    }
+});
+
 app.use(express.static(PUBLIC, {
     index: "index.html",
     setHeaders: (res, fajl) => {
-        if (/\.(html|js|css)$/i.test(fajl)) res.setHeader("Cache-Control", "no-cache");
+        const verzios = res.req && /[?&]v=[0-9a-f]{6,}/.test(res.req.originalUrl || "");
+        if (/\.(js|css)$/i.test(fajl) && verzios) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        else if (/\.(html|js|css)$/i.test(fajl)) res.setHeader("Cache-Control", "no-cache");
+        // Betűtípusok: ritkán változnak; képek (súgó, ikonok): egy napig
+        else if (/\.(woff2?|ttf|otf)$/i.test(fajl)) res.setHeader("Cache-Control", "public, max-age=2592000");
+        else if (/\.(webp|png|jpe?g|svg|gif|ico)$/i.test(fajl)) res.setHeader("Cache-Control", "public, max-age=86400");
     }
 }));
 
