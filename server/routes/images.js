@@ -6,6 +6,7 @@ const express = require("express");
 const db = require("../db/database");
 const { hiba } = require("../lib/http");
 const { biztonsagosFetch } = require("../lib/biztonsagosFetch");
+const acc = require("../services/accounts");
 
 const router = express.Router();
 
@@ -13,11 +14,29 @@ router.get("/api/kepek/:id", async (req, res) => {
 
     try {
 
-        const r = await db.query("SELECT mime, adat FROM ingatlan_kepek WHERE id = $1", [req.params.id]);
+        const r = await db.query(`
+            SELECT k.mime, k.adat, i.id AS ingatlan_id, i.statusz, i.owner_id, i.megbizas_id
+            FROM ingatlan_kepek k LEFT JOIN ingatlanok i ON i.id = k.ingatlan_id
+            WHERE k.id = $1`, [req.params.id]);
 
         if (!r.rowCount) return res.status(404).end();
 
-        res.set("Content-Type", r.rows[0].mime);
+        // A nem nyilvános hirdetés (bejelentés miatt eltávolított, vagy még csak
+        // előnézet) fotói csak annak, aki a hirdetést is láthatja
+        const k = r.rows[0];
+        if (["tiltott", "elonezet"].includes(k.statusz) && req.szerep !== "admin" && !(req.user && req.user.id === k.owner_id)) {
+            const elado = k.megbizas_id && req.user
+                ? (await db.query("SELECT 1 FROM megbizasok WHERE id = $1 AND user_id = $2", [k.megbizas_id, req.user.id])).rowCount : 0;
+            const csapat = require("../services/csapat");
+            if (!elado && !(await csapat.hirdetesJog(req, k.ingatlan_id, "kepek"))
+                && !(k.megbizas_id && await csapat.megbizasJog(req, k.megbizas_id, "megbizas_lat"))) {
+                return res.status(404).end();
+            }
+        }
+
+        // Csak képtípus mehet ki (a régi, ellenőrzés előtti feltöltéseknél is)
+        res.set("Content-Type", /^image\/(jpeg|png|webp|gif)$/.test(k.mime) ? k.mime : "application/octet-stream");
+        res.set("X-Content-Type-Options", "nosniff");
         res.set("Cache-Control", "private, max-age=31536000, immutable");
         res.send(r.rows[0].adat);
 
@@ -33,6 +52,21 @@ router.get("/api/kepek/:id", async (req, res) => {
 // Csak nyilvános internetes cím kérhető le (a belső hálózat tiltott).
 const kepCache = new Map();
 let kepCacheMeret = 0;
+
+// Csak olyan külső kép kérhető le, amely egy hirdetéshez tartozik – vagy
+// bejelentkezve (hirdetésfeladás linkről: a képek még nincsenek elmentve).
+// Így a szerver nem használható ismeretlen oldalak „névtelenítő” proxijaként.
+const ismertKepek = new Map();      // url -> { ok, ido }
+
+async function ismertKep(u) {
+    const c = ismertKepek.get(u);
+    if (c && Date.now() - c.ido < 10 * 60 * 1000) return c.ok;
+    const r = await db.query("SELECT 1 FROM ingatlanok WHERE kulso_kepek @> $1::jsonb LIMIT 1", [JSON.stringify([u])]);
+    const ok = r.rowCount > 0;
+    if (ismertKepek.size > 20000) ismertKepek.clear();
+    ismertKepek.set(u, { ok, ido: Date.now() });
+    return ok;
+}
 const KEP_CACHE_MAX = 60 * 1024 * 1024;
 const KEP_MAX = 8 * 1024 * 1024;
 
@@ -52,6 +86,11 @@ router.get("/api/img", async (req, res) => {
             res.set("X-Content-Type-Options", "nosniff");
             return res.send(cached.buf);
         }
+
+        if (!req.user && !(await ismertKep(u))) return res.status(404).end();
+
+        // Új (gyorstárban nem lévő) képek letöltése: IP-címenként percenként legfeljebb 240
+        if (req.valodiSzerep !== "admin" && acc.korlat("img:" + String(req.ip || ""), 240, 60 * 1000)) return res.status(429).end();
 
         const host = new URL(u).hostname;
 

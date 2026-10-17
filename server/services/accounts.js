@@ -64,8 +64,23 @@ function envFiokok() {
 }
 
 // Helyi fejlesztés: nincs semmilyen jelszó beállítva -> mindenki admin
+// (a Renderen soha – ott a jelszó hiánya hiba, nem fejlesztés)
 function fejlesztoiMod() {
-    return envFiokok().length === 0 && !process.env.NYILVANOS;
+    return envFiokok().length === 0 && !process.env.NYILVANOS && !process.env.RENDER;
+}
+
+// A kérés tényleg erről a gépről jön-e (nem egy proxyn / alagúton át az internetről).
+// A fejlesztői admin csak így jár: ha valaki a gépet kiteszi az internetre
+// (pl. Cloudflare Tunnel, routeren nyitott port), kívülről ne legyen admin.
+function helyiKeres(req) {
+    const h = req.headers || {};
+    if (h["x-forwarded-for"] || h["cf-connecting-ip"] || h["x-real-ip"] || h["forwarded"] || h["x-forwarded-host"]) return false;
+    const ip = String((req.socket && req.socket.remoteAddress) || "");
+    return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+}
+
+function fejlesztoiKeres(req) {
+    return fejlesztoiMod() && helyiKeres(req);
 }
 
 // Kik adminok még (e-mail címek vesszővel), pl. a saját Google fiókod
@@ -145,7 +160,10 @@ async function regisztral({ email, jelszo, nev, telefon, aszf }) {
     if (aszf !== true) throw hibaKod("terms_required");
     if (await userByEmail(email)) throw hibaKod("email_taken");
 
-    const szerep = adminEmailek().includes(email) ? "admin" : "user";
+    // Regisztrációval soha nem lesz valaki admin (az e-mail cím itt még nincs
+    // igazolva – különben bárki regisztrálhatna az admin címével). Az ADMIN_EMAILS
+    // címe a Google-belépéskor vagy az e-mailes jelszó-visszaállításkor kapja meg.
+    const szerep = "user";
 
     const r = await db.query(
         `INSERT INTO users (email, nev, telefon, jelszo_hash, szerep, aszf_elfogadva, aszf_verzio)
@@ -183,6 +201,16 @@ async function belep(azonosito, jelszo) {
 
 }
 
+// Igazolt e-mail cím: megjelöljük, és ha az ADMIN_EMAILS-ben van, admin lesz
+async function emailIgazolt(u) {
+    if (!u || !u.email) return u;
+    const admin = adminEmailek().includes(String(u.email).toLowerCase());
+    const r = await db.query(
+        `UPDATE users SET email_igazolva = true, szerep = CASE WHEN $2 THEN 'admin' ELSE szerep END
+         WHERE id = $1 RETURNING *`, [u.id, admin]);
+    return r.rows[0] || u;
+}
+
 // Google bejelentkezés: a böngésző által kapott ID tokent a Google-nél ellenőrizzük
 async function googleBelep(credential) {
 
@@ -207,6 +235,14 @@ async function googleBelep(credential) {
     if (!u) {
         u = await userByEmail(email);
         if (u) {
+            // Egy meglévő, e-mailes fiók összekapcsolása a Google-lel. Ha a fiók
+            // címe nem volt igazolva, valaki más is regisztrálhatta a címet (előre
+            // „lefoglalva” a fiókot) – ilyenkor az ismeretlen jelszót és a
+            // munkameneteket töröljük: a fiók a cím valódi tulajdonosáé.
+            if (!u.email_igazolva && u.jelszo_hash && !u.tiltva) {
+                await db.query("UPDATE users SET jelszo_hash = NULL WHERE id = $1", [u.id]);
+                await mindenMunkamenetZar(u.id);
+            }
             await db.query("UPDATE users SET google_id = $1 WHERE id = $2", [t.sub, u.id]);
         } else {
             const ins = await db.query(
@@ -219,7 +255,8 @@ async function googleBelep(credential) {
 
     if (u.tiltva) throw hibaKod("banned");
 
-    return u;
+    // A Google igazolta a címet
+    return emailIgazolt(u);
 
 }
 
@@ -328,7 +365,8 @@ async function jelszoVisszaallit(token, ujJelszo) {
     await db.query("UPDATE users SET jelszo_hash = $1 WHERE id = $2", [hashJelszo(ujJelszo), userId]);
     await mindenMunkamenetZar(userId);
 
-    return userById(userId);
+    // Az e-mailben kapott linkkel igazolta, hogy a cím az övé
+    return emailIgazolt(await userById(userId));
 
 }
 
@@ -366,7 +404,7 @@ function hibaKod(kod) {
 }
 
 module.exports = {
-    SUTI, hashJelszo, jelszoJo, safeEqual, envFiokok, envFiokSor, fejlesztoiMod, nyilvanos,
+    SUTI, hashJelszo, jelszoJo, safeEqual, envFiokok, envFiokSor, fejlesztoiMod, fejlesztoiKeres, helyiKeres, tokenHash, nyilvanos,
     userById, userByEmail, regisztral, belep, googleBelep, munkamenetNyit, munkamenetUser,
     munkamenetZar, mindenMunkamenetZar, cacheUrit, sutiOlvas, visszaallitoToken, jelszoVisszaallit, korlat, tulSok, jegyez, hibaKod
 };

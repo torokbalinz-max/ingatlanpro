@@ -40,7 +40,9 @@ function nyilvanosMod() {
 function belepes() {
 
     if (acc.fejlesztoiMod()) {
-        console.warn("⚠️  Nincs jelszó beállítva – helyi fejlesztés: bejelentkezés nélkül admin joggal érhető el!");
+        console.warn("⚠️  Nincs jelszó beállítva – helyi fejlesztés: bejelentkezés nélkül admin joggal érhető el (csak erről a gépről, a localhost címen)!");
+    } else if (process.env.RENDER && acc.envFiokok().length === 0 && !process.env.NYILVANOS) {
+        console.warn("⚠️  Nincs ADMIN_PASSWORD beállítva – az admin csak az ADMIN_EMAILS címével (Google) léphet be.");
     } else {
         console.log(`🔒 Fiókos belépés BEKAPCSOLVA (${nyilvanosMod() ? "nyilvános böngészés" : "csak bejelentkezve"}).`);
     }
@@ -64,8 +66,9 @@ function belepes() {
                 }
             }
 
-            // Helyi fejlesztés jelszó nélkül: mindenki admin
-            if (!user && acc.fejlesztoiMod()) {
+            // Helyi fejlesztés jelszó nélkül: admin – de csak erről a gépről
+            // (localhost), proxyn / alagúton át érkező kérésnek soha
+            if (!user && acc.fejlesztoiKeres(req)) {
                 user = await acc.envFiokSor({ user: "local", szerep: "admin" });
             }
 

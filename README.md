@@ -70,6 +70,18 @@ A Render a push után magától újraindul az új kóddal (pár perc).
 - **Kerülethatárok** (Admin → Városok, kerületek → Határok rajzolása): a kerületek határa a térképen. Pontos helyű hirdetésnél ebből dől el a kerület; a csak kerülettel ismert hirdetések a kerület közepére kerülnek.
 - `MEGHIVO_KOD`: ha be van állítva, csak ezzel a kóddal lehet regisztrálni.
 
+## Biztonság
+
+- **Admin jog**: regisztrációval soha nem jár. Az `ADMIN_EMAILS` címe csak igazolt e-mail címmel lesz admin: Google-belépéskor, vagy e-mailes jelszó-visszaállítás után (`users.email_igazolva`). Ha egy nem igazolt, jelszavas fiókot valaki a Google-lel kapcsol össze, a régi jelszó és a munkamenetek törlődnek (a fiók a cím valódi tulajdonosáé).
+- **Helyi fejlesztés jelszó nélkül** (nincs `ADMIN_PASSWORD`/`APP_PASSWORD`): csak a gépről, `localhost`-on érkező kérés kap admin jogot – proxyn / alagúton (pl. Cloudflare Tunnel) át soha, a Renderen pedig egyáltalán nem.
+- **Belépés**: hibás jelszó IP-címenként 15 percen belül 10, fiókonként 20 után szünet; jelszócsere után a többi eszközön kilép.
+- **Kéréskorlát** (`server/middleware/vedelem.js`): IP-címenként / fiókonként percenként 600 olvasás és 120 írás (képek külön 1500), üzenet / ajánlat / foglalás / hirdetésfeladás óránként 40. Az admin nincs korlátozva. Ha az oldal elé Cloudflare kerül, a valódi IP-címhez a `trust proxy` beállítást igazítani kell.
+- **Fejlécek**: Content-Security-Policy (honnan tölthető szkript, stílus, kép), HSTS, Permissions-Policy, X-Frame-Options, nosniff. A CDN-ek vagy a Google-belépés címe ott módosítható, ha változik.
+- **Feltöltések**: csak JPEG / PNG / WebP (a fájl eleje is ellenőrizve), vendégtől legfeljebb 1 MB-os kérés. A nem nyilvános hirdetések (előnézet, eltávolított) fotói csak a jogosultaknak látszanak.
+- **Képtovábbító** (`/api/img`): csak hirdetéshez tartozó külső kép, vagy bejelentkezve (hirdetésfeladás linkről); belső hálózati cím soha (`lib/biztonsagosFetch.js`).
+- **Hibaüzenetek**: a szerverhiba részletei csak az adminnak látszanak.
+- Csomagok: `npm audit` – 0 ismert sérülékenység (2026-10-17). Node 20.9 vagy újabb kell (a `sharp` miatt).
+
 ## Új részek
 
 - **Keresek** (`#igenyek`): a vevők leírják, mit keresnek; az eladók üzenetben válaszolnak, és ajánlhatják a hirdetésüket.

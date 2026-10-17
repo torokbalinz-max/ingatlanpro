@@ -36,7 +36,7 @@ router.get("/api/config", async (req, res) => {
         meghivoKell: !!process.env.MEGHIVO_KOD,
         regisztracio: !/^(0|false|nem|no)$/i.test(String(process.env.REGISZTRACIO || "")),
         email: mail.elerheto(),
-        fejleszto: acc.fejlesztoiMod(),
+        fejleszto: acc.fejlesztoiKeres(req),
         // A jogi oldalakhoz: mely külső szolgáltatások vannak bekapcsolva
         jogi: {
             mail: process.env.BREVO_API_KEY ? "brevo" : (process.env.RESEND_API_KEY ? "resend" : null),
@@ -54,8 +54,8 @@ router.get("/api/config", async (req, res) => {
             helyek: reklamAdat.helyek || {},
             hirdetesek: reklamok
         },
-        // Hibakereséshez: ha induláskor egy táblát nem sikerült létrehozni
-        dbHibak: (db.schemaHibak || []).map(h => h.slice(0, 200))
+        // Hibakereséshez: ha induláskor egy táblát nem sikerült létrehozni (csak az adminnak)
+        dbHibak: req.szerep === "admin" ? (db.schemaHibak || []).map(h => h.slice(0, 200)) : []
     });
 
 });
@@ -144,13 +144,16 @@ router.post("/api/auth/login", async (req, res) => {
 
     try {
 
-        // Csak a hibás próbálkozások számítanak (15 percen belül 10)
-        if (acc.tulSok("login:" + ip(req), 10)) return res.status(429).json({ error: "too_many" });
+        // Csak a hibás próbálkozások számítanak: IP-címenként 15 percen belül 10,
+        // és fiókonként is (sok gépről próbálgatva) 15 percen belül 20
+        const azon = String(req.body.email || req.body.azonosito || "").trim().toLowerCase().slice(0, 200);
+        if (acc.tulSok("login:" + ip(req), 10) || acc.tulSok("loginacc:" + azon, 20)) return res.status(429).json({ error: "too_many" });
 
         const u = await acc.belep(req.body.email || req.body.azonosito, req.body.jelszo || "");
 
         if (!u) {
             acc.jegyez("login:" + ip(req));
+            if (azon) acc.jegyez("loginacc:" + azon);
             return res.status(400).json({ error: "bad_login" });
         }
 
@@ -167,6 +170,7 @@ router.post("/api/auth/login", async (req, res) => {
 router.post("/api/auth/google", async (req, res) => {
 
     try {
+        if (acc.korlat("google:" + ip(req), 30, 15 * 60 * 1000)) return res.status(429).json({ error: "too_many" });
         const u = await acc.googleBelep(String(req.body.credential || ""));
         await acc.munkamenetNyit(res, u, req);
         res.json({ siker: true, user: acc.nyilvanos(u) });
@@ -203,8 +207,11 @@ router.put("/api/auth/profil", csakBelepve, async (req, res) => {
             if (van && van.id !== req.user.id) return res.status(400).json({ error: "email_taken" });
         }
 
+        // Új e-mail cím: amíg nincs igazolva (Google / jelszó-visszaállítás), nem számít igazoltnak
         const r = await db.query(
-            "UPDATE users SET nev = $1, telefon = $2, ertesites_email = $3, email = $4 WHERE id = $5 RETURNING *",
+            `UPDATE users SET nev = $1, telefon = $2, ertesites_email = $3, email = $4,
+                    email_igazolva = CASE WHEN LOWER(COALESCE(email, '')) = LOWER(COALESCE($4, '')) THEN email_igazolva ELSE false END
+             WHERE id = $5 RETURNING *`,
             [nev, telefon, ertesites, email, req.user.id]
         );
 
@@ -225,13 +232,21 @@ router.post("/api/auth/jelszo", csakBelepve, async (req, res) => {
 
         const u = await acc.userById(req.user.id);
 
+        if (acc.tulSok("pwchange:" + u.id, 10)) return res.status(429).json({ error: "too_many" });
+
         if (u.jelszo_hash && !acc.jelszoJo(req.body.regi || "", u.jelszo_hash)) {
+            acc.jegyez("pwchange:" + u.id);
             return res.status(400).json({ error: "bad_password" });
         }
 
         if (String(req.body.uj || "").length < 8) return res.status(400).json({ error: "weak_password" });
 
         await db.query("UPDATE users SET jelszo_hash = $1 WHERE id = $2", [acc.hashJelszo(req.body.uj), u.id]);
+
+        // A többi eszközön kilépteti (ez a böngésző bejelentkezve marad)
+        const most = acc.sutiOlvas(req)[acc.SUTI];
+        await db.query("DELETE FROM munkamenetek WHERE user_id = $1 AND token_hash <> $2", [u.id, most ? acc.tokenHash(most) : ""]);
+        acc.cacheUrit();
 
         res.json({ siker: true });
 
@@ -284,6 +299,7 @@ router.post("/api/auth/elfelejtett", async (req, res) => {
 router.post("/api/auth/uj-jelszo", async (req, res) => {
 
     try {
+        if (acc.korlat("reset:" + ip(req), 20, 60 * 60 * 1000)) return res.status(429).json({ error: "too_many" });
         const u = await acc.jelszoVisszaallit(String(req.body.token || ""), req.body.jelszo);
         await acc.munkamenetNyit(res, u, req);
         res.json({ siker: true, user: acc.nyilvanos(u) });

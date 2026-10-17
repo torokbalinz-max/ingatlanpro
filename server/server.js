@@ -31,14 +31,13 @@ const PUBLIC = path.join(__dirname, "..", "public");
 
 console.log("Server indul...");
 
-// Alap biztonsági fejlécek: a böngésző ne "találgassa" a fájltípust,
-// más oldal ne ágyazhassa be (clickjacking), a hivatkozó cím csak domainnel
-app.use((req, res, next) => {
-    res.set("X-Content-Type-Options", "nosniff");
-    res.set("X-Frame-Options", "SAMEORIGIN");
-    res.set("Referrer-Policy", "strict-origin-when-cross-origin");
-    next();
-});
+// Biztonsági fejlécek: a böngésző ne "találgassa" a fájltípust, más oldal ne
+// ágyazhassa be (clickjacking), honnan tölthet szkriptet (CSP), csak https
+// (HSTS), a hivatkozó cím csak domainnel – részletek: middleware/vedelem.js
+const vedelem = require("./middleware/vedelem");
+app.use(vedelem.fejlecek());
+// Ne árulja el, milyen szerver fut
+app.disable("x-powered-by");
 
 // Tömörítés (gzip): a HTML, JS, CSS és az API JSON-válaszai a töredékükre
 // mennek össze. A képeket, PDF-eket nem tömöríti (azok már tömörítettek).
@@ -125,10 +124,16 @@ app.use(require("./routes/fizetes").stripeWebhook);
 
 app.use(belepes());
 
+// Túl sok kérés egy címről / fiókból (próbálgatás, spam, terhelés) – 429
+app.use(vedelem.korlatozo());
+
 app.use(cors());
 
-// Nagyobb limit a képek miatt (a böngésző előtte lekicsinyíti őket)
-app.use(express.json({ limit: "40mb" }));
+// Nagyobb limit a képek miatt (a böngésző előtte lekicsinyíti őket) – de csak
+// bejelentkezve; vendégtől legfeljebb 1 MB (ne lehessen óriási kérésekkel terhelni)
+const jsonNagy = express.json({ limit: "40mb" });
+const jsonKicsi = express.json({ limit: "1mb" });
+app.use((req, res, next) => (req.user ? jsonNagy : jsonKicsi)(req, res, next));
 
 // ===================== API =====================
 
@@ -160,9 +165,12 @@ app.use(require("./routes/irattar"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {
+    if (err && (err.type === "entity.too.large" || err.status === 413)) return res.status(413).json({ error: "too_large" });
+    if (err && err.type === "entity.parse.failed") return res.status(400).json({ error: "bad_request" });
     console.error(err);
     if (res.headersSent) return next(err);
-    res.status(500).json({ error: "server_error", message: err.message });
+    // A részletek csak az adminnak
+    res.status(500).json(req.szerep === "admin" ? { error: "server_error", message: err.message } : { error: "server_error" });
 });
 
 // ===================== INDÍTÁS =====================

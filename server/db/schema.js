@@ -142,12 +142,18 @@ async function createSchema(db) {
         "tiltva BOOLEAN DEFAULT false",
         // Jogi: mikor és melyik ÁSZF / adatvédelmi verziót fogadta el
         "aszf_elfogadva TIMESTAMP",
-        "aszf_verzio TEXT"
+        "aszf_verzio TEXT",
+        // Biztonság: igazolta-e, hogy az e-mail cím az övé (Google-belépés vagy
+        // e-mailes jelszó-visszaállítás). Admin jog csak igazolt címre jár.
+        "email_igazolva BOOLEAN DEFAULT false"
     ];
 
     for (const o of userOszlopok) {
         await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${o}`);
     }
+
+    // A Google-lel belépett fiókok címe igazolt
+    await db.query(`UPDATE users SET email_igazolva = true WHERE google_id IS NOT NULL AND email_igazolva IS NOT TRUE`);
 
     await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_felhasznalonev ON users (LOWER(felhasznalonev))`);
     await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower ON users (LOWER(email))`);

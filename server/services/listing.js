@@ -169,6 +169,12 @@ function parseKepek(lista) {
 
         if (buf.length === 0 || buf.length > 4 * 1024 * 1024) return null;
 
+        // A fájl eleje is egyezzen a típussal (ne lehessen mást képnek álcázni)
+        const jo = (m[1] === "image/jpeg" && buf[0] === 0xff && buf[1] === 0xd8)
+            || (m[1] === "image/png" && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47)
+            || (m[1] === "image/webp" && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP");
+        if (!jo) return null;
+
         return { mime: m[1], adat: buf };
 
     }).filter(Boolean);
