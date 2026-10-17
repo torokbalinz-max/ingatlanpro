@@ -9,8 +9,9 @@ class Types {
         { key: "lakas", icon: "fa-solid fa-building", label: "typeLakas", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, becsles: true },
         { key: "haz", icon: "fa-solid fa-house-chimney", label: "typeHaz", fields: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true, jelleg: false }, becsles: false },
         { key: "telek", icon: "fa-solid fa-mountain-sun", label: "typeTelek", fields: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true, jelleg: true }, becsles: false },
-        { key: "kereskedelmi", icon: "fa-solid fa-store", label: "typeKereskedelmi", fields: { szobak: false, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, becsles: true },
-        { key: "iroda", icon: "fa-solid fa-briefcase", label: "typeIroda", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, becsles: true }
+        // Üzlet, iroda: gyakran külön épület – a szobaszám és az emelet megadható, de nem kötelező
+        { key: "kereskedelmi", icon: "fa-solid fa-store", label: "typeKereskedelmi", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, nemKotelezo: ["szobak", "emelet"], becsles: true },
+        { key: "iroda", icon: "fa-solid fa-briefcase", label: "typeIroda", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, nemKotelezo: ["szobak", "emelet"], becsles: true }
     ];
 
     // Az értékbecslő csak ott pontos, ahol sok hasonló ingatlan van
@@ -63,6 +64,12 @@ class Types {
         return f;
     }
 
+    // Kötelező-e a mező ennél a típusnál (ha egyáltalán van)
+    static kotelezo(tipus, mezo, varos) {
+        const f = Types.fieldsFor(tipus, varos);
+        return !!f[mezo] && !(Types.get(tipus).nemKotelezo || []).includes(mezo);
+    }
+
     // Egy hirdetés mezői (a típusa és a városa szerint)
     static fieldsOf(i) {
         return Types.fieldsFor(i && i.tipus, i && i.varos);
@@ -73,9 +80,16 @@ class Types {
 
         const f = Types.fieldsFor(tipus, varos);
 
+        const opc = Types.get(tipus).nemKotelezo || [];
+
         document.querySelectorAll(`${rootSelector} [data-field]`).forEach(el => {
             const k = el.dataset.field;
             el.style.display = f[k] === false ? "none" : "";
+            // A kötelező jel (*) csak ott, ahol ennél a típusnál kötelező
+            el.querySelectorAll("label.req, label[data-req]").forEach(l => {
+                l.dataset.req = "1";
+                l.classList.toggle("req", !opc.includes(k));
+            });
         });
 
     }

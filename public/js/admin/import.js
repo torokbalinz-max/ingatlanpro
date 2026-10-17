@@ -127,6 +127,7 @@ AdminManager.pollJob = function (jobId, boxId) {
             mar_megvan: I18n.t("importResExists"),
             lista: I18n.t("importResList"),
             hiba: I18n.t("importResError"),
+            letiltva: I18n.t("importResBlocked"),
             nem_elerheto: I18n.t("importResUnavailable"),
             rendben: I18n.t("importResOk"),
             frissitve: I18n.t("importResUpdated"),
@@ -147,16 +148,17 @@ AdminManager.pollJob = function (jobId, boxId) {
                         <span class="badge text-bg-info">${job.frissitett} ${I18n.t("importResUpdated")}</span>
                         <span class="badge text-bg-secondary">${job.kihagyott} ${I18n.t(job.tipus === "figyeles" || job.tipus === "egy" ? "importResOk" : "importResExists")}</span>
                         ${job.nemElerheto ? `<span class="badge text-bg-dark">${job.nemElerheto} ${I18n.t("importResUnavailable")}</span>` : ""}
+                        ${job.letiltva ? `<span class="badge text-bg-warning" title="${Utils.escape(I18n.t("importResBlockedHelp"))}">${job.letiltva} ${I18n.t("importResBlocked")}</span>` : ""}
                         <span class="badge text-bg-danger">${job.hibak} ${I18n.t("importResError")}</span>
                     </div>
                     <div class="importLog">
                         ${job.naplo.slice().reverse().map(n => `
                             <div class="small">
-                                <span class="badge ${n.eredmeny === "uj" ? "text-bg-success" : n.eredmeny === "hiba" ? "text-bg-danger" : "text-bg-light"}">${szoveg[n.eredmeny] || n.eredmeny}</span>
+                                <span class="badge ${n.eredmeny === "uj" ? "text-bg-success" : n.eredmeny === "hiba" ? "text-bg-danger" : n.eredmeny === "letiltva" ? "text-bg-warning" : "text-bg-light"}">${szoveg[n.eredmeny] || n.eredmeny}</span>
                                 ${n.url ? `<a href="${Utils.escape(n.url)}" target="_blank" rel="noopener">${Utils.escape(n.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80))}</a>` : ""}
                                 ${n.db !== undefined ? `(${n.db})` : ""}
                                 ${n.ok === "nincs_a_listaban" ? `<span class="text-muted">${I18n.t("importResNotInList")}</span>` : ""}
-                                ${n.uzenet ? `<span class="text-danger">${Utils.escape(n.uzenet)}</span>` : ""}
+                                ${n.uzenet ? `<span class="${n.eredmeny === "letiltva" ? "text-body-secondary" : "text-danger"}">${Utils.escape(n.uzenet)}</span>` : ""}
                                 ${n.regi ? `${Utils.eur(n.regi)} → ${Utils.eur(n.uj)}` : ""}
                                 ${n.hianyzo && n.hianyzo.length ? n.hianyzo.map(m => `<span class="badge text-bg-warning">${I18n.t("field_" + m)}</span>`).join(" ") : ""}
                                 ${n.problemak && n.problemak.length ? n.problemak.map(m => `<span class="badge text-bg-danger">${I18n.t("prob_" + m)}</span>`).join(" ") : ""}

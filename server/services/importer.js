@@ -48,6 +48,7 @@ function ujJob(tipus) {
         kihagyott: 0,
         nemElerheto: 0,
         hibak: 0,
+        letiltva: 0,      // a forrásoldal letiltott (403 / 429): most kihagyva, legközelebb újra
         naplo: [],
         kezdes: new Date().toISOString(),
         vege: null
@@ -271,8 +272,14 @@ function tiltasUzenet(url, status) {
     if (status === 403 && /imobiliare\.ro/i.test(url)) {
         return "HTTP 403 – az imobiliare.ro letiltja a szervert. Használd ugyanennek a keresésnek az Imoradar24-es linkjét (ott minden imobiliare hirdetés benne van).";
     }
+    if ((status === 403 || status === 429) && /(olx|storia)\.ro/i.test(url)) {
+        return `HTTP ${status} – az OLX / Storia bot-védelme most letiltja a szervert. A hirdetés változatlan marad, a következő ellenőrzés újra próbálja.`;
+    }
     return `HTTP ${status}`;
 }
+
+const tiltasHiba = e => /HTTP (403|429)/.test(String(e && e.message));
+const oldalNev = url => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch (e) { return "?"; } };
 
 // Egy teljesen végigolvasott találati listából hiányzó imobiliare-hirdetések:
 // ezeket eladták / levették → "nem elérhető" (az admin visszaállíthatja)
@@ -636,14 +643,45 @@ async function figyelesFuttat(job, opts) {
         job.osszes += lista.length;
         job.allapot = "fut";
 
+        // Ha egy oldal sorban többször letilt (403 / 429), a többi hirdetését most
+        // nem próbáljuk (csak terhelnénk, és még jobban letiltana) – a következő
+        // ellenőrzés újra megpróbálja őket. A hirdetések addig változatlanok.
+        const tiltasSor = new Map();      // oldal -> egymás utáni letiltások
+        const letiltott = new Set();
+        const TILTAS_HATAR = 3;
+
         for (const i of lista) {
+
+            const oldal = oldalNev(i.link);
+
+            if (letiltott.has(oldal)) {
+                job.letiltva++;
+                job.kesz++;
+                continue;
+            }
 
             try {
                 await frissitForrasbol(i, job);
+                tiltasSor.set(oldal, 0);
             } catch (e) {
-                job.hibak++;
-                naplo(job, { url: i.link, eredmeny: "hiba", uzenet: e.message, id: i.id });
-                await db.query("UPDATE ingatlanok SET utolso_ellenorzes = NOW() WHERE id = $1", [i.id]);
+                if (tiltasHiba(e)) {
+                    // Letiltás: nem a hirdetés hibája – az ellenőrzés idejét nem állítjuk,
+                    // így legközelebb elsőként próbálja újra
+                    job.letiltva++;
+                    const n = (tiltasSor.get(oldal) || 0) + 1;
+                    tiltasSor.set(oldal, n);
+                    if (n >= TILTAS_HATAR) {
+                        letiltott.add(oldal);
+                        const marad = lista.filter(x => oldalNev(x.link) === oldal).length;
+                        naplo(job, { url: i.link, eredmeny: "letiltva", uzenet: `${tiltasUzenet(i.link, Number((/HTTP (\d+)/.exec(e.message) || [])[1]) || 403)} (${oldal}: a többi hirdetése – összesen ${marad} – most kimarad)` });
+                    } else {
+                        naplo(job, { url: i.link, eredmeny: "letiltva", uzenet: tiltasUzenet(i.link, Number((/HTTP (\d+)/.exec(e.message) || [])[1]) || 403), id: i.id });
+                    }
+                } else {
+                    job.hibak++;
+                    naplo(job, { url: i.link, eredmeny: "hiba", uzenet: e.message, id: i.id });
+                    await db.query("UPDATE ingatlanok SET utolso_ellenorzes = NOW() WHERE id = $1", [i.id]);
+                }
             }
 
             job.kesz++;

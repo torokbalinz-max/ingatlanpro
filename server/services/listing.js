@@ -16,9 +16,16 @@ const TIPUS_MEZOK = {
     lakas: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false },
     haz: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true },
     telek: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true, jelleg: true },
-    kereskedelmi: { szobak: false, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false },
-    iroda: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false }
+    // Üzlet, iroda: gyakran külön épület (nincs emelet), és a helyiségek száma sem
+    // mindig értelmes – megadható, de nem kötelező, és a hiánya nem hiba
+    kereskedelmi: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, nemKotelezo: ["szobak", "emelet"] },
+    iroda: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, nemKotelezo: ["szobak", "emelet"] }
 };
+
+// Kötelező-e a mező ennél a típusnál (ha egyáltalán van)
+function kotelezo(mezok, mezo) {
+    return !!mezok[mezo] && !(mezok.nemKotelezo || []).includes(mezo);
+}
 
 // Hely pontossága: pontos (térképen megjelölve / a forrás adta),
 // utca (utcanévből), kozelito (környékből / településből becsülve),
@@ -133,9 +140,9 @@ function hianyzoMezok(d, opts = {}) {
     // azokat a kerület-párosítás (Admin → Városok, kerületek) intézi
     if (mezok.kerulet && mod !== "import" && opts.vannakKeruletek && !d.kerulet) h.push("kerulet");
 
-    if (mezok.szobak && d.tipus !== "kereskedelmi" && !(d.szobak > 0)) h.push("szobak");
+    if (kotelezo(mezok, "szobak") && !(d.szobak > 0)) h.push("szobak");
 
-    if (mezok.emelet && (d.emelet === null || d.emelet === undefined || d.emelet === "")) h.push("emelet");
+    if (kotelezo(mezok, "emelet") && (d.emelet === null || d.emelet === undefined || d.emelet === "")) h.push("emelet");
 
     if (mezok.telek && !(d.telek_nm > 0)) h.push("telek_nm");
 

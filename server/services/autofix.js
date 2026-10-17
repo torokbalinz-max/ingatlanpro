@@ -366,4 +366,38 @@ async function keruletIgazitas() {
 
 }
 
-module.exports = { javaslat, helyKeres, indit, allapot, indulaskor, keruletIgazitas, beallitas, VERZIO };
+// Üzlet, iroda: a szobaszám és az emelet már nem kötelező. A meglévő hirdetések
+// hiányzó adatai közül egyszer kivesszük őket, és ha emiatt voltak
+// ellenőrizendők, most rendben vannak (ha más gond nincs).
+async function nemKotelezoFrissit() {
+    try {
+        await db.ready;
+        if (await beallitas("nem_kotelezo_v1")) return;
+        const r = await db.query(`
+            SELECT i.*, (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db
+            FROM ingatlanok i
+            WHERE i.tipus IN ('kereskedelmi', 'iroda')
+              AND (COALESCE(i.hianyzo, '[]'::jsonb) ? 'szobak' OR COALESCE(i.hianyzo, '[]'::jsonb) ? 'emelet')`);
+        let db_ = 0;
+        for (const i of r.rows) {
+            const hianyzo = (Array.isArray(i.hianyzo) ? i.hianyzo : []).filter(m => m !== "szobak" && m !== "emelet");
+            let ellenorzott = !!i.ellenorzott;
+            if (!ellenorzott) {
+                const q = await quality.ertekel(i, {
+                    mod: i.forras_tipus === "import" ? "import" : (i.link ? "link" : "kezi"),
+                    jovahagyva: i.jovahagyva,
+                    kepDb: (i.kep_db || 0) + (Array.isArray(i.kulso_kepek) ? i.kulso_kepek.length : 0)
+                });
+                ellenorzott = q.ellenorzott;
+            }
+            await db.query("UPDATE ingatlanok SET hianyzo = $1::jsonb, ellenorzott = $2 WHERE id = $3", [JSON.stringify(hianyzo), ellenorzott, i.id]);
+            db_++;
+        }
+        await beallitas("nem_kotelezo_v1", new Date().toISOString());
+        if (db_) console.log(`Üzlet / iroda: ${db_} hirdetésnél a szobaszám / emelet már nem hiányzó adat.`);
+    } catch (e) {
+        console.error("Üzlet / iroda frissítése:", e.message);
+    }
+}
+
+module.exports = { javaslat, helyKeres, indit, allapot, indulaskor, keruletIgazitas, nemKotelezoFrissit, beallitas, VERZIO };

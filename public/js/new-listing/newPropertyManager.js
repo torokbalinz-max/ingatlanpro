@@ -501,8 +501,8 @@ class NewPropertyManager {
         if (!(d.ar > 0)) h.push("ar");
         if (!(d.nm > 0)) h.push("nm");
         if (f.telek && !(d.telek_nm > 0)) h.push("telek_nm");
-        if (f.szobak && d.tipus !== "kereskedelmi" && !(d.szobak > 0)) h.push("szobak");
-        if (f.emelet && d.emelet === "") h.push("emelet");
+        if (Types.kotelezo(d.tipus, "szobak", d.varos) && !(d.szobak > 0)) h.push("szobak");
+        if (Types.kotelezo(d.tipus, "emelet", d.varos) && d.emelet === "") h.push("emelet");
         if (f.allapot && !d.allapot) h.push("allapot");
         if (f.jelleg && !d.telek_jelleg) h.push("telek_jelleg");
         if (!d.varos) h.push("varos");

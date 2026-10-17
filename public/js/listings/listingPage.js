@@ -229,8 +229,8 @@ class ListingPage {
                     <div class="row g-3 mt-3">
                         ${ListingPage.fact("fa-solid fa-ruler-combined", I18n.t(i.tipus === "telek" ? "searchTelekNm" : "detailNm"), i.nm ? Utils.nm(i.nm) : "")}
                         ${t.fields.telek ? ListingPage.fact("fa-solid fa-tree", I18n.t("newTelekNm"), i.telek_nm ? Utils.nm(i.telek_nm) : "") : ""}
-                        ${t.fields.szobak ? ListingPage.fact("fa-solid fa-bed", I18n.t("detailSzoba"), i.szobak || "") : ""}
-                        ${t.fields.emelet ? ListingPage.fact("fa-solid fa-stairs", I18n.t("detailEmelet"), i.emelet || "") : ""}
+                        ${t.fields.szobak && (i.szobak || Types.kotelezo(i.tipus, "szobak", i.varos)) ? ListingPage.fact("fa-solid fa-bed", I18n.t("detailSzoba"), i.szobak || "") : ""}
+                        ${t.fields.emelet && (i.emelet || Types.kotelezo(i.tipus, "emelet", i.varos)) ? ListingPage.fact("fa-solid fa-stairs", I18n.t("detailEmelet"), i.emelet || "") : ""}
                         ${t.fields.allapot ? ListingPage.fact("fa-solid fa-screwdriver-wrench", I18n.t("detailAllapot"), i.allapot ? Utils.allapotLabel(i.allapot) : "", Utils.allapotBecsult(i) ? I18n.t("condFromTextShort") : "") : ""}
                         ${ListingPage.fact("fa-solid fa-euro-sign", I18n.t("detailArNm"), Utils.arNm(i) ? Utils.eurNm(Utils.arNm(i)) : "")}
                     </div>

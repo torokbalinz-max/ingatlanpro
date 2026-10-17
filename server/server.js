@@ -186,6 +186,7 @@ app.listen(PORT, () => {
     setTimeout(() => {
         const autofix = require("./services/autofix");
         autofix.indulaskor()
+            .then(() => autofix.nemKotelezoFrissit())
             .then(() => autofix.keruletIgazitas())
             .then(() => require("./services/kornyek").indulaskor());
     }, 5000);

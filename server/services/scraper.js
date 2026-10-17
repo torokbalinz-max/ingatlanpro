@@ -11,7 +11,7 @@ const cheerio = require("cheerio");
 const { arHiheto } = require("./textParse");
 const { biztonsagosFetch } = require("../lib/biztonsagosFetch");
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+const { oldalFejlecek } = require("../lib/bongeszo");
 
 // Egy hirdetés linkjének mintái oldalanként
 const LISTING_PATTERNS = [
@@ -35,16 +35,20 @@ function isRoam(url) {
 
 // Csak nyilvános internetes oldal kérhető le (belső hálózat nem – SSRF-védelem),
 // az átirányításokat is ellenőrizve követjük
-async function fetchPage(url) {
+async function fetchPage(url, ujra = true) {
 
     const res = await biztonsagosFetch(url, {
-        headers: {
-            "User-Agent": UA,
-            "Accept": "text/html,application/xhtml+xml",
-            "Accept-Language": "ro-RO,ro;q=0.9,hu;q=0.8,en;q=0.7"
-        },
+        headers: oldalFejlecek(),
         signal: AbortSignal.timeout(25000)
     });
+
+    // Letiltás / túl sok kérés (bot-védelem): egy kis szünet után még egyszer
+    if ((res.status === 403 || res.status === 429) && ujra) {
+        try { if (res.body) await res.body.cancel(); } catch (e) { /* nem baj */ }
+        const varj = Math.min(30, Math.max(5, Number(res.headers.get("retry-after")) || 8));
+        await new Promise(r => setTimeout(r, varj * 1000));
+        return fetchPage(url, false);
+    }
 
     const html = await res.text();
 

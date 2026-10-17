@@ -63,7 +63,9 @@
             cs3_resz_ellenorzes: "Ellenőrzés ebben a városban",
             cs3_reszSugo_ellenorzes: "ellenőrzésre vár, hely-ellenőrzés, állapot, nem elérhetők, bejelentések – csak ennek a városnak a hirdetései",
             cs2_reszSugo_ellenorzes: "jóváhagyás, hely, állapot, duplikátumok – az egész oldalra (egy városra: lent)",
-            cs2_reszSugo_helyek: "városok, kerületek, környék, hely-ellenőrzés"
+            cs2_reszSugo_helyek: "városok, kerületek, környék, hely-ellenőrzés",
+            importResBlocked: "letiltva, később újra",
+            importResBlockedHelp: "A forrásoldal (pl. OLX, Storia) bot-védelme most nem engedte a lekérést. Ezek a hirdetések változatlanok maradnak, és a következő ellenőrzés elsőként újra próbálja őket."
         },
         ro: {
             adminTabPhotos: "Fotografii",
@@ -117,7 +119,9 @@
             cs3_resz_ellenorzes: "Verificare în acest oraș",
             cs3_reszSugo_ellenorzes: "de verificat, verificare locație, stare, indisponibile, sesizări – doar anunțurile acestui oraș",
             cs2_reszSugo_ellenorzes: "aprobare, loc, stare, duplicate – pentru tot site-ul (pentru un oraș: mai jos)",
-            cs2_reszSugo_helyek: "orașe, cartiere, împrejurimi, verificare locație"
+            cs2_reszSugo_helyek: "orașe, cartiere, împrejurimi, verificare locație",
+            importResBlocked: "blocate, se reîncearcă",
+            importResBlockedHelp: "Protecția anti-bot a site-ului sursă (ex. OLX, Storia) nu a permis accesul acum. Aceste anunțuri rămân neschimbate, iar următoarea verificare le reîncearcă primele."
         },
         en: {
             adminTabPhotos: "Photos",
@@ -171,7 +175,9 @@
             cs3_resz_ellenorzes: "Review in this city",
             cs3_reszSugo_ellenorzes: "to review, location check, condition, unavailable, reports – only this city's listings",
             cs2_reszSugo_ellenorzes: "approval, location, condition, duplicates – whole site (one city: below)",
-            cs2_reszSugo_helyek: "cities, districts, surroundings, location check"
+            cs2_reszSugo_helyek: "cities, districts, surroundings, location check",
+            importResBlocked: "blocked, will retry",
+            importResBlockedHelp: "The source site's bot protection (e.g. OLX, Storia) refused the request right now. These listings stay unchanged and the next check retries them first."
         }
     };
 
