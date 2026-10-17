@@ -161,6 +161,7 @@ class TableManager {
                 getRowId: p => String(p.data.id),
                 animateRows: true,
                 pagination: true,
+            localeText: typeof GridLocale !== "undefined" ? GridLocale.get() : undefined,
                 paginationPageSize: 25,
                 paginationPageSizeSelector: [25, 50, 100, 250],
                 // Tömeges szerkesztéshez kijelölés – csak adminnak

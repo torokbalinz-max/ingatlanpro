@@ -38,13 +38,20 @@ class HelpPage {
     // Egy téma tartalma HTML-ben (a szöveg a saját tartalmunk, megbízható)
     static temaHtml(t) {
 
-        let html = `<h2 class="helpTopicTitle"><i class="${t.icon}" aria-hidden="true"></i> ${t.title}</h2>`;
+        let html = `<h2 class="helpTopicTitle"><span class="helpTopicIcon"><i class="${t.icon}" aria-hidden="true"></i></span> ${t.title}</h2>`;
 
         if (t.intro) html += `<p class="helpIntro">${t.intro}</p>`;
 
-        t.sections.forEach(s => {
+        // Képernyőképek a témához (helpImages.js) – a megadott szakasz után
+        const kepek = (typeof HELP_KEPEK !== "undefined" && HELP_KEPEK[t.id]) || [];
+        const kepHtml = utan => kepek.filter(k => Math.min(k.utan, t.sections.length - 1) === utan).map(HelpPage.kepHtml).join("");
+
+        html += kepHtml(-1);
+
+        t.sections.forEach((s, idx) => {
             if (s.tip) {
                 html += `<div class="helpTip"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i><span>${s.tip}</span></div>`;
+                html += kepHtml(idx);
                 return;
             }
             html += `<section class="helpSection">`;
@@ -53,6 +60,7 @@ class HelpPage {
             if (s.ul) html += `<ul>${s.ul.map(x => `<li>${x}</li>`).join("")}</ul>`;
             if (s.steps) html += `<ol class="helpSteps">${s.steps.map(x => `<li>${x}</li>`).join("")}</ol>`;
             html += `</section>`;
+            html += kepHtml(idx);
         });
 
         // A "Jó tudni" téma alján a kezdőlapról ideköltözött pontok
@@ -70,8 +78,69 @@ class HelpPage {
             html += `<a class="btn btn-outline-primary btn-sm mt-2" href="#${oldal[0]}">${I18n.t("helpGoToPage")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>`;
         }
 
+        // Az „Első lépések” végén: az összes téma áttekintése
+        if (t.id === "kezdes") html += HelpPage.attekintesHtml();
+
+        // Előző / következő téma
+        const temak = HelpPage.temak();
+        const i = temak.findIndex(x => x.id === t.id);
+        const elozo = temak[i - 1], kov = temak[i + 1];
+        if (elozo || kov) {
+            const cim = x => String(x.title).replace(/<[^>]+>/g, "");
+            html += `
+                <nav class="helpPager" aria-label="${Utils.escape(I18n.t("helpTitle"))}">
+                    ${elozo ? `<a class="helpPagerLink prev" href="#sugo/${elozo.id}"><small><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> ${I18n.t("helpPrev")}</small><b>${Utils.escape(cim(elozo))}</b></a>` : "<span></span>"}
+                    ${kov ? `<a class="helpPagerLink next" href="#sugo/${kov.id}"><small>${I18n.t("helpNext")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></small><b>${Utils.escape(cim(kov))}</b></a>` : ""}
+                </nav>`;
+        }
+
         return html;
 
+    }
+
+    // Egy képernyőkép a súgóban: kattintásra nagyban (a képnagyító ablakban)
+    static kepHtml(k) {
+        const nyelv = ["hu", "ro", "en"].includes(I18n.current) ? I18n.current : "en";
+        const src = `img/sugo/${nyelv}/${k.kep}.webp`;
+        const felirat = (k.f && (k.f[nyelv] || k.f.en)) || "";
+        const alt = felirat.replace(/<[^>]+>/g, "");
+        return `
+            <figure class="helpFig${k.mobil ? " mobil" : ""}">
+                <button type="button" class="helpFigImg" data-help-zoom="${Utils.escape(src)}" aria-label="${Utils.escape(I18n.t("helpZoom"))}">
+                    <img src="${Utils.escape(src)}" alt="${Utils.escape(alt)}" loading="lazy" decoding="async">
+                    <span class="helpFigZoom"><i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i></span>
+                </button>
+                ${felirat ? `<figcaption>${felirat}</figcaption>` : ""}
+            </figure>`;
+    }
+
+    // A témák rácsa (ikon, cím, egy mondat) – gyors áttekintés
+    static attekintesHtml() {
+        const tiszta = x => String(x || "").replace(/<[^>]+>/g, "").trim();
+        const leiras = t => {
+            const elso = tiszta(t.intro) || tiszta((t.sections.find(s => s.p) || {}).p) || tiszta(((t.sections.find(s => s.ul) || {}).ul || [])[0]);
+            return elso.length > 110 ? elso.slice(0, 107).replace(/\s+\S*$/, "") + "…" : elso;
+        };
+        return `
+            <section class="helpSection">
+                <h3>${I18n.t("helpAllTopics")}</h3>
+                <div class="helpTopicGrid">
+                    ${HelpPage.temak().filter(t => t.id !== "kezdes").map(t => `
+                        <a class="helpTopicCard${t.admin ? " admin" : ""}" href="#sugo/${t.id}">
+                            <span class="helpTopicIcon"><i class="${t.icon}" aria-hidden="true"></i></span>
+                            <span><b>${t.title}</b><small>${Utils.escape(leiras(t))}</small></span>
+                        </a>`).join("")}
+                </div>
+            </section>`;
+    }
+
+    // Kép nagyítása: a meglévő képnagyító ablak (photoModal)
+    static zoom(src) {
+        const body = document.getElementById("photoModalBody");
+        const el = document.getElementById("photoModal");
+        if (!body || !el || typeof bootstrap === "undefined") { window.open(src, "_blank", "noopener"); return; }
+        body.innerHTML = `<img src="${Utils.escape(src)}" alt="" style="width:100%;height:auto;display:block;border-radius:6px">`;
+        bootstrap.Modal.getOrCreateInstance(el).show();
     }
 
     // Keresés: a témák szövegében (HTML nélkül, ékezetfüggetlenül)
@@ -149,6 +218,7 @@ class HelpPage {
                 body.querySelectorAll("[data-clear-search]").forEach(a => a.addEventListener("click", () => { HelpPage.kereses = ""; }));
             } else {
                 body.innerHTML = `<div class="card-body">${HelpPage.temaHtml(aktiv)}</div>`;
+                body.querySelectorAll("[data-help-zoom]").forEach(b => { b.onclick = () => HelpPage.zoom(b.dataset.helpZoom); });
             }
         };
 

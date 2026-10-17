@@ -57,7 +57,8 @@ class HomePage {
             db: lista.length,
             varos: CityManager.displayName(DataManager.currentCity),
             atlag,
-            foto: lista.filter(Utils.hasPhoto).length
+            foto: lista.filter(Utils.hasPhoto).length,
+            ujHet: lista.filter(i => i.created_at && new Date(i.created_at).getTime() >= Date.now() - 7 * 86400000).length
         };
 
     }
@@ -167,7 +168,9 @@ class HomePage {
                 <div><b>${Utils.num(s.db)}</b><span>${t("homeStatListings")}</span></div>
                 <div><b>${esc(s.varos)}</b><span>${t("homeStatCity")}</span></div>
                 <div><b>${s.atlag ? Utils.eurNm(s.atlag) : "-"}</b><span>${t("homeStatAvg")}</span></div>
-                <div><b>${Utils.num(s.foto)}</b><span>${t("homeStatPhotos")}</span></div>
+                ${s.foto > 0
+                    ? `<div><b>${Utils.num(s.foto)}</b><span>${t("homeStatPhotos")}</span></div>`
+                    : `<div><b>${Utils.num(s.ujHet)}</b><span>${t("dbNewWeek")}</span></div>`}
             </section>
 
             ${typeof AdSlots !== "undefined" ? AdSlots.slot("home_top", "homeAd homeAdTop") : ""}

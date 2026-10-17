@@ -8,7 +8,19 @@ class DashboardManager {
         const ervenyes = Utils.valid(lista).filter(Utils.verified);
 
         document.getElementById("dbCount").innerText = Utils.num(lista.length);
-        document.getElementById("dbPhotos").innerText = Utils.num(lista.filter(Utils.hasPhoto).length);
+        // A 4. kártya: fényképes hirdetések száma – ha egy sincs, inkább az elmúlt 7 nap új hirdetései
+        // („Fényképes: 0” rosszul mutatna a látogatónak)
+        const fotos = lista.filter(Utils.hasPhoto).length;
+        const hetNap = Date.now() - 7 * 86400000;
+        const uj = lista.filter(i => i.created_at && new Date(i.created_at).getTime() >= hetNap).length;
+        const kartya = document.getElementById("dbPhotos");
+        const cimke = kartya.parentElement.querySelector("small");
+        const ikon = kartya.closest(".kpiCard").querySelector(".kpiIcon i");
+        const mutatFoto = fotos > 0;
+        cimke.setAttribute("data-i18n", mutatFoto ? "dbFotos" : "dbNewWeek");
+        cimke.innerText = I18n.t(mutatFoto ? "dbFotos" : "dbNewWeek");
+        ikon.className = mutatFoto ? "fa-solid fa-camera" : "fa-solid fa-bolt";
+        kartya.innerText = Utils.num(mutatFoto ? fotos : uj);
 
         if (ervenyes.length === 0) {
 

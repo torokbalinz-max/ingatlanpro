@@ -46,7 +46,7 @@
 //
 //  A /api/admin/ertekbecslo-teszt a valós adatokon méri a pontosságot
 //  (minden hirdetést a többi alapján becsül meg), és összeveti az előző
-//  változattal (services/valuationV2.js).
+//  változattal (a 2. változat modellje itt, a tesztben számolódik).
 // ============================================================
 
 const db = require("../db/database");

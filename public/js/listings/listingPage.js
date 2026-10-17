@@ -88,7 +88,10 @@ class ListingPage {
                             ${ListingPage.kepek.map((k, idx) => `<img src="${Utils.escape(k)}" data-idx="${idx}" class="${idx === 0 ? "active" : ""}" referrerpolicy="no-referrer" loading="lazy" alt="">`).join("")}
                         </div>` : ""}
                 </div>`
-            : `<div class="gallery noPhotos"><i class="${t.icon}"></i><span>${I18n.t("noPhotos")}</span></div>`;
+            : `<div class="gallery noPhotos" data-tipus="${Utils.escape(i.tipus || "")}">
+                    <span class="npIcon"><i class="${t.icon}" aria-hidden="true"></i></span>
+                    <span class="npText"><b>${Utils.escape(Types.label(i.tipus))} · ${Utils.escape(hely)}</b><span>${I18n.t("noPhotos")}</span></span>
+               </div>`;
 
         // Hol van meghirdetve
         const linkek = [i.link, ...(i.tovabbi_linkek || [])].filter(l => l && Sources.fromLink(l) !== "other");

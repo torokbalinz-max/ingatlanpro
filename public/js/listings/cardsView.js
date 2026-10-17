@@ -92,11 +92,11 @@ class CardsView {
         return `
             <div class="col-sm-6 col-xl-4 col-4k-3">
                 <article class="listingCard${CardsView.kiemelt(i) ? " isFeatured" : ""}" data-id="${i.id}">
-                    <div class="listingThumb">
+                    <div class="listingThumb${foto ? "" : " noPhoto"}" data-tipus="${Utils.escape(i.tipus || "")}">
                         ${foto
                             ? `<img src="${Utils.escape(foto)}" loading="lazy" referrerpolicy="no-referrer" alt="" onerror="this.parentElement.classList.add('noPhoto');this.remove();">`
                             : ""}
-                        <span class="listingThumbEmpty"><i class="${Types.get(i.tipus).icon}"></i></span>
+                        <span class="listingThumbEmpty"><i class="${Types.get(i.tipus).icon}"></i><small>${Utils.escape(CityManager.helyReszLabel(i) || Types.label(i.tipus))}</small></span>
                         <button class="favBtn ${fav ? "active" : ""}" data-fav="${i.id}" title="${I18n.t("favAdd")}">${fav ? "★" : "☆"}</button>
                         ${CardsView.kiemelt(i) ? `<span class="featuredBadge"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("featured")}</span>` : ""}
                         ${i.kep_db > 1 ? `<span class="photoCount"><i class="fa-solid fa-camera"></i> ${i.kep_db}</span>` : ""}

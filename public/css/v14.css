@@ -1,0 +1,493 @@
+/* ============================================================
+   14. változat: prémium megjelenés a nyilvános oldalakon
+   (kezdőlap, hirdetések, térkép, értékbecslő, piac, eladás, fiók, súgó)
+
+   Az admin felület NEM változik: minden szabály a
+   body:not([data-page="admin"]) alatt van (a PageManager állítja).
+   A régi szabályokat nem töröljük – ez a réteg finomít rajtuk.
+   ============================================================ */
+
+/* ---------- Javítás mindenhol: a táblázat-görgető ne engedje ki a rejtett feliratot
+   (különben telefonon az egész oldal oldalra görgethető lett – pl. Piaci elemzés) ---------- */
+.table-responsive { position: relative; }
+
+/* ---------- Színek, árnyékok, lekerekítés ---------- */
+body:not([data-page="admin"]) {
+    --ip-bg: #f4f5f2;
+    --ip-border: #e3e6e1;
+    --ip-border-soft: #eceee9;
+    --ip-ink: #14201b;
+    --ip-radius: 16px;
+    --ip-radius-sm: 10px;
+    --ip-shadow: 0 1px 2px rgba(20, 32, 27, 0.04), 0 6px 20px rgba(20, 32, 27, 0.05);
+    --ip-shadow-lift: 0 2px 6px rgba(20, 32, 27, 0.06), 0 20px 44px rgba(20, 32, 27, 0.12);
+    --ip-grad: linear-gradient(135deg, #1f6f5c 0%, #17574a 100%);
+    --ip-gold: #c9a227;
+}
+[data-bs-theme="dark"] body:not([data-page="admin"]) {
+    --ip-bg: #0f1211;
+    --ip-border: #262c29;
+    --ip-border-soft: #1f2422;
+    --ip-ink: #eef2f0;
+    --ip-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+    --ip-shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.45), 0 22px 48px rgba(0, 0, 0, 0.45);
+    --ip-grad: linear-gradient(135deg, #2c8a73 0%, #1f6f5c 100%);
+}
+
+body:not([data-page="admin"]) {
+    background: var(--ip-bg);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* ---------- Tipográfia ---------- */
+body:not([data-page="admin"]) h1,
+body:not([data-page="admin"]) h2,
+body:not([data-page="admin"]) h3,
+body:not([data-page="admin"]) .homeH2 {
+    letter-spacing: -0.025em;
+    color: var(--ip-ink);
+}
+body:not([data-page="admin"]) .pageHeader { margin-bottom: 1.75rem; }
+body:not([data-page="admin"]) .pageHeader h2 {
+    font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.2rem);
+    font-weight: 750;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+body:not([data-page="admin"]) .pageHeader p {
+    font-size: 1.02rem;
+    color: var(--ip-muted);
+    max-width: 62ch;
+}
+
+/* ---------- Fejléc: üveghatású, vékony elválasztó ---------- */
+body:not([data-page="admin"]) .appNav {
+    background: color-mix(in srgb, var(--ip-surface) 84%, transparent);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid color-mix(in srgb, var(--ip-border) 70%, transparent);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset;
+}
+body:not([data-page="admin"]) .appBrand { letter-spacing: -0.03em; }
+body:not([data-page="admin"]) .appBrandIcon {
+    background: var(--ip-grad);
+    box-shadow: 0 4px 12px rgba(31, 111, 92, 0.28);
+}
+body:not([data-page="admin"]) .navLink { font-weight: 550; }
+body:not([data-page="admin"]) .navPostBtn {
+    box-shadow: 0 6px 16px rgba(31, 111, 92, 0.28);
+}
+
+/* ---------- Gombok, mezők ---------- */
+body:not([data-page="admin"]) .btn { border-radius: var(--ip-radius-sm); font-weight: 600; letter-spacing: -0.005em; }
+body:not([data-page="admin"]) .btn-primary {
+    background-image: var(--ip-grad);
+    border-color: transparent;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 4px 12px rgba(31, 111, 92, 0.22);
+}
+body:not([data-page="admin"]) .btn-primary:hover,
+body:not([data-page="admin"]) .btn-primary:focus-visible {
+    background-image: linear-gradient(135deg, #22796a 0%, #185a4a 100%);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 8px 20px rgba(31, 111, 92, 0.3);
+}
+body:not([data-page="admin"]) .btn-outline-primary { border-width: 1.5px; }
+body:not([data-page="admin"]) .btn-lg { padding: 0.7rem 1.4rem; border-radius: 12px; }
+
+body:not([data-page="admin"]) .form-control,
+body:not([data-page="admin"]) .form-select {
+    border-radius: var(--ip-radius-sm);
+    border-color: var(--ip-border);
+    background-color: var(--ip-surface);
+    transition: border-color .15s, box-shadow .15s;
+}
+body:not([data-page="admin"]) .form-control:hover,
+body:not([data-page="admin"]) .form-select:hover { border-color: color-mix(in srgb, var(--ip-accent) 30%, var(--ip-border)); }
+body:not([data-page="admin"]) .form-control:focus,
+body:not([data-page="admin"]) .form-select:focus {
+    border-color: var(--ip-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ip-accent) 14%, transparent);
+}
+body:not([data-page="admin"]) .form-label { font-weight: 600; font-size: 0.86rem; color: var(--ip-ink); }
+
+/* ---------- Kártyák, panelek ---------- */
+body:not([data-page="admin"]) .card {
+    border-radius: var(--ip-radius);
+    border-color: var(--ip-border-soft);
+    box-shadow: var(--ip-shadow);
+}
+body:not([data-page="admin"]) .card-header {
+    background: transparent;
+    border-bottom-color: var(--ip-border-soft);
+    padding: 1rem 1.25rem;
+}
+body:not([data-page="admin"]) .card-header h5,
+body:not([data-page="admin"]) .card-header h6 { font-weight: 700; letter-spacing: -0.015em; }
+body:not([data-page="admin"]) .card-header h5 i,
+body:not([data-page="admin"]) .card-header h6 i { color: var(--ip-accent); margin-right: 0.25rem; }
+
+/* ---------- Kereső oldalsáv ---------- */
+body:not([data-page="admin"]) .searchCard { border: 1px solid var(--ip-border-soft); }
+body:not([data-page="admin"]) .searchSectionTitle {
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    color: var(--ip-muted);
+    font-weight: 700;
+}
+
+/* ---------- Hirdetéskártya ---------- */
+body:not([data-page="admin"]) .listingCard {
+    border-color: var(--ip-border-soft);
+    box-shadow: var(--ip-shadow);
+    transition: transform .2s cubic-bezier(.2, .7, .2, 1), box-shadow .2s, border-color .2s;
+}
+body:not([data-page="admin"]) .listingCard:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--ip-shadow-lift);
+    border-color: color-mix(in srgb, var(--ip-accent) 25%, var(--ip-border));
+}
+body:not([data-page="admin"]) .listingThumb { aspect-ratio: 16 / 11; }
+body:not([data-page="admin"]) .listingThumb img { transition: transform .5s cubic-bezier(.2, .7, .2, 1); }
+body:not([data-page="admin"]) .listingCard:hover .listingThumb img { transform: scale(1.045); }
+body:not([data-page="admin"]) .listingBody { padding: 1.05rem 1.2rem 1.15rem; gap: 0.3rem; }
+body:not([data-page="admin"]) .listingPrice {
+    color: var(--ip-ink);
+    font-size: 1.5rem;
+    font-weight: 780;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+body:not([data-page="admin"]) .listingNm { font-weight: 550; color: var(--ip-accent); }
+body:not([data-page="admin"]) .listingTitle {
+    font-weight: 650;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+body:not([data-page="admin"]) .listingFacts { gap: 0.35rem 0.5rem; }
+body:not([data-page="admin"]) .listingFacts span {
+    background: color-mix(in srgb, var(--ip-ink) 4%, transparent);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.8rem;
+    color: var(--ip-ink);
+}
+body:not([data-page="admin"]) .listingFacts span i { color: var(--ip-muted); }
+body:not([data-page="admin"]) .favBtn {
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    transition: transform .15s;
+}
+body:not([data-page="admin"]) .favBtn:hover { transform: scale(1.08); }
+
+/* Fénykép nélküli hirdetés: a szürke doboz helyett típus szerint árnyalt, halvány „utcakép” */
+.listingThumb.noPhoto,
+.gallery.noPhotos {
+    --np: #1f6f5c;
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='120' viewBox='0 0 400 120'%3E%3Cg fill='%23000' fill-opacity='0.055'%3E%3Cpath d='M0 120V70h30V50h20v20h15V30h30v90zM100 120V60l25-20 25 20v60zM160 120V20h45v100zM215 120V55h20V40h25v80zM270 120V75l30-25 30 25v45zM335 120V35h30v20h15v65z'/%3E%3C/g%3E%3C/svg%3E") bottom center / 100% auto no-repeat,
+        radial-gradient(90% 80% at 80% 10%, color-mix(in srgb, var(--np) 6%, var(--ip-surface)) 0%, transparent 70%),
+        linear-gradient(160deg, color-mix(in srgb, var(--np) 9%, var(--ip-surface)) 0%, color-mix(in srgb, var(--np) 16%, var(--ip-surface)) 100%);
+}
+[data-bs-theme="dark"] .listingThumb.noPhoto,
+[data-bs-theme="dark"] .gallery.noPhotos {
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='120' viewBox='0 0 400 120'%3E%3Cg fill='%23fff' fill-opacity='0.05'%3E%3Cpath d='M0 120V70h30V50h20v20h15V30h30v90zM100 120V60l25-20 25 20v60zM160 120V20h45v100zM215 120V55h20V40h25v80zM270 120V75l30-25 30 25v45zM335 120V35h30v20h15v65z'/%3E%3C/g%3E%3C/svg%3E") bottom center / 100% auto no-repeat,
+        linear-gradient(160deg, color-mix(in srgb, var(--np) 14%, var(--ip-surface)) 0%, color-mix(in srgb, var(--np) 24%, var(--ip-surface)) 100%);
+}
+.listingThumb.noPhoto[data-tipus="haz"],     .gallery.noPhotos[data-tipus="haz"]     { --np: #b07a3c; }
+.listingThumb.noPhoto[data-tipus="telek"],   .gallery.noPhotos[data-tipus="telek"]   { --np: #6b8c34; }
+.listingThumb.noPhoto[data-tipus="kereskedelmi"], .gallery.noPhotos[data-tipus="kereskedelmi"] { --np: #3c6896; }
+.listingThumb.noPhoto[data-tipus="iroda"],   .gallery.noPhotos[data-tipus="iroda"]   { --np: #5a54a6; }
+
+.listingThumb.noPhoto .listingThumbEmpty {
+    opacity: 1;
+    color: color-mix(in srgb, var(--np) 85%, var(--ip-ink));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0 1rem 1.2rem;
+    text-align: center;
+}
+.listingThumb.noPhoto .listingThumbEmpty i {
+    width: 56px; height: 56px;
+    display: grid; place-items: center;
+    font-size: 1.35rem;
+    border-radius: 18px;
+    background: var(--ip-surface);
+    color: var(--np);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 24px color-mix(in srgb, var(--np) 18%, transparent);
+}
+.listingThumbEmpty small {
+    display: none;
+    font-size: 0.78rem;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.listingThumb.noPhoto .listingThumbEmpty small { display: block; }
+
+/* Hirdetés oldal: fénykép nélkül egy elegáns sáv a nagy szürke doboz helyett */
+.gallery.noPhotos {
+    min-height: 220px;
+    height: auto;
+    border-radius: var(--ip-radius);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1.1rem;
+    padding: 2rem 2rem 3.2rem;
+    color: var(--ip-ink);
+    border: 1px solid var(--ip-border-soft);
+    overflow: hidden;
+}
+.gallery.noPhotos .npIcon {
+    width: 72px; height: 72px; flex: 0 0 auto;
+    display: grid; place-items: center;
+    border-radius: 22px;
+    background: var(--ip-surface);
+    color: var(--np);
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--np) 20%, transparent);
+    font-size: 1.8rem;
+}
+.gallery.noPhotos .npIcon i { font-size: inherit; color: var(--np); opacity: 1; margin: 0; }
+.gallery.noPhotos .npText { display: flex; flex-direction: column; gap: 0.2rem; }
+.gallery.noPhotos .npText b { font-size: 1.15rem; letter-spacing: -0.02em; }
+.gallery.noPhotos .npText span { color: var(--ip-muted); font-size: 0.9rem; }
+@media (max-width: 575.98px) {
+    .gallery.noPhotos { min-height: 170px; padding: 1.4rem 1.25rem 2.6rem; }
+    .gallery.noPhotos .npIcon { width: 56px; height: 56px; font-size: 1.4rem; border-radius: 16px; }
+}
+
+/* ---------- Üres reklámhely: diszkrét, elegáns ajánló (a valódi reklám nem változik) ---------- */
+body:not([data-page="admin"]) .adSlot.adPlaceholder {
+    background: color-mix(in srgb, var(--ip-accent) 3%, var(--ip-surface));
+    background-image: none;
+    border: 1px dashed color-mix(in srgb, var(--ip-accent) 22%, var(--ip-border));
+    border-radius: var(--ip-radius);
+    box-shadow: none;
+    color: var(--ip-muted);
+}
+body:not([data-page="admin"]) .adSlot.adPlaceholder .adIcon {
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent);
+}
+body:not([data-page="admin"]) .adSlot.adPlaceholder .adText b { font-weight: 650; font-size: 0.92rem; }
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-billboard { min-height: 120px; }
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-leaderboard { min-height: 72px; }
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-rectangle { min-height: 190px; }
+body:not([data-page="admin"]) .adSlot.adPlaceholder .adTag { opacity: 0.7; }
+
+/* ---------- Kezdőlap ---------- */
+body[data-page="home"] .homeHero h1 {
+    font-size: clamp(2.2rem, 1.4rem + 3vw, 3.9rem);
+    font-weight: 780;
+    letter-spacing: -0.045em;
+    line-height: 1.02;
+}
+body[data-page="home"] .homeLead { font-size: 1.12rem; line-height: 1.55; }
+body[data-page="home"] .heroSearch {
+    border: 1px solid var(--ip-border-soft);
+    box-shadow: 0 2px 6px rgba(20, 32, 27, 0.04), 0 24px 60px rgba(20, 32, 27, 0.1);
+    border-radius: 20px;
+}
+body[data-page="home"] .homeHeroMedia { border-radius: 24px; box-shadow: var(--ip-shadow-lift); }
+body[data-page="home"] .heroBadge {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.86);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+body[data-page="home"] .homeStats > * { font-variant-numeric: tabular-nums; }
+body[data-page="home"] .homeStats b,
+body[data-page="home"] .homeStats strong { letter-spacing: -0.03em; }
+body[data-page="home"] .catTile { border-radius: 20px; transition: transform .25s, box-shadow .25s; }
+body[data-page="home"] .catTile:hover { transform: translateY(-3px); box-shadow: var(--ip-shadow-lift); }
+body[data-page="home"] .catTile img { transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
+body[data-page="home"] .catTile:hover img { transform: scale(1.05); }
+body[data-page="home"] .pathCard { border-radius: 20px; border-color: var(--ip-border-soft); box-shadow: var(--ip-shadow); }
+body[data-page="home"] .pathItem { border-radius: 12px; transition: background .15s, transform .15s; }
+body[data-page="home"] .pathItem:hover { transform: translateX(2px); }
+body[data-page="home"] .homeHelpStrip { border-radius: 20px; border-color: var(--ip-border-soft); }
+
+/* ---------- Lábléc: oszlopok ---------- */
+.appFooterCols {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.5rem 2rem;
+    padding: 0.5rem 0 0.75rem;
+}
+.appFooterCol { display: flex; flex-direction: column; gap: 0.45rem; }
+.appFooterCol h3 {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ip-text);
+    font-weight: 700;
+    margin: 0 0 0.25rem;
+}
+.appFooterCol a { color: var(--ip-muted); text-decoration: none; font-size: 0.9rem; width: fit-content; }
+.appFooterCol a:hover { color: var(--ip-accent); }
+body:not([data-page="admin"]) .appFooter { background: var(--ip-surface); }
+body:not([data-page="admin"]) .appFooterInner { padding-top: 2.5rem; row-gap: 1.5rem; }
+body:not([data-page="admin"]) .appFooterBrand { grid-column: 1 / -1; }
+body:not([data-page="admin"]) .appFooterLinks { grid-column: 1 / -1; justify-content: flex-start; font-size: 0.82rem; }
+@media (max-width: 767.98px) {
+    .appFooterCols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---------- Mobil alsó menüsáv: üveghatás ---------- */
+body:not([data-page="admin"]) .mobBar {
+    background: color-mix(in srgb, var(--ip-surface) 88%, transparent);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    backdrop-filter: saturate(160%) blur(14px);
+    border-top: 1px solid color-mix(in srgb, var(--ip-border) 70%, transparent);
+}
+
+/* ---------- Apró finomítások ---------- */
+body:not([data-page="admin"]) .badge { font-weight: 600; letter-spacing: 0.01em; }
+body:not([data-page="admin"]) .nav-pills .nav-link,
+body:not([data-page="admin"]) .btn-group > .btn { font-weight: 600; }
+body:not([data-page="admin"]) ::selection { background: color-mix(in srgb, var(--ip-accent) 22%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+    body:not([data-page="admin"]) .listingCard,
+    body:not([data-page="admin"]) .listingThumb img,
+    body[data-page="home"] .catTile,
+    body[data-page="home"] .catTile img { transition: none !important; transform: none !important; }
+}
+
+/* Kezdőlap számai telefonon: a városnév ne törjön a szó közepén */
+@media (max-width: 575.98px) {
+    body[data-page="home"] .homeStats b {
+        font-size: 1.12rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-break: normal;
+        display: block;
+    }
+}
+
+/* Hirdetés oldal, fénykép nélkül: az utcakép kisebb, ismétlődő sáv alul */
+.gallery.noPhotos { background-size: auto 46%, auto, auto; background-repeat: repeat-x, no-repeat, no-repeat; }
+
+/* Piaci elemzés telefonon: az átlagár oszlop elhagyható, így a €/m² és az eltérés is kifér */
+@media (max-width: 575.98px) {
+    .statGrid .statTable th:nth-child(3),
+    .statGrid .statTable td:nth-child(3) { display: none; }
+}
+
+/* Lábléc: a Süti-beállítások gomb ugyanolyan, mint a többi link */
+.appFooterLinks .btn-link { font-weight: 400 !important; padding: 0 !important; }
+
+/* =====================================================================
+   SÚGÓ – áttekinthetőbb, képernyőképekkel
+   ===================================================================== */
+body[data-page="sugo"] .helpLayout { grid-template-columns: 280px minmax(0, 1fr); gap: 2rem; }
+body[data-page="sugo"] .helpNavList { gap: 3px; }
+body[data-page="sugo"] .helpNavItem { padding: 0.55rem 0.75rem; border-radius: 11px; font-weight: 500; transition: background .15s, color .15s; }
+body[data-page="sugo"] .helpNavItem i { width: 1.6rem; height: 1.6rem; display: inline-grid; place-items: center; border-radius: 8px; background: color-mix(in srgb, var(--ip-ink) 5%, transparent); font-size: 0.8rem; }
+body[data-page="sugo"] .helpNavItem.active i { background: var(--ip-accent); color: #fff; }
+body[data-page="sugo"] .helpNavItem.active { background: var(--ip-surface); box-shadow: var(--ip-shadow); }
+body[data-page="sugo"] .helpBody { border: 1px solid var(--ip-border-soft); }
+body[data-page="sugo"] .helpBody .card-body { padding: 2rem 2.25rem 2.25rem; max-width: 980px; }
+body[data-page="sugo"] .helpTopicTitle {
+    display: flex; align-items: center; gap: 0.75rem;
+    font-size: clamp(1.45rem, 1.1rem + 1vw, 1.9rem); font-weight: 760; letter-spacing: -0.03em; margin-bottom: 0.9rem;
+}
+.helpTopicIcon {
+    width: 46px; height: 46px; flex: 0 0 auto;
+    display: inline-grid; place-items: center;
+    border-radius: 14px;
+    background: var(--ip-grad, var(--ip-accent));
+    color: #fff;
+    font-size: 1.1rem;
+    box-shadow: 0 8px 20px rgba(31, 111, 92, 0.25);
+}
+body[data-page="sugo"] .helpTopicTitle i { color: #fff; margin: 0; }
+body[data-page="sugo"] .helpIntro { font-size: 1.08rem; line-height: 1.6; max-width: 70ch; }
+body[data-page="sugo"] .helpSection { margin-top: 1.75rem; }
+body[data-page="sugo"] .helpSection h3 { font-size: 1.12rem; font-weight: 720; letter-spacing: -0.015em; display: flex; align-items: center; gap: 0.5rem; }
+body[data-page="sugo"] .helpSection h3::before { content: ""; width: 4px; height: 1.05em; border-radius: 4px; background: var(--ip-accent); }
+body[data-page="sugo"] .helpSection p,
+body[data-page="sugo"] .helpSection li { line-height: 1.65; max-width: 75ch; }
+body[data-page="sugo"] .helpSteps li { padding: 0.55rem 0.75rem 0.55rem 3rem; margin-bottom: 0.5rem; background: color-mix(in srgb, var(--ip-accent) 4%, var(--ip-surface)); border: 1px solid var(--ip-border-soft); border-radius: 12px; }
+body[data-page="sugo"] .helpSteps li::before { left: 0.7rem; top: 0.6rem; width: 1.7rem; height: 1.7rem; background: var(--ip-grad, var(--ip-accent)); color: #fff; }
+body[data-page="sugo"] .helpTip { border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ip-warn) 22%, transparent); padding: 0.9rem 1.1rem; }
+
+/* Képernyőkép */
+.helpFig { margin: 1.5rem 0 0.5rem; }
+.helpFigImg {
+    position: relative; display: block; width: 100%;
+    padding: 0; border: 1px solid var(--ip-border); border-radius: 14px; overflow: hidden;
+    background: var(--ip-surface); cursor: zoom-in;
+    box-shadow: 0 2px 6px rgba(20, 32, 27, 0.05), 0 18px 40px rgba(20, 32, 27, 0.10);
+    transition: transform .2s, box-shadow .2s;
+}
+.helpFigImg:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(20, 32, 27, 0.06), 0 26px 50px rgba(20, 32, 27, 0.14); }
+.helpFigImg img { display: block; width: 100%; height: auto; }
+.helpFigZoom {
+    position: absolute; right: 12px; bottom: 12px;
+    width: 38px; height: 38px; display: grid; place-items: center;
+    border-radius: 50%; background: rgba(255, 255, 255, 0.94); color: var(--ip-accent);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); opacity: 0; transition: opacity .2s;
+}
+.helpFigImg:hover .helpFigZoom, .helpFigImg:focus-visible .helpFigZoom { opacity: 1; }
+.helpFig figcaption {
+    margin-top: 0.7rem; font-size: 0.9rem; line-height: 1.55; color: var(--ip-muted);
+    padding-left: 0.9rem; border-left: 3px solid #f59e0b;
+}
+.helpFig figcaption b {
+    display: inline-grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.3rem;
+    margin: 0 0.15rem; border-radius: 999px; background: #f59e0b; color: #1c1300; font-size: 0.75rem; font-weight: 800;
+}
+.helpFig.mobil { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 1.25rem; align-items: center; }
+.helpFig.mobil .helpFigImg { border-radius: 26px; border-width: 6px; border-color: #1c2321; }
+.helpFig.mobil figcaption { margin-top: 0; }
+@media (max-width: 575.98px) {
+    .helpFig.mobil { grid-template-columns: 1fr; }
+    .helpFig.mobil .helpFigImg { max-width: 240px; margin: 0 auto; }
+    body[data-page="sugo"] .helpBody .card-body { padding: 1.2rem 1rem 1.5rem; }
+}
+
+/* Témák rácsa */
+.helpTopicGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.75rem; }
+.helpTopicCard {
+    display: flex; gap: 0.8rem; align-items: flex-start;
+    padding: 0.9rem 1rem; border-radius: 14px; text-decoration: none; color: var(--ip-text);
+    border: 1px solid var(--ip-border-soft); background: var(--ip-surface);
+    transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.helpTopicCard:hover { border-color: color-mix(in srgb, var(--ip-accent) 35%, var(--ip-border)); box-shadow: var(--ip-shadow); transform: translateY(-2px); color: var(--ip-text); }
+.helpTopicCard .helpTopicIcon { width: 38px; height: 38px; border-radius: 11px; font-size: 0.95rem; box-shadow: none; }
+.helpTopicCard b { display: block; font-size: 0.95rem; letter-spacing: -0.01em; }
+.helpTopicCard small { display: block; color: var(--ip-muted); font-size: 0.8rem; line-height: 1.4; margin-top: 0.15rem; }
+.helpTopicCard.admin .helpTopicIcon { background: #334155; }
+
+/* Előző / következő */
+.helpPager { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 2.25rem; padding-top: 1.25rem; border-top: 1px solid var(--ip-border-soft); }
+.helpPagerLink {
+    display: flex; flex-direction: column; gap: 0.15rem;
+    padding: 0.85rem 1.1rem; border-radius: 14px; border: 1px solid var(--ip-border-soft);
+    text-decoration: none; color: var(--ip-text); transition: border-color .15s, box-shadow .15s;
+}
+.helpPagerLink:hover { border-color: var(--ip-accent); box-shadow: var(--ip-shadow); color: var(--ip-text); }
+.helpPagerLink small { color: var(--ip-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.helpPagerLink b { font-size: 0.98rem; }
+.helpPagerLink.next { text-align: right; grid-column: 2; }
+@media (max-width: 575.98px) { .helpPager { grid-template-columns: 1fr; } .helpPagerLink.next { grid-column: 1; } }
