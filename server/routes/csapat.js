@@ -31,7 +31,7 @@ router.get("/api/admin/csapat", csakAdmin, async (req, res) => {
     try {
         res.json({
             tagok: await csapat.lista(),
-            jogok: csapat.JOGOK, hatokoros: csapat.HATOKOROS, globalis: csapat.GLOBALIS,
+            jogok: csapat.JOGOK, hatokoros: csapat.HATOKOROS, globalis: csapat.GLOBALIS, varosi: csapat.VAROSI,
             hatokorok: csapat.HATOKOROK, szerepek: csapat.SZEREPEK, szerep_jogok: csapat.SZEREP_JOGOK
         });
     } catch (err) { hiba(res, err); }
@@ -87,13 +87,18 @@ router.get("/api/csapat/hirdetesek", csakBelepve, async (req, res) => {
         if (req.query.varos) { params.push(String(req.query.varos)); hol.push(`i.varos = $${params.length}`); }
         if (req.query.tipus) { params.push(String(req.query.tipus)); hol.push(`i.tipus = $${params.length}`); }
         if (req.query.foto === "nincs") hol.push("NOT EXISTS (SELECT 1 FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)");
+        // Csak átvett (forrásoldali) képei vannak – saját fotó kellene
+        if (req.query.foto === "kulso") hol.push("NOT EXISTS (SELECT 1 FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id) AND jsonb_array_length(COALESCE(i.kulso_kepek, '[]'::jsonb)) > 0");
+        // Egyáltalán nincs képe
+        if (req.query.foto === "semmi") hol.push("NOT EXISTS (SELECT 1 FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id) AND jsonb_array_length(COALESCE(i.kulso_kepek, '[]'::jsonb)) = 0");
         if (req.query.megbizas === "1") hol.push("i.megbizas_id IS NOT NULL");
         const r = await db.query(`
             SELECT i.id, i.cim, i.varos, i.kerulet, i.telepules, i.tipus, i.ugylet, i.ar, i.nm, i.szobak, i.statusz, i.megbizas_id,
                    i.owner_id, i.updated_at, i.link,
                    (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db,
                    (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS elso_kep,
-                   jsonb_array_length(COALESCE(i.kulso_kepek, '[]'::jsonb)) AS kulso_db
+                   jsonb_array_length(COALESCE(i.kulso_kepek, '[]'::jsonb)) AS kulso_db,
+                   (i.kulso_kepek->>0) AS kulso_kep
             FROM ingatlanok i
             WHERE ${hol.join(" AND ")}
             ORDER BY (i.megbizas_id IS NOT NULL) DESC, i.updated_at DESC NULLS LAST, i.id DESC

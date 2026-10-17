@@ -16,9 +16,12 @@
 //               megtekintes  megtekintési naptár: idősávok, foglalások, lezárás
 //               hirdetes     hirdetések szerkesztése (+ fotók)
 //               kepek        fotók feltöltése, törlése, sorrendje
+//             városra is szűkíthető (a többi csak „mindenre”):
+//               ellenorzes   hirdetések ellenőrzése, állapot, hely-ellenőrzés,
+//                            nem elérhetők, bejelentések (városra adva csak
+//                            azokban a városokban; a duplikátumok és a tömeges
+//                            műveletek csak az egész oldalra)
 //             az admin felület többi része (csak „mindenre” hatókörrel):
-//               ellenorzes   hirdetések ellenőrzése, állapot, duplikátumok,
-//                            nem elérhetők, bejelentések
 //               beolvasas    beolvasás linkről, figyelt oldalak, karbantartás
 //               helyek       városok, kerületek, város és környéke, hely-ellenőrzés
 //               irodak       ingatlanirodák jóváhagyása
@@ -44,6 +47,9 @@ const HATOKOROS = ["megbizas", "megbizas_lat", "megtekintes", "hirdetes", "kepek
 // Az admin felület többi része (csak az egész oldalra)
 const GLOBALIS = ["ellenorzes", "beolvasas", "helyek", "irodak", "reklam", "penzugy", "statisztika", "beallitasok"];
 const JOGOK = [...HATOKOROS, ...GLOBALIS];
+// Az admin felület részei, amelyek városra is kiadhatók (a szerver a listákat
+// és a műveleteket a városokra szűri)
+const VAROSI = ["ellenorzes"];
 const HATOKOROK = ["mind", "varos", "megbizas", "ingatlan"];
 const SZEREPEK = ["ertekesito", "bemutato", "fotos", "regios", "asszisztens", "egyeni"];
 const TIPUSOK = ["lakas", "haz", "telek", "kereskedelmi", "iroda"];
@@ -224,7 +230,58 @@ function globalis(k, jog) {
 // Az admin felület részei, amelyeket lát (a menühöz)
 function reszek(k) {
     if (k.admin) return [...JOGOK];
-    return JOGOK.filter(j => GLOBALIS.includes(j) ? globalis(k, j) : vanJoga(k, j));
+    return JOGOK.filter(j => latja(k, j));
+}
+
+// Látja-e a részt (a városra adható részeket városi hozzáféréssel is)
+function latja(k, j) {
+    return (GLOBALIS.includes(j) && !VAROSI.includes(j)) ? globalis(k, j) : vanJoga(k, j);
+}
+
+// A városra adható részek SQL-feltétele (ingatlanok sora, alias pl. "i.")
+//   -> "TRUE" (admin / egész oldal) vagy a városok feltétele
+function reszSql(k, jog, params, alias = "") {
+    if (k.admin || globalis(k, jog)) return "TRUE";
+    return hatokorSql(k, jog, params, { varos: alias + "varos", tipus: alias + "tipus", megbizas: alias + "megbizas_id", ingatlan: alias + "id" });
+}
+
+// Útvonal-védelem: a :id hirdetésre (vagy a body.ids mindegyikére) van-e joga
+function csakHirdetesen(jog, { mezo = "id", lista = null } = {}) {
+    return async (req, res, next) => {
+        try {
+            if (req.szerep === "admin") return next();
+            if (!req.user) return res.status(401).json({ error: "login_required" });
+            const k = await kontextus(req);
+            if (globalis(k, jog)) return next();
+            let ids = [];
+            if (lista && Array.isArray(req.body && req.body[lista])) ids = req.body[lista].map(Number).filter(Boolean);
+            const egy = Number(req.params[mezo]);
+            if (egy) ids.push(egy);
+            if (!ids.length) return res.status(403).json({ error: "admin_only" });
+            const params = [ids];
+            const hol = reszSql(k, jog, params);
+            const r = await db.query(`SELECT COUNT(*)::int AS n FROM ingatlanok WHERE id = ANY($1::int[]) AND ${hol}`, params);
+            if (r.rows[0].n === new Set(ids).size) return next();
+            res.status(403).json({ error: "not_in_scope" });
+        } catch (err) {
+            next(err);
+        }
+    };
+}
+
+// Útvonal-védelem: csak az egész oldalra kapott jog (pl. tömeges műveletek)
+function csakGlobalis(...kodok) {
+    return async (req, res, next) => {
+        try {
+            if (req.szerep === "admin") return next();
+            if (!req.user) return res.status(401).json({ error: "login_required" });
+            const k = await kontextus(req);
+            if (kodok.some(kod => globalis(k, kod))) return next();
+            res.status(403).json({ error: "admin_only" });
+        } catch (err) {
+            next(err);
+        }
+    };
 }
 
 // Útvonal-védelem: az admin, vagy aki a felsorolt részek valamelyikét
@@ -235,7 +292,7 @@ function csakResz(...kodok) {
             if (req.szerep === "admin") return next();
             if (!req.user) return res.status(401).json({ error: "login_required" });
             const k = await kontextus(req);
-            if (kodok.some(kod => GLOBALIS.includes(kod) ? globalis(k, kod) : vanJoga(k, kod))) return next();
+            if (kodok.some(kod => latja(k, kod))) return next();
             res.status(403).json({ error: "admin_only" });
         } catch (err) {
             next(err);
@@ -267,7 +324,9 @@ async function osszegzes(req) {
     const k = await kontextus(req);
     if (!k.tag) return null;
     const jogok = {};
-    JOGOK.forEach(j => { jogok[j] = GLOBALIS.includes(j) ? globalis(k, j) : vanJoga(k, j); });
+    JOGOK.forEach(j => { jogok[j] = latja(k, j); });
+    // Az egész oldalra kapott városra adható részek (pl. duplikátumok, tömeges műveletek)
+    VAROSI.forEach(j => { jogok[j + "_mind"] = globalis(k, j); });
     return {
         szerep: k.tag.szerep,
         jogok,
@@ -354,9 +413,10 @@ async function hozzaad(b, adminId) {
 
 function hozzaferesTisztit(h) {
     const hatokor = HATOKOROK.includes(h.hatokor) ? h.hatokor : "varos";
-    // Az admin felület többi része csak az egész oldalra adható
+    // Az admin felület többi része csak az egész oldalra adható (az ellenőrzés városra is)
     const jogok = [...new Set((Array.isArray(h.jogok) ? h.jogok : []).map(String))]
-        .filter(j => hatokor === "mind" ? JOGOK.includes(j) : HATOKOROS.includes(j));
+        .filter(j => hatokor === "mind" ? JOGOK.includes(j)
+            : (HATOKOROS.includes(j) || (hatokor === "varos" && VAROSI.includes(j))));
     if (!jogok.length) return null;
     const d = {
         jogok, hatokor,
@@ -432,7 +492,7 @@ async function valaszthatok() {
 }
 
 module.exports = {
-    JOGOK, HATOKOROS, GLOBALIS, HATOKOROK, SZEREPEK, SZEREP_JOGOK,
-    kontextus, szabad, vanJoga, globalis, reszek, csakResz, csakPanel, panel, hirdetesJog, megbizasJog, hatokorSql, osszegzes,
+    JOGOK, HATOKOROS, GLOBALIS, VAROSI, HATOKOROK, SZEREPEK, SZEREP_JOGOK,
+    kontextus, szabad, vanJoga, globalis, reszek, reszSql, csakHirdetesen, csakGlobalis, csakResz, csakPanel, panel, hirdetesJog, megbizasJog, hatokorSql, osszegzes,
     lista, felhasznaloKeres, hozzaad, ment, torol, valaszthatok
 };

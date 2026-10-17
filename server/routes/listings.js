@@ -517,7 +517,7 @@ router.delete("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
 });
 
 // Tömeges kerület-beállítás
-router.patch("/api/ingatlanok/bulk-kerulet", csapat.csakResz("ellenorzes"), async (req, res) => {
+router.patch("/api/ingatlanok/bulk-kerulet", csapat.csakResz("ellenorzes"), csapat.csakHirdetesen("ellenorzes", { lista: "ids" }), async (req, res) => {
 
     try {
 

@@ -174,6 +174,7 @@ class Workspace {
             : [...new Set(c.hozzaferesek.filter(h => h.hatokor === "varos").map(h => h.varos))];
 
         hova.innerHTML = `
+            <p class="sectionNote">${I18n.t("wsPhotosIntro")}</p>
             <div class="mdToolbar">
                 <div class="input-group input-group-sm mdSearch">
                     <span class="input-group-text"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
@@ -184,10 +185,12 @@ class Workspace {
                     <option value="">${I18n.t("allCities")}</option>
                     ${varosok.map(v => `<option value="${esc(v)}" ${sz.varos === v ? "selected" : ""}>${esc(CityManager.displayName(v))}</option>`).join("")}
                 </select>` : ""}
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" role="switch" id="wsFoto" ${sz.foto ? "checked" : ""}>
-                    <label class="form-check-label small" for="wsFoto">${I18n.t("wsOnlyNoPhoto")}</label>
-                </div>
+                <select class="form-select form-select-sm w-auto" id="wsFoto" aria-label="${esc(I18n.t("wsPhotoFilter"))}">
+                    <option value="">${I18n.t("wsPhotoAll")}</option>
+                    <option value="nincs" ${sz.foto === "nincs" || sz.foto === "1" ? "selected" : ""}>${I18n.t("wsOnlyNoPhoto")}</option>
+                    <option value="kulso" ${sz.foto === "kulso" ? "selected" : ""}>${I18n.t("wsPhotoOnlyExternal")}</option>
+                    <option value="semmi" ${sz.foto === "semmi" ? "selected" : ""}>${I18n.t("wsPhotoNone")}</option>
+                </select>
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" role="switch" id="wsMb" ${sz.megbizas ? "checked" : ""}>
                     <label class="form-check-label small" for="wsMb">${I18n.t("wsOnlyMandate")}</label>
@@ -204,14 +207,16 @@ class Workspace {
             const p = new URLSearchParams();
             if (sz.q) p.set("q", sz.q);
             if (sz.varos) p.set("varos", sz.varos);
-            if (sz.foto) p.set("foto", "nincs");
+            if (sz.foto) p.set("foto", sz.foto === "1" ? "nincs" : sz.foto);
             if (sz.megbizas) p.set("megbizas", "1");
             Svc.api("/api/csapat/hirdetesek?" + p.toString()).then(lista => {
                 const el = hova.querySelector("#wsLista");
                 if (!el) return;
                 el.innerHTML = lista.length ? `<div class="wsListings">${lista.map(i => `
                     <article class="wsListing">
-                        <a class="wsThumb" href="#listing/${i.id}">${i.elso_kep ? `<img src="/api/kepek/${i.elso_kep}" alt="" loading="lazy">` : `<i class="fa-regular fa-image" aria-hidden="true"></i>`}</a>
+                        <a class="wsThumb" href="#listing/${i.id}">${i.elso_kep ? `<img src="/api/kepek/${i.elso_kep}" alt="" loading="lazy">`
+                            : i.kulso_kep ? `<img src="${esc(Utils.imgUrl(i.kulso_kep))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"><span class="wsThumbTag">${I18n.t("wsExternalTag")}</span>`
+                            : `<i class="fa-regular fa-image" aria-hidden="true"></i>`}</a>
                         <div class="min-w-0 flex-fill">
                             <div class="d-flex justify-content-between gap-2">
                                 <b class="text-truncate">${esc(i.cim || Types.label(i.tipus))}</b>
@@ -239,7 +244,7 @@ class Workspace {
         hova.querySelector("#wsQ").oninput = e => { sz.q = e.target.value.trim(); clearTimeout(idozito); idozito = setTimeout(tolt, 300); };
         const v = hova.querySelector("#wsVaros");
         if (v) v.onchange = e => { sz.varos = e.target.value; tolt(); };
-        hova.querySelector("#wsFoto").onchange = e => { sz.foto = e.target.checked ? "1" : ""; tolt(); };
+        hova.querySelector("#wsFoto").onchange = e => { sz.foto = e.target.value; tolt(); };
         hova.querySelector("#wsMb").onchange = e => { sz.megbizas = e.target.checked ? "1" : ""; tolt(); };
 
         tolt();

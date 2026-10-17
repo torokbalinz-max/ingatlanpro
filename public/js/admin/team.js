@@ -27,6 +27,8 @@ AdminManager.TEAM_IKON = {
 };
 AdminManager.TEAM_HATOKOROS = ["megbizas", "megbizas_lat", "megtekintes", "hirdetes", "kepek"];
 AdminManager.TEAM_GLOBALIS = ["ellenorzes", "beolvasas", "helyek", "irodak", "reklam", "penzugy", "statisztika", "beallitasok"];
+// Az admin részek közül városra is kiadható (pl. az ellenőrzés csak Sepsiszentgyörgyön)
+AdminManager.TEAM_VAROSI = ["ellenorzes"];
 
 AdminManager.teamHatokor = function (h) {
     const esc = Utils.escape;
@@ -48,7 +50,8 @@ AdminManager.teamSzet = function (hozzaferesek) {
             const g = jogok.filter(j => G.includes(j));
             if (g.length) { glob.jogok.push(...g); if (h.lejar && !glob.lejar) glob.lejar = h.lejar; }
         }
-        const s = jogok.filter(j => !G.includes(j));
+        // A városi sorban az ellenőrzés is maradhat (városra szűkítve)
+        const s = jogok.filter(j => !G.includes(j) || (h.hatokor === "varos" && AdminManager.TEAM_VAROSI.includes(j)));
         if (s.length) sorok.push({ ...h, jogok: s });
     });
     glob.jogok = [...new Set(glob.jogok)];
@@ -66,6 +69,7 @@ AdminManager.renderTeam = function () {
         AdminManager.teamAdat = d;
         if (Array.isArray(d.globalis)) AdminManager.TEAM_GLOBALIS = d.globalis;
         if (Array.isArray(d.hatokoros)) AdminManager.TEAM_HATOKOROS = d.hatokoros;
+        if (Array.isArray(d.varosi)) AdminManager.TEAM_VAROSI = d.varosi;
 
         box.innerHTML = `
             <div class="row g-4 mb-4">
@@ -245,6 +249,12 @@ AdminManager.teamSzerk = function (t, uj) {
                             <i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i>
                             <span><b>${esc(I18n.t("cs2_resz_" + j))}</b><small>${esc(I18n.t("cs2_reszSugo_" + j))}</small></span>
                         </label>`).join("")}
+                    ${h.hatokor === "varos" ? AdminManager.TEAM_VAROSI.map(j => `
+                        <label class="tmPermChk tmPermCity">
+                            <input type="checkbox" class="form-check-input" data-jog="${j}" ${h.jogok.includes(j) ? "checked" : ""}>
+                            <i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i>
+                            <span><b>${esc(I18n.t("cs3_resz_" + j))}</b><small>${esc(I18n.t("cs3_reszSugo_" + j))}</small></span>
+                        </label>`).join("") : ""}
                 </div>
             </div>
         </div>`;
@@ -316,8 +326,8 @@ AdminManager.teamSzerk = function (t, uj) {
                 <section class="tmBlokk">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
-                            <h6 class="mb-0">${I18n.t("cs2_ertekesites")}</h6>
-                            <p class="small text-body-secondary mb-0">${I18n.t("cs2_ertekesitesSugo")}</p>
+                            <h6 class="mb-0">${I18n.t("cs3_ertekesites")}</h6>
+                            <p class="small text-body-secondary mb-0">${I18n.t("cs3_ertekesitesSugo")}</p>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="tmUjSor"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("tmAddAccess")}</button>
                     </div>

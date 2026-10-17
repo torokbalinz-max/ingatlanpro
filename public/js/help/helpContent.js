@@ -256,13 +256,12 @@ const HELP_CONTENT = {
             id: "admin", icon: "fa-solid fa-user-shield", title: "Adminnak", admin: true,
             sections: [
                 { h: "Mi hol van?", ul: [
-                    "<b>Irányítópult</b>: Áttekintés (számok, teendők, minden rész egy kattintásra), Látogatottság.",
-                    "<b>Hirdetések ellenőrzése</b>: Ellenőrzésre vár, Állapot beállítása, Duplikátumok, Nem elérhető, Bejelentések.",
-                    "<b>Beolvasás, karbantartás</b>: Beolvasás linkről, Figyelt oldalak, Karbantartás (automatikus javítás, forrásoldalak ellenőrzése, értékbecslő pontossága).",
-                    "<b>Helyek</b>: Városok és kerületek, Város és környéke, Hely-ellenőrzés.",
-                    "<b>Partnerek, reklám</b>: Ingatlanirodák, Reklámfelületek.",
-                    "<b>Pénzügyek</b>: Pénzügyi áttekintés, Díjbekérők / számlák, Előfizetések, Ügyfelek, Díjcsomagok / árak, Kiadások, Számlázási beállítások.",
-                    "<b>Beállítások</b>: Állapotok, Webhely adatai.",
+                    "<b>Ma</b>: a teendők – ami vár, egy kattintásra.",
+                    "<b>Hirdetések</b>: Ellenőrzésre vár, Hely-ellenőrzés, Állapot beállítása, Beolvasás, Bejelentések | Duplikátumok, Nem elérhető, Figyelt oldalak.",
+                    "<b>Értékesítés</b>: Megbízások, Naptár, Fotók (a csapat helyszíni munkája: saját és átvett képek), Beállítások.",
+                    "<b>Pénzügy, Irattár</b>: rendelések, díjbekérők, számlák, előfizetések, ügyfelek, kiadások, csomagok; az iratok.",
+                    "<b>Partnerek</b>: Ingatlanirodák, Reklámfelületek.",
+                    "<b>Rendszer</b>: Városok és kerületek, Város és környéke, Állapotok | Webhely, Csapat és jogosultságok, Karbantartás, Látogatottság.",
                     "Minden résznek saját címe van (pl. #admin/reklam), így a böngésző Vissza gombja és a frissítés is ugyanoda visz. Telefonon a menü egy lenyíló választó."
                 ] },
                 { h: "Ellenőrzésre vár", p: "A hiányos vagy gyanús adatú hirdetések, <b>városonként</b> (fent a városok fülei, darabszámmal). Billentyűkkel gyorsan végigmehetsz rajtuk; az AI-ellenőrzés (ha be van kapcsolva) javaslatot ad a javításra. A Nem elérhető hirdetések is városonként szűrhetők." },
@@ -302,9 +301,15 @@ const HELP_CONTENT = {
                 ] },
                 { h: "Hely-ellenőrzés", ul: [
                     "A beolvasás és az automatikus javítás ellenőrzi a hirdetési oldal pontját: ha messze van a várostól / a falutól, ha a leírásban szereplő utca vagy kerület máshol van, vagy ha csak a város „alapértelmezett” pontja (a hirdető nem jelölt helyet), a hirdetést a szöveg szerinti helyre teszi – vagy közelítő helyet ad.",
-                    "Admin → Helyek → Hely-ellenőrzés: ezek a hirdetések városonként és okonként; a térképen piros az eredeti, zöld az új pont. <b>Rendben</b>: eltűnik a listából. <b>Vissza az eredetire</b>: a régi pont (és kerület) visszakerül, és az automatika többé nem mozgatja.",
+                    "Admin → Hirdetések → Hely-ellenőrzés, két rész. <b>Pontos hely nélkül</b>: a térképen nem szereplő vagy csak közelítő helyű hirdetések egy munkasorban, városonként. Balra a sor, jobbra a hirdetés képe és leírása – a helynevek (utca, tér, negyed) kiemelve, kattintásra a térkép rájuk keres –, mellette a térkép címkeresővel, „A leírásból” javaslattal és <b>Műhold</b> nézettel. <b>Mentés és következő</b> (Ctrl+Enter), <b>Kihagyás</b> (Ctrl+→), <b>Így marad</b> (a közelítő hely rendben van), <b>Nem található</b>. Nem kell a Google Térkép és az oldal között ugrálni.",
+                    "<b>Áthelyezett</b>: amit az automatika máshová tett, városonként és okonként; a térképen piros az eredeti, zöld az új pont. <b>Rendben</b>: eltűnik a listából. <b>Vissza az eredetire</b>: a régi pont (és kerület) visszakerül, és az automatika többé nem mozgatja.",
                     "<b>Kézi hely</b>: ha egyik pont sem jó, egy ablakban helyben megadod a helyeset (kattintás a térképre, címkereső, „A leírásból”, pontos / közelítő, kerület, vagy „Nincs pontos hely”) – a hirdetést nem kell megnyitni. Utána az automatika nem mozgatja.",
                     "Amit ember tett le a térképen (hirdetésfeladás, ellenőrzés), azt az automatika soha nem mozgatja."
+                ] },
+                { h: "Csapat: városra szóló jogok", ul: [
+                    "Admin → Rendszer → Csapat és jogosultságok: a munkatárs a saját fiókjával belépve csak a neki kiadott részeket látja.",
+                    "A hirdetések ellenőrzése (ellenőrzésre vár, hely-ellenőrzés, állapot, nem elérhetők, bejelentések) <b>városra</b> is kiadható: a városi sorban pipáld be az „Ellenőrzés ebben a városban” jogot. Ilyenkor csak azoknak a városoknak a hirdetéseit látja és szerkesztheti; több városhoz adj több sort.",
+                    "A duplikátumok és a tömeges műveletek csak az egész oldalra kapott ellenőrzési joggal érhetők el."
                 ] },
                 { h: "Pénzügyek", ul: [
                     "Admin → Pénzügyek: a weboldal bevételei és kiadásai rendszerezve. <b>Ügyfél</b> (iroda, magánszemély, reklámozó cég – regisztrált irodából / fiókból vagy az ANAF-ból kitölthető), <b>díjcsomag</b> (árlista és jogok), <b>előfizetés</b> (ki, mit, mennyiért, mikor esedékes), <b>díjbekérő</b> (tételes, sorszámozott: DB-2026-0001), <b>kiadás</b>.",
@@ -590,13 +595,12 @@ const HELP_CONTENT = {
             id: "admin", icon: "fa-solid fa-user-shield", title: "For the admin", admin: true,
             sections: [
                 { h: "Where is what?", ul: [
-                    "<b>Dashboard</b>: Overview (numbers, to-dos, every part one click away), Site statistics.",
-                    "<b>Listing checks</b>: Waiting for check, Set condition, Duplicates, Not available, Reports.",
-                    "<b>Import & maintenance</b>: Import from a link, Watched sites, Maintenance (automatic fix, checking the source sites, valuation accuracy).",
-                    "<b>Locations</b>: Cities and districts, City & surroundings, Location check.",
-                    "<b>Partners & ads</b>: Real estate agencies, Ad spaces.",
-                    "<b>Finance</b>: Finance overview, Proformas & invoices, Subscriptions, Customers, Packages & prices, Expenses, Billing settings.",
-                    "<b>Settings</b>: Conditions, Website details.",
+                    "<b>Today</b>: your to-dos – whatever is waiting, one click away.",
+                    "<b>Listings</b>: Needs review, Location check, Set condition, Import, Reports | Duplicates, Not available, Watched sites.",
+                    "<b>Sales</b>: Mandates, Calendar, Photos (the team's field work: own and taken-over images), Settings.",
+                    "<b>Finance, Archive</b>: orders, proformas, invoices, subscriptions, customers, expenses, packages; the documents.",
+                    "<b>Partners</b>: Real estate agencies, Ad spaces.",
+                    "<b>System</b>: Cities and districts, City & surroundings, Conditions | Website, Team and permissions, Maintenance, Site statistics.",
                     "Every part has its own address (e.g. #admin/reklam), so the browser's Back button and reloading take you to the same place. On phones the menu is a drop-down."
                 ] },
                 { h: "Needs review", p: "Listings with missing or suspicious data, <b>city by city</b> (tabs with counts on top). Go through them quickly with the keyboard; the AI check (if enabled) suggests fixes. Not available listings can be filtered by city too." },
@@ -636,9 +640,15 @@ const HELP_CONTENT = {
                 ] },
                 { h: "Location check", ul: [
                     "Import and the automatic fix check the listing site's pin: if it is far from the city / village, if the street or district in the description is elsewhere, or if it is only the city's “default” point (the advertiser did not mark a location), the listing is moved to the place the text says – or gets an approximate location.",
-                    "Admin → Locations → Location check: these listings by city and reason; on the map red is the original, green the new point. <b>Fine</b>: it leaves the list. <b>Put back</b>: the old point (and district) comes back and the automation never moves it again.",
+                    "Admin → Listings → Location check, two parts. <b>No exact location</b>: listings not on the map or only approximate, in a work queue by city. The queue on the left, the listing's photo and description on the right – place names (street, square, area) highlighted, click one and the map searches for it – next to the map with address search, “From the description” and a <b>Satellite</b> view. <b>Save and next</b> (Ctrl+Enter), <b>Skip</b> (Ctrl+→), <b>Keep as is</b> (the approximate place is fine), <b>Can't be found</b>. No more jumping between Google Maps and the site.",
+                    "<b>Moved</b>: what the automation relocated, by city and reason; on the map red is the original, green the new point. <b>Fine</b>: it leaves the list. <b>Put back</b>: the old point (and district) comes back and the automation never moves it again.",
                     "<b>Set by hand</b>: if neither point is right, set the correct one in a window right there (click on the map, address search, “From the description”, exact / approximate, district, or “No exact location”) – no need to open the listing. After that the automation does not move it.",
                     "What a person placed on the map (posting, review) is never moved by the automation."
+                ] },
+                { h: "Team: permissions per city", ul: [
+                    "Admin → System → Team and permissions: a team member logging in with their own account sees only the parts you gave them.",
+                    "Listing review (needs review, location check, condition, not available, reports) can be given <b>for a city</b> too: tick “Review in this city” in the city row. They then see and edit only those cities' listings; add more rows for more cities.",
+                    "Duplicates and bulk actions need the review right for the whole site."
                 ] },
                 { h: "Finance", ul: [
                     "Admin → Finance: the site's income and expenses in order. <b>Customer</b> (agency, private person, advertiser – fillable from a registered agency / account or from ANAF), <b>package</b> (price list and rights), <b>subscription</b> (who, what, how much, when due), <b>proforma</b> (itemised, numbered: DB-2026-0001), <b>expense</b>.",
@@ -924,13 +934,12 @@ const HELP_CONTENT = {
             id: "admin", icon: "fa-solid fa-user-shield", title: "Pentru administrator", admin: true,
             sections: [
                 { h: "Ce unde găsești?", ul: [
-                    "<b>Panou</b>: Prezentare (cifre, sarcini, fiecare parte la un clic), Statistici site.",
-                    "<b>Verificarea anunțurilor</b>: De verificat, Setarea stării, Duplicate, Indisponibile, Sesizări.",
-                    "<b>Import și întreținere</b>: Import din link, Site-uri urmărite, Întreținere (corectare automată, verificarea site-urilor sursă, precizia evaluării).",
-                    "<b>Locații</b>: Orașe și cartiere, Oraș și împrejurimi, Verificarea locației.",
-                    "<b>Parteneri și reclame</b>: Agenții imobiliare, Spații publicitare.",
-                    "<b>Finanțe</b>: Privire de ansamblu, Proforme / facturi, Abonamente, Clienți, Pachete / prețuri, Cheltuieli, Setări facturare.",
-                    "<b>Setări</b>: Stări, Datele site-ului.",
+                    "<b>Azi</b>: sarcinile – ce așteaptă, la un clic.",
+                    "<b>Anunțuri</b>: De verificat, Verificarea locației, Setarea stării, Import, Sesizări | Duplicate, Indisponibile, Site-uri urmărite.",
+                    "<b>Vânzări</b>: Mandate, Calendar, Fotografii (munca echipei pe teren: imagini proprii și preluate), Setări.",
+                    "<b>Finanțe, Arhivă</b>: comenzi, proforme, facturi, abonamente, clienți, cheltuieli, pachete; documentele.",
+                    "<b>Parteneri</b>: Agenții imobiliare, Spații publicitare.",
+                    "<b>Sistem</b>: Orașe și cartiere, Oraș și împrejurimi, Stări | Site, Echipă și permisiuni, Întreținere, Statistici site.",
                     "Fiecare parte are adresa ei (ex. #admin/reklam), așa că butonul Înapoi al browserului și reîncărcarea duc în același loc. Pe telefon meniul este o listă derulantă."
                 ] },
                 { h: "De verificat", p: "Anunțurile cu date lipsă sau suspecte, <b>pe orașe</b> (sus filele orașelor, cu număr). Le parcurgi rapid cu tastatura; verificarea AI (dacă e activă) propune corecturi. Și anunțurile indisponibile se pot filtra pe orașe." },
@@ -970,9 +979,15 @@ const HELP_CONTENT = {
                 ] },
                 { h: "Verificarea locației", ul: [
                     "Importul și corectarea automată verifică punctul de pe site-ul sursă: dacă e departe de oraș / sat, dacă strada sau cartierul din descriere e în altă parte, sau dacă e doar punctul „implicit” al orașului (agentul nu a marcat locația), anunțul e mutat unde spune textul – sau primește o locație aproximativă.",
-                    "Admin → Locații → Verificarea locației: aceste anunțuri pe orașe și motive; pe hartă roșu e punctul original, verde cel nou. <b>În regulă</b>: iese din listă. <b>Pune înapoi</b>: punctul (și cartierul) vechi revine și automatizarea nu-l mai mută.",
+                    "Admin → Anunțuri → Verificarea locației, două părți. <b>Fără loc exact</b>: anunțurile care nu sunt pe hartă sau doar aproximativ, într-o coadă de lucru pe orașe. În stânga coada, în dreapta fotografia și descrierea – numele de locuri (stradă, piață, cartier) evidențiate, cu un clic harta le caută – lângă hartă cu căutare, „Din descriere” și vedere <b>Satelit</b>. <b>Salvează și următorul</b> (Ctrl+Enter), <b>Sari peste</b> (Ctrl+→), <b>Rămâne așa</b> (locul aproximativ e bun), <b>Nu se găsește</b>. Nu mai trebuie sărit între Google Maps și site.",
+                    "<b>Mutate</b>: ce a mutat automatizarea, pe orașe și motive; pe hartă roșu e punctul original, verde cel nou. <b>În regulă</b>: iese din listă. <b>Pune înapoi</b>: punctul (și cartierul) vechi revine și automatizarea nu-l mai mută.",
                     "<b>Manual</b>: dacă niciun punct nu e bun, îl stabilești pe cel corect într-o fereastră chiar acolo (clic pe hartă, căutare adresă, „Din descriere”, exact / aproximativ, cartier sau „Fără locație exactă”) – nu trebuie deschis anunțul. După aceea automatizarea nu-l mai mută.",
                     "Ce a pus un om pe hartă (publicare, verificare) nu este mutat niciodată de automatizare."
+                ] },
+                { h: "Echipa: permisiuni pe oraș", ul: [
+                    "Admin → Sistem → Echipă și permisiuni: colegul care intră cu propriul cont vede doar părțile primite.",
+                    "Verificarea anunțurilor (de verificat, verificarea locației, stare, indisponibile, sesizări) se poate da și <b>pe oraș</b>: bifează „Verificare în acest oraș” în rândul orașului. Atunci vede și editează doar anunțurile acelor orașe; pentru mai multe orașe adaugă mai multe rânduri.",
+                    "Duplicatele și acțiunile în masă cer dreptul de verificare pentru tot site-ul."
                 ] },
                 { h: "Finanțe", ul: [
                     "Admin → Finanțe: veniturile și cheltuielile site-ului, ordonate. <b>Client</b> (agenție, persoană fizică, firmă care face reclamă – se completează dintr-o agenție / un cont înregistrat sau de la ANAF), <b>pachet</b> (listă de prețuri și drepturi), <b>abonament</b> (cine, ce, cu cât, când e scadent), <b>proformă</b> (pe articole, numerotată: DB-2026-0001), <b>cheltuială</b>.",

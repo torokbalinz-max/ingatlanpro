@@ -10,14 +10,15 @@
 //
 //  Minden funkció egyetlen helyen van (nincs ugyanaz két menüben):
 //    Ma          a teendők – egy sor modulonként, ami vár
-//    Hirdetések  munka: Ellenőrzésre vár · Kezelés · Beolvasás · Bejelentések
-//                rendrakás: Állapot · Duplikátumok · Nem elérhető · Figyelt oldalak
-//    Értékesítés Megbízások · Naptár · Beállítások
+//    Hirdetések  ellenőrzés: Ellenőrzésre vár · Hely-ellenőrzés · Állapot ·
+//                Beolvasás · Bejelentések
+//                rendrakás: Duplikátumok · Nem elérhető · Figyelt oldalak
+//    Értékesítés Megbízások · Naptár · Fotók (a csapat helyszíni munkája) · Beállítások
 //    Pénzügy     Áttekintés · Rendelések · Díjbekérők · Előfizetések · Ügyfelek ·
 //                Kiadások | Csomagok · Számlázás
 //    Irattár     Számlák és pénzügyi iratok · Szerződések
 //    Partnerek   Ingatlanirodák · Reklámfelületek
-//    Rendszer    Városok · Környék · Hely-ellenőrzés · Állapotok | Webhely ·
+//    Rendszer    Városok · Környék · Állapotok | Webhely ·
 //                Csapat · Karbantartás · Látogatottság
 //
 //  A menüpontokat a modulok adják hozzá (adminManager.js, mandates.js,
@@ -39,12 +40,12 @@
     // Modulonként az oldalak sorrendben ("|" = elválasztó a fülek között)
     AdminManager.REND = {
         ma: ["overview"],
-        hird: ["review", "hirdetesek", "import", "reports", "|", "allapot", "dups", "unavailable", "watch"],
-        ert: ["megbizasok", "naptar", "|", "megbizasBeall"],
+        hird: ["review", "helyek", "allapot", "import", "reports", "|", "dups", "unavailable", "watch"],
+        ert: ["megbizasok", "naptar", "hirdetesek", "|", "megbizasBeall"],
         penz: ["penzugy", "rendelesek", "szamlak", "onlinefiz", "elofizetesek", "ugyfelek", "kiadasok", "|", "csomagok", "kiemelesek", "penzugyBeall"],
         irat: ["irattarSzamla", "irattarSzerzodes"],
         partner: ["irodak", "reklam"],
-        rendszer: ["places", "kornyek", "helyek", "allapotok", "|", "webhely", "csapat", "tools", "sitestats"]
+        rendszer: ["places", "kornyek", "allapotok", "|", "webhely", "csapat", "tools", "sitestats"]
     };
 
     const regi = AdminManager.TABS;
@@ -59,7 +60,9 @@
 
     // A használathoz igazított nevek
     Object.assign(uj.overview, { title: "adminTabToday", desc: "adminDescToday", icon: "fa-solid fa-sun", jog: "panel", count: "todayCount" });
-    if (uj.hirdetesek) Object.assign(uj.hirdetesek, { title: "adminTabListingsManage", desc: "adminDescListingsManage", icon: "fa-solid fa-pen-to-square" });
+    // A fotósok / régiós kollégák munkahelye: a hirdetések fotói (saját és átvett képek)
+    if (uj.hirdetesek) Object.assign(uj.hirdetesek, { title: "adminTabPhotos", desc: "adminDescPhotos", icon: "fa-solid fa-camera" });
+    if (uj.helyek) Object.assign(uj.helyek, { title: "adminTabLocCheck", desc: "adminDescLocCheck2", warn: false });
     if (uj.megbizasBeall) uj.megbizasBeall.title = "adminTabSalesSettings";
     if (uj.penzugyBeall) uj.penzugyBeall.title = "adminTabBilling";
 

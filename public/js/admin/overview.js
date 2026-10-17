@@ -16,7 +16,7 @@
 AdminManager.maTeendok = function (c) {
     c = c || {};
     const t = [];
-    const lat = tab => AdminManager.TABS[tab] && AdminManager.lathato(AdminManager.TABS[tab]);
+    const lat = tab => { tab = String(tab).split("~")[0]; return AdminManager.TABS[tab] && AdminManager.lathato(AdminManager.TABS[tab]); };
     const todo = (ha, szint, icon, color, text, tab, btn) => { if (ha && lat(tab)) t.push({ szint, icon, color, text, tab, btn: btn || I18n.t("ovOpen") }); };
 
     // Sürgős: ügyfelek várnak
@@ -36,7 +36,8 @@ AdminManager.maTeendok = function (c) {
     todo(c.unavailable, 2, "fa-solid fa-ban", "red", I18n.f("ovTodoUnavailable", { n: c.unavailable }), "unavailable");
     todo(c.allapot_hianyzo, 2, "fa-solid fa-screwdriver-wrench", "purple", I18n.f("ovTodoAllapot", { n: c.allapot_hianyzo }), "allapot");
     todo(c.kornyek_javaslat, 2, "fa-solid fa-tree-city", "cyan", I18n.f("ovTodoKornyek", { n: c.kornyek_javaslat }), "kornyek");
-    todo(c.hely_athelyezett, 2, "fa-solid fa-location-crosshairs", "blue", I18n.f("ovTodoLocations", { n: c.hely_athelyezett }), "helyek");
+    todo(c.hely_athelyezett, 2, "fa-solid fa-location-crosshairs", "blue", I18n.f("ovTodoLocations", { n: c.hely_athelyezett }), "helyek~athelyezett");
+    todo(c.hely_nincs, 2, "fa-solid fa-map-pin", "blue", I18n.f("ovTodoNoLocation", { n: c.hely_nincs }), "helyek~pontatlan");
     todo(c.figyelt === 0, 2, "fa-solid fa-binoculars", "cyan", I18n.t("ovTodoWatch"), "watch");
     return t;
 };
@@ -97,7 +98,12 @@ AdminManager.renderOverview = function () {
             </div>`;
 
         AdminManager.box().querySelectorAll("[data-go]").forEach(b => {
-            b.onclick = () => AdminManager.open(b.dataset.go);
+            b.onclick = () => {
+                // "fül~mód" (pl. helyek~pontatlan: a hely-ellenőrzés pontos hely nélküli része)
+                const [tab, mod] = b.dataset.go.split("~");
+                if (mod && AdminManager.lc) AdminManager.lc.mod = mod;
+                AdminManager.open(tab);
+            };
         });
 
         // Ha éppen fut az automatikus javítás (pl. telepítés után), egy sávban jelezzük
@@ -122,6 +128,6 @@ AdminManager.renderOverview = function () {
 AdminManager.COUNT_KEY = {
     pendingCount: "review", unavailableCount: "unavailable", allapotCount: "allapot_hianyzo",
     irodaCount: "iroda_fuggo", kornyekCount: "kornyek_javaslat", reportCount: "bejelentes_uj",
-    helyCount: "hely_athelyezett", reklamCount: "reklam_fut", finLateCount: "penzugy_lejart", finDueCount: "penzugy_esedekes",
+    helyCount: "hely_teendo", reklamCount: "reklam_fut", finLateCount: "penzugy_lejart", finDueCount: "penzugy_esedekes",
     mandatesCount: "megbizas_uj", naptarCount: "naptar_teendo", ordersCount: "penzugy_rendeles", contractsCount: "szerzodes_teendo"
 };

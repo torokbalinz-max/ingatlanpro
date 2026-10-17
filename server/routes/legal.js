@@ -228,13 +228,17 @@ router.get("/api/jogi/bejelentesek", csapat.csakResz("ellenorzes"), async (req, 
 
     try {
 
+        // Városra kapott ellenőrzési jog: csak a városai hirdetéseiről szóló bejelentések
+        const params = [];
+        const hol = csapat.reszSql(await csapat.kontextus(req), "ellenorzes", params, "i.");
         const r = await db.query(`
             SELECT b.*, i.cim AS ingatlan_cim, i.statusz AS ingatlan_statusz, i.owner_id,
                    (SELECT u.email FROM users u WHERE u.id = i.owner_id) AS hirdeto_email
             FROM bejelentesek b
             LEFT JOIN ingatlanok i ON i.id = b.ingatlan_id
+            WHERE ${hol === "TRUE" ? "TRUE" : `i.id IS NOT NULL AND ${hol}`}
             ORDER BY (b.statusz IN ('uj', 'folyamatban')) DESC, b.created_at DESC
-            LIMIT 300`);
+            LIMIT 300`, params);
 
         res.json(r.rows);
 
@@ -253,6 +257,15 @@ router.put("/api/jogi/bejelentesek/:id", csapat.csakResz("ellenorzes"), async (r
         const elrejt = req.body.elrejt === true;
 
         if (!STATUSZOK.includes(statusz)) return res.status(400).json({ error: "bad_status" });
+
+        // Városra kapott ellenőrzési jog: csak a városai hirdetéseiről szóló bejelentések
+        const kk = await csapat.kontextus(req);
+        const pp = [Number(req.params.id) || 0];
+        const hol = csapat.reszSql(kk, "ellenorzes", pp, "i.");
+        if (hol !== "TRUE") {
+            const ok = await db.query(`SELECT 1 FROM bejelentesek b JOIN ingatlanok i ON i.id = b.ingatlan_id WHERE b.id = $1 AND ${hol}`, pp);
+            if (!ok.rowCount) return res.status(403).json({ error: "not_in_scope" });
+        }
         if (["eltavolitva", "elutasitva"].includes(statusz) && indok.length < 5) {
             return res.status(400).json({ error: "reason_required" });
         }

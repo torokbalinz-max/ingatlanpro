@@ -74,7 +74,7 @@ class AdminManager {
 
         review:      { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-list-check",          title: "adminTabReview",      desc: "adminDescReview",      render: () => AdminManager.renderReview(),      count: "pendingCount", warn: true },
         allapot:     { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-screwdriver-wrench",  title: "adminTabAllapot",     desc: "adminDescAllapot",     render: () => AdminManager.renderConditions(),  count: "allapotCount" },
-        dups:        { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-clone",               title: "adminTabDups",        desc: "adminDescDups",        render: () => AdminManager.renderDups() },
+        dups:        { group: "listings", jog: "ellenorzes_mind", icon: "fa-solid fa-clone",               title: "adminTabDups",        desc: "adminDescDups",        render: () => AdminManager.renderDups() },
         unavailable: { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-ban",                 title: "adminTabUnavailable", desc: "adminDescUnavailable", render: () => AdminManager.renderUnavailable(), count: "unavailableCount" },
         reports:     { group: "listings", jog: "ellenorzes", icon: "fa-solid fa-flag",                title: "adminTabReports",     desc: "adminDescReports",     render: () => AdminManager.renderReports(),     count: "reportCount", warn: true },
 
@@ -84,7 +84,7 @@ class AdminManager {
 
         places:      { group: "places", jog: "helyek",   icon: "fa-solid fa-city",                title: "adminTabPlaces",      desc: "adminDescPlaces",      render: () => AdminManager.renderPlaces() },
         kornyek:     { group: "places", jog: "helyek",   icon: "fa-solid fa-tree-city",           title: "adminTabKornyek",     desc: "adminDescKornyek",     render: () => AdminManager.renderKornyek(),     count: "kornyekCount", warn: true },
-        helyek:      { group: "places", jog: "helyek",   icon: "fa-solid fa-location-crosshairs", title: "adminTabLocCheck",    desc: "adminDescLocCheck",    render: () => AdminManager.renderLocationCheck(), count: "helyCount" },
+        helyek:      { group: "listings", jog: ["helyek", "ellenorzes"],   icon: "fa-solid fa-location-crosshairs", title: "adminTabLocCheck",    desc: "adminDescLocCheck",    render: () => AdminManager.renderLocationCheck(), count: "helyCount" },
 
         irodak:      { group: "partners", jog: "irodak", icon: "fa-solid fa-briefcase",           title: "adminTabAgencies",    desc: "adminDescAgencies",    render: () => AdminManager.renderAgencies(),    count: "irodaCount", warn: true },
         reklam:      { group: "partners", jog: "reklam", icon: "fa-solid fa-rectangle-ad",        title: "adminTabAds",         desc: "adminDescAds",         render: () => AdminManager.renderAds(),         count: "reklamCount" },
@@ -270,7 +270,7 @@ class AdminManager {
         AdminManager.setCount("irodaCount", c.iroda_fuggo);
         AdminManager.setCount("kornyekCount", c.kornyek_javaslat);
         AdminManager.setCount("reportCount", c.bejelentes_uj);
-        AdminManager.setCount("helyCount", c.hely_athelyezett);
+        AdminManager.setCount("helyCount", c.hely_teendo);
         AdminManager.setCount("reklamCount", c.reklam_fut);
         AdminManager.setCount("finLateCount", c.penzugy_lejart);
         AdminManager.setCount("finDueCount", c.penzugy_esedekes);

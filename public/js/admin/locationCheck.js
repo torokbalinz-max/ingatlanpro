@@ -1,7 +1,16 @@
 // ============================================================
-//  Admin – Hely-ellenőrzés (Helyek → Hely-ellenőrzés)
+//  Admin – Hely-ellenőrzés (Hirdetések → Hely-ellenőrzés)
 //
-//  Amit az automatikus hely-ellenőrzés (beolvasás, automatikus javítás)
+//  Két rész (felül váltható):
+//   1. Pontos hely nélkül – a hirdetések, amelyeknek nincs pontjuk a
+//      térképen, vagy csak közelítő. Gyors munkasor: balra a sor, jobbra
+//      a kiválasztott hirdetés (kép, leírás – a helynevek kiemelve, egy
+//      kattintással rájuk keres a térkép), a helyválasztó térkép
+//      címkeresővel, „A leírásból” javaslattal és műholdképpel, a kerület.
+//      „Mentés és következő” (Ctrl+Enter), „Kihagyás”, „Így marad”
+//      (a közelítő hely rendben van), „Nem található”. Nem kell a Google
+//      és az oldal között ugrálni.
+//   2. Áthelyezett – amit az automatikus hely-ellenőrzés (beolvasás, automatikus javítás)
 //  áthelyezett, mert a hirdetési oldal pontja nem egyezett a hirdetés
 //  szövegével: messze volt a várostól / a falutól, a leírásban szereplő
 //  utca vagy kerület máshol van, a pont csak a város "alapértelmezett"
@@ -15,7 +24,7 @@
 //  kerület, vagy "nincs pontos hely") – a hirdetést nem kell megnyitni.
 // ============================================================
 
-AdminManager.lc = { lista: [], varos: null, ok: "", map: null, reteg: null, kijelolt: null };
+AdminManager.lc = { lista: [], varos: null, ok: "", map: null, reteg: null, kijelolt: null, mod: null };
 
 AdminManager.LC_OKOK = ["utca_eltero", "kerulet_eltero", "varostol_tavol", "falutol_tavol", "alappont", "pontosabb"];
 
@@ -23,8 +32,13 @@ AdminManager.renderLocationCheck = function () {
 
     AdminManager.loading();
 
+    // A két rész száma (a váltóhoz); a pontos hely nélküliek listáját a saját része tölti
+    const pont = fetch("/api/admin/hely-pontatlan?csak=szam", { cache: "no-store" })
+        .then(r => r.ok ? r.json() : null).catch(() => null);
+
     fetch("/api/admin/hely-athelyezett", { cache: "no-store" })
         .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(lista => pont.then(p => { AdminManager.lp.szamok = (p && p.szamok) || AdminManager.lp.szamok || {}; return lista; }))
         .then(lista => {
             const lc = AdminManager.lc;
             lc.lista = (Array.isArray(lista) ? lista : []).filter(i => i.hely_eredeti && i.hely_eredeti.ok);
@@ -33,7 +47,10 @@ AdminManager.renderLocationCheck = function () {
             if (lc.varos === null || (lc.varos && !varosok.includes(lc.varos))) {
                 lc.varos = varosok.includes(DataManager.currentCity) ? DataManager.currentCity : (varosok.length > 1 ? varosok[0] : "");
             }
-            AdminManager.lcDraw();
+            // Alapból: ahol döntés vár (áthelyezett), különben a pontos hely nélküliek
+            if (!lc.mod) lc.mod = lc.lista.length ? "athelyezett" : "pontatlan";
+            if (lc.mod === "pontatlan") AdminManager.lpTolt();
+            else AdminManager.lcDraw();
         })
         .catch(() => {
             AdminManager.box().innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`;
@@ -56,6 +73,7 @@ AdminManager.lcDraw = function () {
 
     if (!lc.lista.length) {
         box.innerHTML = `
+            ${AdminManager.lcModBar()}
             <div class="emptyState">
                 <i class="fa-solid fa-location-crosshairs text-success" aria-hidden="true"></i>
                 <h5>${I18n.t("lcEmpty")}</h5>
@@ -63,6 +81,7 @@ AdminManager.lcDraw = function () {
                 <a class="btn btn-outline-primary btn-sm" href="#admin/tools" data-go-tab="tools"><i class="fa-solid fa-toolbox" aria-hidden="true"></i> ${I18n.t("adminTabTools")}</a>
             </div>`;
         box.querySelectorAll("[data-go-tab]").forEach(a => a.onclick = e => { e.preventDefault(); AdminManager.open(a.dataset.goTab); });
+        AdminManager.lcModBind();
         return;
     }
 
@@ -73,6 +92,7 @@ AdminManager.lcDraw = function () {
     const szurt = AdminManager.lcSzurt();
 
     box.innerHTML = `
+        ${AdminManager.lcModBar()}
         <p class="sectionNote">${I18n.t("lcIntro")}</p>
 
         ${AdminManager.cityTabs(lc.lista, lc.varos, "data-lc-city")}
@@ -105,6 +125,8 @@ AdminManager.lcDraw = function () {
                 </div>
             </div>
         </div>`;
+
+    AdminManager.lcModBind();
 
     box.querySelectorAll("[data-lc-city]").forEach(b => {
         b.onclick = () => { lc.varos = b.dataset.lcCity; lc.ok = ""; lc.kijelolt = null; AdminManager.lcDraw(); };
@@ -454,4 +476,457 @@ AdminManager.lcKezi = function (id) {
 
     modal.show();
 
+};
+
+// ===================== A KÉT RÉSZ VÁLTÓJA =====================
+
+AdminManager.lcModBar = function () {
+    const lc = AdminManager.lc;
+    const sz = AdminManager.lp.szamok || {};
+    const ath = lc.lista.length;
+    const nincs = (sz.osszes || 0);
+    return `
+        <div class="lcModes" role="tablist" aria-label="${Utils.escape(I18n.t("adminTabLocCheck"))}">
+            <button type="button" role="tab" class="lcMode ${lc.mod === "pontatlan" ? "active" : ""}" data-lc-mod="pontatlan" aria-selected="${lc.mod === "pontatlan"}">
+                <i class="fa-solid fa-map-pin" aria-hidden="true"></i>
+                <span><b>${I18n.t("lpModeTitle")}</b><small>${I18n.t("lpModeSub")}</small></span>
+                <span class="lcModeDb">${Utils.num(nincs)}</span>
+            </button>
+            <button type="button" role="tab" class="lcMode ${lc.mod !== "pontatlan" ? "active" : ""}" data-lc-mod="athelyezett" aria-selected="${lc.mod !== "pontatlan"}">
+                <i class="fa-solid fa-route" aria-hidden="true"></i>
+                <span><b>${I18n.t("lpModeMoved")}</b><small>${I18n.t("lpModeMovedSub")}</small></span>
+                <span class="lcModeDb ${ath ? "warn" : ""}">${Utils.num(ath)}</span>
+            </button>
+        </div>`;
+};
+
+AdminManager.lcModBind = function () {
+    AdminManager.box().querySelectorAll("[data-lc-mod]").forEach(b => {
+        b.onclick = () => {
+            const lc = AdminManager.lc;
+            if (lc.mod === b.dataset.lcMod) return;
+            lc.mod = b.dataset.lcMod;
+            AdminManager.lpTakarit();
+            if (lc.map) { lc.map.remove(); lc.map = null; lc.reteg = null; }
+            if (lc.mod === "pontatlan") AdminManager.lpTolt();
+            else AdminManager.lcDraw();
+        };
+    });
+};
+
+// ===================== PONTOS HELY NÉLKÜL: GYORS MUNKASOR =====================
+
+AdminManager.lp = { lista: [], szamok: {}, varos: null, mod: "mind", aktiv: null, picker: null, kesz: 0, satelit: false, kulcs: null };
+
+// A sor betöltése (a kiválasztott város és szűrő szerint)
+AdminManager.lpTolt = function () {
+
+    const lp = AdminManager.lp;
+    const box = AdminManager.box();
+    AdminManager.lpTakarit();
+
+    // Alapból a kiválasztott város, ha van benne teendő
+    const varosok = (lp.szamok && lp.szamok.varosok) || {};
+    if (lp.varos === null) {
+        const db = v => varosok[v] ? varosok[v].nincs + varosok[v].kozelito : 0;
+        lp.varos = db(DataManager.currentCity) ? DataManager.currentCity : "";
+    }
+
+    if (!box.querySelector("#lpLayout")) AdminManager.loading();
+    else box.querySelector("#lpQueue").innerHTML = `<div class="emptyState py-4"><div class="spinner-border text-primary"></div></div>`;
+
+    const p = new URLSearchParams({ mod: lp.mod });
+    if (lp.varos) p.set("varos", lp.varos);
+
+    fetch("/api/admin/hely-pontatlan?" + p, { cache: "no-store" })
+        .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(d => {
+            lp.lista = Array.isArray(d.lista) ? d.lista : [];
+            lp.szamok = d.szamok || {};
+            if (!lp.lista.some(i => i.id === lp.aktiv)) lp.aktiv = lp.lista.length ? lp.lista[0].id : null;
+            AdminManager.lpDraw();
+        })
+        .catch(() => { box.innerHTML = `${AdminManager.lcModBar()}<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`; AdminManager.lcModBind(); });
+
+};
+
+// A térkép és a billentyűk eltávolítása (részváltáskor, újrarajzoláskor)
+AdminManager.lpTakarit = function () {
+    const lp = AdminManager.lp;
+    if (lp.picker) { try { lp.picker.remove(); } catch (e) { /* már nincs */ } lp.picker = null; }
+    if (lp.kulcs) { document.removeEventListener("keydown", lp.kulcs); lp.kulcs = null; }
+};
+
+// Az egyes városok és szűrők száma
+AdminManager.lpDb = function (varos, mod) {
+    const v = (AdminManager.lp.szamok || {}).varosok || {};
+    const egy = x => !x ? 0 : mod === "nincs" ? x.nincs : mod === "kozelito" ? x.kozelito : x.nincs + x.kozelito;
+    if (varos) return egy(v[varos]);
+    return Object.values(v).reduce((s, x) => s + egy(x), 0);
+};
+
+AdminManager.lpDraw = function () {
+
+    const lp = AdminManager.lp;
+    const box = AdminManager.box();
+    const esc = Utils.escape;
+    AdminManager.lpTakarit();
+
+    // A városválasztó (a meglévő városfül-sáv egy „álló” listából)
+    const varosok = (lp.szamok && lp.szamok.varosok) || {};
+    const alLista = [];
+    Object.entries(varosok).forEach(([v, x]) => { for (let n = 0; n < x.nincs + x.kozelito; n++) alLista.push({ varos: v }); });
+    const db = m => AdminManager.lpDb(lp.varos, m);
+
+    box.innerHTML = `
+        ${AdminManager.lcModBar()}
+        ${AdminManager.cityTabs(alLista, lp.varos, "data-lp-city")}
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <div class="typeTabs mb-0" role="tablist">
+                ${["mind", "nincs", "kozelito"].map(m => `
+                    <button type="button" class="typeTab ${lp.mod === m ? "active" : ""}" data-lp-mod="${m}">
+                        <i class="fa-solid ${m === "nincs" ? "fa-location-pin-lock" : m === "kozelito" ? "fa-circle-dot" : "fa-layer-group"}" aria-hidden="true"></i>
+                        ${I18n.t("lpFilter_" + m)} <span class="typeTabCount">${Utils.num(db(m))}</span>
+                    </button>`).join("")}
+            </div>
+            <span class="lpDone ms-auto ${lp.kesz ? "" : "d-none"}" id="lpDone"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> ${I18n.f("lpDoneN", { n: lp.kesz })}</span>
+            ${lp.mod === "kozelito" && lp.lista.length ? `
+                <button type="button" class="btn btn-sm btn-outline-secondary ${lp.kesz ? "" : "ms-auto"}" id="lpKeepAll" title="${esc(I18n.t("lpKeepAllHelp"))}">
+                    <i class="fa-solid fa-check-double" aria-hidden="true"></i> ${I18n.f("lpKeepAll", { n: lp.lista.length })}
+                </button>` : ""}
+        </div>
+
+        ${lp.lista.length ? `
+        <div class="lpLayout" id="lpLayout">
+            <aside class="lpQueue card" aria-label="${esc(I18n.t("lpQueue"))}">
+                <div class="lpQueueHead small"><b>${I18n.t("lpQueue")}</b> <span class="text-body-secondary">${Utils.num(lp.lista.length)}${lp.lista.length >= 400 ? "+" : ""}</span></div>
+                <div class="lpQueueList" id="lpQueue">${lp.lista.map(i => AdminManager.lpRow(i)).join("")}</div>
+            </aside>
+            <section class="lpWork" id="lpWork" aria-live="polite"></section>
+        </div>` : `
+        <div class="emptyState">
+            <i class="fa-solid fa-map-location-dot text-success" aria-hidden="true"></i>
+            <h5>${I18n.t("lpEmpty")}</h5>
+            <p>${I18n.t("lpEmptyHint")}</p>
+        </div>`}`;
+
+    AdminManager.lcModBind();
+
+    box.querySelectorAll("[data-lp-city]").forEach(b => {
+        b.onclick = () => { lp.varos = b.dataset.lpCity; lp.aktiv = null; AdminManager.lpTolt(); };
+    });
+    box.querySelectorAll("[data-lp-mod]").forEach(b => {
+        b.onclick = () => { lp.mod = b.dataset.lpMod; lp.aktiv = null; AdminManager.lpTolt(); };
+    });
+
+    const mind = document.getElementById("lpKeepAll");
+    if (mind) mind.onclick = () => {
+        const ids = lp.lista.map(i => i.id);
+        if (!ids.length || !confirm(I18n.f("lpKeepAllConfirm", { n: ids.length }))) return;
+        mind.disabled = true;
+        AdminManager.lpPost("/api/admin/hely-pontatlan/mind/marad", { ids })
+            .then(() => AdminManager.lpKesz(ids))
+            .catch(() => { mind.disabled = false; alert(I18n.t("alertSaveError")); });
+    };
+
+    AdminManager.lpQueueBind();
+
+    // Billentyűk: Ctrl+Enter = mentés és következő; Ctrl+→ / Ctrl+← = következő / előző
+    lp.kulcs = e => {
+        if (!document.getElementById("lpWork")) return AdminManager.lpTakarit();
+        if (document.querySelector(".modal.show")) return;
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); const b = document.getElementById("lpSave"); if (b && !b.disabled) b.click(); return; }
+        const mezoben = /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "");
+        if (mezoben) return;
+        if ((e.ctrlKey || e.metaKey) && e.key === "ArrowRight") { e.preventDefault(); AdminManager.lpLep(1); }
+        if ((e.ctrlKey || e.metaKey) && e.key === "ArrowLeft") { e.preventDefault(); AdminManager.lpLep(-1); }
+    };
+    document.addEventListener("keydown", lp.kulcs);
+    AdminManager.takaritas.push(() => AdminManager.lpTakarit());
+
+    if (lp.aktiv) AdminManager.lpNyit(lp.aktiv, true);
+
+};
+
+AdminManager.lpQueueBind = function () {
+    document.querySelectorAll("#lpQueue [data-lp-row]").forEach(r => {
+        r.onclick = () => AdminManager.lpNyit(Number(r.dataset.lpRow));
+    });
+};
+
+// Egy sor a munkasorban
+AdminManager.lpRow = function (i) {
+    const esc = Utils.escape;
+    const kep = i.kep_id ? `/api/kepek/${i.kep_id}` : (i.kulso_kep ? Utils.imgUrl(i.kulso_kep) : null);
+    const nincs = !(i.x && i.y) || i.hely_pontossag === "nincs";
+    return `
+        <button type="button" class="lpRow ${i.id === AdminManager.lp.aktiv ? "active" : ""}" data-lp-row="${i.id}">
+            <span class="lcThumb">${kep ? `<img src="${esc(kep)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<i class="${Types.get(i.tipus).icon}" aria-hidden="true"></i></span>
+            <span class="lpRowMain">
+                <b>${esc(i.cim || Types.label(i.tipus))}</b>
+                <small>#${i.id} · ${esc(CityManager.helyLabel(i))}</small>
+                <span class="lpTag ${nincs ? "nincs" : "kozelito"}">${nincs ? I18n.t("lpTagNone") : I18n.f("lpTagApprox", { m: LocationPicker.meter(Number(i.hely_sugar) || 500) })}</span>
+            </span>
+        </button>`;
+};
+
+// A leírás a helynevek kiemelésével (kattintásra a térkép rájuk keres)
+AdminManager.lpKiemel = function (szoveg) {
+    const esc = Utils.escape(String(szoveg || "").slice(0, 1500));
+    const nev = "(?:\\p{Lu}[\\p{L}\\-']*|\\d{1,4})";
+    const minta = new RegExp(
+        // román / magyar előtag: str. Gábor Áron, strada Kós Károly nr. 5, bd. 1 Decembrie 1918, calea …, aleea …, piața …, cartierul …
+        `(?:\\b(?:[Ss]tr(?:ada)?\\.?|[Uu]l\\.|[Bb](?:-dul|d\\.|ulevardul)|[Cc]alea|[Aa]leea|[Pp]ia[țţt]a|[Ss]pl(?:aiul)?\\.?|[Cc]artier(?:ul)?|[Zz]ona|[Ll]ak[óo]telep)\\s+${nev}(?:\\s+(?:${nev}|nr\\.?\\s*\\d+[A-Za-z]?)){0,3})` +
+        // magyar utótag: Kós Károly utca, Gábor Áron u., Csíki út, Szabadság tér, Árnyas sor
+        `|(?:${nev}(?:\\s+${nev}){0,2}\\s+(?:utc[aá]\\p{L}*|u\\.|útj?(?:a|on|ra|nál)?|t[ée]r(?:en|re|i)?|sor(?:on)?|k[öo]z|s[ée]t[áa]ny|lak[óo]telep\\p{L}*|negyed\\p{L}*)(?![\\p{L}])(?:\\s*\\d+[A-Za-z]?)?)`,
+        "gu");
+    return esc.replace(minta, m => m.length > 70 ? m : `<button type="button" class="lpHit" data-lp-q="${m.replace(/"/g, "&quot;")}">${m}</button>`);
+};
+
+// A kiemelt helynév kereshető formában: "str. Gábor Áron nr. 12" → "Gábor Áron 12",
+// "Kós Károly utcában" → "Kós Károly utca"
+AdminManager.lpTisztit = function (q) {
+    return String(q || "")
+        .replace(/\s+/g, " ")
+        .replace(/^(?:str(?:ada)?\.?|ul\.)\s+/i, "")
+        .replace(/\bnr\.?\s*/gi, "")
+        .replace(/\s+utc[aá][\p{L}]*/u, " utca")
+        .replace(/\s+útj?(?:a|on|ra|nál)?(?![\p{L}])/u, " út")
+        .replace(/\s+t[ée]r(?:en|re|i)(?![\p{L}])/u, " tér")
+        .trim();
+};
+
+// Egy hirdetés megnyitása a munkaterületen
+AdminManager.lpNyit = function (id, csendben) {
+
+    const lp = AdminManager.lp;
+    const i = lp.lista.find(x => x.id === id);
+    const hova = document.getElementById("lpWork");
+    if (!i || !hova) return;
+    const esc = Utils.escape;
+
+    lp.aktiv = id;
+    document.querySelectorAll("#lpQueue [data-lp-row]").forEach(r => r.classList.toggle("active", Number(r.dataset.lpRow) === id));
+    const sorEl = document.querySelector(`#lpQueue [data-lp-row="${id}"]`);
+    if (sorEl) sorEl.scrollIntoView({ block: "nearest" });
+
+    if (lp.picker) { try { lp.picker.remove(); } catch (e) { /* már nincs */ } lp.picker = null; }
+
+    const kep = i.kep_id ? `/api/kepek/${i.kep_id}` : (i.kulso_kep ? Utils.imgUrl(i.kulso_kep) : null);
+    const vanPont = !!(i.x && i.y) && i.hely_pontossag !== "nincs";
+    const vanKerulet = Types.fieldsFor(i.tipus, i.varos).kerulet;
+    const sorszam = lp.lista.findIndex(x => x.id === id) + 1;
+    const adatok = [Types.label(i.tipus), i.ar ? Utils.price(i) : "", i.nm ? `${Utils.num(i.nm)} m²` : "", i.szobak ? I18n.f("lpRooms", { n: i.szobak }) : ""].filter(Boolean);
+    const leiras = String(i.leiras || "").trim();
+
+    hova.innerHTML = `
+        <div class="card lpCard">
+            <div class="card-body">
+                <div class="lpHead">
+                    <div class="min-w-0">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <span class="lpTag ${vanPont ? "kozelito" : "nincs"}">${vanPont ? I18n.f("lpTagApprox", { m: LocationPicker.meter(Number(i.hely_sugar) || 500) }) : I18n.t("lpTagNone")}</span>
+                            <span class="small text-body-secondary">#${i.id} · ${esc(CityManager.helyLabel(i))}</span>
+                            ${i.statusz === "fuggo" ? `<span class="badge text-bg-light">${I18n.t("lcPending")}</span>` : ""}
+                            <span class="small text-body-secondary ms-auto">${I18n.f("lpPos", { n: sorszam, ossz: lp.lista.length })}</span>
+                        </div>
+                        <h5 class="lpTitle">${esc(i.cim || Types.label(i.tipus))}</h5>
+                        <div class="small text-body-secondary">${adatok.map(esc).join(" · ")}</div>
+                    </div>
+                    <div class="lpHeadBtns">
+                        <a class="btn btn-sm btn-outline-secondary" href="#listing/${i.id}" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> ${I18n.t("lcOpen")}</a>
+                        ${i.link ? `<a class="btn btn-sm btn-outline-secondary" href="${esc(i.link)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-link" aria-hidden="true"></i> ${I18n.t("lpSource")}</a>` : ""}
+                    </div>
+                </div>
+
+                <div class="lpBody">
+                    <div class="lpText">
+                        ${kep ? `<a class="lpPhoto" href="#listing/${i.id}" target="_blank" rel="noopener"><img src="${esc(kep)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></a>` : ""}
+                        ${i.forras_kerulet ? `<div class="small mb-2"><i class="fa-solid fa-signs-post" aria-hidden="true"></i> ${I18n.t("lpSourceArea")}: <button type="button" class="lpHit" data-lp-q="${esc(i.forras_kerulet)}">${esc(i.forras_kerulet)}</button></div>` : ""}
+                        <div class="lpDescHead small"><b>${I18n.t("lpDesc")}</b> <span class="text-body-secondary">${I18n.t("lpDescHint")}</span></div>
+                        <div class="lpDesc">${leiras ? AdminManager.lpKiemel(leiras) : `<span class="text-body-secondary">${I18n.t("lpNoDesc")}</span>`}</div>
+                    </div>
+                    <div class="lpMapCol">
+                        <div id="lpPicker"></div>
+                        <div class="lpGuess small" id="lpGuess" hidden></div>
+                        ${vanKerulet ? `
+                        <div class="row g-2 mt-1 align-items-end">
+                            <div class="col-sm-6">
+                                <label class="form-label small mb-1" for="lpKerulet">${I18n.t("detailKerulet")}</label>
+                                <select class="form-select form-select-sm" id="lpKerulet"></select>
+                            </div>
+                            <div class="col-sm-6 small text-body-secondary">${I18n.t("lcManualDistrictNote")}</div>
+                        </div>` : ""}
+                    </div>
+                </div>
+
+                <div class="lpFoot">
+                    ${vanPont
+                        ? `<button type="button" class="btn btn-outline-secondary btn-sm" id="lpKeep" title="${esc(I18n.t("lpKeepHelp"))}"><i class="fa-regular fa-circle-check" aria-hidden="true"></i> ${I18n.t("lpKeep")}</button>`
+                        : `<button type="button" class="btn btn-outline-secondary btn-sm" id="lpNone" title="${esc(I18n.t("lpNoneHelp"))}"><i class="fa-solid fa-location-pin-lock" aria-hidden="true"></i> ${I18n.t("lpNone")}</button>`}
+                    <span class="lpKeys small text-body-secondary d-none d-lg-inline">${I18n.t("lpKeys")}</span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="lpSkip"><i class="fa-solid fa-forward" aria-hidden="true"></i> ${I18n.t("lpSkip")}</button>
+                    <button type="button" class="btn btn-primary" id="lpSave" ${vanPont ? "" : "disabled"}><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("lpSaveNext")}</button>
+                </div>
+            </div>
+        </div>`;
+
+    const ker = vanKerulet ? CityManager.loadKeruletekInto("lpKerulet", i.varos, i.kerulet || "", "newKeruletNincs") : Promise.resolve();
+    const mentGomb = document.getElementById("lpSave");
+
+    lp.picker = new LocationPicker("lpPicker", {
+        x: vanPont ? Number(i.x) : null,
+        y: vanPont ? Number(i.y) : null,
+        pontossag: i.hely_pontossag,
+        sugar: i.hely_sugar,
+        varos: () => i.varos,
+        szoveg: () => ({
+            cim: i.cim, leiras: i.leiras || "", tipus: i.tipus, telepules: i.telepules || null,
+            kerulet: (document.getElementById("lpKerulet") || {}).value || i.kerulet, forras_kerulet: i.forras_kerulet
+        }),
+        onChange: h => { mentGomb.disabled = !(h.x && h.y); },
+        onPoint: (x, y) => {
+            mentGomb.disabled = false;
+            const sel = document.getElementById("lpKerulet");
+            if (!sel) return;
+            const k = typeof Districts !== "undefined" ? Districts.findObj(i.varos, x, y) : null;
+            if (k && k.nev) { sel.value = k.nev; sel.classList.add("autoFilled"); return; }
+            LocationPicker.keruletJavaslat(i.varos, x, y).then(n => { if (n) { sel.value = n; sel.classList.add("autoFilled"); } });
+        }
+    });
+    const p = lp.picker;
+    AdminManager.lpSatelit(p);
+
+    // A kiemelt helynevek: a térkép rájuk keres
+    hova.querySelectorAll("[data-lp-q]").forEach(b => {
+        b.onclick = () => {
+            const q = AdminManager.lpTisztit(b.dataset.lpQ);
+            const inp = p.box.querySelector(".locSearchInput");
+            if (inp) inp.value = q;
+            p.keres(q);
+            hova.querySelectorAll(".lpHit.active").forEach(x => x.classList.remove("active"));
+            b.classList.add("active");
+        };
+    });
+
+    // Nincs pont: rögtön javaslat a szövegből (csak javaslat – menteni a gombbal kell)
+    if (!vanPont) {
+        const g = p.box.querySelector(".locFromText");
+        if (g) p.szovegbol(g);
+        // a kereső előtöltése az első kiemelt névvel (Enterrel keres)
+        const elso = hova.querySelector(".lpDesc [data-lp-q]");
+        const inp = p.box.querySelector(".locSearchInput");
+        if (elso && inp && !inp.value) inp.value = AdminManager.lpTisztit(elso.dataset.lpQ);
+    }
+
+    const kuld = (ut, body) => {
+        hova.querySelectorAll(".lpFoot button").forEach(b => b.disabled = true);
+        return AdminManager.lpPost(ut, body)
+            .then(() => AdminManager.lpKesz([i.id]))
+            .catch(() => { hova.querySelectorAll(".lpFoot button").forEach(b => b.disabled = false); alert(I18n.t("alertSaveError")); });
+    };
+    const keruletErtek = () => { const s = document.getElementById("lpKerulet"); return s ? s.value : undefined; };
+
+    mentGomb.onclick = () => {
+        const h = p.get();
+        if (!(h.x && h.y)) return;
+        ker.then(() => kuld(`/api/admin/hely-athelyezett/${i.id}/kezi`, { ...h, kerulet: keruletErtek() }));
+    };
+    document.getElementById("lpSkip").onclick = () => AdminManager.lpLep(1);
+    const keep = document.getElementById("lpKeep");
+    if (keep) keep.onclick = () => kuld(`/api/admin/hely-pontatlan/${i.id}/marad`);
+    const none = document.getElementById("lpNone");
+    if (none) none.onclick = () => {
+        if (!confirm(I18n.t("lcManualNoneConfirm"))) return;
+        kuld(`/api/admin/hely-athelyezett/${i.id}/kezi`, { x: null, y: null, hely_pontossag: "nincs", kerulet: keruletErtek() });
+    };
+
+    if (!csendben && window.innerWidth < 992) hova.scrollIntoView({ behavior: "smooth", block: "start" });
+
+};
+
+// Műholdkép kapcsoló a helyválasztó térképén (a házak, telkek felismeréséhez)
+AdminManager.lpSatelit = function (p) {
+    const lp = AdminManager.lp;
+    if (!p || !p.map || typeof L === "undefined") return;
+    const reteg = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19, attribution: "© Esri, Maxar, Earthstar Geographics"
+    });
+    const cimkek = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 });
+    const be = on => {
+        if (on) { reteg.addTo(p.map); cimkek.addTo(p.map); }
+        else { reteg.remove(); cimkek.remove(); }
+        if (gomb) { gomb.classList.toggle("active", on); gomb.setAttribute("aria-pressed", String(on)); }
+    };
+    let gomb = null;
+    const Gomb = L.Control.extend({
+        options: { position: "topright" },
+        onAdd() {
+            gomb = L.DomUtil.create("button", "leaflet-bar lpSatBtn");
+            gomb.type = "button";
+            gomb.innerHTML = `<i class="fa-solid fa-satellite" aria-hidden="true"></i> <span>${Utils.escape(I18n.t("lpSatellite"))}</span>`;
+            gomb.setAttribute("aria-pressed", "false");
+            L.DomEvent.disableClickPropagation(gomb);
+            L.DomEvent.on(gomb, "click", e => { L.DomEvent.preventDefault(e); lp.satelit = !lp.satelit; be(lp.satelit); });
+            return gomb;
+        }
+    });
+    p.map.addControl(new Gomb());
+    if (lp.satelit) be(true);
+};
+
+// Előre / hátra a sorban (kihagyás: a hirdetés a sorban marad)
+AdminManager.lpLep = function (irany) {
+    const lp = AdminManager.lp;
+    if (!lp.lista.length) return;
+    const n = lp.lista.findIndex(x => x.id === lp.aktiv);
+    const k = (n + irany + lp.lista.length) % lp.lista.length;
+    AdminManager.lpNyit(lp.lista[k].id);
+};
+
+AdminManager.lpPost = function (ut, body) {
+    return fetch(ut, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+    }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+};
+
+// Kész: kikerül a sorból, jön a következő
+AdminManager.lpKesz = function (ids) {
+    const lp = AdminManager.lp;
+    const ki = new Set(ids);
+    const n = Math.max(0, lp.lista.findIndex(x => x.id === lp.aktiv));
+    // A számok (város / szűrő) csökkentése
+    lp.lista.filter(i => ki.has(i.id)).forEach(i => {
+        const v = ((lp.szamok || {}).varosok || {})[i.varos || ""];
+        const nincs = !(i.x && i.y) || i.hely_pontossag === "nincs";
+        if (v) { if (nincs) v.nincs = Math.max(0, v.nincs - 1); else v.kozelito = Math.max(0, v.kozelito - 1); }
+        if (lp.szamok) lp.szamok.osszes = Math.max(0, (lp.szamok.osszes || 0) - 1);
+    });
+    lp.lista = lp.lista.filter(i => !ki.has(i.id));
+    lp.kesz += ids.length;
+    clearTimeout(lp.szamlaloIdo);
+    lp.szamlaloIdo = setTimeout(() => AdminManager.refreshPendingCount(), 1500);
+
+    if (ids.length > 1 || !lp.lista.length) {
+        lp.aktiv = lp.lista.length ? lp.lista[0].id : null;
+        // Ha a szűrő kiürült, újratöltjük (lehet még a szerveren a 400 fölött)
+        return lp.lista.length ? AdminManager.lpDraw() : AdminManager.lpTolt();
+    }
+    // Egy hirdetés: csak a sorból vesszük ki, a munkaterületen a következő
+    ids.forEach(id => { const el = document.querySelector(`#lpQueue [data-lp-row="${id}"]`); if (el) el.remove(); });
+    const kov = lp.lista[Math.min(n, lp.lista.length - 1)];
+    const done = document.getElementById("lpDone");
+    if (done) { done.classList.remove("d-none"); done.innerHTML = `<i class="fa-solid fa-circle-check" aria-hidden="true"></i> ${I18n.f("lpDoneN", { n: lp.kesz })}`; }
+    const fej = document.querySelector(".lpQueueHead span");
+    if (fej) fej.textContent = Utils.num(lp.lista.length);
+    const modDb = document.querySelectorAll(".lcModeDb")[0];
+    if (modDb) modDb.textContent = Utils.num((lp.szamok || {}).osszes || 0);
+    document.querySelectorAll("[data-lp-mod]").forEach(b => {
+        const c = b.querySelector(".typeTabCount");
+        if (c) c.textContent = Utils.num(AdminManager.lpDb(lp.varos, b.dataset.lpMod));
+    });
+    AdminManager.lpNyit(kov.id, true);
 };

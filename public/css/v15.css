@@ -1,0 +1,228 @@
+/* ==========================================================================
+   v15 – Admin: Hely-ellenőrzés gyors munkasor, Fotók munkahely, városi jogok
+   ========================================================================== */
+
+/* ---------- A hely-ellenőrzés két része (váltó) ---------- */
+
+.lcModes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.lcMode {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--ip-border);
+    border-radius: var(--ip-radius);
+    background: var(--ip-surface);
+    color: inherit;
+    text-align: left;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.lcMode > i { font-size: 1.15rem; color: var(--ip-muted); width: 1.4rem; text-align: center; }
+.lcMode span:not(.lcModeDb) { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.lcMode small { color: var(--ip-muted); font-size: 0.78rem; line-height: 1.3; }
+.lcMode:hover { border-color: color-mix(in srgb, var(--ip-accent) 40%, var(--ip-border)); }
+.lcMode.active { border-color: var(--ip-accent); background: var(--ip-accent-soft); box-shadow: 0 0 0 3px var(--ip-accent-soft); }
+.lcMode.active > i { color: var(--ip-accent); }
+
+.lcModeDb {
+    min-width: 2rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: var(--ip-surface-2);
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-align: center;
+}
+.lcModeDb.warn { background: #f59e0b; color: #1c1300; }
+
+/* ---------- Pontos hely nélkül: munkasor + munkaterület ---------- */
+
+.lpLayout {
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.lpQueue {
+    position: sticky;
+    top: calc(var(--ip-nav-h, 64px) + 1rem);
+    overflow: hidden;
+}
+
+.lpQueueHead {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--ip-border);
+}
+
+.lpQueueList {
+    max-height: calc(100vh - var(--ip-nav-h, 64px) - 7rem);
+    min-height: 240px;
+    overflow-y: auto;
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.lpRow {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 0.6rem;
+    align-items: center;
+    width: 100%;
+    padding: 0.4rem;
+    border: 1px solid transparent;
+    border-radius: var(--ip-radius-sm, 10px);
+    background: transparent;
+    color: inherit;
+    text-align: left;
+}
+
+.lpRow:hover { background: var(--ip-surface-2); }
+.lpRow.active { border-color: var(--ip-accent); background: var(--ip-accent-soft); }
+.lpRow .lcThumb { width: 56px; height: 44px; border-radius: 8px; }
+.lpRowMain { display: flex; flex-direction: column; min-width: 0; gap: 0.1rem; }
+.lpRowMain b { font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lpRowMain small { color: var(--ip-muted); font-size: 0.74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lpTag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: fit-content;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+.lpTag.nincs { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }
+.lpTag.kozelito { background: rgba(245, 158, 11, 0.16); color: #92400e; }
+[data-bs-theme="dark"] .lpTag.nincs { color: #fca5a5; }
+[data-bs-theme="dark"] .lpTag.kozelito { color: #fcd34d; }
+
+.lpCard { border-radius: var(--ip-radius); }
+
+.lpHead {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+.lpHead > .min-w-0 { flex: 1 1 320px; }
+.lpTitle { margin: 0.1rem 0 0.15rem; font-size: 1.1rem; }
+.lpHeadBtns { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: flex-start; }
+
+.lpBody {
+    display: grid;
+    grid-template-columns: minmax(240px, 34%) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.lpPhoto { display: block; margin-bottom: 0.6rem; border-radius: 10px; overflow: hidden; background: var(--ip-surface-2); }
+.lpPhoto img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+
+.lpDescHead { margin-bottom: 0.3rem; }
+.lpDesc {
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--ip-border);
+    border-radius: 10px;
+    background: var(--ip-bg);
+    font-size: 0.86rem;
+    line-height: 1.55;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+/* A leírásban talált helynevek: kattintásra a térkép rájuk keres */
+.lpHit {
+    display: inline;
+    padding: 0 0.2rem;
+    border: 0;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.22);
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+.lpHit:hover, .lpHit.active { background: #f59e0b; color: #1c1300; }
+
+.lpMapCol .locMap { height: min(470px, calc(100vh - 20rem)); min-height: 320px; }
+
+.lpFoot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--ip-border);
+}
+.lpKeys kbd { font-size: 0.72rem; }
+
+.lpDone { color: var(--ip-accent); font-weight: 600; font-size: 0.86rem; }
+
+/* Műholdkép kapcsoló a térképen */
+.lpSatBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.6rem;
+    border: 0;
+    background: #fff;
+    color: #1f2937;
+    font: 600 0.78rem/1.2 inherit;
+    cursor: pointer;
+}
+.lpSatBtn.active { background: #1f6f5c; color: #fff; }
+
+@media (max-width: 1199.98px) {
+    .lpBody { grid-template-columns: minmax(0, 1fr); }
+    .lpText { order: 2; }
+    .lpDesc { max-height: 220px; }
+}
+
+@media (max-width: 991.98px) {
+    .lpLayout { grid-template-columns: minmax(0, 1fr); }
+    .lpQueue { position: static; }
+    .lpQueueList { max-height: 210px; min-height: 0; }
+    .lcModes { grid-template-columns: minmax(0, 1fr); }
+    .lpFoot .btn-primary { flex: 1 1 100%; order: 10; }
+}
+
+/* ---------- Fotók munkahely: átvett kép jelölése ---------- */
+
+.wsThumb { position: relative; }
+.wsThumbTag {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    padding: 0 0.35rem;
+    border-radius: 4px;
+    background: rgba(17, 24, 39, 0.72);
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+/* ---------- Csapat: városra adott ellenőrzés ---------- */
+
+.tmPermChk.tmPermCity { border-style: dashed; }
+.tmPermChk.tmPermCity i { color: var(--ip-accent); }

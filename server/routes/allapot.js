@@ -322,6 +322,11 @@ router.get("/api/admin/allapot", csapat.csakResz("ellenorzes"), async (req, res)
             felt.push(`i.varos = $${params.length}`);
         }
 
+        // Városra kapott ellenőrzési jog: csak azok a városok
+        const kk = await csapat.kontextus(req);
+        const hol = csapat.reszSql(kk, "ellenorzes", params, "i.");
+        if (hol !== "TRUE") felt.push(hol);
+
         if (mod === "hianyzo") felt.push("COALESCE(TRIM(i.allapot), '') = ''");
         if (mod === "bizonytalan") felt.push(BIZONYTALAN);
 
@@ -335,12 +340,14 @@ router.get("/api/admin/allapot", csapat.csakResz("ellenorzes"), async (req, res)
             LIMIT 300
         `, params);
 
+        const sp = req.query.varos ? [keruletes, String(req.query.varos)] : [keruletes];
+        const shol = csapat.reszSql(kk, "ellenorzes", sp, "i.");
         const db_ = await db.query(`
             SELECT
                 COUNT(*) FILTER (WHERE COALESCE(TRIM(allapot), '') = '')::int AS hianyzo,
                 COUNT(*) FILTER (WHERE ${BIZONYTALAN})::int AS bizonytalan
-            FROM ingatlanok i WHERE i.statusz IN ('aktiv', 'fuggo') AND i.tipus = ANY($1::text[]) ${req.query.varos ? "AND i.varos = $2" : ""}
-        `, req.query.varos ? [keruletes, String(req.query.varos)] : [keruletes]);
+            FROM ingatlanok i WHERE i.statusz IN ('aktiv', 'fuggo') AND i.tipus = ANY($1::text[]) ${req.query.varos ? "AND i.varos = $2" : ""} AND ${shol}
+        `, sp);
 
         res.json({
             szamok: db_.rows[0],
@@ -376,6 +383,17 @@ router.patch("/api/admin/allapot", csapat.csakResz("ellenorzes"), async (req, re
         }
 
         valtozasok = valtozasok.filter(v => v.id > 0 && (allapotok.ervenyes(v.allapot) || v.allapot === null || v.allapot === ""));
+
+        // Városra kapott ellenőrzési jog: csak a saját városainak hirdetései
+        const kk = await csapat.kontextus(req);
+        if (valtozasok.length && csapat.reszSql(kk, "ellenorzes", []) !== "TRUE") {
+            const pp = [valtozasok.map(v => v.id)];
+            const hol = csapat.reszSql(kk, "ellenorzes", pp);
+            const ok = new Set((await db.query(`SELECT id FROM ingatlanok WHERE id = ANY($1::int[]) AND ${hol}`, pp)).rows.map(r => r.id));
+            const elotte = valtozasok.length;
+            valtozasok = valtozasok.filter(v => ok.has(v.id));
+            if (elotte && !valtozasok.length) return res.status(403).json({ error: "not_in_scope" });
+        }
 
         if (!valtozasok.length) return res.status(400).json({ error: "bad_request" });
 

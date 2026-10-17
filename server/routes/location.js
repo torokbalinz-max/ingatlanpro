@@ -1,6 +1,7 @@
 // ============================================================
 //  Helykeresés a térképes űrlapokhoz (hirdetésfeladás, ellenőrzés)
-//  + Admin → Hely-ellenőrzés: amit az automatika áthelyezett
+//  + Admin → Hirdetések → Hely-ellenőrzés: amit az automatika áthelyezett,
+//    és a pontos hely nélküli hirdetések (gyors helymegadás)
 // ============================================================
 
 const express = require("express");
@@ -77,29 +78,127 @@ router.post("/api/hely/ellenoriz", async (req, res) => {
 // honnan hová. Az admin elfogadhatja, vagy visszateheti az eredeti helyére
 // (ilyenkor az automatika többé nem mozgatja).
 
-router.get("/api/admin/hely-athelyezett", csapat.csakResz("helyek"), async (req, res) => {
+// Ki dolgozhat a hely-ellenőrzésben: a helyek joga (az egész oldalra), vagy a
+// hirdetések ellenőrzése – ez városra is kiadható, akkor csak azokban a városokban.
+const helyJog = csapat.csakResz("helyek", "ellenorzes");
+
+async function helySql(req, params, alias = "i.") {
+    const k = await csapat.kontextus(req);
+    if (k.admin || csapat.globalis(k, "helyek")) return "TRUE";
+    return csapat.reszSql(k, "ellenorzes", params, alias);
+}
+
+// A :id (vagy a "mind" esetén a body.ids) hirdetései a hatókörben vannak-e
+async function helyIdJog(req, res, next) {
     try {
-        const r = await db.query(`
-            SELECT i.id, i.cim, i.varos, i.kerulet, i.tipus, i.ugylet, i.ar, i.nm, i.x, i.y, i.hely_pontossag, i.hely_sugar,
-                   i.hely_forras, i.hely_eredeti, i.statusz, i.forras_kerulet, i.link,
+        if (req.szerep === "admin") return next();
+        const ids = req.params.id === "mind" && Array.isArray(req.body && req.body.ids)
+            ? req.body.ids.map(Number).filter(Boolean) : [Number(req.params.id)].filter(Boolean);
+        if (!ids.length) return res.status(400).json({ error: "bad_request" });
+        const params = [ids];
+        const hol = await helySql(req, params, "");
+        if (hol === "TRUE") return next();
+        const r = await db.query(`SELECT COUNT(*)::int AS n FROM ingatlanok WHERE id = ANY($1::int[]) AND ${hol}`, params);
+        if (r.rows[0].n === new Set(ids).size) return next();
+        res.status(403).json({ error: "not_in_scope" });
+    } catch (err) {
+        next(err);
+    }
+}
+
+const HELY_MEZOK = `i.id, i.cim, i.varos, i.kerulet, i.telepules, i.tipus, i.ugylet, i.ar, i.nm, i.szobak, i.x, i.y,
+                   i.hely_pontossag, i.hely_sugar, i.hely_forras, i.hely_eredeti, i.statusz, i.forras_kerulet, i.link,
                    (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id,
-                   (i.kulso_kepek->>0) AS kulso_kep
-            FROM ingatlanok i
-            WHERE i.hely_eredeti IS NOT NULL AND i.hely_eredeti->>'ok' IS NOT NULL
+                   (i.kulso_kepek->>0) AS kulso_kep`;
+
+// Az automatika által áthelyezett, még el nem döntött hirdetések
+const ATHELYEZETT = `i.hely_eredeti IS NOT NULL AND i.hely_eredeti->>'ok' IS NOT NULL
               AND COALESCE((i.hely_eredeti->>'elfogadva')::boolean, false) = false
               AND NOT COALESCE(i.hely_kezi, false)
-              AND i.statusz IN ('aktiv', 'fuggo')
+              AND i.statusz IN ('aktiv', 'fuggo')`;
+
+// Nincs pontos helye (nincs pont, vagy csak közelítő), és ember még nem döntött róla
+const PONTATLAN = `i.statusz IN ('aktiv', 'fuggo') AND NOT COALESCE(i.hely_kezi, false)
+              AND (i.x IS NULL OR i.y IS NULL OR COALESCE(i.hely_pontossag, 'nincs') IN ('kozelito', 'nincs'))
+              AND NOT (i.hely_eredeti IS NOT NULL AND i.hely_eredeti->>'ok' IS NOT NULL
+                       AND COALESCE((i.hely_eredeti->>'elfogadva')::boolean, false) = false)`;
+
+router.get("/api/admin/hely-athelyezett", helyJog, async (req, res) => {
+    try {
+        const params = [];
+        const hol = await helySql(req, params);
+        const r = await db.query(`
+            SELECT ${HELY_MEZOK}
+            FROM ingatlanok i
+            WHERE ${ATHELYEZETT} AND ${hol}
             ORDER BY i.varos, i.updated_at DESC NULLS LAST
             LIMIT 1000
-        `);
+        `, params);
         res.json(r.rows);
     } catch (err) {
         hiba(res, err);
     }
 });
 
+// Pontos hely nélküli hirdetések – a gyors helymegadáshoz
+//   ?mod=nincs (egyáltalán nincs a térképen) | kozelito (csak közelítő) | mind
+//   ?varos=…  -> { lista: [...], szamok: { nincs, kozelito, varosok: {város: db} } }
+router.get("/api/admin/hely-pontatlan", helyJog, async (req, res) => {
+    try {
+        const mod = ["nincs", "kozelito", "mind"].includes(req.query.mod) ? req.query.mod : "mind";
+        const params = [];
+        const hol = await helySql(req, params);
+        const alap = `${PONTATLAN} AND ${hol}`;
+
+        const sz = await db.query(`
+            SELECT i.varos,
+                   COUNT(*) FILTER (WHERE i.x IS NULL OR i.y IS NULL OR COALESCE(i.hely_pontossag, 'nincs') = 'nincs')::int AS nincs,
+                   COUNT(*) FILTER (WHERE i.x IS NOT NULL AND i.y IS NOT NULL AND i.hely_pontossag = 'kozelito')::int AS kozelito
+            FROM ingatlanok i WHERE ${alap} GROUP BY i.varos`, params);
+
+        const varosok = {};
+        let nincs = 0, kozelito = 0;
+        sz.rows.forEach(x => { varosok[x.varos || ""] = { nincs: x.nincs, kozelito: x.kozelito }; nincs += x.nincs; kozelito += x.kozelito; });
+        const szamok = { nincs, kozelito, osszes: nincs + kozelito, varosok };
+
+        // Csak a számok (a fül váltójához)
+        if (req.query.csak === "szam") return res.json({ lista: [], szamok });
+
+        const lp = [...params];
+        const felt = [alap];
+        if (mod === "nincs") felt.push("(i.x IS NULL OR i.y IS NULL OR COALESCE(i.hely_pontossag, 'nincs') = 'nincs')");
+        if (mod === "kozelito") felt.push("(i.x IS NOT NULL AND i.y IS NOT NULL AND i.hely_pontossag = 'kozelito')");
+        if (req.query.varos) { lp.push(String(req.query.varos)); felt.push(`i.varos = $${lp.length}`); }
+
+        const r = await db.query(`
+            SELECT ${HELY_MEZOK}, LEFT(COALESCE(NULLIF(i.leiras, ''), i.forras_szoveg, ''), 1500) AS leiras
+            FROM ingatlanok i
+            WHERE ${felt.join(" AND ")}
+            ORDER BY (i.x IS NULL OR i.y IS NULL) DESC, (i.megbizas_id IS NOT NULL) DESC,
+                     COALESCE(i.hely_sugar, 0) DESC, i.id DESC
+            LIMIT 400
+        `, lp);
+
+        res.json({ lista: r.rows, szamok });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
+// „Így marad”: a mostani (közelítő) hely rendben van, nem lehet pontosítani –
+// kikerül a listából, az automatika többé nem mozgatja
+router.post("/api/admin/hely-pontatlan/:id/marad", helyJog, helyIdJog, async (req, res) => {
+    try {
+        const ids = req.params.id === "mind" && Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [Number(req.params.id)];
+        const r = await db.query("UPDATE ingatlanok SET hely_kezi = true, updated_at = NOW() WHERE id = ANY($1::int[])", [ids]);
+        res.json({ siker: true, db: r.rowCount });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
 // Rendben van az új hely (eltűnik a listából, de az eredeti adat megmarad)
-router.post("/api/admin/hely-athelyezett/:id/elfogad", csapat.csakResz("helyek"), async (req, res) => {
+router.post("/api/admin/hely-athelyezett/:id/elfogad", helyJog, helyIdJog, async (req, res) => {
     try {
         const ids = req.params.id === "mind" && Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [Number(req.params.id)];
         await db.query(`
@@ -113,7 +212,7 @@ router.post("/api/admin/hely-athelyezett/:id/elfogad", csapat.csakResz("helyek")
 });
 
 // Vissza az eredeti helyre – kézi döntés: az automatika többé nem mozgatja
-router.post("/api/admin/hely-athelyezett/:id/vissza", csapat.csakResz("helyek"), async (req, res) => {
+router.post("/api/admin/hely-athelyezett/:id/vissza", helyJog, helyIdJog, async (req, res) => {
     try {
         const r = await db.query("SELECT hely_eredeti, varos, tipus FROM ingatlanok WHERE id = $1", [req.params.id]);
         const e = r.rows[0] && r.rows[0].hely_eredeti;
@@ -155,7 +254,7 @@ router.post("/api/admin/hely-athelyezett/:id/vissza", csapat.csakResz("helyek"),
 //  body: { x, y, hely_pontossag: pontos|utca|kozelito|nincs, hely_sugar, kerulet? }
 //  kerulet: ha meg van adva (üres szöveg = nincs kerület), az kerül be;
 //           ha nincs a kérésben, pontos helynél a kerülethatárok döntenek.
-router.post("/api/admin/hely-athelyezett/:id/kezi", csapat.csakResz("helyek"), async (req, res) => {
+router.post("/api/admin/hely-athelyezett/:id/kezi", helyJog, helyIdJog, async (req, res) => {
     try {
         const id = Number(req.params.id);
         const b = req.body || {};
