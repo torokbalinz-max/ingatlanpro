@@ -107,9 +107,12 @@ router.get("/api/sajat-csomag/szamlak/:id/nyomtat", csakBelepve, async (req, res
     try {
         const s = await rendeles.sajatSzamla(req.user, req.params.id);
         if (!s) return res.status(404).send("Nincs ilyen bizonylat / Document inexistent");
+        const dok = require("../services/dokumentum");
+        const ford = dok.fordKer(req.query, (await pu.beallitas()).bizonylat_forditas);
         res.set("Content-Type", "text/html; charset=utf-8");
-        res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:");
-        res.send(await bizonylatHtml(s, { nyomtat: true }));
+        res.set("Content-Security-Policy", dok.CSP);
+        res.set("Cache-Control", "private, no-store");
+        res.send(await bizonylatHtml(s, { nyomtat: true, ford, ui: dok.uiKer(req.query, ford), vissza: "/#fiok/csomag" }));
     } catch (err) { hiba(res, err); }
 });
 

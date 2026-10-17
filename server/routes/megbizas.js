@@ -228,14 +228,22 @@ router.post("/api/megbizas/sajat/:id/olvasva", csakBelepve, async (req, res) => 
 router.get("/api/megbizas/:id/szerzodes", csakBelepve, async (req, res) => {
     try {
         let m = await mb.sajatMegbizas(req.user, req.params.id);
+        const sajat = !!m;
         if (!m && await csapat.megbizasJog(req, req.params.id, "megbizas_lat")) m = await megbizasSor(req.params.id);
         if (!m) return res.status(404).send("Nincs ilyen megbízás / Mandat inexistent");
         const be = await mb.beallitas();
         const dij = await mb.dijSzamol(m);
         const ellenjegyzo = m.ellenjegyezte ? (await db.query("SELECT COALESCE(nev, felhasznalonev) AS n FROM users WHERE id = $1", [m.ellenjegyezte])).rows[0] : null;
+        // A hivatalos szöveg román; ?ford=hu|en fordítást tesz alá (az eladónál alapból a felülete nyelve)
+        const dok = require("../services/dokumentum");
+        const ford = dok.fordKer(req.query, be.szerzodes_forditas || "");
         res.set("Content-Type", "text/html; charset=utf-8");
-        res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:");
-        res.send(await szerzodes.html(m, be, dij, { ellenjegyzo: ellenjegyzo && ellenjegyzo.n }));
+        res.set("Content-Security-Policy", dok.CSP);
+        res.set("Cache-Control", "private, no-store");
+        res.send(await szerzodes.html(m, be, dij, {
+            ellenjegyzo: ellenjegyzo && ellenjegyzo.n, ford, ui: dok.uiKer(req.query, ford),
+            vissza: sajat ? "/#eladas" : "/#admin/megbizasok", admin: !sajat
+        }));
     } catch (err) { hiba(res, err); }
 });
 

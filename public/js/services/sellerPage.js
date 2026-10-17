@@ -219,7 +219,7 @@ class SellerPage {
                     <div class="row g-3">
                         <div class="col-lg-7">
                             <p class="small">${I18n.t("el_szerzodesSugo")}</p>
-                            <a class="btn btn-sm btn-outline-secondary mb-3" href="/api/megbizas/${m.id}/szerzodes" target="_blank" rel="noopener"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> ${I18n.t("mmReadContract")}</a>
+                            <a class="btn btn-sm btn-outline-secondary mb-3" href="/api/megbizas/${m.id}/szerzodes${Dokumentum.q()}" target="_blank" rel="noopener"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> ${I18n.t("mmReadContract")}</a>
                             <label class="d-flex gap-2 align-items-start small mb-2"><input class="form-check-input mt-0 flex-none" type="checkbox" id="elSzOk"><span>${I18n.t("el_elolvastam")}</span></label>
                             <label class="d-flex gap-2 align-items-start small mb-3"><input class="form-check-input mt-0 flex-none" type="checkbox" id="elSzKorai"><span>${I18n.t("el_koraiKezdes")}</span></label>
                             <div id="elKodResz">
@@ -326,7 +326,7 @@ class SellerPage {
                     <b>${I18n.t(hatalyos ? "el_szerzHatalyos" : m.szerzodes_allapot === "elfogadva" ? "el_szerzAlairtad" : "el_szerzAlairasra")}</b>
                     <div class="small">${m.szerzodes_elfogadva ? esc(I18n.f("el_onlineAlairva", { ido: Svc.ido(m.szerzodes_elfogadva) })) : ""}${m.ellenjegyezve ? " · " + esc(I18n.f("el_ellenjegyezve", { ido: Svc.nap(m.ellenjegyezve) })) : ""}${m.szerzodes_mod === "szemelyes" && m.alairva ? esc(I18n.f("el_szemelyesAlairva", { datum: Svc.nap(m.alairva) })) : ""}</div>
                 </div>
-                <a class="btn btn-sm btn-outline-secondary" href="/api/megbizas/${m.id}/szerzodes" target="_blank" rel="noopener">${I18n.t(hatalyos ? "el_szerzLetolt" : "mmReadContract")}</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/api/megbizas/${m.id}/szerzodes${Dokumentum.q()}" target="_blank" rel="noopener">${I18n.t(hatalyos ? "el_szerzLetolt" : "mmReadContract")}</a>
             </div>
             ${szkennelt.map(f => `<div class="small mt-1"><a href="/api/megbizas/fajl/${f.id}" target="_blank" rel="noopener"><i class="fa-regular fa-file-pdf" aria-hidden="true"></i> ${esc(f.nev)}</a></div>`).join("")}`;
         return `

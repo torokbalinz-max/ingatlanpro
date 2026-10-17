@@ -165,7 +165,7 @@ class AccountBilling {
                                             <div><span>${I18n.t("prReference")}</span><b>${esc(r.sorszam || "")}</b></div>
                                         </div>
                                         <div class="d-flex flex-wrap gap-2 mt-2">
-                                            ${r.szamla_id ? `<a class="btn btn-sm btn-outline-secondary" href="/api/sajat-csomag/szamlak/${r.szamla_id}/nyomtat" target="_blank" rel="noopener"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("prOpenProforma")}</a>` : ""}
+                                            ${r.szamla_id ? `<a class="btn btn-sm btn-outline-secondary" href="/api/sajat-csomag/szamlak/${r.szamla_id}/nyomtat${Dokumentum.q()}" target="_blank" rel="noopener"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("prOpenProforma")}</a>` : ""}
                                             <button type="button" class="btn btn-sm btn-link text-danger" data-visszavon="${r.id}">${I18n.t("accCancelOrder")}</button>
                                         </div>
                                     </div>`).join("")}
@@ -211,8 +211,8 @@ class AccountBilling {
                                                     <td>${allapotBadge(s.allapot)}</td>
                                                     <td class="text-end text-nowrap">
                                                         ${fizetheto(s) ? Svc.kartyaGomb(s.id, "btn-sm btn-success") : ""}
-                                                        ${s.hivatalos ? `<a class="btn btn-sm btn-outline-primary" href="/api/sajat-csomag/szamlak/${s.id}/hivatalos" target="_blank" rel="noopener" title="${esc(I18n.t("payOfficialInvoice"))}"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> ${I18n.t("payInvoiceShort")}</a>` : ""}
-                                                        <a class="btn btn-sm btn-outline-secondary" href="/api/sajat-csomag/szamlak/${s.id}/nyomtat" target="_blank" rel="noopener" title="${esc(I18n.t("prOpenProforma"))}"><i class="fa-solid fa-print" aria-hidden="true"></i></a>
+                                                        ${s.hivatalos ? `<a class="btn btn-sm btn-outline-primary" href="/api/sajat-csomag/szamlak/${s.id}/hivatalos${Dokumentum.q()}" target="_blank" rel="noopener" title="${esc(I18n.t("payOfficialInvoice"))}"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> ${I18n.t("payInvoiceShort")}</a>` : ""}
+                                                        <a class="btn btn-sm btn-outline-secondary" href="/api/sajat-csomag/szamlak/${s.id}/nyomtat${Dokumentum.q()}" target="_blank" rel="noopener" title="${esc(I18n.t("prOpenProforma"))}"><i class="fa-solid fa-print" aria-hidden="true"></i></a>
                                                     </td>
                                                 </tr>`).join("")}
                                         </tbody>

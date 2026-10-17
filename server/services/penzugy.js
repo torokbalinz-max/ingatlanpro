@@ -25,6 +25,7 @@
 // ============================================================
 
 const db = require("../db/database");
+const crypto = require("crypto");
 
 // kozvetites: az „Eladjuk helyetted” megbízások sikerdíja, díjas szolgáltatásai
 const KATEGORIAK = ["iroda_elofizetes", "extra_hirdetes", "reklammentes", "pro_statisztika", "kiemeles", "reklamfelulet", "kozvetites", "egyeb"];
@@ -106,7 +107,7 @@ function pgDatum(v) {
 function szamosit(sor, mezok) {
     if (!sor) return sor;
     mezok.forEach(k => { if (k in sor && sor[k] !== null) sor[k] = Number(sor[k]); });
-    ["kiallitva", "esedekes", "fizetve", "idoszak_tol", "idoszak_ig", "kezdet", "kovetkezo", "vege", "datum"].forEach(k => {
+    ["kiallitva", "esedekes", "fizetve", "idoszak_tol", "idoszak_ig", "kezdet", "kovetkezo", "vege", "datum", "arfolyam_datum"].forEach(k => {
         if (k in sor) sor[k] = pgDatum(sor[k]);
     });
     return sor;
@@ -147,7 +148,12 @@ function alapBeallitas() {
         efactura_varos: "",
         efactura_megye: "",
         // Kiemelés: a csomag havi keretéből egy kiemelés ennyi napig tart
-        kiemeles_nap: 7
+        kiemeles_nap: 7,
+        // A nyomtatott számla / díjbekérő: a hivatalos szöveg román; alapból
+        // mellé kerülő fordítás ("" = csak román, "hu", "en") – az iraton átváltható
+        bizonylat_forditas: "",
+        // Nem ÁFA-alanynál a számlán a mentesség jogalapja (üres: az alapszöveg)
+        tva_mentes_szoveg: ""
     };
 }
 
@@ -199,6 +205,8 @@ async function beallitasMent(b) {
     if ("efactura_varos" in b) a.efactura_varos = sz(b.efactura_varos, 80) || "";
     if ("efactura_megye" in b) a.efactura_megye = (sz(b.efactura_megye, 6) || "").toUpperCase().replace(/[^A-Z-]/g, "");
     if ("kiemeles_nap" in b) a.kiemeles_nap = Math.round(n(b.kiemeles_nap, 1, 90, 7));
+    if ("bizonylat_forditas" in b) a.bizonylat_forditas = ["hu", "en"].includes(b.bizonylat_forditas) ? b.bizonylat_forditas : "";
+    if ("tva_mentes_szoveg" in b) a.tva_mentes_szoveg = sz(b.tva_mentes_szoveg, 300) || "";
 
     if (a.iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(a.iban)) throw hibaKod("bad_iban");
 
@@ -491,22 +499,29 @@ async function ugyfelMent(id, b) {
         telefon: sz(b.telefon, 40),
         user_id: szam(b.user_id) ? Math.round(szam(b.user_id)) : null,
         iroda_id: szam(b.iroda_id) ? Math.round(szam(b.iroda_id)) : null,
-        jegyzet: sz(b.jegyzet, 2000)
+        jegyzet: sz(b.jegyzet, 2000),
+        // a számlához / e-Facturához: település, megye (RO-CV), ország (RO), ÁFA-alany-e
+        varos: sz(b.varos, 80),
+        megye: (sz(b.megye, 6) || "").toUpperCase().replace(/[^A-Z-]/g, "") || null,
+        orszag: (/^[A-Za-z]{2}$/.test(String(b.orszag || "").trim()) ? String(b.orszag).trim().toUpperCase() : "RO"),
+        afa_alany: !!b.afa_alany
     };
     if (!d.nev) throw hibaKod("missing_name");
     if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) throw hibaKod("bad_email");
+    if (d.orszag !== "RO") d.megye = null;
 
-    const ertekek = [d.tipus, d.nev, d.cui, d.reg_com, d.cim, d.email, d.telefon, d.user_id, d.iroda_id, d.jegyzet];
+    const ertekek = [d.tipus, d.nev, d.cui, d.reg_com, d.cim, d.email, d.telefon, d.user_id, d.iroda_id, d.jegyzet, d.varos, d.megye, d.orszag, d.afa_alany];
     if (id) {
         const r = await db.query(`
-            UPDATE penzugy_ugyfelek SET tipus=$1, nev=$2, cui=$3, reg_com=$4, cim=$5, email=$6, telefon=$7, user_id=$8, iroda_id=$9, jegyzet=$10, updated_at=NOW()
-            WHERE id=$11 RETURNING id`, [...ertekek, id]);
+            UPDATE penzugy_ugyfelek SET tipus=$1, nev=$2, cui=$3, reg_com=$4, cim=$5, email=$6, telefon=$7, user_id=$8, iroda_id=$9, jegyzet=$10,
+                   varos=$11, megye=$12, orszag=$13, afa_alany=$14, updated_at=NOW()
+            WHERE id=$15 RETURNING id`, [...ertekek, id]);
         if (!r.rowCount) throw hibaKod("not_found");
         return r.rows[0].id;
     }
     const r = await db.query(`
-        INSERT INTO penzugy_ugyfelek (tipus, nev, cui, reg_com, cim, email, telefon, user_id, iroda_id, jegyzet)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, ertekek);
+        INSERT INTO penzugy_ugyfelek (tipus, nev, cui, reg_com, cim, email, telefon, user_id, iroda_id, jegyzet, varos, megye, orszag, afa_alany)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`, ertekek);
     return r.rows[0].id;
 }
 
@@ -695,7 +710,7 @@ async function szamla(id) {
         LEFT JOIN reklamok rk ON rk.id = s.reklam_id
         WHERE s.id = $1`, [id]);
     if (!r.rowCount) return null;
-    const s = szamosit(r.rows[0], ["netto", "afa", "brutto"]);
+    const s = szamosit(r.rows[0], ["netto", "afa", "brutto", "arfolyam"]);
     s.allapot = szamlaAllapot(s);
     const t = await db.query("SELECT * FROM penzugy_tetelek WHERE szamla_id = $1 ORDER BY sorrend, id", [id]);
     s.tetelek = t.rows.map(x => szamosit(x, ["mennyiseg", "egysegar", "afa_kulcs", "netto", "afa", "brutto"]));
@@ -703,8 +718,10 @@ async function szamla(id) {
 }
 
 // A tételek összegei: egységár nettó; ÁFA-alanynál a kulcs szerint
-function tetelSzamol(t, b) {
-    const mennyiseg = Math.max(0.01, kerek(szam(t.mennyiseg) ?? 1));
+function tetelSzamol(t, b, { negativ = false } = {}) {
+    const m0 = kerek(szam(t.mennyiseg) ?? 1);
+    // sztornó számlán a mennyiség negatív (az egységár marad pozitív)
+    const mennyiseg = negativ && m0 < 0 ? Math.min(-0.01, m0) : Math.max(0.01, Math.abs(m0));
     const egysegar = kerek(szam(t.egysegar) ?? 0);
     const afaKulcs = b.afa_fizeto ? Math.min(50, Math.max(0, szam(t.afa_kulcs) ?? b.afa_kulcs)) : 0;
     const netto = kerek(mennyiseg * egysegar);
@@ -728,14 +745,76 @@ async function kovetkezoSorszam(client, tipus, kiallitva, b) {
 // kiállított bizonylaton a régi marad)
 async function vevoAdat(ugyfelId, b) {
     if (b && b.vevo && typeof b.vevo === "object" && b.vevo.nev) {
+        const v = b.vevo;
         return {
-            nev: sz(b.vevo.nev, 200), cui: sz(b.vevo.cui, 20), reg_com: sz(b.vevo.reg_com, 40),
-            cim: sz(b.vevo.cim, 400), email: sz(b.vevo.email, 160), telefon: sz(b.vevo.telefon, 40)
+            nev: sz(v.nev, 200), tipus: UGYFEL_TIPUSOK.includes(v.tipus) ? v.tipus : null, cui: sz(v.cui, 20), reg_com: sz(v.reg_com, 40),
+            cim: sz(v.cim, 400), varos: sz(v.varos, 80), megye: sz(v.megye, 6), orszag: sz(v.orszag, 2) || "RO", afa: !!v.afa,
+            email: sz(v.email, 160), telefon: sz(v.telefon, 40)
         };
     }
     if (!ugyfelId) return {};
-    const r = await db.query("SELECT nev, tipus, cui, reg_com, cim, email, telefon FROM penzugy_ugyfelek WHERE id = $1", [ugyfelId]);
+    const r = await db.query(`SELECT nev, tipus, cui, reg_com, cim, varos, megye, COALESCE(orszag, 'RO') AS orszag, COALESCE(afa_alany, false) AS afa,
+                                      email, telefon FROM penzugy_ugyfelek WHERE id = $1`, [ugyfelId]);
     return r.rows[0] || {};
+}
+
+// Kiállított számla (nem piszkozat): a tartalma már nem változhat (Codul fiscal) –
+// javítani sztornó számlával és új számlával lehet. Itt csak a fizetés adatai.
+function zarolt(s) {
+    return !!s && s.tipus === "szamla" && s.statusz !== "piszkozat";
+}
+
+async function zaroltMent(regi, b) {
+    if (b.statusz === "sztorno" && regi.statusz !== "sztorno") { await sztornoz(regi); return regi.id; }
+    const statusz = ["kiallitva", "fizetve"].includes(b.statusz) ? b.statusz : regi.statusz;
+    if (regi.statusz === "sztorno" && statusz !== "sztorno") throw hibaKod("invoice_locked");
+    await db.query(`
+        UPDATE penzugy_szamlak SET statusz = $2,
+               fizetve = CASE WHEN $2 = 'fizetve' THEN COALESCE($3::date, fizetve, CURRENT_DATE) ELSE NULL END,
+               fizetesi_mod = $4, kulso_szam = $5, reklam_id = $6, updated_at = NOW()
+        WHERE id = $1`, [regi.id, regi.statusz === "sztorno" ? "sztorno" : statusz, datum(b.fizetve),
+        "fizetesi_mod" in b ? (FIZETESI_MODOK.includes(b.fizetesi_mod) ? b.fizetesi_mod : null) : regi.fizetesi_mod,
+        "kulso_szam" in b ? sz(b.kulso_szam, 60) : regi.kulso_szam,
+        "reklam_id" in b ? (Number(b.reklam_id) || null) : regi.reklam_id]);
+    await rendelesSzinkron(regi.id);
+    if (statusz === "fizetve" && regi.statusz !== "fizetve") fizetveJelez(regi.id);
+    return regi.id;
+}
+
+// Sztornó számla a kiállított számlához: ugyanazok a tételek negatív mennyiséggel,
+// hivatkozással az eredetire. Az eredeti „sztornó” állapotú lesz.
+async function sztornoz(eredeti) {
+    if (!zarolt(eredeti)) throw hibaKod("not_invoice");
+    if (eredeti.sztorno_eredeti_id) throw hibaKod("cannot_reverse_reversal");
+    const van = await db.query("SELECT id FROM penzugy_szamlak WHERE sztorno_eredeti_id = $1 LIMIT 1", [eredeti.id]);
+    let ujId = van.rowCount ? van.rows[0].id : null;
+    if (!ujId) {
+        ujId = await szamlaMent(null, {
+            tipus: "szamla",
+            ugyfel_id: eredeti.ugyfel_id,
+            vevo: eredeti.vevo && eredeti.vevo.nev ? eredeti.vevo : undefined,
+            kiallitva: ma(),
+            esedekes: ma(),
+            statusz: "fizetve",
+            fizetve: ma(),
+            penznem: eredeti.penznem,
+            fizetesi_mod: eredeti.fizetesi_mod,
+            idoszak_tol: eredeti.idoszak_tol,
+            idoszak_ig: eredeti.idoszak_ig,
+            sztorno_eredeti_id: eredeti.id,
+            arfolyam: eredeti.arfolyam,
+            arfolyam_datum: eredeti.arfolyam_datum,
+            megjegyzes: `Sztornó / Stornare: ${eredeti.sorszam}`,
+            tetelek: (eredeti.tetelek || []).map(t => ({
+                megnevezes: t.megnevezes, megnevezes_ro: t.megnevezes_ro, megnevezes_en: t.megnevezes_en,
+                kategoria: t.kategoria, csomag_id: t.csomag_id,
+                mennyiseg: -Math.abs(Number(t.mennyiseg) || 1), egysegar: Math.abs(Number(t.egysegar) || 0), afa_kulcs: t.afa_kulcs
+            }))
+        });
+    }
+    await db.query("UPDATE penzugy_szamlak SET statusz = 'sztorno', updated_at = NOW() WHERE id = $1", [eredeti.id]);
+    await rendelesSzinkron(eredeti.id);
+    return ujId;
 }
 
 async function szamlaMent(id, b) {
@@ -743,6 +822,8 @@ async function szamlaMent(id, b) {
     const be = await beallitas();
     const regi = id ? await szamla(id) : null;
     if (id && !regi) throw hibaKod("not_found");
+    if (zarolt(regi)) return zaroltMent(regi, b);
+    const sztornoEredeti = !regi && Number(b.sztorno_eredeti_id) ? Number(b.sztorno_eredeti_id) : null;
 
     const tipus = SZAMLA_TIPUSOK.includes(b.tipus) ? b.tipus : (regi ? regi.tipus : "dijbekero");
     const kiallitva = datum(b.kiallitva) || (regi ? regi.kiallitva : ma());
@@ -754,28 +835,47 @@ async function szamlaMent(id, b) {
 
     // A csomagok kategóriája a tételekhez
     const csomagKat = {};
+    const csomagNev = {};
     if (tetelekBe) {
         const ids = tetelekBe.map(t => Number(t.csomag_id)).filter(Boolean);
         if (ids.length) {
-            const r = await db.query("SELECT id, kategoria FROM penzugy_csomagok WHERE id = ANY($1::int[])", [ids]);
-            r.rows.forEach(c => { csomagKat[c.id] = c.kategoria; });
+            const r = await db.query("SELECT id, kategoria, nev, nev_ro, nev_en FROM penzugy_csomagok WHERE id = ANY($1::int[])", [ids]);
+            r.rows.forEach(c => { csomagKat[c.id] = c.kategoria; csomagNev[c.id] = c; });
         }
     }
+
+    // A tétel neve románul / angolul: ha nincs megadva, a csomag román / angol nevéből
+    // (a csomagnév utáni rész – pl. az időszak – megmarad)
+    const forditas = (t, cid, mezo) => {
+        const c = cid && csomagNev[cid];
+        if (!c || !c[mezo]) return null;
+        const m = sz(t.megnevezes, 300) || "";
+        const vege = c.nev && m.startsWith(c.nev) ? m.slice(c.nev.length) : "";
+        return (c[mezo] + vege).slice(0, 300);
+    };
 
     const tetelek = tetelekBe ? tetelekBe.slice(0, 50).map((t, i) => {
         const cid = Number(t.csomag_id) || null;
         return {
             megnevezes: sz(t.megnevezes, 300),
+            megnevezes_ro: sz(t.megnevezes_ro, 300) || forditas(t, cid, "nev_ro"),
+            megnevezes_en: sz(t.megnevezes_en, 300) || forditas(t, cid, "nev_en"),
             kategoria: KATEGORIAK.includes(t.kategoria) ? t.kategoria : (cid && csomagKat[cid]) || "egyeb",
             csomag_id: cid && csomagKat[cid] ? cid : null,
             sorrend: i,
-            ...tetelSzamol(t, be)
+            ...tetelSzamol(t, be, { negativ: !!sztornoEredeti })
         };
     }) : null;
 
-    const osszeg = tetelek
-        ? tetelek.reduce((s, t) => ({ netto: kerek(s.netto + t.netto), afa: kerek(s.afa + t.afa), brutto: kerek(s.brutto + t.brutto) }), { netto: 0, afa: 0, brutto: 0 })
-        : { netto: regi.netto, afa: regi.afa, brutto: regi.brutto };
+    // Végösszeg: az ÁFA kulcsonként a nettó összegből (így egyezik az e-Factura szabályaival)
+    const osszesit = lista => {
+        const netto = kerek(lista.reduce((a, t) => a + t.netto, 0));
+        const csop = {};
+        lista.forEach(t => { csop[t.afa_kulcs] = kerek((csop[t.afa_kulcs] || 0) + t.netto); });
+        const afa = kerek(Object.entries(csop).reduce((a, [k, alap]) => a + kerek(alap * Number(k) / 100), 0));
+        return { netto, afa, brutto: kerek(netto + afa) };
+    };
+    const osszeg = tetelek ? osszesit(tetelek) : { netto: regi.netto, afa: regi.afa, brutto: regi.brutto };
 
     const statusz = SZAMLA_STATUSZOK.includes(b.statusz) ? b.statusz : (regi ? regi.statusz : "kiallitva");
 
@@ -806,8 +906,12 @@ async function szamlaMent(id, b) {
         let szamlaId = id;
         let sorszam = regi ? regi.sorszam : null;
 
-        // Új sorszám: új bizonylatnál, vagy ha a típus / az év megváltozott
-        if (!regi || regi.tipus !== tipus || String(regi.kiallitva).slice(0, 4) !== String(kiallitva).slice(0, 4)) {
+        // Számla-piszkozat: még nem kap sorszámot (a sorszám folytonos kell legyen,
+        // a törölhető piszkozat ne hagyjon lyukat) – a kiállításkor kapja meg
+        if (tipus === "szamla" && statusz === "piszkozat") {
+            if (!sorszam || !/^TERV-/.test(sorszam)) sorszam = "TERV-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+        } else if (!regi || regi.tipus !== tipus || /^TERV-/.test(regi.sorszam || "") || String(regi.kiallitva).slice(0, 4) !== String(kiallitva).slice(0, 4)) {
+            // Új sorszám: új bizonylatnál, kiállításkor, vagy ha a típus / az év megváltozott
             sorszam = await kovetkezoSorszam(client, tipus, kiallitva, be);
         }
 
@@ -832,10 +936,18 @@ async function szamlaMent(id, b) {
             await client.query("DELETE FROM penzugy_tetelek WHERE szamla_id = $1", [szamlaId]);
             for (const t of tetelek) {
                 await client.query(`
-                    INSERT INTO penzugy_tetelek (szamla_id, megnevezes, kategoria, csomag_id, mennyiseg, egysegar, afa_kulcs, netto, afa, brutto, sorrend)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-                    [szamlaId, t.megnevezes, t.kategoria, t.csomag_id, t.mennyiseg, t.egysegar, t.afa_kulcs, t.netto, t.afa, t.brutto, t.sorrend]);
+                    INSERT INTO penzugy_tetelek (szamla_id, megnevezes, kategoria, csomag_id, mennyiseg, egysegar, afa_kulcs, netto, afa, brutto, sorrend, megnevezes_ro, megnevezes_en)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+                    [szamlaId, t.megnevezes, t.kategoria, t.csomag_id, t.mennyiseg, t.egysegar, t.afa_kulcs, t.netto, t.afa, t.brutto, t.sorrend, t.megnevezes_ro, t.megnevezes_en]);
             }
+        }
+
+        // Számlán: az árfolyam a kiállításkor (nem lejes számlán az ÁFA lejben is kell), sztornónál az eredeti
+        if (tipus === "szamla") {
+            const arf = sztornoEredeti && szam(b.arfolyam) ? szam(b.arfolyam) : (d.penznem !== "RON" ? be.eur_arfolyam : null);
+            const arfDat = sztornoEredeti && b.arfolyam_datum ? datum(b.arfolyam_datum) : (d.penznem !== "RON" ? (be.arfolyam_datum || null) : null);
+            await client.query(`UPDATE penzugy_szamlak SET arfolyam = COALESCE(arfolyam, $2), arfolyam_datum = COALESCE(arfolyam_datum, $3::date),
+                                       sztorno_eredeti_id = COALESCE(sztorno_eredeti_id, $4) WHERE id = $1`, [szamlaId, arf, arfDat, sztornoEredeti]);
         }
 
         await client.query("COMMIT");
@@ -856,6 +968,16 @@ async function szamlaAllapotValt(id, b) {
     if (!s) throw hibaKod("not_found");
     const uj = SZAMLA_STATUSZOK.includes(b.statusz) ? b.statusz : null;
     if (!uj) throw hibaKod("bad_status");
+    // Kiállított számla: sztornó számlával vonható vissza; piszkozatból kiállításkor kap sorszámot
+    if (zarolt(s)) {
+        if (uj === "piszkozat") throw hibaKod("invoice_locked");
+        await zaroltMent(s, { ...b, statusz: uj });
+        return;
+    }
+    if (s.tipus === "szamla" && uj !== "piszkozat") {
+        await szamlaMent(id, { statusz: uj, fizetve: b.fizetve, ...(b.fizetesi_mod ? { fizetesi_mod: b.fizetesi_mod } : {}), ...(b.kulso_szam ? { kulso_szam: b.kulso_szam } : {}) });
+        return;
+    }
     await db.query(`
         UPDATE penzugy_szamlak SET statusz = $1,
                fizetve = CASE WHEN $1 = 'fizetve' THEN $2::date ELSE NULL END,
@@ -1246,7 +1368,7 @@ module.exports = {
     attekintes, szamlalok,
     jogosultsag, irodaJogosultsag, hirdetesKorlat, korlatElonezet,
     exportSzamlak, exportKiadasok, napi,
-    rendelesSzinkron, rendelesFigyelo, fizetveFigyelo, szamlaAllapot, honapHozzaad, napHozzaad, ma, kerek, pgDatum, szamosit,
+    rendelesSzinkron, rendelesFigyelo, fizetveFigyelo, sztornoz, zarolt, szamlaAllapot, honapHozzaad, napHozzaad, ma, kerek, pgDatum, szamosit,
     // tesztekhez
     _: { honapHozzaad, napHozzaad, tetelSzamol, jogOsszevon, datum, ma }
 };

@@ -163,7 +163,7 @@ AdminManager.renderOrders = function () {
                                 </td>
                                 <td>${esc(r.megnevezes || r.csomag_nev || "")}${r.ingatlan_id ? ` <a class="small" href="#listing/${r.ingatlan_id}" target="_blank">#${r.ingatlan_id}</a>` : ""}${r.megjegyzes ? `<div class="small text-body-secondary">„${esc(r.megjegyzes)}”</div>` : ""}</td>
                                 <td class="text-end text-nowrap">${esc(AdminManager.finPenz(r.ar, r.penznem))}</td>
-                                <td class="text-nowrap small">${r.szamla_id ? `<a href="/api/admin/penzugy/szamlak/${r.szamla_id}/nyomtat" target="_blank" rel="noopener">${esc(r.sorszam || "#" + r.szamla_id)}</a>` : "–"}${r.esedekes && r.statusz === "fizetesre_var" ? `<div class="text-body-secondary">${I18n.t("prDue")}: ${esc(AdminManager.finNap(r.esedekes))}</div>` : ""}</td>
+                                <td class="text-nowrap small">${r.szamla_id ? `<a href="/api/admin/penzugy/szamlak/${r.szamla_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener">${esc(r.sorszam || "#" + r.szamla_id)}</a>` : "–"}${r.esedekes && r.statusz === "fizetesre_var" ? `<div class="text-body-secondary">${I18n.t("prDue")}: ${esc(AdminManager.finNap(r.esedekes))}</div>` : ""}</td>
                                 <td>${statusz(r)}</td>
                                 <td class="text-end text-nowrap">
                                     ${r.statusz === "fizetesre_var" && r.szamla_id ? `

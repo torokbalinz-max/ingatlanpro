@@ -2083,11 +2083,24 @@ async function dijbekeroKeszit(megbizasId, userId, b = {}) {
     const dij = await dijSzamol(m);
     const tetelek = [];
     if (b.siker !== false && dij.siker) {
-        tetelek.push({ megnevezes: `Közvetítési sikerdíj / Comision intermediere – ${m.szerzodes_szam}${m.eladasi_ar ? ` (${m.eladasi_ar} ${dij.penznem} × ${dij.jutalek}%)` : ""}`, kategoria: "kozvetites", mennyiseg: 1, egysegar: dij.siker });
+        const reszlet = m.eladasi_ar ? ` (${m.eladasi_ar} ${dij.penznem} × ${dij.jutalek}%)` : "";
+        tetelek.push({
+            megnevezes: `Közvetítési sikerdíj – ${m.szerzodes_szam}${reszlet}`,
+            megnevezes_ro: `Comision de intermediere imobiliară – contract ${m.szerzodes_szam}${reszlet}`,
+            megnevezes_en: `Real estate brokerage commission – agreement ${m.szerzodes_szam}${reszlet}`,
+            kategoria: "kozvetites", mennyiseg: 1, egysegar: dij.siker
+        });
     }
-    if (dij.fix) tetelek.push({ megnevezes: `Megbízási díj / Taxă mandat – ${m.szerzodes_szam}`, kategoria: "kozvetites", mennyiseg: 1, egysegar: dij.fix });
+    if (dij.fix) tetelek.push({
+        megnevezes: `Megbízási díj – ${m.szerzodes_szam}`, megnevezes_ro: `Taxă de mandat – contract ${m.szerzodes_szam}`,
+        megnevezes_en: `Mandate fee – agreement ${m.szerzodes_szam}`, kategoria: "kozvetites", mennyiseg: 1, egysegar: dij.fix
+    });
     if (b.opciok !== false) {
-        dij.opciok.forEach(o => tetelek.push({ megnevezes: `${o.nev.hu} / ${o.nev.ro} – ${m.szerzodes_szam}`, kategoria: "kozvetites", mennyiseg: 1, egysegar: o.ar, penznem: o.penznem }));
+        dij.opciok.forEach(o => tetelek.push({
+            megnevezes: `${o.nev.hu} – ${m.szerzodes_szam}`, megnevezes_ro: `${o.nev.ro} – contract ${m.szerzodes_szam}`,
+            megnevezes_en: `${o.nev.en || o.nev.hu} – agreement ${m.szerzodes_szam}`,
+            kategoria: "kozvetites", mennyiseg: 1, egysegar: o.ar, penznem: o.penznem
+        }));
     }
     if (!tetelek.length) throw hibaKod("missing_items");
 

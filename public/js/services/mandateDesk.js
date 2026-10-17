@@ -587,11 +587,11 @@ class MandateDesk {
                 break;
             case "szerzodes_var":
             case "szemelyes_alairas":
-                gombok = `<a class="btn btn-outline-secondary" href="/api/megbizas/${m.id}/szerzodes" target="_blank" rel="noopener">${I18n.t("mbOpenContract")}</a>` + (kezel ? `<button type="button" class="btn ${k.kod === "szemelyes_alairas" ? "btn-primary" : "btn-outline-primary"}" data-kov="feltolt_szerzodes"><i class="fa-solid fa-upload" aria-hidden="true"></i> ${I18n.t("kovG_szkennelt")}</button>` : "");
+                gombok = `<a class="btn btn-outline-secondary" href="/api/megbizas/${m.id}/szerzodes${Dokumentum.q(true)}" target="_blank" rel="noopener">${I18n.t("mbOpenContract")}</a>` + (kezel ? `<button type="button" class="btn ${k.kod === "szemelyes_alairas" ? "btn-primary" : "btn-outline-primary"}" data-kov="feltolt_szerzodes"><i class="fa-solid fa-upload" aria-hidden="true"></i> ${I18n.t("kovG_szkennelt")}</button>` : "");
                 if (m.szemelyes_javaslat) extra = `<span class="small">${I18n.t("el_szemJav")}: <b>${esc(m.szemelyes_javaslat)}</b></span>`;
                 break;
             case "ellenjegyzes":
-                gombok = `<a class="btn btn-outline-secondary" href="/api/megbizas/${m.id}/szerzodes" target="_blank" rel="noopener">${I18n.t("mbOpenContract")}</a>` + gomb("ellenjegyez", `<i class="fa-solid fa-signature" aria-hidden="true"></i> ${I18n.t("kovG_ellenjegyez")}`);
+                gombok = `<a class="btn btn-outline-secondary" href="/api/megbizas/${m.id}/szerzodes${Dokumentum.q(true)}" target="_blank" rel="noopener">${I18n.t("mbOpenContract")}</a>` + gomb("ellenjegyez", `<i class="fa-solid fa-signature" aria-hidden="true"></i> ${I18n.t("kovG_ellenjegyez")}`);
                 break;
             case "feladat":
                 extra = MandateDesk.feladatPipak(m, kezel || m.fotos_id);
@@ -1058,7 +1058,7 @@ class MandateDesk {
                                 ${m.lejar ? `<div><i class="fa-regular fa-hourglass" aria-hidden="true"></i> ${I18n.t("mdExpires")}: ${esc(Svc.nap(m.lejar))}</div>` : ""}
                             </div>
                             <div class="d-flex flex-wrap gap-2">
-                                <a class="btn btn-sm btn-outline-secondary" href="/api/megbizas/${m.id}/szerzodes" target="_blank" rel="noopener"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> ${I18n.t("mbOpenContract")}</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="/api/megbizas/${m.id}/szerzodes${Dokumentum.q(true)}" target="_blank" rel="noopener"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> ${I18n.t("mbOpenContract")}</a>
                                 ${admin && idx < 2 ? `<button type="button" class="btn btn-sm btn-outline-primary" id="mdSzKuld"><i class="fa-regular fa-paper-plane" aria-hidden="true"></i> ${I18n.t(idx === 1 ? "mdResendContract" : "mdSendContract")}</button>` : ""}
                                 ${admin && m.szerzodes_allapot === "elfogadva" ? `<button type="button" class="btn btn-sm btn-primary" data-kov="ellenjegyez"><i class="fa-solid fa-signature" aria-hidden="true"></i> ${I18n.t("kovG_ellenjegyez")}</button>` : ""}
                                 ${admin && m.szerzodes_allapot !== "alairva" ? `<button type="button" class="btn btn-sm btn-outline-primary" data-kov="feltolt_szerzodes"><i class="fa-solid fa-upload" aria-hidden="true"></i> ${I18n.t("kovG_szkennelt")}</button>` : ""}
@@ -1130,7 +1130,7 @@ class MandateDesk {
                             ${admin ? `
                             <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
                                 <button type="button" class="btn btn-sm btn-outline-success" data-kov="dijbekero"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("mbMakeProforma")}</button>
-                                ${m.dijbekero_id ? `<a class="small" href="/api/admin/penzugy/szamlak/${m.dijbekero_id}/nyomtat" target="_blank" rel="noopener">${I18n.f("mdProformaDone", { id: m.dijbekero_id })}</a>` : ""}
+                                ${m.dijbekero_id ? `<a class="small" href="/api/admin/penzugy/szamlak/${m.dijbekero_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener">${I18n.f("mdProformaDone", { id: m.dijbekero_id })}</a>` : ""}
                             </div>` : ""}
                         </div>
                     </section>
@@ -1232,7 +1232,7 @@ class MandateDesk {
     static dijbekero(m) {
         if (!confirm(I18n.t("mbProformaConfirm"))) return;
         MandateDesk.api(`/${m.id}/dijbekero`, { method: "POST", body: {} })
-            .then(v => { window.open(`/api/admin/penzugy/szamlak/${v.szamla_id}/nyomtat`, "_blank", "noopener"); MandateDesk.frissit(); })
+            .then(v => { window.open(`/api/admin/penzugy/szamlak/${v.szamla_id}/nyomtat${Dokumentum.q(true)}`, "_blank", "noopener"); MandateDesk.frissit(); })
             .catch(e => MandateDesk.hiba(e));
     }
 

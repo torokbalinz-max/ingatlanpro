@@ -576,7 +576,7 @@ class PricingPage {
                 <p class="small text-body-secondary mt-3 mb-0">${I18n.t("prAfterPay")}</p>`}
             </div>
             <div class="modal-footer">
-                ${ingyen ? "" : `<a class="btn btn-outline-secondary" href="/api/sajat-csomag/szamlak/${s.id}/nyomtat" target="_blank" rel="noopener"><i class="fa-solid fa-file-invoice"></i> ${I18n.t("prOpenProforma")}</a>`}
+                ${ingyen ? "" : `<a class="btn btn-outline-secondary" href="/api/sajat-csomag/szamlak/${s.id}/nyomtat${Dokumentum.q()}" target="_blank" rel="noopener"><i class="fa-solid fa-file-invoice"></i> ${I18n.t("prOpenProforma")}</a>`}
                 <a class="btn btn-primary" href="#fiok/csomag">${I18n.t("accTabBilling")}</a>
             </div>`;
 

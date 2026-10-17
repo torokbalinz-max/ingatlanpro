@@ -153,9 +153,11 @@ router.get("/api/admin/penzugy/szamlak/:id/nyomtat", csapat.csakResz("penzugy"),
     try {
         const s = await pu.szamla(id(req));
         if (!s) return res.status(404).send("Nincs ilyen bizonylat");
-        const html = await bizonylatHtml(s, { nyomtat: true });
+        const ford = dok.fordKer(req.query, (await pu.beallitas()).bizonylat_forditas);
+        const html = await bizonylatHtml(s, { nyomtat: true, ford, ui: dok.uiKer(req.query, "hu"), vissza: "/#admin/szamlak", admin: true });
         res.set("Content-Type", "text/html; charset=utf-8");
-        res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:");
+        res.set("Content-Security-Policy", dok.CSP);
+        res.set("Cache-Control", "private, no-store");
         res.send(html);
     } catch (err) { hiba(res, err); }
 });
@@ -220,154 +222,35 @@ router.get("/api/sajat-csomag", csakBelepve, async (req, res) => {
 });
 
 // ===================== A BIZONYLAT HTML-JE =====================
+// A sablon: services/bizonylat.js (román hivatalos szöveg, kérésre HU / EN fordítással)
 
-function esc(s) {
-    return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
+const bizonylat = require("../services/bizonylat");
+const dok = require("../services/dokumentum");
+const db = require("../db/database");
 
-function penz(v, penznem) {
-    const s = (Number(v) || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-    return `${s} ${penznem || ""}`.trim();
-}
+// Az eszközsáv üzenetei (XML / ANAF gombok) a kezelő nyelvén
+const XML_UZENET = {
+    hu: { hianyzik: "Az e-Factura XML-hez hiányzó adatok", halozat: "Hálózati hiba – próbáld újra.", ellenoriz: "Ellenőrzés az ANAF-nál…", ok: "✓ Az ANAF szerint az XML hibátlan – feltölthető az SPV-be.", nok: "✗ Az ANAF hibát talált:" },
+    ro: { hianyzik: "Date lipsă pentru XML-ul e-Factura", halozat: "Eroare de rețea – încearcă din nou.", ellenoriz: "Validare la ANAF…", ok: "✓ ANAF: XML-ul este valid – poate fi încărcat în SPV.", nok: "✗ ANAF a găsit erori:" },
+    en: { hianyzik: "Missing data for the e-Factura XML", halozat: "Network error – try again.", ellenoriz: "Validating with ANAF…", ok: "✓ ANAF says the XML is valid – ready to upload to SPV.", nok: "✗ ANAF found errors:" }
+};
 
-function nap(d) {
-    return d ? String(d).slice(0, 10).replace(/-/g, ".") + "." : "–";
-}
-
-async function bizonylatHtml(s, { nyomtat }) {
-
+// s: a bizonylat; o: { nyomtat, ford, ui, vissza, admin }
+async function bizonylatHtml(s, o = {}) {
     const u = await oldalAdatok.nyilvanos();
     const b = await pu.beallitas();
-    const v = s.vevo || {};
-    const proforma = s.tipus !== "szamla";
-    const cim = proforma ? "Díjbekérő · Factură proformă" : "Számla · Factură";
-    const afaOszlop = (s.tetelek || []).some(t => Number(t.afa_kulcs) > 0) || b.afa_fizeto;
-
-    const sor = (label, ertek) => ertek ? `<div><span>${esc(label)}</span> ${esc(ertek)}</div>` : "";
-
-    return `<!doctype html>
-<html lang="hu">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(cim)} ${esc(s.sorszam)}</title>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #1c2321; margin: 0; background: #f3f4f2; }
-  .lap { max-width: 800px; margin: 24px auto; background: #fff; padding: 36px 40px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
-  .fej { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 3px solid #1f6f5c; padding-bottom: 16px; margin-bottom: 20px; }
-  .logo { font-size: 22px; font-weight: bold; color: #1f6f5c; }
-  h1 { font-size: 20px; margin: 0 0 6px; text-align: right; }
-  .szam { text-align: right; font-size: 13px; line-height: 1.6; }
-  .felek { display: flex; gap: 24px; margin-bottom: 22px; }
-  .fel { flex: 1; font-size: 13px; line-height: 1.55; background: #f7f8f6; border-radius: 8px; padding: 12px 14px; }
-  .fel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #5b6660; margin: 0 0 6px; }
-  .fel b { font-size: 14px; }
-  .fel span { color: #5b6660; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #5b6660; border-bottom: 1px solid #d9ddd9; padding: 8px 6px; }
-  td { border-bottom: 1px solid #eceeea; padding: 9px 6px; vertical-align: top; }
-  .r { text-align: right; white-space: nowrap; }
-  .ossz { margin-top: 14px; margin-left: auto; width: 300px; font-size: 14px; }
-  .ossz div { display: flex; justify-content: space-between; padding: 4px 0; }
-  .ossz .fo { font-size: 18px; font-weight: bold; border-top: 2px solid #1c2321; margin-top: 6px; padding-top: 8px; }
-  .fizetes { margin-top: 24px; font-size: 13px; line-height: 1.6; background: #eef6f3; border-radius: 8px; padding: 12px 14px; }
-  .megj { margin-top: 16px; font-size: 12px; color: #5b6660; white-space: pre-line; }
-  .belyeg { display: inline-block; border: 2px solid #1f6f5c; color: #1f6f5c; font-weight: bold; padding: 2px 10px; border-radius: 6px; transform: rotate(-4deg); margin-top: 6px; }
-  .belyeg.sztorno { border-color: #b42318; color: #b42318; }
-  .eszkoz { text-align: center; margin: 16px 0 32px; }
-  .eszkoz button { font-size: 15px; padding: 9px 18px; border-radius: 8px; border: 0; background: #1f6f5c; color: #fff; cursor: pointer; }
-  @media print { body { background: #fff; } .lap { box-shadow: none; margin: 0; max-width: none; padding: 0; } .eszkoz { display: none; } }
-  @media (max-width: 640px) { .lap { padding: 20px 16px; margin: 0; border-radius: 0; } .felek, .fej { flex-direction: column; } h1, .szam { text-align: left; } .ossz { width: 100%; } }
-</style>
-</head>
-<body>
-<div class="lap">
-  <div class="fej">
-    <div>
-      <div class="logo">IngatlanPro</div>
-      ${u.nev ? `<div style="font-size:13px;margin-top:4px">${esc(u.nev)}</div>` : ""}
-    </div>
-    <div>
-      <h1>${esc(cim)}</h1>
-      <div class="szam">
-        <div><b>${esc(s.sorszam)}</b></div>
-        ${!proforma && s.kulso_szam ? `<div>Hivatalos szám / Nr. factură: <b>${esc(s.kulso_szam)}</b></div>` : ""}
-        <div>Kiállítva / Data emiterii: ${nap(s.kiallitva)}</div>
-        <div>Fizetési határidő / Scadența: ${nap(s.esedekes)}</div>
-        ${s.idoszak_tol ? `<div>Időszak / Perioada: ${nap(s.idoszak_tol)} – ${nap(s.idoszak_ig)}</div>` : ""}
-        ${s.statusz === "fizetve" ? `<div class="belyeg">FIZETVE / ACHITAT ${nap(s.fizetve)}</div>` : ""}
-        ${s.statusz === "sztorno" ? `<div class="belyeg sztorno">SZTORNÓ / ANULAT</div>` : ""}
-      </div>
-    </div>
-  </div>
-
-  <div class="felek">
-    <div class="fel">
-      <h3>Szolgáltató / Furnizor</h3>
-      <b>${esc(u.nev || "IngatlanPro")}</b>
-      ${sor("Adószám / CUI:", u.adoszam)}
-      ${sor("Cégjegyzékszám / Reg. Com.:", u.cegjegyzekszam)}
-      ${sor("", u.cim)}
-      ${sor("E-mail:", u.email)}
-      ${sor("Tel.:", u.telefon)}
-      ${b.iban ? `<div><span>IBAN:</span> ${esc(b.iban)}${b.bank ? ` · ${esc(b.bank)}` : ""}</div>` : ""}
-      <div><span>${b.afa_fizeto ? "ÁFA-alany / Plătitor de TVA" : "Nem ÁFA-alany / Neplătitor de TVA"}</span></div>
-    </div>
-    <div class="fel">
-      <h3>Vevő / Client</h3>
-      <b>${esc(v.nev || s.ugyfel_nev || "–")}</b>
-      ${sor("Adószám / CUI:", v.cui)}
-      ${sor("Reg. Com.:", v.reg_com)}
-      ${sor("", v.cim)}
-      ${sor("E-mail:", v.email)}
-      ${sor("Tel.:", v.telefon)}
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Megnevezés / Denumire</th>
-        <th class="r">Menny. / Cant.</th>
-        <th class="r">Egységár / Preț unitar</th>
-        ${afaOszlop ? `<th class="r">ÁFA / TVA</th>` : ""}
-        <th class="r">Összesen / Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${(s.tetelek || []).map((t, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${esc(t.megnevezes)}</td>
-        <td class="r">${esc(String(t.mennyiseg).replace(".", ","))}</td>
-        <td class="r">${penz(t.egysegar, s.penznem)}</td>
-        ${afaOszlop ? `<td class="r">${esc(String(t.afa_kulcs))}% · ${penz(t.afa, s.penznem)}</td>` : ""}
-        <td class="r">${penz(t.brutto, s.penznem)}</td>
-      </tr>`).join("")}
-    </tbody>
-  </table>
-
-  <div class="ossz">
-    ${afaOszlop ? `<div><span>Nettó / Valoare fără TVA</span><span>${penz(s.netto, s.penznem)}</span></div>
-    <div><span>ÁFA / TVA</span><span>${penz(s.afa, s.penznem)}</span></div>` : ""}
-    <div class="fo"><span>Fizetendő / Total de plată</span><span>${penz(s.brutto, s.penznem)}</span></div>
-  </div>
-
-  ${s.statusz !== "fizetve" && s.statusz !== "sztorno" ? `
-  <div class="fizetes">
-    <b>Fizetés / Plata:</b> ${b.iban ? `átutalással / prin transfer bancar: <b>${esc(b.iban)}</b>${b.bank ? ` (${esc(b.bank)})` : ""}` : "a megadott módon / conform înțelegerii"}<br>
-    ${b.kedvezmenyezett ? `Kedvezményezett / Beneficiar: <b>${esc(b.kedvezmenyezett)}</b><br>` : ""}
-    ${b.revolut_link ? `Kártyával / Revolut: <a href="${esc(b.revolut_link)}">${esc(b.revolut_link.replace(/^https:\/\//, ""))}</a><br>` : ""}
-    Közlemény / Detalii plată: <b>${esc(s.sorszam)}</b> · Határidő / Termen: <b>${nap(s.esedekes)}</b>
-  </div>` : ""}
-
-  <div class="megj">${proforma ? "Ez a díjbekérő nem adóügyi bizonylat. A befizetés után a számlát kiállítjuk.\nAcest document nu are valoare fiscală. Factura fiscală se emite după efectuarea plății." : ""}${s.megjegyzes ? "\n\n" + esc(s.megjegyzes) : ""}${b.szamla_megjegyzes ? "\n\n" + esc(b.szamla_megjegyzes) : ""}</div>
-</div>
-${nyomtat ? `<div class="eszkoz"><button type="button" onclick="window.print()">Nyomtatás / PDF</button></div>` : ""}
-</body>
-</html>`;
+    const ford = o.ford === undefined ? (b.bizonylat_forditas || "") : o.ford;
+    const egy = async id => id ? (await db.query("SELECT id, sorszam, kiallitva FROM penzugy_szamlak WHERE id = $1", [id])).rows[0] || null : null;
+    const eredeti = await egy(s.sztorno_eredeti_id);
+    const sztornoja = s.tipus === "szamla" ? (await db.query("SELECT id, sorszam, kiallitva FROM penzugy_szamlak WHERE sztorno_eredeti_id = $1 ORDER BY id LIMIT 1", [s.id]).catch(() => ({ rows: [] }))).rows[0] || null : null;
+    const dijbekero = s.tipus === "szamla" ? await egy(s.dijbekero_id) : null;
+    const ui = o.ui || "hu";
+    return bizonylat.html(s, u, b, {
+        ford, ui, nyomtat: !!o.nyomtat, vissza: o.vissza || "/", admin: !!o.admin,
+        eredeti: eredeti && { ...eredeti, kiallitva: pu.pgDatum(eredeti.kiallitva) },
+        sztornoja: sztornoja && { ...sztornoja, kiallitva: pu.pgDatum(sztornoja.kiallitva) },
+        dijbekero, uiSzovegek: XML_UZENET[ui] || XML_UZENET.hu
+    });
 }
 
 router.bizonylatHtml = bizonylatHtml;

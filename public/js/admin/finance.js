@@ -468,6 +468,28 @@ AdminManager.finUgyfelSzerk = function (u, kesz) {
                     <label class="form-label small mb-1" for="fuEmail">${I18n.t("finEmail")}</label>
                     <input type="email" class="form-control form-control-sm" id="fuEmail" value="${esc(u.email || "")}" maxlength="160">
                 </div>
+                <div class="col-sm-4">
+                    <label class="form-label small mb-1" for="fuVaros">${I18n.t("finCity")}</label>
+                    <input class="form-control form-control-sm" id="fuVaros" value="${esc(u.varos || "")}" maxlength="80" placeholder="Sfântu Gheorghe">
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label small mb-1" for="fuMegye">${I18n.t("finCounty")}</label>
+                    <select class="form-select form-select-sm" id="fuMegye">
+                        <option value="">–</option>
+                        ${AdminManager.MEGYEK.map(([k, n]) => `<option value="RO-${k}" ${u.megye === "RO-" + k ? "selected" : ""}>${esc(n)}</option>`).join("")}
+                    </select>
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small mb-1" for="fuOrszag">${I18n.t("finCountry")}</label>
+                    <input class="form-control form-control-sm text-uppercase" id="fuOrszag" value="${esc(u.orszag || "RO")}" maxlength="2" pattern="[A-Za-z]{2}">
+                </div>
+                <div class="col-sm-2 d-flex align-items-end">
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="checkbox" id="fuAfa" ${u.afa_alany ? "checked" : ""}>
+                        <label class="form-check-label small" for="fuAfa">${I18n.t("finVatPayer")}</label>
+                    </div>
+                </div>
+                <div class="col-12 small text-body-secondary">${I18n.t("finAddrHint")}</div>
                 <div class="col-12">
                     <label class="form-label small mb-1" for="fuJegyzet">${I18n.t("finNote")}</label>
                     <textarea class="form-control form-control-sm" id="fuJegyzet" rows="2" maxlength="2000">${esc(u.jegyzet || "")}</textarea>
@@ -548,17 +570,28 @@ AdminManager.finUgyfelSzerk = function (u, kesz) {
         fetch("/api/anaf/" + encodeURIComponent(cui))
             .then(r => r.json().then(v => ({ ok: r.ok, v })))
             .then(({ ok, v }) => {
-                if (!ok || !v.nev) {
+                // a válasz: { cui, talalt, adat: { nev, cim, regCom, telefon, telepules, megye, tva, ... } }
+                const a = (v && v.adat) || {};
+                if (!ok || !v.talalt || !a.nev) {
                     msg.hidden = false;
-                    msg.textContent = I18n.t(v.error === "cui_checksum" || v.error === "bad_cui" ? "finAnafBadCui" : "finAnafError");
+                    msg.textContent = I18n.t(v.error === "cui_checksum" || v.error === "bad_cui" ? "finAnafBadCui" : ok && !v.talalt ? "finAnafNotFound" : "finAnafError");
                     return;
                 }
-                $("#fuNev").value = v.nev;
-                if (v.cim) $("#fuCim").value = v.cim;
-                if (v.regCom) $("#fuReg").value = v.regCom;
-                if (v.telefon && !$("#fuTel").value) $("#fuTel").value = v.telefon;
-                $("#fuTipus").value = "ceg";
-                $("#fuCui").value = v.cui || cui;
+                $("#fuNev").value = a.nev;
+                if (a.cim) $("#fuCim").value = a.cim;
+                if (a.regCom) $("#fuReg").value = a.regCom;
+                if (a.telefon && !$("#fuTel").value) $("#fuTel").value = a.telefon;
+                if (a.telepules) $("#fuVaros").value = String(a.telepules).replace(/^(mun\.|ors\.|oraș|municipiul|com\.|sat)\s*/i, "").trim();
+                if (a.megye) {
+                    const n = String(a.megye).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                    const talal = AdminManager.MEGYEK.find(([k, nev]) => n.includes(nev.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()) || (k === "B" && n.includes("bucuresti")));
+                    if (talal) $("#fuMegye").value = "RO-" + talal[0];
+                }
+                $("#fuOrszag").value = "RO";
+                $("#fuAfa").checked = !!a.tva;
+                $("#fuTipus").value = /PFA|INTREPRINDERE|ÎNTREPRINDERE/i.test(a.nev) ? "pfa" : "ceg";
+                $("#fuCui").value = (a.cui || v.cui || cui);
+                if (a.inaktiv || a.torolve) { msg.hidden = false; msg.textContent = I18n.t("finAnafInactive"); }
             })
             .catch(() => { msg.hidden = false; msg.textContent = I18n.t("finAnafError"); })
             .finally(() => { btn.disabled = false; });
@@ -570,6 +603,7 @@ AdminManager.finUgyfelSzerk = function (u, kesz) {
         const d = {
             tipus: $("#fuTipus").value, nev, cui: $("#fuCui").value, reg_com: $("#fuReg").value, cim: $("#fuCim").value,
             email: $("#fuEmail").value, telefon: $("#fuTel").value, jegyzet: $("#fuJegyzet").value,
+            varos: $("#fuVaros").value, megye: $("#fuMegye").value, orszag: $("#fuOrszag").value || "RO", afa_alany: $("#fuAfa").checked,
             user_id: $("#fuUser").value || null, iroda_id: $("#fuIroda").value || null
         };
         $("#fuMent").disabled = true;
@@ -1107,6 +1141,20 @@ AdminManager.renderFinSettings = function () {
                             </select>
                         </div>
                         <p class="small text-body-secondary col-12 mb-0">${I18n.t("finEfHelp")}</p>
+                        <div class="col-sm-6">
+                            <label class="form-label small mb-1" for="fbForditas">${I18n.t("finDocLang")}</label>
+                            <select class="form-select form-select-sm" id="fbForditas">
+                                <option value="" ${!b.bizonylat_forditas ? "selected" : ""}>${I18n.t("finDocLang_ro")}</option>
+                                <option value="hu" ${b.bizonylat_forditas === "hu" ? "selected" : ""}>${I18n.t("finDocLang_hu")}</option>
+                                <option value="en" ${b.bizonylat_forditas === "en" ? "selected" : ""}>${I18n.t("finDocLang_en")}</option>
+                            </select>
+                            <div class="small text-body-secondary mt-1">${I18n.t("finDocLangHelp")}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small mb-1" for="fbTvaMentes">${I18n.t("finVatExemptText")}</label>
+                            <textarea class="form-control form-control-sm" id="fbTvaMentes" rows="2" maxlength="300" placeholder="Furnizor neplătitor de TVA – regim special de scutire pentru întreprinderile mici (art. 310 din Codul fiscal). Scutit de TVA.">${esc(b.tva_mentes_szoveg || "")}</textarea>
+                            <div class="small text-body-secondary mt-1">${I18n.t("finVatExemptHelp")}</div>
+                        </div>
                         ${mezo("fbKiemelesNap", I18n.t("finFeaturedDays"), b.kiemeles_nap || 7, 'type="number" min="1" max="90"', "col-6 col-sm-3")}
                     </div>
                 </div>
@@ -1172,7 +1220,8 @@ AdminManager.renderFinSettings = function () {
                 eur_arfolyam: $("#fbArfolyam").value,
                 ingyenes_hirdetes: $("#fbIngyenes").value, iroda_ingyenes_hirdetes: $("#fbIrodaIngyenes").value, korlatok_be: $("#fbKorlat").checked,
                 online_fizetes: $("#fbOnline").checked, auto_szamla: $("#fbAutoSzamla").checked, sajat_szamla: $("#fbSajatSzamla").checked,
-                efactura_varos: $("#fbEfVaros").value, efactura_megye: $("#fbEfMegye").value, kiemeles_nap: $("#fbKiemelesNap").value
+                efactura_varos: $("#fbEfVaros").value, efactura_megye: $("#fbEfMegye").value, kiemeles_nap: $("#fbKiemelesNap").value,
+                bizonylat_forditas: $("#fbForditas").value, tva_mentes_szoveg: $("#fbTvaMentes").value
             };
             $("#fbMent").disabled = true;
             AdminManager.finApi("beallitas", { method: "PUT", body: d })

@@ -148,7 +148,7 @@ AdminManager.finSzamlaSor = function (s) {
             <span class="kpiIcon ${s.tipus === "szamla" ? "blue" : "green"}"><i class="fa-solid ${s.tipus === "szamla" ? "fa-file-invoice-dollar" : "fa-file-invoice"}" aria-hidden="true"></i></span>
             <div class="finMain">
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    <b>${esc(s.sorszam)}</b> ${AdminManager.finAllapotBadge(s)}
+                    <b>${AdminManager.finSorszam(s)}</b> ${AdminManager.finAllapotBadge(s)}
                     <span class="small text-body-secondary">${I18n.t(s.tipus === "szamla" ? "finTypeInvoice" : "finTypeProforma")}${s.kulso_szam ? ` · ${esc(s.kulso_szam)}` : ""}</span>
                 </div>
                 <div class="small"><b>${esc(AdminManager.finVevoNev(s))}</b> · ${(s.tetelek_rovid || []).map(t => esc(t.megnevezes)).join(", ")}</div>
@@ -162,7 +162,8 @@ AdminManager.finSzamlaSor = function (s) {
             <b class="finAmount ${s.statusz === "sztorno" ? "text-decoration-line-through text-body-secondary" : ""}">${esc(AdminManager.finPenz(s.brutto, s.penznem))}</b>
             <div class="finActions">
                 ${["kiallitva", "piszkozat"].includes(s.statusz) ? `<button type="button" class="btn btn-sm btn-success" data-fs-fizetve="${s.id}"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("finMarkPaid")}</button>` : ""}
-                <a class="btn btn-sm btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/nyomtat" target="_blank" rel="noopener" title="${esc(I18n.t("finPrint"))}"><i class="fa-solid fa-print" aria-hidden="true"></i><span class="visually-hidden">${I18n.t("finPrint")}</span></a>
+                <a class="btn btn-sm btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener" title="${esc(I18n.t("finPrint"))}"><i class="fa-solid fa-print" aria-hidden="true"></i><span class="visually-hidden">${I18n.t("finPrint")}</span></a>
+                ${s.tipus === "szamla" && s.statusz !== "piszkozat" ? `<button type="button" class="btn btn-sm btn-outline-primary" data-fs-xml="${s.id}" data-fs-xml-nev="${esc(s.sorszam)}" title="${esc(I18n.t("finXmlHint"))}"><i class="fa-solid fa-file-code" aria-hidden="true"></i> XML</button>` : ""}
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-fs-email="${s.id}" title="${esc(I18n.t("finSendEmail"))}"><i class="fa-solid fa-envelope" aria-hidden="true"></i><span class="visually-hidden">${I18n.t("finSendEmail")}</span></button>
                 <button type="button" class="btn btn-sm btn-outline-primary" data-fs-szerk="${s.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${I18n.t("adsEdit")}</button>
             </div>
@@ -173,6 +174,54 @@ AdminManager.finSzamlaGombok = function (box, kesz) {
     box.querySelectorAll("[data-fs-szerk]").forEach(b => { b.onclick = () => AdminManager.finSzamlaSzerk(Number(b.dataset.fsSzerk), kesz); });
     box.querySelectorAll("[data-fs-fizetve]").forEach(b => { b.onclick = () => AdminManager.finFizetve(Number(b.dataset.fsFizetve), kesz); });
     box.querySelectorAll("[data-fs-email]").forEach(b => { b.onclick = () => AdminManager.finEmail(Number(b.dataset.fsEmail), kesz); });
+    box.querySelectorAll("[data-fs-xml]").forEach(b => { b.onclick = () => AdminManager.finXml(Number(b.dataset.fsXml), b.dataset.fsXmlNev); });
+};
+
+// A számla sorszáma (a piszkozat még nem kap sorszámot)
+AdminManager.finSorszam = function (s) {
+    return /^TERV-/.test(String(s.sorszam || "")) ? `<span class="text-body-secondary">${Utils.escape(I18n.t("finNoNumberYet"))}</span>` : Utils.escape(s.sorszam || "");
+};
+
+// e-Factura XML letöltése (ha hiányzik adat, megmondja mi)
+AdminManager.finXml = function (id, nev) {
+    return fetch(`/api/admin/penzugy/szamlak/${id}/efactura.xml`, { cache: "no-store", credentials: "same-origin" }).then(r => {
+        if (r.ok) return r.blob().then(b => {
+            const u = URL.createObjectURL(b);
+            const l = document.createElement("a");
+            l.href = u;
+            l.download = String(nev || "factura").replace(/[^\w.-]/g, "_") + ".xml";
+            document.body.appendChild(l);
+            l.click();
+            l.remove();
+            setTimeout(() => URL.revokeObjectURL(u), 3000);
+        });
+        return r.json().catch(() => ({})).then(j => {
+            const h = AdminManager.finHianyok(j).map(k => "• " + k).join("\n");
+            alert(I18n.t("irEfacturaMissing") + (h ? "\n\n" + h : ""));
+        });
+    }).catch(() => alert(I18n.t("alertLoadError")));
+};
+
+// A hiányzó adatok szövege (a kezelő nyelvén; ha nincs fordítás, a szerver magyar szövege)
+AdminManager.finHianyok = function (j) {
+    return (j.hianyzik || []).map((k, i) => {
+        const kulcs = "irEfMissing_" + k;
+        return I18n.t(kulcs) !== kulcs ? I18n.t(kulcs) : ((j.hianyzik_szoveg || [])[i] || k);
+    });
+};
+
+// Ellenőrzés az ANAF-nál (ugyanazok a szabályok, mint a feltöltéskor)
+AdminManager.finAnaf = function (id, gomb) {
+    if (gomb) gomb.disabled = true;
+    return fetch(`/api/admin/penzugy/szamlak/${id}/efactura/ellenoriz`, { method: "POST", credentials: "same-origin" })
+        .then(r => r.json().catch(() => ({})))
+        .then(j => {
+            if (j.hianyzik) return alert(I18n.t("irEfacturaMissing") + "\n\n" + AdminManager.finHianyok(j).map(k => "• " + k).join("\n"));
+            if (j.stare === "ok") return alert(I18n.t("finAnafOk"));
+            alert(I18n.t("finAnafNok") + "\n\n" + (j.hibak || []).map(k => "• " + k).join("\n"));
+        })
+        .catch(() => alert(I18n.t("alertLoadError")))
+        .finally(() => { if (gomb) gomb.disabled = false; });
 };
 
 AdminManager.finUgyfelLista = function (frissit) {
@@ -300,6 +349,8 @@ AdminManager.finSzamlaUrlap = function (s, o) {
     const { tartalom, modal, el } = AdminManager.finModal("finSzamlaModal", "modal-xl");
     const afa = !!b.afa_fizeto;
     const lezart = !uj && ["fizetve", "sztorno"].includes(s.statusz);
+    // Kiállított számla: a tartalma nem módosítható (csak a fizetés adatai) – javítás sztornó számlával
+    const zart = !uj && s.tipus === "szamla" && s.statusz !== "piszkozat";
 
     const ugyfelOpts = sel => `<option value="">${I18n.t("finPickCustomer")}</option>` +
         o.ugyfelek.map(u => `<option value="${u.id}" ${u.id === sel ? "selected" : ""}>${esc(u.nev)}${u.cui ? " · " + esc(u.cui) : ""}</option>`).join("");
@@ -308,6 +359,8 @@ AdminManager.finSzamlaUrlap = function (s, o) {
         <tr data-tetel="${i}">
             <td class="finTdName">
                 <input class="form-control form-control-sm" data-t="megnevezes" value="${esc(t.megnevezes || "")}" maxlength="300" placeholder="${esc(I18n.t("finItemPh"))}" aria-label="${esc(I18n.t("finItemName"))}">
+                <input class="form-control form-control-sm mt-1" data-t="megnevezes_ro" value="${esc(t.megnevezes_ro || "")}" maxlength="300" placeholder="${esc(I18n.t("finItemRoPh"))}" aria-label="${esc(I18n.t("finItemRo"))}" title="${esc(I18n.t("finItemRoHelp"))}">
+                <input type="hidden" data-t="megnevezes_en" value="${esc(t.megnevezes_en || "")}">
                 <select class="form-select form-select-sm mt-1" data-t="kategoria" aria-label="${esc(I18n.t("finCategory"))}">${L.kategoriak.map(k => `<option value="${k}" ${(t.kategoria || "egyeb") === k ? "selected" : ""}>${esc(AdminManager.finKatLabel(k))}</option>`).join("")}</select>
                 <input type="hidden" data-t="csomag_id" value="${t.csomag_id || ""}">
             </td>
@@ -320,11 +373,11 @@ AdminManager.finSzamlaUrlap = function (s, o) {
 
     tartalom.innerHTML = `
         <div class="modal-header">
-            <h5 class="modal-title"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${uj ? I18n.t("finNewInvoice") : esc(s.sorszam)} ${!uj ? AdminManager.finAllapotBadge(s) : ""}</h5>
+            <h5 class="modal-title"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${uj ? I18n.t("finNewInvoice") : AdminManager.finSorszam(s)} ${!uj ? AdminManager.finAllapotBadge(s) : ""}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${esc(I18n.t("adsCancel"))}"></button>
         </div>
         <div class="modal-body">
-            ${lezart ? `<div class="alert alert-secondary small">${I18n.t("finLockedNote")}</div>` : ""}
+            ${zart ? `<div class="alert alert-info small"><i class="fa-solid fa-lock" aria-hidden="true"></i> ${I18n.t("finInvoiceLockedNote")}</div>` : lezart ? `<div class="alert alert-secondary small">${I18n.t("finLockedNote")}</div>` : ""}
             <div class="row g-2">
                 <div class="col-md-6">
                     <label class="form-label small mb-1" for="fszUgyfel">${I18n.t("finCustomer")} *</label>
@@ -343,7 +396,7 @@ AdminManager.finSzamlaUrlap = function (s, o) {
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label small mb-1" for="fszStatusz">${I18n.t("finStatus")}</label>
-                    <select class="form-select form-select-sm" id="fszStatusz">${["piszkozat", "kiallitva", "fizetve", "sztorno"].map(k => `<option value="${k}" ${s.statusz === k ? "selected" : ""}>${I18n.t("finSt_" + k)}</option>`).join("")}</select>
+                    <select class="form-select form-select-sm" id="fszStatusz">${(zart ? (s.statusz === "sztorno" ? ["sztorno"] : ["kiallitva", "fizetve"]) : ["piszkozat", "kiallitva", "fizetve", "sztorno"]).map(k => `<option value="${k}" ${s.statusz === k ? "selected" : ""}>${I18n.t("finSt_" + k)}</option>`).join("")}</select>
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label small mb-1" for="fszKiallitva">${I18n.t("finIssueDate")}</label>
@@ -422,9 +475,12 @@ AdminManager.finSzamlaUrlap = function (s, o) {
         </div>
         <div class="modal-footer flex-wrap">
             ${!uj && s.statusz === "piszkozat" ? `<button type="button" class="btn btn-outline-danger" id="fszTorol"><i class="fa-solid fa-trash" aria-hidden="true"></i> ${I18n.t("finDelete")}</button>` : ""}
-            ${!uj && s.statusz !== "sztorno" && s.statusz !== "piszkozat" ? `<button type="button" class="btn btn-outline-danger" id="fszSztorno"><i class="fa-solid fa-ban" aria-hidden="true"></i> ${I18n.t("finCancelDoc")}</button>` : ""}
+            ${!uj && s.statusz !== "sztorno" && s.statusz !== "piszkozat" && !s.sztorno_eredeti_id ? `<button type="button" class="btn btn-outline-danger" id="fszSztorno"><i class="fa-solid fa-ban" aria-hidden="true"></i> ${I18n.t(zart ? "finIssueReversal" : "finCancelDoc")}</button>` : ""}
+            ${zart ? `<button type="button" class="btn btn-outline-primary" id="fszXml"><i class="fa-solid fa-file-code" aria-hidden="true"></i> XML</button>
+                     <button type="button" class="btn btn-outline-primary" id="fszAnaf" title="${esc(I18n.t("finAnafCheckHint"))}"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ${I18n.t("finAnafCheck")}</button>
+                     <a class="btn btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/efactura.pdf" target="_blank" rel="noopener" title="${esc(I18n.t("finAnafPdfHint"))}"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> ANAF PDF</a>` : ""}
             ${!uj ? `<button type="button" class="btn btn-outline-secondary" id="fszMasol"><i class="fa-solid fa-copy" aria-hidden="true"></i> ${I18n.t("finCopy")}</button>
-                     <a class="btn btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/nyomtat" target="_blank" rel="noopener"><i class="fa-solid fa-print" aria-hidden="true"></i> ${I18n.t("finPrint")}</a>` : ""}
+                     <a class="btn btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener"><i class="fa-solid fa-print" aria-hidden="true"></i> ${I18n.t("finPrint")}</a>` : ""}
             <span class="me-auto"></span>
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${I18n.t("adsCancel")}</button>
             <button type="button" class="btn btn-primary" id="fszMent"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t(uj ? "finCreate" : "finSave")}</button>
@@ -436,15 +492,18 @@ AdminManager.finSzamlaUrlap = function (s, o) {
     // Összegek (a szerver ugyanígy számol, és az övé a végső)
     const kerek = v => Math.round(v * 100) / 100;
     const szamol = () => {
-        let netto = 0, afaOssz = 0;
+        let netto = 0;
+        const csop = {};   // ÁFA kulcsonként a nettó – a végösszeg ÁFA-ja ebből (mint a szerveren és az e-Facturában)
         tbody.querySelectorAll("[data-tetel]").forEach(tr => {
             const m = Number(tr.querySelector('[data-t="mennyiseg"]').value) || 0;
             const a = Number(tr.querySelector('[data-t="egysegar"]').value) || 0;
             const k = afa ? (Number((tr.querySelector('[data-t="afa_kulcs"]') || {}).value) || 0) : 0;
             const n = kerek(m * a), x = kerek(n * k / 100);
-            netto += n; afaOssz += x;
+            netto = kerek(netto + n);
+            csop[k] = kerek((csop[k] || 0) + n);
             tr.querySelector("[data-t-ossz]").textContent = AdminManager.finPenz(kerek(n + x), $("#fszPenznem").value);
         });
+        const afaOssz = kerek(Object.entries(csop).reduce((x, [k, alap]) => x + kerek(alap * Number(k) / 100), 0));
         const p = $("#fszPenznem").value;
         $("#fszOssz").innerHTML = `
             ${afa ? `<div><span>${I18n.t("finNet")}</span><b>${esc(AdminManager.finPenz(kerek(netto), p))}</b></div>
@@ -525,7 +584,7 @@ AdminManager.finSzamlaUrlap = function (s, o) {
         ...(uj && s.elofizetes_id ? { elofizetes_id: s.elofizetes_id } : {}),
         tetelek: [...tbody.querySelectorAll("[data-tetel]")].map(tr => {
             const v = k => { const i = tr.querySelector(`[data-t="${k}"]`); return i ? i.value : undefined; };
-            return { megnevezes: v("megnevezes"), kategoria: v("kategoria"), csomag_id: v("csomag_id") || null, mennyiseg: v("mennyiseg"), egysegar: v("egysegar"), afa_kulcs: v("afa_kulcs") };
+            return { megnevezes: v("megnevezes"), megnevezes_ro: v("megnevezes_ro"), megnevezes_en: v("megnevezes_en"), kategoria: v("kategoria"), csomag_id: v("csomag_id") || null, mennyiseg: v("mennyiseg"), egysegar: v("egysegar"), afa_kulcs: v("afa_kulcs") };
         }).filter(t => t.megnevezes && t.megnevezes.trim())
     });
 
@@ -536,7 +595,7 @@ AdminManager.finSzamlaUrlap = function (s, o) {
         const d = adat();
         if (!d.ugyfel_id) { $("#fszUgyfel").classList.add("is-invalid"); $("#fszUgyfel").focus(); return; }
         if (!d.tetelek.length) { const f = tbody.querySelector('[data-t="megnevezes"]'); if (f) { f.classList.add("is-invalid"); f.focus(); } return; }
-        if (lezart && !confirm(I18n.t("finEditLockedConfirm"))) return;
+        if (lezart && !zart && !confirm(I18n.t("finEditLockedConfirm"))) return;
         $("#fszMent").disabled = true;
         kuld(d, uj).catch(e => { $("#fszMent").disabled = false; AdminManager.finHiba(e); });
     };
@@ -551,7 +610,7 @@ AdminManager.finSzamlaUrlap = function (s, o) {
 
     const sztorno = $("#fszSztorno");
     if (sztorno) sztorno.onclick = () => {
-        if (!confirm(I18n.t("finCancelConfirm"))) return;
+        if (!confirm(I18n.t(zart ? "finReversalConfirm" : "finCancelConfirm"))) return;
         AdminManager.finApi(`szamlak/${s.id}/allapot`, { method: "POST", body: { statusz: "sztorno" } })
             .then(() => { modal.hide(); AdminManager.refreshPendingCount(); if (o.kesz) o.kesz(); })
             .catch(AdminManager.finHiba);
@@ -570,6 +629,20 @@ AdminManager.finSzamlaUrlap = function (s, o) {
 
     kotes();
     szamol();
+
+    // Kiállított számla: csak a fizetés adatai szerkeszthetők
+    if (zart) {
+        const szabad = ["fszStatusz", "fszFizetve", "fszMod", "fszKulso", "fszReklam"];
+        tartalom.querySelectorAll(".modal-body input, .modal-body select, .modal-body textarea, .modal-body button").forEach(el => {
+            if (!szabad.includes(el.id)) el.disabled = true;
+        });
+        const det = tartalom.querySelector(".modal-body details");
+        if (det) det.open = true;
+        const xb = $("#fszXml");
+        if (xb) xb.onclick = () => AdminManager.finXml(s.id, s.sorszam);
+        const ab = $("#fszAnaf");
+        if (ab) ab.onclick = () => AdminManager.finAnaf(s.id, ab);
+    }
 
     el.addEventListener("shown.bs.modal", () => {
         const f = !$("#fszUgyfel").value ? $("#fszUgyfel") : tbody.querySelector('[data-t="megnevezes"]');

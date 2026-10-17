@@ -194,7 +194,7 @@ async function sajat(s, fizetesiMod) {
         idoszak_ig: s.idoszak_ig,
         megjegyzes: `Díjbekérő / Proforma: ${s.sorszam}`,
         tetelek: (s.tetelek || []).map(t => ({
-            megnevezes: t.megnevezes, kategoria: t.kategoria, csomag_id: t.csomag_id,
+            megnevezes: t.megnevezes, megnevezes_ro: t.megnevezes_ro, megnevezes_en: t.megnevezes_en, kategoria: t.kategoria, csomag_id: t.csomag_id,
             mennyiseg: t.mennyiseg, egysegar: t.egysegar, afa_kulcs: t.afa_kulcs
         }))
     });

@@ -115,7 +115,7 @@ router.get("/api/sajat-csomag/szamlak/:id/hivatalos", csakBelepve, async (req, r
         if (!s) return res.status(404).json({ error: "not_found" });
         const p = await szamlazo.pdf(s);
         if (!p) return res.status(404).json({ error: "not_found" });
-        if (p.belso) return res.redirect(302, `/api/sajat-csomag/szamlak/${p.belso}/nyomtat`);
+        if (p.belso) return res.redirect(302, `/api/sajat-csomag/szamlak/${p.belso}/nyomtat${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`);
         if (p.link) return res.redirect(302, p.link);
         res.set("Content-Type", "application/pdf");
         res.set("Content-Disposition", `inline; filename="${p.nev.replace(/[^\w.-]/g, "_")}"`);
@@ -197,23 +197,70 @@ router.get("/api/admin/penzugy/szamlak/:id/hivatalos", csapat.csakResz("penzugy"
         const s = await pu.szamla(Number(req.params.id) || 0);
         const p = await szamlazo.pdf(s);
         if (!p) return res.status(404).json({ error: "not_found" });
-        if (p.belso) return res.redirect(302, `/api/admin/penzugy/szamlak/${p.belso}/nyomtat`);
+        if (p.belso) return res.redirect(302, `/api/admin/penzugy/szamlak/${p.belso}/nyomtat${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`);
         if (p.link) return res.redirect(302, p.link);
         res.set("Content-Type", "application/pdf");
         res.send(p.pdf);
     } catch (err) { hiba(res, err); }
 });
 
-// e-Factura XML (a saját számlából) – az ANAF SPV-be feltölthető
+// e-Factura XML (a saját számlából) – az ANAF SPV-be feltölthető.
+// Megnyitva „kódnak” látszik – ez így helyes, az ANAF ezt a gépi fájlt kéri.
+async function efSzamla(req, res) {
+    const s = await pu.szamla(Number(req.params.id) || 0);
+    if (!s) { res.status(404).json({ error: "not_found" }); return null; }
+    const h = await efactura.hianyok(s);
+    if (h.length) {
+        res.status(400).json({ error: "efactura_missing", hianyzik: h, hianyzik_szoveg: h.map(k => efactura.HIANY_SZOVEG[k] || k) });
+        return null;
+    }
+    return s;
+}
+
 router.get("/api/admin/penzugy/szamlak/:id/efactura.xml", csapat.csakResz("penzugy"), async (req, res) => {
     try {
-        const s = await pu.szamla(Number(req.params.id) || 0);
-        if (!s) return res.status(404).json({ error: "not_found" });
-        const h = await efactura.hianyok(s);
-        if (h.length) return res.status(400).json({ error: "efactura_missing", hianyzik: h });
+        const s = await efSzamla(req, res);
+        if (!s) return;
+        const nev = String(s.sorszam).replace(/[^\w.-]/g, "_") + ".xml";
         res.set("Content-Type", "application/xml; charset=utf-8");
-        if (req.query.letolt) res.set("Content-Disposition", `attachment; filename="${String(s.sorszam).replace(/[^\w.-]/g, "_")}.xml"`);
+        res.set("Cache-Control", "private, no-store");
+        res.set("Content-Disposition", `${req.query.megnez ? "inline" : "attachment"}; filename="${nev}"`);
         res.send(await efactura.xml(s));
+    } catch (err) { hiba(res, err); }
+});
+
+// Ellenőrzés az ANAF-nál (ugyanazok a szabályok, mint a feltöltéskor)
+router.post("/api/admin/penzugy/szamlak/:id/efactura/ellenoriz", csapat.csakResz("penzugy"), async (req, res) => {
+    try {
+        const s = await efSzamla(req, res);
+        if (!s) return;
+        try {
+            const v = await efactura.ellenoriz(s);
+            await require("../db/database").query(
+                "UPDATE penzugy_szamlak SET efactura_ellenorizve = NOW(), efactura_ok = $2 WHERE id = $1", [s.id, v.stare === "ok"]).catch(() => { });
+            res.json(v);
+        } catch (e) {
+            res.status(502).json({ error: "anaf_unavailable", hibak: ["Az ANAF ellenőrzője most nem érhető el – próbáld pár perc múlva."] });
+        }
+    } catch (err) { hiba(res, err); }
+});
+
+// Az ANAF által készített PDF (olvasható alak) az XML-ből
+router.get("/api/admin/penzugy/szamlak/:id/efactura.pdf", csapat.csakResz("penzugy"), async (req, res) => {
+    try {
+        const s = await efSzamla(req, res);
+        if (!s) return;
+        let v;
+        try { v = await efactura.pdf(s); }
+        catch (e) { return res.status(502).send("Az ANAF most nem érhető el – próbáld pár perc múlva. / ANAF indisponibil."); }
+        if (!v.pdf) {
+            res.status(400).set("Content-Type", "text/plain; charset=utf-8");
+            return res.send("Az ANAF nem készített PDF-et:\n\n" + (v.hibak || []).join("\n"));
+        }
+        res.set("Content-Type", "application/pdf");
+        res.set("Cache-Control", "private, no-store");
+        res.set("Content-Disposition", `inline; filename="${String(s.sorszam).replace(/[^\w.-]/g, "_")}-anaf.pdf"`);
+        res.send(v.pdf);
     } catch (err) { hiba(res, err); }
 });
 

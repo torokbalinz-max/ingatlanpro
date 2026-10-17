@@ -132,10 +132,13 @@ class Archive {
                 muvelet.push(`<button type="button" class="btn btn-sm btn-outline-secondary" data-ir-szerk="${x.id}" title="${esc(I18n.t("detailEdit"))}" aria-label="${esc(I18n.t("detailEdit"))}"><i class="fa-solid fa-pen"></i></button>`);
                 muvelet.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-ir-torol="${x.id}" title="${esc(I18n.t("detailDelete"))}" aria-label="${esc(I18n.t("detailDelete"))}"><i class="fa-solid fa-trash"></i></button>`);
             } else if (x.forras === "app" && x.szamla_id) {
-                muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/admin/penzugy/szamlak/${x.szamla_id}/nyomtat" target="_blank" rel="noopener" title="${esc(I18n.t("irOpen"))}" aria-label="${esc(I18n.t("irOpen"))}"><i class="fa-solid fa-eye"></i></a>`);
-                if (x.efactura) muvelet.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-ir-xml="${x.szamla_id}" data-ir-xml-nev="${esc(x.szam)}" title="${esc(I18n.t("irEfacturaHint"))}"><i class="fa-solid fa-file-code"></i> XML</button>`);
+                muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/admin/penzugy/szamlak/${x.szamla_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener" title="${esc(I18n.t("irOpen"))}" aria-label="${esc(I18n.t("irOpen"))}"><i class="fa-solid fa-eye"></i></a>`);
+                if (x.efactura) {
+                    muvelet.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-ir-xml="${x.szamla_id}" data-ir-xml-nev="${esc(x.szam)}" title="${esc(I18n.t("irEfacturaHint"))}"><i class="fa-solid fa-file-code"></i> XML</button>`);
+                    muvelet.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-ir-anaf="${x.szamla_id}" title="${esc(I18n.t("finAnafCheckHint"))}" aria-label="${esc(I18n.t("finAnafCheck"))}"><i class="fa-solid fa-shield-halved"></i></button>`);
+                }
             } else if (x.forras === "app" && x.megbizas_id) {
-                muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/megbizas/${x.megbizas_id}/szerzodes" target="_blank" rel="noopener" title="${esc(I18n.t("irOpen"))}" aria-label="${esc(I18n.t("irOpen"))}"><i class="fa-solid fa-eye"></i></a>`);
+                muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/megbizas/${x.megbizas_id}/szerzodes${Dokumentum.q(true)}" target="_blank" rel="noopener" title="${esc(I18n.t("irOpen"))}" aria-label="${esc(I18n.t("irOpen"))}"><i class="fa-solid fa-eye"></i></a>`);
             } else if (x.forras === "kiadas") {
                 muvelet.push(`<button type="button" class="btn btn-sm btn-warning" data-ir-csatol="${x.kiadas_id}"><i class="fa-solid fa-paperclip"></i> ${I18n.t("irAttach")}</button>`);
             }
@@ -182,6 +185,12 @@ class Archive {
                         <select class="form-select irYear" id="irEv" aria-label="${esc(I18n.t("irYear"))}">
                             <option value="">${I18n.t("irAllYears")}</option>
                             ${o.evek.map(e => `<option value="${e}" ${String(a.ev) === String(e) ? "selected" : ""}>${e}</option>`).join("")}
+                        </select>
+                        <select class="form-select irLang" id="irNyelv" aria-label="${esc(I18n.t("irDocLang"))}" title="${esc(I18n.t("irDocLangHint"))}" style="max-width:12rem">
+                            <option value="" ${!Dokumentum.adminForditas() ? "selected" : ""}>${I18n.t("irDocLangDefault")}</option>
+                            <option value="ro" ${Dokumentum.adminForditas() === "ro" ? "selected" : ""}>${I18n.t("finDocLang_ro")}</option>
+                            <option value="hu" ${Dokumentum.adminForditas() === "hu" ? "selected" : ""}>${I18n.t("finDocLang_hu")}</option>
+                            <option value="en" ${Dokumentum.adminForditas() === "en" ? "selected" : ""}>${I18n.t("finDocLang_en")}</option>
                         </select>
                         <a class="btn btn-outline-secondary" href="${esc(Archive.url("/api/admin/irattar/export.csv"))}" title="${esc(I18n.t("irCsvHint"))}"><i class="fa-solid fa-file-csv"></i> <span class="d-none d-xl-inline">CSV</span></a>
                         <button type="button" class="btn btn-primary" id="irUj"><i class="fa-solid fa-upload"></i> ${I18n.t(szerz ? "irUploadContract" : "irUpload")}</button>
@@ -234,6 +243,11 @@ class Archive {
         box.querySelectorAll("[data-ir-xml]").forEach(b => {
             b.onclick = () => Archive.xml(b.dataset.irXml, b.dataset.irXmlNev);
         });
+        box.querySelectorAll("[data-ir-anaf]").forEach(b => {
+            b.onclick = () => AdminManager.finAnaf(b.dataset.irAnaf, b);
+        });
+        const nyelv = box.querySelector("#irNyelv");
+        if (nyelv) nyelv.onchange = () => { Dokumentum.adminForditasMent(nyelv.value); Archive.betolt(); };
 
         // Fájl ráhúzása a listára → feltöltés
         const main = box.querySelector("#irMain");
@@ -249,24 +263,9 @@ class Archive {
 
     }
 
-    // e-Factura XML letöltése (ha hiányzik adat, megmondja mi)
+    // e-Factura XML letöltése (ha hiányzik adat, megmondja mi) – AdminManager.finXml
     static xml(id, nev) {
-        fetch(`/api/admin/penzugy/szamlak/${id}/efactura.xml`, { cache: "no-store" }).then(r => {
-            if (r.ok) return r.blob().then(b => {
-                const u = URL.createObjectURL(b);
-                const l = document.createElement("a");
-                l.href = u;
-                l.download = String(nev || "factura").replace(/[^\w.-]/g, "_") + ".xml";
-                document.body.appendChild(l);
-                l.click();
-                l.remove();
-                setTimeout(() => URL.revokeObjectURL(u), 2000);
-            });
-            return r.json().then(j => {
-                const h = (j.hianyzik || []).map(k => "• " + I18n.t("irEfMissing_" + k)).join("\n");
-                alert(I18n.t("irEfacturaMissing") + (h ? "\n\n" + h : ""));
-            });
-        }).catch(() => alert(I18n.t("alertLoadError")));
+        return AdminManager.finXml(id, nev);
     }
 
     // ---------- Feltöltés / szerkesztés ----------

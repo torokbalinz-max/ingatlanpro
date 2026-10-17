@@ -314,7 +314,7 @@ class SellForYouPage {
                 </ol>
                 <div class="d-flex flex-wrap gap-2 justify-content-center mt-3">
                     <a class="btn btn-primary" href="#fiok/megbizasok"><i class="fa-solid fa-key" aria-hidden="true"></i> ${I18n.t("accTabMandates")}</a>
-                    <a class="btn btn-outline-secondary" href="/api/megbizas/${v.id}/szerzodes" target="_blank" rel="noopener"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> ${I18n.t("sfContractDraft")}</a>
+                    <a class="btn btn-outline-secondary" href="/api/megbizas/${v.id}/szerzodes${Dokumentum.q()}" target="_blank" rel="noopener"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> ${I18n.t("sfContractDraft")}</a>
                 </div>
             </div>`;
         window.scrollTo({ top: 0, behavior: "smooth" });

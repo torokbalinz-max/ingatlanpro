@@ -1197,6 +1197,22 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS dijbekero_id INTEGER REFERENCES penzugy_szamlak(id) ON DELETE SET NULL`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_szamla_dijbekero ON penzugy_szamlak (dijbekero_id)`);
 
+    // Hivatalos számla (2026. október): sztornó számla hivatkozása az eredetire,
+    // az árfolyam a kiállításkor (nem lejes számlán az ÁFA lejben is kell),
+    // az e-Factura ANAF-ellenőrzés eredménye
+    for (const o of ["sztorno_eredeti_id INTEGER REFERENCES penzugy_szamlak(id) ON DELETE SET NULL", "arfolyam NUMERIC(12,4)", "arfolyam_datum DATE",
+        "efactura_ellenorizve TIMESTAMP", "efactura_ok BOOLEAN"]) {
+        await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS ${o}`);
+    }
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_szamla_sztorno ON penzugy_szamlak (sztorno_eredeti_id)`);
+    // A tétel neve románul (a hivatalos számlán) és angolul (fordításhoz)
+    await db.query(`ALTER TABLE penzugy_tetelek ADD COLUMN IF NOT EXISTS megnevezes_ro TEXT`);
+    await db.query(`ALTER TABLE penzugy_tetelek ADD COLUMN IF NOT EXISTS megnevezes_en TEXT`);
+    // A vevő címe az e-Facturához: település, megye (RO-CV), ország; ÁFA-alany-e
+    for (const o of ["varos TEXT", "megye TEXT", "orszag TEXT DEFAULT 'RO'", "afa_alany BOOLEAN DEFAULT false"]) {
+        await db.query(`ALTER TABLE penzugy_ugyfelek ADD COLUMN IF NOT EXISTS ${o}`);
+    }
+
     // Irattár: a cég iratai rendezetten – két rész:
     //   szamla     számlák és pénzügyi iratok (bejövő számla, nyugta, bankkivonat...)
     //   szerzodes  szerződések (ügyfél, partner, szolgáltató, bérleti...)
