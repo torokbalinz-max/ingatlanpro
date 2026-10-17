@@ -65,7 +65,9 @@
             cs2_reszSugo_ellenorzes: "jóváhagyás, hely, állapot, duplikátumok – az egész oldalra (egy városra: lent)",
             cs2_reszSugo_helyek: "városok, kerületek, környék, hely-ellenőrzés",
             importResBlocked: "letiltva, később újra",
-            importResBlockedHelp: "A forrásoldal (pl. OLX, Storia) bot-védelme most nem engedte a lekérést. Ezek a hirdetések változatlanok maradnak, és a következő ellenőrzés elsőként újra próbálja őket."
+            importResBlockedHelp: "A forrásoldal (pl. OLX, Storia) bot-védelme most nem engedte a lekérést. Ezek a hirdetések változatlanok maradnak, és a következő ellenőrzés elsőként újra próbálja őket.",
+            descOnSource: "A hirdetés teljes leírása és a hirdető elérhetősége az eredeti hirdetésben található.",
+            descOnSourceBtn: "Leírás és elérhetőség az eredeti hirdetésben"
         },
         ro: {
             adminTabPhotos: "Fotografii",
@@ -121,7 +123,9 @@
             cs2_reszSugo_ellenorzes: "aprobare, loc, stare, duplicate – pentru tot site-ul (pentru un oraș: mai jos)",
             cs2_reszSugo_helyek: "orașe, cartiere, împrejurimi, verificare locație",
             importResBlocked: "blocate, se reîncearcă",
-            importResBlockedHelp: "Protecția anti-bot a site-ului sursă (ex. OLX, Storia) nu a permis accesul acum. Aceste anunțuri rămân neschimbate, iar următoarea verificare le reîncearcă primele."
+            importResBlockedHelp: "Protecția anti-bot a site-ului sursă (ex. OLX, Storia) nu a permis accesul acum. Aceste anunțuri rămân neschimbate, iar următoarea verificare le reîncearcă primele.",
+            descOnSource: "Descrierea completă a anunțului și datele de contact ale ofertantului se găsesc în anunțul original.",
+            descOnSourceBtn: "Descriere și contact în anunțul original"
         },
         en: {
             adminTabPhotos: "Photos",
@@ -177,7 +181,9 @@
             cs2_reszSugo_ellenorzes: "approval, location, condition, duplicates – whole site (one city: below)",
             cs2_reszSugo_helyek: "cities, districts, surroundings, location check",
             importResBlocked: "blocked, will retry",
-            importResBlockedHelp: "The source site's bot protection (e.g. OLX, Storia) refused the request right now. These listings stay unchanged and the next check retries them first."
+            importResBlockedHelp: "The source site's bot protection (e.g. OLX, Storia) refused the request right now. These listings stay unchanged and the next check retries them first.",
+            descOnSource: "The full description and the advertiser's contact details are in the original listing.",
+            descOnSourceBtn: "Description and contact in the original listing"
         }
     };
 

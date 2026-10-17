@@ -101,6 +101,16 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
 
         }
 
+        // Más oldalról átvett hirdetés: a leírás a hirdetőé (szerzői jog), és személyes
+        // adatot (nevet, telefonszámot) is tartalmazhat – nyilvánosan nem mutatjuk, csak
+        // az eredeti hirdetés linkjét. A forrásoldal nyers szövege senkinek, aki nem
+        // szerkesztheti. Az admin és a szerkesztésre jogosult látja (ellenőrzés, javítás).
+        const szerkesztheti = req.user ? (await sajatVagyAdmin(req, i.id)).ok : false;
+        if (!szerkesztheti) {
+            delete i.forras_szoveg;
+            if (i.forras_tipus === "import") { i.leiras = null; i.leiras_rejtve = true; }
+        }
+
         res.json({ ...i, ...belso, iroda, ugynok, kepek: kepek.rows.map(k => k.id) });
 
     } catch (err) {

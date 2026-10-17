@@ -7,7 +7,6 @@ const db = require("../db/database");
 const { hiba } = require("../lib/http");
 const { biztonsagosFetch } = require("../lib/biztonsagosFetch");
 const acc = require("../services/accounts");
-const { kepFejlecek } = require("../lib/bongeszo");
 
 const router = express.Router();
 
@@ -96,7 +95,11 @@ router.get("/api/img", async (req, res) => {
         const host = new URL(u).hostname;
 
         const valasz = await biztonsagosFetch(u, {
-            headers: kepFejlecek("https://" + host.split(".").slice(-2).join(".") + "/"),
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
+                "Referer": "https://" + host.split(".").slice(-2).join(".") + "/",
+                "Accept": "image/avif,image/webp,image/*,*/*;q=0.8"
+            },
             signal: AbortSignal.timeout(15000)
         });
 

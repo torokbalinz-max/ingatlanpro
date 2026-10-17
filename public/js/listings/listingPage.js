@@ -240,7 +240,10 @@ class ListingPage {
                         <div class="card-body">
                             ${i.leiras
                                 ? `<div class="listingDesc">${Utils.escape(i.leiras)}</div>`
-                                : `<p class="text-body-secondary mb-0">${I18n.t("noDescription")}</p>`}
+                                : i.leiras_rejtve && i.link
+                                    ? `<p class="mb-2">${I18n.t("descOnSource")}</p>
+                                       <a class="btn btn-outline-primary btn-sm" href="${Utils.escape(i.link)}" target="_blank" rel="noopener noreferrer nofollow"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> ${I18n.t("descOnSourceBtn")}</a>`
+                                    : `<p class="text-body-secondary mb-0">${I18n.t("noDescription")}</p>`}
                         </div>
                     </div>
 
