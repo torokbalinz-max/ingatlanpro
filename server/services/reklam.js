@@ -167,7 +167,7 @@ const MEZOK = `r.id, r.nev, r.hirdeto, r.kapcsolat, r.cel_url, r.alt, r.kep_mime
     (r.kep_mobil IS NOT NULL) AS van_mobil, r.kep_mobil_w, r.kep_mobil_h,
     r.helyek, r.kezdet::text AS kezdet, r.vege::text AS vege, r.aktiv, r.suly, r.ar, r.megjegyzes,
     r.megjelenes, r.kattintas, r.created_at, r.updated_at,
-    r.ugyfel_id, r.penznem, r.szamlazas, r.fizetes_utan, r.szerzodes_szam, r.szerzodes_kuldve, r.szerzodes_elfogadva,
+    r.ugyfel_id, r.penznem, r.szamlazas, r.fizetes_utan, COALESCE(r.szerzodes_kell, true) AS szerzodes_kell, r.szerzodes_szam, r.szerzodes_kuldve, r.szerzodes_elfogadva,
     (SELECT u.nev FROM penzugy_ugyfelek u WHERE u.id = r.ugyfel_id) AS ugyfel_nev,
     EXISTS (SELECT 1 FROM penzugy_szamlak s WHERE s.reklam_id = r.id AND s.tipus = 'dijbekero' AND s.statusz = 'fizetve') AS fizetve_van,
     EXISTS (SELECT 1 FROM penzugy_szamlak s WHERE s.reklam_id = r.id AND s.tipus = 'dijbekero' AND s.statusz IN ('kiallitva', 'piszkozat')) AS fizetesre_var,
@@ -235,8 +235,10 @@ function tisztit(b) {
         // számlázás (services/reklamSzamla.js)
         ugyfel_id: Number(b.ugyfel_id) || null,
         penznem: ["RON", "EUR"].includes(b.penznem) ? b.penznem : "RON",
-        szamlazas: b.szamlazas === "havonta" ? "havonta" : "egyben",
-        fizetes_utan: !!b.fizetes_utan
+        // a teljes időszak egy díjbekérőn (havi automatikus számlázás nincs)
+        szamlazas: "egyben",
+        fizetes_utan: !!b.fizetes_utan,
+        szerzodes_kell: b.szerzodes_kell !== false
     };
 
 }
@@ -296,8 +298,8 @@ async function modosit(id, b) {
 }
 
 async function szamlazasMent(id, d) {
-    await db.query("UPDATE reklamok SET ugyfel_id = $2, penznem = $3, szamlazas = $4, fizetes_utan = $5 WHERE id = $1",
-        [id, d.ugyfel_id, d.penznem, d.szamlazas, d.fizetes_utan]);
+    await db.query("UPDATE reklamok SET ugyfel_id = $2, penznem = $3, szamlazas = $4, fizetes_utan = $5, szerzodes_kell = $6 WHERE id = $1",
+        [id, d.ugyfel_id, d.penznem, d.szamlazas, d.fizetes_utan, d.szerzodes_kell]);
 }
 
 async function torol(id) {

@@ -1286,7 +1286,7 @@ async function createSchema(db) {
     // Reklámfelület bérlése (services/reklamSzamla.js): ügyfél, havi ár, számlázás,
     // szerződés online elfogadással, megjelenés csak a befizetés után
     for (const o of ["ugyfel_id INTEGER REFERENCES penzugy_ugyfelek(id) ON DELETE SET NULL", "penznem TEXT DEFAULT 'RON'",
-        "szamlazas TEXT DEFAULT 'egyben'", "fizetes_utan BOOLEAN DEFAULT false", "szerzodes_szam TEXT", "szerzodes_token TEXT",
+        "szamlazas TEXT DEFAULT 'egyben'", "fizetes_utan BOOLEAN DEFAULT false", "szerzodes_kell BOOLEAN DEFAULT true", "szerzodes_szam TEXT", "szerzodes_token TEXT",
         "szerzodes_kuldve TIMESTAMP", "szerzodes_elfogadva TIMESTAMP", "szerzodes_ip TEXT", "elofizetes_id INTEGER"]) {
         await db.query(`ALTER TABLE reklamok ADD COLUMN IF NOT EXISTS ${o}`);
     }

@@ -42,7 +42,8 @@
         ma: ["overview"],
         hird: ["review", "helyek", "allapot", "import", "reports", "|", "dups", "unavailable", "watch"],
         ert: ["megbizasok", "naptar", "hirdetesek", "|", "megbizasBeall"],
-        penz: ["penzugy", "rendelesek", "szamlak", "efactura", "onlinefiz", "elofizetesek", "ugyfelek", "kiadasok", "|", "csomagok", "kiemelesek", "penzugyBeall"],
+        // gyakran: áttekintés, számlák, vásárlások, kiadások, e-Factura | ritkábban | beállítás jellegű a végén
+        penz: ["penzugy", "szamlak", "rendelesek", "kiadasok", "efactura", "|", "ugyfelek", "elofizetesek", "kiemelesek", "|", "csomagok", "penzugyBeall"],
         irat: ["irattarSzamla", "irattarSzerzodes"],
         partner: ["irodak", "reklam"],
         rendszer: ["places", "kornyek", "allapotok", "|", "webhely", "csapat", "tools", "sitestats"]
@@ -64,7 +65,7 @@
     if (uj.hirdetesek) Object.assign(uj.hirdetesek, { title: "adminTabPhotos", desc: "adminDescPhotos", icon: "fa-solid fa-camera" });
     if (uj.helyek) Object.assign(uj.helyek, { title: "adminTabLocCheck", desc: "adminDescLocCheck2", warn: false });
     if (uj.megbizasBeall) uj.megbizasBeall.title = "adminTabSalesSettings";
-    if (uj.penzugyBeall) uj.penzugyBeall.title = "adminTabBilling";
+    if (uj.penzugyBeall) Object.assign(uj.penzugyBeall, { title: "adminTabFinSettings2", desc: "adminDescFinSettings2", icon: "fa-solid fa-gear", render: () => AdminManager.renderFinBeall() });
 
     AdminManager.TABS = uj;
     Object.assign(AdminManager.ALIASES, { ma: "overview", today: "overview", hirdeteseim: "hirdetesek" });

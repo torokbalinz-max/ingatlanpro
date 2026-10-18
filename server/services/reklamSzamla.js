@@ -1,18 +1,13 @@
 // ============================================================
-//  Reklámfelület bérlése: ügyfél → szerződés → díjbekérő → fizetés →
-//  számla → ANAF – minden magától
+//  Reklámfelület bérlése: ügyfél → díjbekérő + fizetési link → fizetés →
+//  számla → ANAF (a szerződés nem kötelező, de ajánlott)
 //
-//  A hirdetésnél (Admin → Reklámfelületek → szerkesztés → Számlázás):
-//    ügyfél (Pénzügy → Ügyfelek), havi ár, pénznem, számlázás (egyben a
-//    teljes időszakra / havonta), „csak a befizetés után jelenjen meg”.
-//  „Szerződés és díjbekérő küldése”:
-//    - szerződésszám (RK-<év>-<sorszám>), elfogadási link (token)
-//    - díjbekérő: egyben (hónapok × havi ár) vagy havonta (előfizetés –
-//      a következő hónapok díjbekérői maguktól készülnek)
-//    - e-mail a hirdetőnek: a szerződés linkje + az átutalás adatai
-//  A hirdető a linken elolvassa és „Elfogadom”-mal elfogadja (időpont + IP
-//  rögzül – elektronikus elfogadás). A díjbekérő befizetése után a számla
-//  magától elkészül (szamlazo.js) és az ANAF-hoz megy (efacturaSpv.js).
+//  Nem automatikus: a hirdető megkeres (pl. e-mailben), te beállítod a
+//  hirdetést (ügyfél, havi ár, időszak), és a „Díjbekérő + fizetési link”
+//  gombbal elkészül a díjbekérő a teljes időszakra és egy fizetési oldal:
+//  kártyával (Stripe) vagy átutalással fizethet, és – ha bekapcsolod – ott
+//  a szerződést is elfogadhatja (időpont + IP). A fizetés után ugyanolyan
+//  számla készül, mint a csomagoknál (szamlazo.js), és megy az ANAF-hoz.
 //
 //  Jogilag: cégek között a szolgáltatási szerződésnek nincs kötelező
 //  alakja (Codul civil art. 1178) – az írásos, elfogadott megrendelés a
@@ -44,7 +39,7 @@ function honapok(kezdet, vege) {
 async function reklamAdat(id) {
     const r = await db.query(`
         SELECT r.id, r.nev, r.hirdeto, r.cel_url, r.helyek, r.kezdet::text AS kezdet, r.vege::text AS vege, r.ar, r.penznem,
-               r.szamlazas, r.fizetes_utan, r.ugyfel_id, r.szerzodes_szam, r.szerzodes_token, r.szerzodes_kuldve, r.szerzodes_elfogadva,
+               r.szamlazas, r.fizetes_utan, COALESCE(r.szerzodes_kell, true) AS szerzodes_kell, r.ugyfel_id, r.szerzodes_szam, r.szerzodes_token, r.szerzodes_kuldve, r.szerzodes_elfogadva,
                r.szerzodes_ip, r.elofizetes_id
         FROM reklamok r WHERE r.id = $1`, [Number(id) || 0]);
     return r.rows[0] || null;
@@ -92,7 +87,10 @@ async function kovetkezoSzam() {
     return `RK-${ev}-${String(r.rows[0].n + 1).padStart(4, "0")}`;
 }
 
-// „Szerződés és díjbekérő küldése”
+// „Díjbekérő + fizetési link” – a hirdető megkeresett (pl. e-mailben), az
+// admin beállította a hirdetést; ez elkészíti a díjbekérőt a teljes
+// időszakra, és a fizetési oldal linkjét (kártya / átutalás, és ha kell,
+// a szerződés elfogadása). Kifizetve → ugyanolyan számla, mint a csomagoknál.
 async function kuld(id, alapCim) {
     const a = await allapot(id);
     if (a.hianyzik.length) throw Object.assign(hibaKod("ad_billing_missing"), { reszlet: a.hianyzik.join(",") });
@@ -101,19 +99,23 @@ async function kuld(id, alapCim) {
     const penznem = ["RON", "EUR"].includes(r.penznem) ? r.penznem : "RON";
     const ho = honapok(r.kezdet, r.vege);
     const nev = `Spațiu publicitar IngatlanPro – ${r.nev}`;
+    const tol = r.kezdet;
+    const ig = r.vege || pu.napHozzaad(pu.honapHozzaad(tol, 1), -1);
 
     const tok = (await db.query("SELECT szerzodes_token FROM reklamok WHERE id = $1", [r.id])).rows[0].szerzodes_token
         || crypto.randomBytes(24).toString("hex");
-    const szam = r.szerzodes_szam || await kovetkezoSzam();
+    const szam = r.szerzodes_kell !== false ? (r.szerzodes_szam || await kovetkezoSzam()) : r.szerzodes_szam;
     await db.query(`UPDATE reklamok SET szerzodes_szam = $2, szerzodes_token = $3, szerzodes_kuldve = NOW(), updated_at = NOW() WHERE id = $1`, [r.id, szam, tok]);
 
-    // díjbekérő – csak ha még nincs (újraküldésnél nem készül új)
-    let dijbekero = a.bizonylatok.find(x => x.tipus === "dijbekero" && x.statusz !== "sztorno");
+    // A nyitott díjbekérő marad (újraküldés) – ha közben az időszak változott,
+    // a régit sztornózzuk és újat készítünk; a már kifizetett időszakra nem kell új
+    let dijbekero = a.bizonylatok.find(x => x.tipus === "dijbekero" && (x.statusz === "kiallitva" || x.statusz === "piszkozat"));
+    if (dijbekero && (dijbekero.tol !== tol || dijbekero.ig !== ig)) {
+        await pu.szamlaAllapotValt(dijbekero.id, { statusz: "sztorno" });
+        dijbekero = null;
+    }
     if (!dijbekero) {
-        const havonta = r.szamlazas === "havonta" && ho > 1;
-        const tol = r.kezdet;
-        const igHonap = pu.napHozzaad(pu.honapHozzaad(tol, 1), -1);
-        const ig = havonta ? (r.vege && igHonap > r.vege ? r.vege : igHonap) : (r.vege || igHonap);
+        if (a.bizonylatok.some(x => x.tipus === "dijbekero" && x.statusz === "fizetve" && x.tol === tol && x.ig === ig)) throw hibaKod("ad_already_paid");
         const dbId = await pu.szamlaMent(null, {
             tipus: "dijbekero",
             ugyfel_id: r.ugyfel_id,
@@ -123,46 +125,38 @@ async function kuld(id, alapCim) {
             idoszak_tol: tol,
             idoszak_ig: ig,
             penznem,
-            megjegyzes: `Contract / Szerződés: ${szam}`,
+            megjegyzes: szam ? `Contract / Szerződés: ${szam}` : null,
             tetelek: [{
                 megnevezes: `Reklámfelület – ${r.nev} (${tol} – ${ig})`,
                 megnevezes_ro: `${nev} (${tol} – ${ig})`,
                 megnevezes_en: `Ad space – ${r.nev} (${tol} – ${ig})`,
                 kategoria: "reklamfelulet",
-                mennyiseg: havonta ? 1 : ho,
+                mennyiseg: ho,
                 egysegar: Number(r.ar)
             }]
         });
-        if (havonta) {
-            // a további hónapok díjbekérői: előfizetés a kampány végéig
-            const elId = await pu.elofizetesMent(null, {
-                ugyfel_id: r.ugyfel_id, megnevezes: nev, ar: Number(r.ar), penznem, idoszak: "havi", mennyiseg: 1,
-                kezdet: tol, kovetkezo: pu.honapHozzaad(tol, 1), vege: r.vege, statusz: "aktiv",
-                jegyzet: `Reklám #${r.id} – ${szam}`
-            });
-            await db.query("UPDATE penzugy_elofizetesek SET reklam_id = $2 WHERE id = $1", [elId, r.id]);
-            await db.query("UPDATE reklamok SET elofizetes_id = $2 WHERE id = $1", [r.id, elId]);
-        }
         dijbekero = await pu.szamla(dbId);
+    } else {
+        dijbekero = await pu.szamla(dijbekero.id);
     }
 
-    // e-mail a hirdetőnek
+    // e-mail a hirdetőnek (ha van címe és be van állítva a levelezés) – különben a linket te küldöd el
     const mail = require("./mail");
     let emailezve = false;
+    const link = `${(alapCim || mail.oldalCim()).replace(/\/+$/, "")}/reklam-szerzodes/${tok}`;
     if (mail.elerheto() && a.ugyfel.email) {
-        const link = `${(alapCim || mail.oldalCim()).replace(/\/+$/, "")}/reklam-szerzodes/${tok}`;
         const t = mail.sablon({
-            cim: `Contract de publicitate ${szam} / Reklám szerződés`,
+            cim: `Plată spațiu publicitar / Reklámfelület díja – ${dijbekero.sorszam}`,
             sorok: [
-                `Vă mulțumim pentru comandă! Contractul pentru spațiul publicitar „${r.nev}” (${r.kezdet}${r.vege ? " – " + r.vege : ""}) poate fi citit și acceptat la linkul de mai jos. Factura proformă: ${dijbekero.sorszam}, ${dijbekero.brutto} ${penznem}.`,
-                `Köszönjük a megrendelést! A(z) „${r.nev}” reklámfelület szerződése az alábbi linken olvasható és fogadható el. Díjbekérő: ${dijbekero.sorszam}, ${dijbekero.brutto} ${penznem}.`,
+                `Vă mulțumim! Spațiul publicitar „${r.nev}” (${tol} – ${ig}): ${dijbekero.brutto} ${penznem}. Plata se poate face online cu cardul sau prin transfer bancar la linkul de mai jos${r.szerzodes_kell !== false ? ", unde găsiți și contractul" : ""}. După plată primiți factura.`,
+                `Köszönjük! A(z) „${r.nev}” reklámfelület (${tol} – ${ig}): ${dijbekero.brutto} ${penznem}. Az alábbi linken kártyával vagy átutalással fizethet${r.szerzodes_kell !== false ? ", és ott a szerződés is" : ""}. A fizetés után megkapja a számlát.`,
                 be.iban ? `IBAN: ${be.iban}${be.bank ? " (" + be.bank + ")" : ""} – detalii plată / közlemény: ${dijbekero.sorszam}` : ""
             ].filter(Boolean),
-            gomb: "Contract / Szerződés",
+            gomb: "Plătește / Fizetés",
             link,
             lablec: "IngatlanPro – spațiu publicitar / reklámfelület."
         });
-        emailezve = await mail.kuld({ to: a.ugyfel.email, subject: `Contract de publicitate ${szam} / Reklám szerződés`, html: t.html, text: t.text });
+        emailezve = await mail.kuld({ to: a.ugyfel.email, subject: `Plată spațiu publicitar / Reklámfelület – ${dijbekero.sorszam}`, html: t.html, text: t.text });
         if (emailezve) await db.query("UPDATE penzugy_szamlak SET emailezve = NOW() WHERE id = $1", [dijbekero.id]);
     }
 
@@ -184,7 +178,16 @@ const T = {
         hu: "A gombbal a megrendelő nevében elfogadom a szerződést. Az időpont és az IP-cím rögzül.",
         en: "By clicking I accept the contract on behalf of the client. Date, time and IP address are recorded."
     },
-    plata: { ro: "Plata", hu: "Fizetés", en: "Payment" }
+    plata: { ro: "De plată", hu: "Fizetendő", en: "Amount due" },
+    cimFizetes: { ro: "PLATĂ SPAȚIU PUBLICITAR", hu: "REKLÁMFELÜLET DÍJA", en: "AD SPACE PAYMENT" },
+    proforma: { ro: "Factură proformă", hu: "Díjbekérő", en: "Pro forma invoice" },
+    hatarido: { ro: "scadență", hu: "határidő", en: "due" },
+    kartya: { ro: "Plătește cu cardul", hu: "Fizetés kártyával", en: "Pay by card" },
+    kartyaInfo: { ro: "Plată securizată (Stripe). Factura se emite automat după plată.", hu: "Biztonságos fizetés (Stripe). A számla a fizetés után magától elkészül.", en: "Secure payment (Stripe). The invoice is issued automatically after payment." },
+    atutalas: { ro: "Sau prin transfer bancar", hu: "Vagy átutalással", en: "Or by bank transfer" },
+    kozlemeny: { ro: "Detalii plată", hu: "Közlemény", en: "Reference" },
+    fizetve: { ro: "Plătit – mulțumim!", hu: "Kifizetve – köszönjük!", en: "Paid – thank you!" },
+    szamla: { ro: "factura", hu: "számla", en: "invoice" }
 };
 
 function cikkek(r, u, ugyfel, ar, ho, penznem, helyekSzoveg) {
@@ -196,9 +199,9 @@ function cikkek(r, u, ugyfel, ar, ho, penznem, helyekSzoveg) {
             en: `<b>1. Subject.</b> The Provider displays the Client's ad “${esc(r.nev)}”${r.cel_url ? ` (linking to ${esc(r.cel_url)})` : ""} on the IngatlanPro website in: ${esc(helyekSzoveg)}, during ${esc(per)}.`
         },
         {
-            ro: `<b>Art. 2. Prețul.</b> ${esc(String(ar))} ${penznem} / lună${ho > 1 ? `, ${ho} luni` : ""}${u.afa ? " + TVA" : " (prestatorul nu este plătitor de TVA)"}. Facturarea: ${r.szamlazas === "havonta" && ho > 1 ? "lunar, în avans" : "integral, în avans"}, pe baza facturii proforme.`,
-            hu: `<b>2. Díj.</b> ${esc(String(ar))} ${penznem} / hó${ho > 1 ? `, ${ho} hónap` : ""}${u.afa ? " + ÁFA" : " (a Szolgáltató nem ÁFA-alany)"}. Számlázás: ${r.szamlazas === "havonta" && ho > 1 ? "havonta, előre" : "egyben, előre"}, díjbekérő alapján.`,
-            en: `<b>2. Price.</b> ${esc(String(ar))} ${penznem} / month${ho > 1 ? `, ${ho} months` : ""}${u.afa ? " + VAT" : " (the Provider is not VAT registered)"}. Billing: ${r.szamlazas === "havonta" && ho > 1 ? "monthly in advance" : "in full in advance"}, based on a pro forma invoice.`
+            ro: `<b>Art. 2. Prețul.</b> ${esc(String(ar))} ${penznem} / lună${ho > 1 ? `, ${ho} luni` : ""}${u.afa ? " + TVA" : " (prestatorul nu este plătitor de TVA)"}. Facturarea: integral, în avans, pe baza facturii proforme.`,
+            hu: `<b>2. Díj.</b> ${esc(String(ar))} ${penznem} / hó${ho > 1 ? `, ${ho} hónap` : ""}${u.afa ? " + ÁFA" : " (a Szolgáltató nem ÁFA-alany)"}. Számlázás: egyben, előre, díjbekérő alapján.`,
+            en: `<b>2. Price.</b> ${esc(String(ar))} ${penznem} / month${ho > 1 ? `, ${ho} months` : ""}${u.afa ? " + VAT" : " (the Provider is not VAT registered)"}. Billing: in full in advance, based on a pro forma invoice.`
         },
         {
             ro: `<b>Art. 3. Plata și afișarea.</b> Plata se face prin transfer bancar sau card, în termenul din factura proformă. ${r.fizetes_utan ? "Reclama este afișată după încasarea plății." : "Reclama este afișată de la data de început."} După plată se emite factura fiscală, transmisă și în sistemul RO e-Factura.`,
@@ -240,7 +243,8 @@ const HELY_NEV = {
     market: "analiză de piață", agencies: "agenții", requests: "cereri"
 };
 
-// A szerződés oldala (nyilvános – a tokennel – vagy az adminnak)
+// A hirdető oldala (nyilvános – a tokennel – vagy az adminnak): fölül a
+// fizetés (kártya / átutalás), alatta – ha kell – a szerződés elfogadással
 async function html(r, o = {}) {
     const ford = o.ford || "";
     const L = k => dok.ket(T[k], ford);
@@ -250,8 +254,16 @@ async function html(r, o = {}) {
     const ho = honapok(r.kezdet, r.vege);
     const penznem = r.penznem || "RON";
     const helyek = (Array.isArray(r.helyek) ? r.helyek : []).map(h => HELY_NEV[h] || h).join(", ") || "–";
-    const sz = await db.query(`SELECT sorszam, brutto, penznem, statusz, esedekes::text AS esedekes FROM penzugy_szamlak
-                               WHERE reklam_id = $1 AND tipus = 'dijbekero' AND statusz <> 'sztorno' ORDER BY kiallitva, id`, [r.id]);
+    const szerzodes = r.szerzodes_kell !== false;
+    const sz = await db.query(`
+        SELECT d.id, d.sorszam, d.brutto, d.penznem, d.statusz, d.esedekes::text AS esedekes,
+               (SELECT x.sorszam FROM penzugy_szamlak x WHERE x.dijbekero_id = d.id AND x.tipus = 'szamla' AND x.statusz <> 'sztorno' LIMIT 1) AS szamla
+        FROM penzugy_szamlak d WHERE d.reklam_id = $1 AND d.tipus = 'dijbekero' AND d.statusz <> 'sztorno' ORDER BY d.kiallitva, d.id`, [r.id]);
+    const nyitott = sz.rows.find(x => x.statusz === "kiallitva");
+    const fizetett = sz.rows.filter(x => x.statusz === "fizetve");
+    const online = o.elfogadhato && nyitott && Number(nyitott.brutto) > 0
+        ? await require("./fizetes").allapot().then(a => a.elerheto).catch(() => false) : false;
+
     const fel = (cim, f) => `
       <div class="fel">
         <h3>${L(cim)}</h3>
@@ -259,36 +271,79 @@ async function html(r, o = {}) {
         ${f.cui ? `<div>CIF: ${esc(f.cui)}</div>` : ""}${f.reg ? `<div>Reg. Com.: ${esc(f.reg)}</div>` : ""}
         ${f.cim ? `<div>${esc(f.cim)}</div>` : ""}${f.email ? `<div>${esc(f.email)}</div>` : ""}
       </div>`;
-    const elfogadva = r.szerzodes_elfogadva
-        ? `<div class="pecset">${L("elfogadva")}<br><small>${esc(new Date(r.szerzodes_elfogadva).toLocaleString("ro-RO", { timeZone: "Europe/Bucharest" }))}${r.szerzodes_ip ? " · IP " + esc(r.szerzodes_ip) : ""}</small></div>` : "";
-    const fizetes = sz.rows.filter(x => x.statusz !== "fizetve").map(x => `<div>${esc(x.sorszam)}: <b>${esc(Number(x.brutto).toFixed(2))} ${esc(x.penznem)}</b>${x.esedekes ? ` · ${esc(x.esedekes)}` : ""}</div>`).join("");
-    const tartalom = `
-  <h1>${dok.ket(T.cim, ford, { blokk: true })}</h1>
-  <p class="kozep">${L("nr")} <b>${esc(r.szerzodes_szam || "–")}</b> ${L("din")} ${esc(String(r.szerzodes_kuldve ? new Date(r.szerzodes_kuldve).toISOString().slice(0, 10) : pu.ma()))}</p>
+    const felek = `
   <div class="felek">
     ${fel("prestator", { nev: u.nev, cui: u.adoszam, reg: u.cegjegyzekszam, cim: u.cim, email: u.email })}
     ${fel("beneficiar", { nev: ugyfel.nev, cui: ugyfel.tipus !== "maganszemely" ? ugyfel.cui : "", reg: ugyfel.reg_com, cim: [ugyfel.cim, ugyfel.varos].filter(Boolean).join(", "), email: ugyfel.email })}
-  </div>
+  </div>`;
+
+    // ---- fizetés ----
+    const fizetes = nyitott ? `
+  <div class="fizetes">
+    <h2>${L("plata")}: ${esc(Number(nyitott.brutto).toFixed(2))} ${esc(nyitott.penznem)}</h2>
+    <div class="kicsi">${dok.ket(T.proforma, ford)} <b>${esc(nyitott.sorszam)}</b>${nyitott.esedekes ? ` · ${dok.ket(T.hatarido, ford)} ${esc(nyitott.esedekes)}` : ""}</div>
+    ${online ? `<button type="button" id="kartyaGomb" class="gomb">${dok.ket(T.kartya, ford)}</button><div class="kicsi">${dok.ket(T.kartyaInfo, ford)}</div>` : ""}
+    ${be.iban ? `<div class="atutal"><b>${dok.ket(T.atutalas, ford)}</b><br>IBAN: <b class="mono">${esc(be.iban)}</b>${be.bank ? " (" + esc(be.bank) + ")" : ""}<br>${esc(be.kedvezmenyezett || u.nev || "")}<br>${dok.ket(T.kozlemeny, ford)}: <b>${esc(nyitott.sorszam)}</b></div>` : ""}
+    <div id="fizUzenet" class="kicsi"></div>
+  </div>` : fizetett.length ? `
+  <div class="fizetve">✓ ${dok.ket(T.fizetve, ford)}${fizetett.map(x => x.szamla ? ` · ${dok.ket(T.szamla, ford)} <b>${esc(x.szamla)}</b>` : "").join("")}</div>` : "";
+
+    const osszegzes = `
+  <p><b>${esc(r.nev)}</b> · ${esc(r.kezdet)}${r.vege ? " – " + esc(r.vege) : ""} · ${esc(helyek)}<br>
+  ${esc(String(Number(r.ar)))} ${esc(penznem)} × ${ho} = <b>${esc((Number(r.ar) * ho).toFixed(2))} ${esc(penznem)}</b></p>`;
+
+    const elfogadva = r.szerzodes_elfogadva
+        ? `<div class="pecset">${L("elfogadva")}<br><small>${esc(new Date(r.szerzodes_elfogadva).toLocaleString("ro-RO", { timeZone: "Europe/Bucharest" }))}${r.szerzodes_ip ? " · IP " + esc(r.szerzodes_ip) : ""}</small></div>` : "";
+
+    const tartalom = szerzodes ? `
+  ${fizetes}
+  <h1>${dok.ket(T.cim, ford, { blokk: true })}</h1>
+  <p class="kozep">${L("nr")} <b>${esc(r.szerzodes_szam || "–")}</b> ${L("din")} ${esc(String(r.szerzodes_kuldve ? new Date(r.szerzodes_kuldve).toISOString().slice(0, 10) : pu.ma()))}</p>
+  ${felek}
   ${cikkek(r, { afa: !!be.afa_fizeto }, ugyfel, Number(r.ar), ho, penznem, helyek).map(c => dok.bek(c, ford)).join("")}
-  ${fizetes && (be.iban || be.revolut_link) ? `<div class="fizetes"><h3>${L("plata")}</h3>${fizetes}${be.iban ? `<div>IBAN: <b class="mono">${esc(be.iban)}</b>${be.bank ? " (" + esc(be.bank) + ")" : ""}${be.kedvezmenyezett ? " · " + esc(be.kedvezmenyezett) : ""}</div>` : ""}</div>` : ""}
   ${elfogadva}
   ${!r.szerzodes_elfogadva && o.elfogadhato ? `
   <div class="elfogad" id="elfogadBox">
     <p>${dok.ket(T.elfogadSzoveg, ford, { blokk: true })}</p>
     <label><input type="checkbox" id="elfogadPipa"> ${esc(ugyfel.nev || "")}</label><br>
-    <button type="button" id="elfogadGomb" disabled>${L("elfogadGomb")}</button>
-  </div>` : ""}`;
-    // az oldal CSP-je nem enged űrlap-küldést – a gomb fetch-csel küld
-    const script = !r.szerzodes_elfogadva && o.elfogadhato ? `
+    <button type="button" id="elfogadGomb" class="gomb" disabled>${L("elfogadGomb")}</button>
+  </div>` : ""}` : `
+  <h1>${dok.ket(T.cimFizetes, ford, { blokk: true })}</h1>
+  ${felek}
+  ${osszegzes}
+  ${fizetes}`;
+
+    // az oldal CSP-je nem enged űrlap-küldést – a gombok fetch-csel küldenek
+    const tok = JSON.stringify(String(o.token || ""));
+    const script = o.elfogadhato ? `
 (function () {
+  var tok = ${tok};
   var p = document.getElementById("elfogadPipa"), g = document.getElementById("elfogadGomb");
-  p.onchange = function () { g.disabled = !p.checked; };
-  g.onclick = function () {
-    g.disabled = true;
-    fetch(${JSON.stringify(`/reklam-szerzodes/${o.token}/elfogad`)}, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
-      .then(function (r) { if (!r.ok) throw new Error(); location.reload(); })
-      .catch(function () { g.disabled = false; alert("Error / Hiba"); });
+  if (p && g) {
+    p.onchange = function () { g.disabled = !p.checked; };
+    g.onclick = function () {
+      g.disabled = true;
+      fetch("/reklam-szerzodes/" + tok + "/elfogad", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function (r) { if (!r.ok) throw new Error(); location.reload(); })
+        .catch(function () { g.disabled = false; alert("Error / Hiba"); });
+    };
+  }
+  var k = document.getElementById("kartyaGomb"), m = document.getElementById("fizUzenet");
+  if (k) k.onclick = function () {
+    k.disabled = true;
+    fetch("/reklam-szerzodes/" + tok + "/fizet", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+      .then(function (r) { return r.json().then(function (v) { if (!r.ok || !v.url) throw new Error(); location.href = v.url; }); })
+      .catch(function () { k.disabled = false; alert("Error / Hiba"); });
   };
+  // visszatérés a kártyás fizetésből: ellenőrzés, majd frissítés
+  var q = new URLSearchParams(location.search).get("fizetes");
+  if (q && q !== "megszakitva") {
+    if (m) m.textContent = "…";
+    fetch("/reklam-szerzodes/" + tok + "/fizetes/" + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function () { location.replace(location.pathname); })
+      .catch(function () { location.replace(location.pathname); });
+  }
 })();` : "";
     const css = `
   h1 { font-size: 19px; text-align: center; margin: 0 0 4px; }
@@ -298,15 +353,19 @@ async function html(r, o = {}) {
   .fel h3 { font-size: 11px; text-transform: uppercase; color: #1f6f5c; margin: 0 0 4px; }
   .fel .nev { font-weight: bold; }
   p { font-size: 13.5px; line-height: 1.55; }
-  .fizetes { border: 1px dashed #1f6f5c; border-radius: 8px; padding: 10px 12px; font-size: 13px; margin: 14px 0; }
-  .fizetes h3 { margin: 0 0 6px; font-size: 13px; }
+  .fizetes { border: 2px solid #1f6f5c; border-radius: 12px; padding: 14px 16px; margin: 0 0 22px; }
+  .fizetes h2 { margin: 0 0 4px; font-size: 18px; color: #1f6f5c; }
+  .kicsi { font-size: 12.5px; color: #555; margin: 4px 0; }
+  .atutal { font-size: 13px; background: #f6f7f6; border-radius: 8px; padding: 8px 10px; margin-top: 10px; }
+  .fizetve { background: #e8f4ee; color: #1f6f5c; border-radius: 10px; padding: 10px 14px; font-weight: bold; margin: 0 0 18px; }
   .mono { font-family: "Courier New", monospace; }
+  .gomb { background: #1f6f5c; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 15px; cursor: pointer; margin-top: 10px; }
+  .gomb:disabled { opacity: .6; cursor: default; }
   .pecset { border: 3px solid #1f6f5c; color: #1f6f5c; display: inline-block; padding: 8px 14px; font-weight: bold; border-radius: 8px; margin-top: 10px; }
   .elfogad { background: #f1f6f3; border-radius: 10px; padding: 14px; margin-top: 18px; }
-  .elfogad button { background: #1f6f5c; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 15px; cursor: pointer; margin-top: 8px; }
   @media (max-width: 600px) { .felek { grid-template-columns: 1fr; } }
-  @media print { .elfogad { display: none; } }`;
-    return dok.oldal({ cim: `Contract ${r.szerzodes_szam || ""}`, css, tartalom, ford, ui: o.ui || "ro", vissza: o.vissza || "/", script });
+  @media print { .elfogad, .gomb { display: none; } }`;
+    return dok.oldal({ cim: szerzodes ? `Contract ${r.szerzodes_szam || ""}` : `Plată ${nyitott ? nyitott.sorszam : ""}`, css, tartalom, ford, ui: o.ui || "ro", vissza: o.vissza || "/", script });
 }
 
 async function tokennel(token) {

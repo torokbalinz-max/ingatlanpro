@@ -15,11 +15,8 @@
         group: "finance", jog: "penzugy", icon: "fa-solid fa-star", title: "adminTabPromotions", desc: "adminDescPromotions",
         render: () => AdminManager.renderPromotions()
     };
-    AdminManager.TABS.onlinefiz = {
-        group: "finance", jog: "penzugy", icon: "fa-solid fa-credit-card", title: "adminTabOnlinePay", desc: "adminDescOnlinePay",
-        render: () => AdminManager.renderOnlinePay()
-    };
-    Object.assign(AdminManager.ALIASES, { kiemeles: "kiemelesek", promociok: "kiemelesek", fizetesek: "onlinefiz", stripe: "onlinefiz" });
+    // Az online fizetés ritkán kell: a Pénzügy → Beállítások egyik belső füle
+    Object.assign(AdminManager.ALIASES, { kiemeles: "kiemelesek", promociok: "kiemelesek", fizetesek: "penzugyBeall", stripe: "penzugyBeall", onlinefiz: "penzugyBeall" });
 
 })();
 
@@ -262,4 +259,32 @@ AdminManager.renderOnlinePay = function () {
 
     }).catch(() => { AdminManager.box().innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`; });
 
+};
+
+
+// ===================== PÉNZÜGY → BEÁLLÍTÁSOK (két belső fül) =====================
+
+AdminManager.finBeallFul = "szamlazas";
+
+AdminManager.renderFinBeall = function () {
+    const fo = document.getElementById("adminContent");
+    const ful = AdminManager.finBeallFul;
+    fo.innerHTML = `
+        <div class="typeTabs mb-3" role="tablist">
+            <button type="button" class="typeTab ${ful === "szamlazas" ? "active" : ""}" data-fb-ful="szamlazas"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> ${I18n.t("finSetTabBilling")}</button>
+            <button type="button" class="typeTab ${ful === "online" ? "active" : ""}" data-fb-ful="online"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> ${I18n.t("finSetTabOnline")}</button>
+        </div>
+        <div id="finBeallBelso"></div>`;
+    fo.querySelectorAll("[data-fb-ful]").forEach(b => {
+        b.onclick = () => { AdminManager.finBeallFul = b.dataset.fbFul; AdminManager.renderFinBeall(); };
+    });
+    // a két fül egymásra mutató gombjai
+    if (!fo.dataset.fbKot) fo.dataset.fbKot = "1", fo.addEventListener("click", e => {
+        if (AdminManager.tab !== "penzugyBeall") return;
+        if (e.target.closest("[data-fb-online]")) { AdminManager.finBeallFul = "online"; AdminManager.renderFinBeall(); }
+        else if (e.target.closest('[data-fin-go="penzugyBeall"]')) AdminManager.finBeallFul = "szamlazas";
+    }, true);
+    AdminManager.alBoxId = "finBeallBelso";
+    if (ful === "online") AdminManager.renderOnlinePay();
+    else AdminManager.renderFinSettings();
 };

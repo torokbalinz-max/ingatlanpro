@@ -138,24 +138,28 @@ const centbe = v => Math.round(Number(v) * 100);
 // ===================== INDÍTÁS =====================
 
 // A felhasználó a saját, kiállított díjbekérőjét fizeti → { url }
-async function inditas(user, szamlaId, { alapCim, nyelv } = {}) {
+// Belépés nélkül (pl. a reklám fizetési linkje): o.szamla – a már ellenőrzött
+// díjbekérő – és o.visszaUt – ahova a fizetés után visszatér
+async function inditas(user, szamlaId, { alapCim, nyelv, szamla, visszaUt } = {}) {
 
     const all = await allapot();
     if (!all.elerheto) throw hibaKod("payment_off");
 
-    const s = await require("./rendeles").sajatSzamla(user, szamlaId);
+    const s = szamla || (user ? await require("./rendeles").sajatSzamla(user, szamlaId) : null);
     if (!s) throw hibaKod("not_found");
     if (s.statusz === "fizetve") throw hibaKod("already_paid");
     if (s.statusz !== "kiallitva" || s.tipus !== "dijbekero") throw hibaKod("not_payable");
     if (!(Number(s.brutto) > 0)) throw hibaKod("not_payable");
 
     // Visszaélés ellen: óránként legfeljebb 20 indítás felhasználónként
-    const n = await db.query("SELECT COUNT(*)::int AS n FROM online_fizetesek WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'", [user.id]);
+    const n = user
+        ? await db.query("SELECT COUNT(*)::int AS n FROM online_fizetesek WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'", [user.id])
+        : await db.query("SELECT COUNT(*)::int AS n FROM online_fizetesek WHERE szamla_id = $1 AND created_at > NOW() - INTERVAL '1 hour'", [s.id]);
     if (n.rows[0].n >= 20) throw hibaKod("too_many");
 
     const f = await db.query(
         `INSERT INTO online_fizetesek (szamla_id, user_id, szolgaltato, osszeg, penznem) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-        [s.id, user.id, all.szolgaltato, s.brutto, s.penznem]);
+        [s.id, user ? user.id : null, all.szolgaltato, s.brutto, s.penznem]);
     const fid = f.rows[0].id;
 
     const vissza = (alapCim || "").replace(/\/+$/, "");
@@ -169,10 +173,10 @@ async function inditas(user, szamlaId, { alapCim, nyelv } = {}) {
     const nyelvek = { hu: "hu", ro: "ro", en: "en" };
     const ses = await stripe("POST", "/checkout/sessions", {
         mode: "payment",
-        success_url: `${vissza}/?fizetes={CHECKOUT_SESSION_ID}#fiok/csomag`,
-        cancel_url: `${vissza}/?fizetes=megszakitva#fiok/csomag`,
+        success_url: visszaUt ? `${vissza}${visszaUt}?fizetes={CHECKOUT_SESSION_ID}` : `${vissza}/?fizetes={CHECKOUT_SESSION_ID}#fiok/csomag`,
+        cancel_url: visszaUt ? `${vissza}${visszaUt}?fizetes=megszakitva` : `${vissza}/?fizetes=megszakitva#fiok/csomag`,
         client_reference_id: String(s.id),
-        customer_email: (s.vevo && s.vevo.email) || user.email || undefined,
+        customer_email: (s.vevo && s.vevo.email) || (user && user.email) || undefined,
         locale: nyelvek[nyelv] || "auto",
         line_items: [{
             quantity: 1,
@@ -279,9 +283,12 @@ async function webhook(nyers, fejlec) {
 // ---------- Visszatérés: a böngésző megkérdezi, mi lett ----------
 // (ha a webhook még nem jött meg, a Stripe-tól kérdezzük le – az a biztos)
 
+// user helyett { szamlaId }: belépés nélküli fizetés ellenőrzése (csak ahhoz a díjbekérőhöz)
 async function ellenoriz(user, munkamenet) {
     await kulcsokTolt();
-    const r = await db.query("SELECT * FROM online_fizetesek WHERE munkamenet = $1 AND user_id = $2", [String(munkamenet || ""), user.id]);
+    const r = user && user.szamlaId
+        ? await db.query("SELECT * FROM online_fizetesek WHERE munkamenet = $1 AND szamla_id = $2", [String(munkamenet || ""), user.szamlaId])
+        : await db.query("SELECT * FROM online_fizetesek WHERE munkamenet = $1 AND user_id = $2", [String(munkamenet || ""), user.id]);
     const f = r.rows[0];
     if (!f) throw hibaKod("not_found");
     if (f.statusz !== "fizetve" && f.szolgaltato === "stripe" && stripeBe()) {

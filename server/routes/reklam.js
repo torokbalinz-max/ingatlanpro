@@ -97,7 +97,7 @@ router.post("/api/admin/reklamok/:id/szerzodes-kuld", csapat.csakResz("reklam"),
 router.get("/api/admin/reklamok/:id/szerzodes", csapat.csakResz("reklam"), async (req, res) => {
     try {
         const r = await rsz.reklamAdat(Number(req.params.id));
-        if (!r || !r.szerzodes_szam) return res.status(404).send("Nincs szerződés");
+        if (!r || !(r.szerzodes_szam || r.szerzodes_token)) return res.status(404).send("Nincs szerződés / fizetési oldal");
         res.set("Content-Type", "text/html; charset=utf-8");
         res.set("Content-Security-Policy", dok.CSP);
         res.set("Cache-Control", "private, no-store");
@@ -116,6 +116,32 @@ router.get("/reklam-szerzodes/:token", async (req, res) => {
         res.set("X-Robots-Tag", "noindex");
         res.send(await rsz.html(r, { ford: dok.fordKer(req.query, ""), ui: dok.uiKer(req.query, "ro"), elfogadhato: true, token: req.params.token }));
     } catch (err) { hiba(res, err); }
+});
+
+// Kártyás fizetés a fizetési oldalról (belépés nélkül – a link a jogosultság)
+router.post("/reklam-szerzodes/:token/fizet", async (req, res) => {
+    try {
+        const r = await rsz.tokennel(req.params.token);
+        if (!r) return res.status(404).json({ error: "not_found" });
+        const pu = require("../services/penzugy");
+        const d = await require("../db/database").query(
+            "SELECT id FROM penzugy_szamlak WHERE reklam_id = $1 AND tipus = 'dijbekero' AND statusz = 'kiallitva' ORDER BY id DESC LIMIT 1", [r.id]);
+        if (!d.rowCount) return res.status(400).json({ error: "not_payable" });
+        const szamla = await pu.szamla(d.rows[0].id);
+        const alap = require("../services/mail").oldalCim(req);
+        res.json(await require("../services/fizetes").inditas(null, szamla.id, { alapCim: alap, szamla, visszaUt: `/reklam-szerzodes/${req.params.token}` }));
+    } catch (err) { hibaKod(res, err); }
+});
+
+router.get("/reklam-szerzodes/:token/fizetes/:m", async (req, res) => {
+    try {
+        const r = await rsz.tokennel(req.params.token);
+        if (!r) return res.status(404).json({ error: "not_found" });
+        const d = await require("../db/database").query("SELECT szamla_id FROM online_fizetesek WHERE munkamenet = $1", [String(req.params.m)]);
+        const s = d.rows[0] && (await require("../db/database").query("SELECT id FROM penzugy_szamlak WHERE id = $1 AND reklam_id = $2", [d.rows[0].szamla_id, r.id])).rows[0];
+        if (!s) return res.status(404).json({ error: "not_found" });
+        res.json(await require("../services/fizetes").ellenoriz({ szamlaId: s.id }, req.params.m));
+    } catch (err) { hibaKod(res, err); }
 });
 
 router.post("/reklam-szerzodes/:token/elfogad", async (req, res) => {

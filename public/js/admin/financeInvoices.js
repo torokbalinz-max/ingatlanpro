@@ -10,7 +10,18 @@
 //  ha a beállításokban be van kapcsolva, magától.
 // ============================================================
 
-AdminManager.fin.szSzuro = { allapot: "", ho: "", ugyfel: null, q: "" };
+// nezet: "szamlak" (alap: a kiállított számlák – vásárlásonként egy sor),
+//        "fizetesre" (a még ki nem fizetett díjbekérők), "minden" (minden bizonylat)
+AdminManager.fin.szSzuro = { nezet: "szamlak", allapot: "", ho: "", ugyfel: null, q: "" };
+
+// Melyik nézetbe tartozik egy bizonylat
+AdminManager.finNezetben = function (s, nezet) {
+    if (nezet === "minden") return true;
+    if (nezet === "fizetesre") return s.tipus === "dijbekero" && (s.statusz === "kiallitva" || s.statusz === "piszkozat");
+    // Számlák: a kiállított számlák (és a kifizetett díjbekérő, ha valamiért nem lett belőle számla)
+    if (s.tipus === "szamla") return true;
+    return s.statusz === "fizetve" && !s.szamlazva;
+};
 
 AdminManager.FIN_ALLAPOT_SZIN = { piszkozat: "secondary", kiallitva: "warning", lejart: "danger", fizetve: "success", sztorno: "dark" };
 
@@ -59,7 +70,13 @@ AdminManager.renderFinInvoices = function () {
         const esc = Utils.escape;
         const b = AdminManager.fin.cfg.beallitas;
 
-        let alap = lista;
+        // a kifizetett díjbekérő, amiből számla lett: a számla sorában látszik
+        const szamlazott = new Set(lista.filter(s => s.tipus === "szamla" && s.dijbekero_id && s.statusz !== "sztorno").map(s => s.dijbekero_id));
+        lista.forEach(s => { s.szamlazva = szamlazott.has(s.id); });
+        if (!f.nezet) f.nezet = "szamlak";
+        const nezetDb = n => lista.filter(s => AdminManager.finNezetben(s, n)).length;
+
+        let alap = lista.filter(s => AdminManager.finNezetben(s, f.nezet));
         if (f.ugyfel) alap = alap.filter(s => s.ugyfel_id === f.ugyfel);
         const q = (f.q || "").trim().toLowerCase();
         if (q) alap = alap.filter(s => [s.sorszam, s.kulso_szam, AdminManager.finVevoNev(s), s.vevo && s.vevo.cui, ...(s.tetelek_rovid || []).map(t => t.megnevezes)]
@@ -67,7 +84,7 @@ AdminManager.renderFinInvoices = function () {
 
         const allapotok = ["kiallitva", "lejart", "fizetve", "piszkozat", "sztorno"];
         const db = k => alap.filter(s => s.allapot === k || (k === "kiallitva" && s.allapot === "lejart")).length;
-        if (f.allapot && !db(f.allapot)) f.allapot = "";
+        if (f.nezet !== "minden" || (f.allapot && !db(f.allapot))) f.allapot = "";
         const szurt = f.allapot ? alap.filter(s => s.allapot === f.allapot || (f.allapot === "kiallitva" && s.allapot === "lejart")) : alap;
 
         const ron = s => s.penznem === "EUR" ? s.brutto * (b.eur_arfolyam || 5) : s.brutto;
@@ -103,11 +120,17 @@ AdminManager.renderFinInvoices = function () {
                 <button type="button" class="btn btn-primary btn-sm" id="fsUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("finNewInvoice")}</button>
             </div>
 
-            <div class="typeTabs mb-3" role="tablist">
-                <button type="button" class="typeTab ${!f.allapot ? "active" : ""}" data-fs-all="">${I18n.t("finFilterAll")} <span class="typeTabCount">${alap.length}</span></button>
-                ${allapotok.filter(k => db(k)).map(k => `
-                    <button type="button" class="typeTab ${f.allapot === k ? "active" : ""}" data-fs-all="${k}">${I18n.t(k === "kiallitva" ? "finFilterOpen" : "finSt_" + k)} <span class="typeTabCount">${db(k)}</span></button>`).join("")}
+            <div class="typeTabs mb-2" role="tablist">
+                ${["szamlak", "fizetesre", "minden"].map(n => `
+                    <button type="button" class="typeTab ${f.nezet === n ? "active" : ""}" data-fs-nezet="${n}">${I18n.t("finView_" + n)} <span class="typeTabCount">${nezetDb(n)}</span></button>`).join("")}
             </div>
+            <p class="small text-body-secondary mb-3">${I18n.t("finViewHelp_" + f.nezet)}</p>
+            ${f.nezet === "minden" ? `
+            <div class="d-flex flex-wrap gap-1 mb-3">
+                <button type="button" class="btn btn-sm ${!f.allapot ? "btn-secondary" : "btn-outline-secondary"}" data-fs-all="">${I18n.t("finFilterAll")}</button>
+                ${allapotok.filter(k => db(k)).map(k => `
+                    <button type="button" class="btn btn-sm ${f.allapot === k ? "btn-secondary" : "btn-outline-secondary"}" data-fs-all="${k}">${I18n.t(k === "kiallitva" ? "finFilterOpen" : "finSt_" + k)} (${db(k)})</button>`).join("")}
+            </div>` : ""}
 
             ${szurt.length ? `
                 <p class="small text-body-secondary">${I18n.f("finListTotal", { n: szurt.length, osszeg: `<b>${esc(AdminManager.finPenz(Math.round(ossz * 100) / 100, "RON"))}</b>` })}</p>
@@ -133,6 +156,7 @@ AdminManager.renderFinInvoices = function () {
         if (ki) ki.onclick = () => { f.ugyfel = null; ujra(); };
         document.getElementById("fsUj").onclick = () => AdminManager.finSzamlaSzerk(null, ujra, f.ugyfel ? { ugyfel_id: f.ugyfel } : {});
         box.querySelectorAll("[data-fs-all]").forEach(btn => { btn.onclick = () => { f.allapot = btn.dataset.fsAll; ujra(); }; });
+        box.querySelectorAll("[data-fs-nezet]").forEach(btn => { btn.onclick = () => { f.nezet = btn.dataset.fsNezet; f.allapot = ""; ujra(); }; });
         AdminManager.finSzamlaGombok(box, ujra);
 
     }).catch(() => AdminManager.finHibaDoboz());
@@ -150,7 +174,7 @@ AdminManager.finSzamlaSor = function (s) {
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <b>${AdminManager.finSorszam(s)}</b> ${AdminManager.finAllapotBadge(s)}
                     ${AdminManager.efBadge ? AdminManager.efBadge(s.ef, s.id) : ""}
-                    <span class="small text-body-secondary">${I18n.t(s.tipus === "szamla" ? "finTypeInvoice" : "finTypeProforma")}${s.kulso_szam ? ` · ${esc(s.kulso_szam)}` : ""}</span>
+                    <span class="small text-body-secondary">${I18n.t(s.tipus === "szamla" ? "finTypeInvoice" : "finTypeProforma")}${s.tipus === "szamla" && s.dijbekero_sorszam ? ` · ${esc(I18n.f("finFromProforma", { sz: s.dijbekero_sorszam }))}` : ""}${s.tipus !== "szamla" && s.kulso_szam ? ` · ${esc(s.kulso_szam)}` : ""}${s.webes ? ` · <i class="fa-solid fa-globe" aria-hidden="true"></i> ${esc(I18n.t("finWebOrder"))}` : ""}</span>
                 </div>
                 <div class="small"><b>${esc(AdminManager.finVevoNev(s))}</b> · ${(s.tetelek_rovid || []).map(t => esc(t.megnevezes)).join(", ")}</div>
                 <div class="small text-body-secondary">
@@ -739,7 +763,7 @@ AdminManager.renderFinSubscriptions = function () {
             btn.onclick = () => AdminManager.finElofizetesSzerk(lista.find(e => e.id === Number(btn.dataset.feSzerk)), ujra);
         });
         box.querySelectorAll("[data-fe-szamlak]").forEach(btn => {
-            btn.onclick = () => { AdminManager.fin.szSzuro = { allapot: "", ho: "", ugyfel: Number(btn.dataset.feSzamlak), q: "" }; AdminManager.open("szamlak"); };
+            btn.onclick = () => { AdminManager.fin.szSzuro = { nezet: "minden", allapot: "", ho: "", ugyfel: Number(btn.dataset.feSzamlak), q: "" }; AdminManager.open("szamlak"); };
         });
 
     }).catch(() => AdminManager.finHibaDoboz());

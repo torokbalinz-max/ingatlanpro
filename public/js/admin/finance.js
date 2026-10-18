@@ -166,7 +166,7 @@ AdminManager.renderFinOverview = function () {
             <div class="todoItem">
                 <span class="kpiIcon purple"><i class="fa-solid fa-rectangle-ad" aria-hidden="true"></i></span>
                 <span class="flex-fill">${I18n.f("finTodoAd", { nev: esc(r.nev), hirdeto: esc(r.hirdeto || "–"), ar: esc(AdminManager.finPenz(r.ar, b.penznem)) })}</span>
-                <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-fin-ad="${r.id}"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("finInvoiceForAd")}</button>
+                <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-fin-go="reklam">${I18n.t("ovOpen")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
             </div>`));
         if (!b.iban) teendok.push(`
             <div class="todoItem">
@@ -180,11 +180,6 @@ AdminManager.renderFinOverview = function () {
         const katMax = Math.max(1, ...kat.map(k => k[1]));
 
         box.innerHTML = `
-
-            <div class="alert alert-info d-flex gap-2 small finNotice">
-                <i class="fa-solid fa-circle-info mt-1" aria-hidden="true"></i>
-                <span>${I18n.t("finEfacturaNote")}</span>
-            </div>
 
             <div class="row g-3 g-xxl-4 mb-4">
                 ${AdminManager.finTile("fa-solid fa-sack-dollar", "green", I18n.t("finKpiIncomeMonth"), esc(p(a.honap.bevetel)),
@@ -244,7 +239,7 @@ AdminManager.renderFinOverview = function () {
             <div class="card mb-4">
                 <div class="card-header d-flex flex-wrap align-items-center gap-2">
                     <h5 class="mb-0 flex-fill"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("finRecent")}</h5>
-                    <button type="button" class="btn btn-primary btn-sm" id="finNewInvoice"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("finNewInvoice")}</button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-fin-go="szamlak">${I18n.t("finAllInvoices")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                 </div>
                 <div class="card-body">
                     ${(a.utolsok || []).length ? `<div class="finList">${a.utolsok.map(s => AdminManager.finSzamlaSorRovid(s)).join("")}</div>` : `
@@ -258,7 +253,7 @@ AdminManager.renderFinOverview = function () {
 
         AdminManager.finBindGo(box);
         box.querySelectorAll("[data-fin-szamlak]").forEach(btn => {
-            btn.onclick = () => { AdminManager.fin.szSzuro = { ...(AdminManager.fin.szSzuro || {}), allapot: btn.dataset.finSzamlak }; AdminManager.open("szamlak"); };
+            btn.onclick = () => { AdminManager.fin.szSzuro = { ...(AdminManager.fin.szSzuro || {}), nezet: "fizetesre", allapot: "" }; AdminManager.open("szamlak"); };
         });
         box.querySelectorAll("[data-fin-open]").forEach(btn => {
             btn.onclick = () => AdminManager.finSzamlaSzerk(Number(btn.dataset.finOpen), () => AdminManager.renderFinOverview());
@@ -407,7 +402,7 @@ AdminManager.renderFinCustomers = function () {
             b.onclick = () => AdminManager.finSzamlaSzerk(null, () => AdminManager.renderFinCustomers(), { ugyfel_id: Number(b.dataset.ugySzamla) });
         });
         box.querySelectorAll("[data-ugy-szamlak]").forEach(b => {
-            b.onclick = () => { AdminManager.fin.szSzuro = { allapot: "", ho: "", ugyfel: Number(b.dataset.ugySzamlak), q: "" }; AdminManager.open("szamlak"); };
+            b.onclick = () => { AdminManager.fin.szSzuro = { nezet: "minden", allapot: "", ho: "", ugyfel: Number(b.dataset.ugySzamlak), q: "" }; AdminManager.open("szamlak"); };
         });
 
     }).catch(() => AdminManager.finHibaDoboz());
@@ -1126,7 +1121,7 @@ AdminManager.renderFinSettings = function () {
                 <div class="card mb-4">
                     <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <h5 class="mb-0"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> ${I18n.t("finOnlineTitle")}</h5>
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-fin-go="onlinefiz">${I18n.t("adminTabOnlinePay")}</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-fb-online="1">${I18n.t("adminTabOnlinePay")}</button>
                     </div>
                     <div class="card-body row g-3">
                         ${kapcs("fbOnline", I18n.t("finOnlinePay"), b.online_fizetes !== false, I18n.t("finOnlinePayHelp"))}

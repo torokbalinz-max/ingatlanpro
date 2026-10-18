@@ -209,7 +209,7 @@ AdminManager.adsRow = function (h, napok) {
                     <b class="adsName">${esc(h.nev)}</b>
                     <span class="badge text-bg-${szin}">${I18n.t("adsStatus_" + h.allapot)}</span>
                     ${h.suly > 1 ? `<span class="badge text-bg-light" title="${esc(I18n.t("adsFWeight"))}"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> ${h.suly}</span>` : ""}
-                    ${h.szerzodes_szam ? `<span class="badge text-bg-${h.szerzodes_elfogadva ? "light" : "warning"}" title="${esc(h.szerzodes_szam)}"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> ${I18n.t(h.szerzodes_elfogadva ? "adsContractAccepted" : "adsContractSent")}</span>` : ""}
+                    ${h.szerzodes_szam && h.szerzodes_kell !== false ? `<span class="badge text-bg-light" title="${esc(h.szerzodes_szam)}"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> ${I18n.t(h.szerzodes_elfogadva ? "adsContractAccepted" : "adsContractSent")}</span>` : ""}
                     ${h.fizetve_van ? `<span class="badge text-bg-success"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("finSt_fizetve")}</span>` : h.fizetesre_var ? `<span class="badge text-bg-warning">${I18n.t("adsBillAwaiting")}</span>` : ""}
                     ${h.fizetes_utan && !h.fizetve_van ? `<span class="badge text-bg-secondary" title="${esc(I18n.t("adsBillAfterPay"))}"><i class="fa-solid fa-lock" aria-hidden="true"></i> ${I18n.t("adsBillHiddenUntilPaid")}</span>` : ""}
                 </div>
@@ -617,13 +617,13 @@ AdminManager.adsEditor = function (h) {
                             </div>
                         </div>
                         <div class="col-sm-6">
-                            <label class="form-label" for="adsEdSzamlazas">${I18n.t("adsBillMode")}</label>
-                            <select class="form-select" id="adsEdSzamlazas">
-                                <option value="egyben" ${h.szamlazas !== "havonta" ? "selected" : ""}>${I18n.t("adsBillMode_egyben")}</option>
-                                <option value="havonta" ${h.szamlazas === "havonta" ? "selected" : ""}>${I18n.t("adsBillMode_havonta")}</option>
-                            </select>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="adsEdSzerzodes" ${h.szerzodes_kell !== false ? "checked" : ""}>
+                                <label class="form-check-label" for="adsEdSzerzodes">${I18n.t("adsBillContract")}</label>
+                            </div>
+                            <div class="form-text">${I18n.t("adsBillContractHelp")}</div>
                         </div>
-                        <div class="col-sm-6 d-flex align-items-end">
+                        <div class="col-sm-6">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="adsEdFizUtan" ${h.fizetes_utan ? "checked" : ""}>
                                 <label class="form-check-label" for="adsEdFizUtan">${I18n.t("adsBillAfterPay")}</label>
@@ -767,7 +767,7 @@ AdminManager.adsEditor = function (h) {
         aktiv: $("adsEdAktiv").checked,
         ugyfel_id: Number($("adsEdUgyfel").value) || null,
         penznem: $("adsEdPenznem").value,
-        szamlazas: $("adsEdSzamlazas").value,
+        szerzodes_kell: $("adsEdSzerzodes").checked,
         fizetes_utan: $("adsEdFizUtan").checked
     });
 
@@ -797,7 +797,8 @@ AdminManager.adsEditor = function (h) {
             box.innerHTML = `
                 <div class="adsBillBox">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        ${r.szerzodes_szam ? `<span class="badge text-bg-${r.szerzodes_elfogadva ? "success" : "warning"}"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> ${esc(r.szerzodes_szam)} · ${I18n.t(r.szerzodes_elfogadva ? "adsContractAccepted" : "adsContractSent")}</span>` : `<span class="small text-body-secondary">${I18n.t("adsContractNone")}</span>`}
+                        ${r.szerzodes_kell !== false && r.szerzodes_szam ? `<span class="badge text-bg-${r.szerzodes_elfogadva ? "success" : "light"}"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> ${esc(r.szerzodes_szam)} · ${I18n.t(r.szerzodes_elfogadva ? "adsContractAccepted" : "adsContractSent")}</span>` : ""}
+                        ${!a.link ? `<span class="small text-body-secondary">${I18n.t("adsPayLinkNone")}</span>` : ""}
                         ${biz}
                         ${a.honapok > 1 ? `<span class="small text-body-secondary">${I18n.f("adsBillMonths", { n: a.honapok })}</span>` : ""}
                     </div>
@@ -812,8 +813,8 @@ AdminManager.adsEditor = function (h) {
                             <button type="button" class="btn btn-sm btn-success" id="adsEdFizetve" data-id="${nyitott.id}"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("adsPaidInvoice")}</button>
                         </div>` : ""}
                     <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-sm btn-primary" id="adsEdKuld" ${a.hianyzik.length ? "disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t(r.szerzodes_szam ? "adsContractResend" : (a.figyel || []).includes("ugyfel_email") ? "adsContractMake" : "adsContractSend")}</button>
-                        ${r.szerzodes_szam ? `<a class="btn btn-sm btn-outline-secondary" href="/api/admin/reklamok/${h.id}/szerzodes" target="_blank" rel="noopener"><i class="fa-solid fa-eye" aria-hidden="true"></i> ${I18n.t("adsContractOpen")}</a>` : ""}
+                        <button type="button" class="btn btn-sm btn-primary" id="adsEdKuld" ${a.hianyzik.length ? "disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t(a.link ? "adsPayLinkResend" : (a.figyel || []).includes("ugyfel_email") ? "adsPayLinkMake" : "adsPayLinkSend")}</button>
+                        ${a.link ? `<a class="btn btn-sm btn-outline-secondary" href="/api/admin/reklamok/${h.id}/szerzodes" target="_blank" rel="noopener"><i class="fa-solid fa-eye" aria-hidden="true"></i> ${I18n.t("adsPayPageOpen")}</a>` : ""}
                         ${a.link ? `<button type="button" class="btn btn-sm btn-outline-secondary" id="adsEdLink"><i class="fa-solid fa-link" aria-hidden="true"></i> ${I18n.t("adsContractCopy")}</button>` : ""}
                     </div>
                     <div class="small mt-2" id="adsEdKuldMsg"></div>
@@ -837,14 +838,14 @@ AdminManager.adsEditor = function (h) {
             };
             const k = $("adsEdKuld");
             if (k) k.onclick = () => {
-                if (!confirm(I18n.t("adsContractConfirm"))) return;
+                if (!confirm(I18n.t("adsPayLinkConfirm"))) return;
                 k.disabled = true;
                 // előbb a mentés (az ügyfél, ár, dátumok), utána a küldés
                 AdminManager.adsKuld("PUT", "/api/admin/reklamok/" + h.id, gyujt())
                     .then(() => Svc.api(`/api/admin/reklamok/${h.id}/szerzodes-kuld`, { method: "POST" }))
                     .then(v => {
                         szamlaAllapot();
-                        setTimeout(() => { const m = $("adsEdKuldMsg"); if (m) m.innerHTML = `<i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${esc(I18n.f(v.emailezve ? "adsContractDoneMail" : "adsContractDone", { sz: v.szerzodes_szam, db: v.dijbekero.sorszam }))}`; }, 600);
+                        setTimeout(() => { const m = $("adsEdKuldMsg"); if (m) m.innerHTML = `<i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${esc(I18n.f(v.emailezve ? "adsPayLinkDoneMail" : "adsPayLinkDone", { db: v.dijbekero.sorszam }))}`; }, 600);
                         AdminManager.adsUtanna(true);
                     })
                     .catch(e => { k.disabled = false; alert(e.kod === "ad_billing_missing" ? (e.adat.hianyzik || []).map(x => I18n.t("adsBillMissing_" + x)).join("\n") : AdminManager.adsHiba(e)); });

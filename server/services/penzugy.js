@@ -634,24 +634,28 @@ async function elofizetesTorol(id) {
 }
 
 // Esedékes előfizetések: a következő díjbekérő dátuma legfeljebb "elore_nap" napon belül
-async function esedekesek(b, csakReklam = false) {
+// csakCsomag: csak a weboldalon vett csomagok előfizetései (ezek megújítása
+// mindig magától megy: díjbekérő + e-mail a vevőnek; kifizetve megy tovább)
+async function esedekesek(b, csakCsomag = false) {
     b = b || await beallitas();
     const hatar = napHozzaad(ma(), b.elore_nap || 0);
     const r = await db.query(`
-        SELECT e.*, u.nev AS ugyfel_nev FROM penzugy_elofizetesek e
+        SELECT e.*, u.nev AS ugyfel_nev,
+               EXISTS (SELECT 1 FROM penzugy_rendelesek r WHERE r.elofizetes_id = e.id) AS webes
+        FROM penzugy_elofizetesek e
         JOIN penzugy_ugyfelek u ON u.id = e.ugyfel_id
         WHERE e.statusz = 'aktiv' AND e.kovetkezo IS NOT NULL AND e.kovetkezo <= $1::date
           AND (e.vege IS NULL OR e.kovetkezo <= e.vege)
-          ${csakReklam ? "AND e.reklam_id IS NOT NULL" : ""}
+          ${csakCsomag ? "AND e.reklam_id IS NULL AND EXISTS (SELECT 1 FROM penzugy_rendelesek r WHERE r.elofizetes_id = e.id)" : ""}
         ORDER BY e.kovetkezo`, [hatar]);
     return r.rows.map(e => szamosit(e, ["ar"]));
 }
 
 // A díjbekérők elkészítése az esedékes előfizetésekhez. Egy előfizetésnél több
 // lejárt időszak is lehet (pl. 3 hónapja nem futott) – mindegyikhez egy.
-async function esedekesDijbekerok({ csakReklam = false } = {}) {
+async function esedekesDijbekerok({ csakCsomag = false } = {}) {
     const b = await beallitas();
-    const lista = await esedekesek(b, csakReklam);
+    const lista = await esedekesek(b, csakCsomag);
     const keszult = [];
     const hatar = napHozzaad(ma(), b.elore_nap || 0);
 
@@ -680,11 +684,67 @@ async function esedekesDijbekerok({ csakReklam = false } = {}) {
                 }]
             });
             keszult.push(id);
+            await megujitasRendeles(e, id).catch(err => console.error("Megújítás:", err.message));
             kov = honapHozzaad(kov, HONAP[e.idoszak] || 1);
         }
         await db.query("UPDATE penzugy_elofizetesek SET kovetkezo = $1, updated_at = NOW() WHERE id = $2", [kov, e.id]);
     }
     return keszult;
+}
+
+// Weboldalon vett csomag megújítása: a díjbekérő a vevő „rendelése” lesz
+// (fizetésig nem látszik teendőként), és e-mailben megkapja a fizetési linket
+async function megujitasRendeles(e, szamlaId) {
+    const elozo = await db.query(`SELECT * FROM penzugy_rendelesek WHERE elofizetes_id = $1 ORDER BY id DESC LIMIT 1`, [e.id]);
+    const r = elozo.rows[0];
+    if (!r) return;
+    const s = await szamla(szamlaId);
+    await db.query(`
+        INSERT INTO penzugy_rendelesek (user_id, iroda_id, csomag_id, ugyfel_id, elofizetes_id, szamla_id, ingatlan_id, celcsoport,
+               megnevezes, ar, penznem, idoszak, statusz, megjegyzes)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'fizetesre_var',$13)`,
+        [r.user_id, r.iroda_id, r.csomag_id, r.ugyfel_id, e.id, szamlaId, r.ingatlan_id, r.celcsoport,
+         r.megnevezes, s.brutto, s.penznem, r.idoszak, "Megújítás / reînnoire"]);
+    const mail = require("./mail");
+    const to = (s.vevo && s.vevo.email) || "";
+    if (!mail.elerheto() || !to) return;
+    const link = `${mail.oldalCim().replace(/\/+$/, "")}/#fiok/csomag`;
+    const t = mail.sablon({
+        cim: `Reînnoire abonament / Csomag megújítása – ${s.sorszam}`,
+        sorok: [
+            `Abonamentul „${r.megnevezes}” se reînnoiește: ${s.idoszak_tol} – ${s.idoszak_ig}. Factura proformă ${s.sorszam}: ${s.brutto} ${s.penznem}. Plata se poate face cu cardul din contul tău.`,
+            `A(z) „${r.megnevezes}” csomagod megújul: ${s.idoszak_tol} – ${s.idoszak_ig}. Díjbekérő: ${s.sorszam}, ${s.brutto} ${s.penznem}. A fiókodban kártyával is kifizetheted.`,
+            "Dacă nu mai dorești abonamentul, nu trebuie să faci nimic – expiră automat. / Ha nem kéred tovább, nem kell tenned semmit – magától lejár."
+        ],
+        gomb: "Plătește / Fizetés",
+        link,
+        lablec: "IngatlanPro"
+    });
+    if (await mail.kuld({ to, subject: `Reînnoire / Megújítás – ${s.sorszam}`, html: t.html, text: t.text })) {
+        await db.query("UPDATE penzugy_szamlak SET emailezve = NOW() WHERE id = $1", [szamlaId]);
+    }
+}
+
+// A ki nem fizetett webes rendelések magától megszűnnek: a díjbekérő sztornó
+// a határidő + türelmi idő után. Megújításnál az előfizetés a kifizetett
+// időszak végén lejár (a csomag jogai is).
+async function webesLejart(b) {
+    b = b || await beallitas();
+    const r = await db.query(`
+        SELECT s.id, s.elofizetes_id, s.idoszak_tol FROM penzugy_szamlak s
+        WHERE s.tipus = 'dijbekero' AND s.statusz = 'kiallitva' AND ${WEBES("s")}
+          AND s.esedekes < $1::date - $2::int`, [ma(), b.turelmi_nap || 0]);
+    for (const x of r.rows) {
+        await szamlaAllapotValt(x.id, { statusz: "sztorno" });
+        if (x.elofizetes_id) {
+            const tol = pgDatum(x.idoszak_tol);
+            await db.query(`
+                UPDATE penzugy_elofizetesek SET statusz = 'lemondva', vege = COALESCE(LEAST(vege, $2::date), $2::date), kovetkezo = NULL, updated_at = NOW()
+                WHERE id = $1 AND statusz = 'aktiv'`, [x.elofizetes_id, tol ? napHozzaad(tol, -1) : ma()]);
+        }
+    }
+    if (r.rowCount) console.log(`Pénzügy: ${r.rowCount} ki nem fizetett webes rendelés lezárva.`);
+    return r.rowCount;
 }
 
 // ===================== DÍJBEKÉRŐK / SZÁMLÁK =====================
@@ -703,6 +763,8 @@ async function szamlak(f = {}) {
     const r = await db.query(`
         SELECT s.*, u.nev AS ugyfel_nev,
                EXISTS (SELECT 1 FROM efactura_valaszok v WHERE v.szamla_id = s.id) AS efactura_zip_van,
+               (SELECT d.sorszam FROM penzugy_szamlak d WHERE d.id = s.dijbekero_id) AS dijbekero_sorszam,
+               EXISTS (SELECT 1 FROM penzugy_rendelesek r WHERE r.szamla_id = s.id) AS webes,
                (SELECT json_agg(json_build_object('kategoria', t.kategoria, 'brutto', t.brutto, 'megnevezes', t.megnevezes) ORDER BY t.sorrend, t.id)
                   FROM penzugy_tetelek t WHERE t.szamla_id = s.id) AS tetelek_rovid
         FROM penzugy_szamlak s
@@ -1122,6 +1184,13 @@ async function kiadasTorol(id) {
 
 // ===================== ÁTTEKINTÉS =====================
 
+// Egy vásárlás = egy bevétel: a díjbekérőt csak akkor számoljuk, ha nem
+// készült belőle számla (a számla a hivatalos bizonylat)
+const NINCS_SZAMLA = s => `NOT EXISTS (SELECT 1 FROM penzugy_szamlak x WHERE x.dijbekero_id = ${s}.id AND x.statusz <> 'sztorno')`;
+// A weboldalon indított, még ki nem fizetett rendelés díjbekérője nem kintlévőség
+// (a vevő meggondolhatja magát) – csak a kifizetés után számít
+const WEBES = s => `EXISTS (SELECT 1 FROM penzugy_rendelesek r WHERE r.szamla_id = ${s}.id)`;
+
 async function attekintes() {
 
     const b = await beallitas();
@@ -1135,8 +1204,10 @@ async function attekintes() {
         db.query(`
             SELECT to_char(COALESCE(fizetve, kiallitva), 'YYYY-MM') AS ho, penznem, statusz,
                    SUM(brutto) AS brutto, SUM(netto) AS netto, COUNT(*)::int AS db
-            FROM penzugy_szamlak
+            FROM penzugy_szamlak s
             WHERE statusz IN ('fizetve', 'kiallitva') AND COALESCE(fizetve, kiallitva) >= $1::date
+              AND (tipus = 'szamla' OR ${NINCS_SZAMLA("s")})
+              AND NOT (statusz = 'kiallitva' AND ${WEBES("s")})
             GROUP BY 1, 2, 3`, [tizenketto]),
         db.query(`
             SELECT to_char(datum, 'YYYY-MM') AS ho, penznem, SUM(osszeg) AS osszeg
@@ -1144,13 +1215,13 @@ async function attekintes() {
         db.query(`
             SELECT s.id, s.sorszam, s.esedekes, s.brutto, s.penznem, s.kiallitva, u.nev AS ugyfel_nev, s.vevo
             FROM penzugy_szamlak s LEFT JOIN penzugy_ugyfelek u ON u.id = s.ugyfel_id
-            WHERE s.statusz = 'kiallitva' ORDER BY s.esedekes NULLS LAST`),
+            WHERE s.statusz = 'kiallitva' AND NOT ${WEBES("s")} ORDER BY s.esedekes NULLS LAST`),
         db.query(`SELECT ar, penznem, idoszak, mennyiseg FROM penzugy_elofizetesek WHERE statusz = 'aktiv' AND (vege IS NULL OR vege >= $1::date)`, [mn]),
         // Bevétel kategóriánként (idén, fizetve)
         db.query(`
             SELECT t.kategoria, s.penznem, SUM(t.brutto) AS brutto
             FROM penzugy_tetelek t JOIN penzugy_szamlak s ON s.id = t.szamla_id
-            WHERE s.statusz = 'fizetve' AND s.fizetve >= $1::date
+            WHERE s.statusz = 'fizetve' AND s.fizetve >= $1::date AND (s.tipus = 'szamla' OR ${NINCS_SZAMLA("s")})
             GROUP BY 1, 2`, [evEleje]),
         // Reklámok, amelyekhez még nincs díjbekérő / számla
         db.query(`
@@ -1162,6 +1233,8 @@ async function attekintes() {
         db.query(`
             SELECT s.id, s.sorszam, s.tipus, s.kiallitva, s.esedekes, s.statusz, s.brutto, s.penznem, u.nev AS ugyfel_nev, s.vevo
             FROM penzugy_szamlak s LEFT JOIN penzugy_ugyfelek u ON u.id = s.ugyfel_id
+            -- a legutóbbi számlák, és a még nyitott (nem webes) díjbekérők
+            WHERE s.statusz <> 'sztorno' AND (s.tipus = 'szamla' OR (${NINCS_SZAMLA("s")} AND NOT (s.statusz = 'kiallitva' AND ${WEBES("s")})))
             ORDER BY s.created_at DESC LIMIT 8`)
     ]);
 
@@ -1212,7 +1285,7 @@ async function attekintes() {
         mrr,
         aktivElofizetes: elof.rowCount,
         kategoriak,
-        esedekes: (await esedekesek(b)).length,
+        esedekes: b.auto_dijbekero ? 0 : (await esedekesek(b)).filter(x => !x.webes).length,
         szamlazatlanReklamok: reklamok.rows.map(r => ({ ...r, ar: Number(r.ar), kezdet: pgDatum(r.kezdet), vege: pgDatum(r.vege) })),
         utolsok: utolsok.rows.map(s => { szamosit(s, ["brutto"]); s.allapot = szamlaAllapot(s, mn); return s; })
     };
@@ -1223,10 +1296,12 @@ async function szamlalok() {
     try {
         const b = await beallitas();
         const r = await db.query(`
-            SELECT COUNT(*) FILTER (WHERE statusz = 'kiallitva' AND esedekes < $1::date)::int AS lejart
-            FROM penzugy_szamlak`, [ma()]);
-        const e = await esedekesek(b);
-        const rend = await db.query("SELECT COUNT(*)::int AS n FROM penzugy_rendelesek WHERE statusz = 'fizetesre_var'").catch(() => ({ rows: [{ n: 0 }] }));
+            SELECT COUNT(*) FILTER (WHERE statusz = 'kiallitva' AND esedekes < $1::date AND NOT ${WEBES("s")})::int AS lejart
+            FROM penzugy_szamlak s`, [ma()]);
+        // teendő: csak a kézzel felvett előfizetések (a webes csomagok magától megújulnak)
+        const e = b.auto_dijbekero ? [] : (await esedekesek(b)).filter(x => !x.webes);
+        // a fizetésre váró webes rendelés nem teendő (csak a kifizetett számít, és az magától megy)
+        const rend = { rows: [{ n: 0 }] };
         return { penzugy_lejart: r.rows[0].lejart, penzugy_esedekes: e.length, penzugy_rendeles: rend.rows[0].n };
     } catch (e) {
         return { penzugy_lejart: 0, penzugy_esedekes: 0, penzugy_rendeles: 0 };
@@ -1372,14 +1447,11 @@ async function exportKiadasok(f) {
 async function napi() {
     try {
         const b = await beallitas();
-        // a bérelt reklámfelületek havi díjbekérői mindig maguktól készülnek (a szerződés szerint)
-        if (!b.auto_dijbekero) {
-            const r = await esedekesDijbekerok({ csakReklam: true });
-            if (r.length) console.log(`Pénzügy: ${r.length} reklám díjbekérő elkészült.`);
-            return;
-        }
-        const k = await esedekesDijbekerok();
+        // a weboldalon vett csomagok megújítása mindig magától megy; a kézzel
+        // felvett előfizetéseké csak, ha a beállításokban be van kapcsolva
+        const k = await esedekesDijbekerok({ csakCsomag: !b.auto_dijbekero });
         if (k.length) console.log(`Pénzügy: ${k.length} díjbekérő elkészült (esedékes előfizetések).`);
+        await webesLejart(b);
     } catch (e) {
         console.error("Pénzügy napi futás:", e.message);
     }
@@ -1395,7 +1467,7 @@ module.exports = {
     kiadasok, kiadasMent, kiadasTorol,
     attekintes, szamlalok,
     jogosultsag, irodaJogosultsag, hirdetesKorlat, korlatElonezet,
-    exportSzamlak, exportKiadasok, napi,
+    exportSzamlak, exportKiadasok, napi, webesLejart,
     rendelesSzinkron, rendelesFigyelo, fizetveFigyelo, sztornoz, zarolt, szamlaAllapot, honapHozzaad, napHozzaad, ma, kerek, pgDatum, szamosit,
     // tesztekhez
     _: { honapHozzaad, napHozzaad, tetelSzamol, jogOsszevon, datum, ma }

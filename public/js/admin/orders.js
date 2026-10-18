@@ -1,9 +1,10 @@
 // ============================================================
 //  Admin → Pénzügyek → Rendelések (#admin/rendelesek)
 //
-//  Ki mit rendelt a Csomagok és árak oldalon: magánszemélyek és irodák,
-//  csomagonként hányan vették meg, mennyi folyt be, ki fizetett, kire
-//  várunk. A díjbekérő „Fizetve” jelölésével a csomag aktív lesz.
+//  A kifizetett csomag-vásárlások (a számlával). A vásárlás magától megy:
+//  kártyás fizetés → a csomag él, a számla elkészül és megy az ANAF-hoz.
+//  A fizetésre váró (pl. átutalásos) rendelések csak külön szűrővel
+//  látszanak; ha átutalás érkezik, ott jelölhető „Fizetve”-nek.
 // ============================================================
 
 (() => {
@@ -15,7 +16,7 @@
         if (k === "penzugy") {
             tabok.rendelesek = {
                 group: "finance", jog: "penzugy", icon: "fa-solid fa-cart-shopping", title: "adminTabOrders", desc: "adminDescOrders",
-                render: () => AdminManager.renderOrders(), count: "ordersCount", warn: true
+                render: () => AdminManager.renderOrders()
             };
         }
     }
@@ -27,7 +28,7 @@
     const eredeti = AdminManager.applyCounts;
     AdminManager.applyCounts = function (c) {
         eredeti.call(this, c);
-        AdminManager.setCount("ordersCount", c.penzugy_rendeles);
+        AdminManager.setCount("ordersCount", 0);
         AdminManager.setCount("mandatesCount", c.megbizas_uj);
         AdminManager.setCount("naptarCount", c.naptar_teendo);
         // A fejléc számlálója: csak abból, amit ő kezelhet (a munkatársnak a saját részei)
@@ -42,7 +43,7 @@
 
 })();
 
-AdminManager.ordSzuro = { statusz: "", celcsoport: "", csomag_id: "" };
+AdminManager.ordSzuro = { statusz: "fizetett", celcsoport: "", csomag_id: "" };
 
 AdminManager.renderOrders = function () {
 
@@ -63,12 +64,9 @@ AdminManager.renderOrders = function () {
             return `<span class="badge text-bg-${r.lejart ? "danger" : m[0]}">${esc(r.lejart ? I18n.t("accBillLate") : I18n.t(m[1]))}</span>`;
         };
 
-        const max = Math.max(1, ...d.havi.map(h => h.maganszemely + h.iroda));
-
         box.innerHTML = `
             <div class="row g-3 mb-4">
                 ${AdminManager.finTile("fa-solid fa-cart-shopping", "green", I18n.t("ordTotal"), Utils.num(o.osszes), I18n.f("ordBuyers", { n: o.vevok }))}
-                ${AdminManager.finTile("fa-solid fa-hourglass-half", o.lejart ? "red" : "orange", I18n.t("ordAwaiting"), Utils.num(o.fizetesre_var), o.lejart ? I18n.f("ordLateN", { n: o.lejart }) : "")}
                 ${AdminManager.finTile("fa-solid fa-arrows-rotate", "blue", I18n.t("ordActiveSubs"), Utils.num(o.aktiv_elofizetok), "", "elofizetesek")}
                 ${AdminManager.finTile("fa-solid fa-coins", "green", I18n.t("ordRevenueYear"), AdminManager.finPenz(o.bevetel_iden, "RON"), I18n.t("ordRevenueNote"), "penzugy")}
             </div>
@@ -83,7 +81,7 @@ AdminManager.renderOrders = function () {
                         <table class="table table-sm align-middle statTable mb-0">
                             <thead><tr>
                                 <th>${I18n.t("accPackage")}</th><th>${I18n.t("finAudience")}</th><th class="text-end">${I18n.t("finPrice")}</th>
-                                <th class="text-end">${I18n.t("ordOrders")}</th><th class="text-end">${I18n.t("ordPaid")}</th><th class="text-end">${I18n.t("ordAwaitingShort")}</th>
+                                <th class="text-end">${I18n.t("ordOrders")}</th>
                                 <th class="text-end"><i class="fa-solid fa-user" title="${esc(I18n.t("finAud_maganszemely"))}"></i> / <i class="fa-solid fa-briefcase" title="${esc(I18n.t("finAud_iroda"))}"></i></th>
                                 <th class="text-end">${I18n.t("ordActiveSubsShort")}</th><th class="text-end">${I18n.t("ordRevenueYearShort")}</th><th class="text-end">${I18n.t("ordRevenueAll")}</th>
                             </tr></thead>
@@ -94,8 +92,6 @@ AdminManager.renderOrders = function () {
                                         <td class="small">${esc(I18n.t("finAud_" + (c.celcsoport || "mindenki")))}</td>
                                         <td class="text-end text-nowrap">${esc(AdminManager.finPenz(c.ar, c.penznem))}<small class="text-body-secondary"> / ${esc(AdminManager.finIdoszakLabel(c.idoszak))}</small></td>
                                         <td class="text-end">${c.rendelesek || "–"}</td>
-                                        <td class="text-end">${c.fizetett || "–"}</td>
-                                        <td class="text-end ${c.fizetesre_var ? "text-warning fw-semibold" : ""}">${c.fizetesre_var || "–"}</td>
                                         <td class="text-end text-nowrap">${c.maganszemelyek} / ${c.irodak}</td>
                                         <td class="text-end">${c.aktiv_elofizetok || "–"}</td>
                                         <td class="text-end text-nowrap">${c.bevetel_iden ? esc(AdminManager.finPenz(c.bevetel_iden, "RON")) : "–"}</td>
@@ -107,29 +103,10 @@ AdminManager.renderOrders = function () {
                 </div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> ${I18n.t("ordMonthly")}</h5></div>
-                <div class="card-body">
-                    <div class="ordBars" role="img" aria-label="${esc(I18n.t("ordMonthly"))}">
-                        ${d.havi.map(h => `
-                            <div class="ordBar" title="${esc(AdminManager.finHo(h.ho))}: ${h.maganszemely} + ${h.iroda} (${I18n.t("ordPaid").toLowerCase()}: ${h.fizetett})">
-                                <div class="ordBarStack">
-                                    <span class="iroda" style="height:${h.iroda / max * 100}%"></span>
-                                    <span class="magan" style="height:${h.maganszemely / max * 100}%"></span>
-                                </div>
-                                <b>${h.maganszemely + h.iroda || ""}</b>
-                                <small>${esc(AdminManager.finHo(h.ho))}</small>
-                            </div>`).join("")}
-                    </div>
-                    <div class="ordLegend small"><span class="magan"></span> ${I18n.t("finAud_maganszemely")} <span class="iroda"></span> ${I18n.t("finAud_iroda")}</div>
-                </div>
-            </div>
-
             <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
                 <h5 class="mb-0 flex-fill">${I18n.t("ordList")} <span class="badge text-bg-secondary">${d.rendelesek.length}</span></h5>
                 <select class="form-select form-select-sm w-auto" id="ordSt" aria-label="${esc(I18n.t("ordStatus"))}">
-                    <option value="">${I18n.t("ordAllStatus")}</option>
-                    ${["fizetesre_var", "aktiv", "teljesitve", "lemondva", "torolve"].map(k => `<option value="${k}" ${f.statusz === k ? "selected" : ""}>${esc(I18n.t("ordSt_" + k))}</option>`).join("")}
+                    ${["fizetett", "fizetesre_var", "minden"].map(k => `<option value="${k}" ${f.statusz === k ? "selected" : ""}>${esc(I18n.t("ordView_" + k))}</option>`).join("")}
                 </select>
                 <select class="form-select form-select-sm w-auto" id="ordCel" aria-label="${esc(I18n.t("finAudience"))}">
                     <option value="">${I18n.t("ordAllAudience")}</option>
@@ -147,7 +124,7 @@ AdminManager.renderOrders = function () {
                 <table class="table table-sm align-middle mb-0 ordTable">
                     <thead><tr>
                         <th>${I18n.t("accDocDate")}</th><th>${I18n.t("ordCustomer")}</th><th>${I18n.t("accPackage")}</th>
-                        <th class="text-end">${I18n.t("prAmount")}</th><th>${I18n.t("prProforma")}</th><th>${I18n.t("ordStatus")}</th><th></th>
+                        <th class="text-end">${I18n.t("prAmount")}</th><th>${I18n.t("ordDocument")}</th><th>${I18n.t("ordStatus")}</th><th></th>
                     </tr></thead>
                     <tbody>
                         ${d.rendelesek.map(r => `
@@ -163,7 +140,9 @@ AdminManager.renderOrders = function () {
                                 </td>
                                 <td>${esc(r.megnevezes || r.csomag_nev || "")}${r.ingatlan_id ? ` <a class="small" href="#listing/${r.ingatlan_id}" target="_blank">#${r.ingatlan_id}</a>` : ""}${r.megjegyzes ? `<div class="small text-body-secondary">„${esc(r.megjegyzes)}”</div>` : ""}</td>
                                 <td class="text-end text-nowrap">${esc(AdminManager.finPenz(r.ar, r.penznem))}</td>
-                                <td class="text-nowrap small">${r.szamla_id ? `<a href="/api/admin/penzugy/szamlak/${r.szamla_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener">${esc(r.sorszam || "#" + r.szamla_id)}</a>` : "–"}${r.esedekes && r.statusz === "fizetesre_var" ? `<div class="text-body-secondary">${I18n.t("prDue")}: ${esc(AdminManager.finNap(r.esedekes))}</div>` : ""}</td>
+                                <td class="text-nowrap small">${r.szamla2_id
+                                    ? `<a href="/api/admin/penzugy/szamlak/${r.szamla2_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i> ${esc(r.szamla2_sorszam)}</a>`
+                                    : r.szamla_id ? `<a href="/api/admin/penzugy/szamlak/${r.szamla_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener">${esc(r.sorszam || "#" + r.szamla_id)}</a>` : "–"}${r.esedekes && r.statusz === "fizetesre_var" ? `<div class="text-body-secondary">${I18n.t("prDue")}: ${esc(AdminManager.finNap(r.esedekes))}</div>` : ""}</td>
                                 <td>${statusz(r)}</td>
                                 <td class="text-end text-nowrap">
                                     ${r.statusz === "fizetesre_var" && r.szamla_id ? `
@@ -173,7 +152,7 @@ AdminManager.renderOrders = function () {
                             </tr>`).join("")}
                     </tbody>
                 </table>
-            </div>` : `<div class="emptyState"><i class="fa-solid fa-cart-shopping"></i><h5>${I18n.t("ordNone")}</h5><p>${I18n.t("ordNoneText")}</p><a class="btn btn-outline-primary" href="#csomagok" target="_blank">${I18n.t("menuCsomagok")}</a></div>`}`;
+            </div>` : `<div class="emptyState"><i class="fa-solid fa-cart-shopping"></i><h5>${I18n.t(f.statusz === "fizetesre_var" ? "ordNoneWaiting" : "ordNone")}</h5><p>${I18n.t("ordNoneText")}</p><a class="btn btn-outline-primary" href="#csomagok" target="_blank">${I18n.t("menuCsomagok")}</a></div>`}`;
 
         AdminManager.finBindGo(box);
 

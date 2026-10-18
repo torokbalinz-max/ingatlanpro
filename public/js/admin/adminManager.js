@@ -187,6 +187,7 @@ class AdminManager {
 
         tab = AdminManager.ALIASES[tab] || tab;
         if (!AdminManager.TABS[tab] || !AdminManager.lathato(AdminManager.TABS[tab])) tab = AdminManager.elsoTab();
+        AdminManager.alBoxId = null;
 
         AdminManager.tab = tab;
 
@@ -238,8 +239,11 @@ class AdminManager {
 
     }
 
+    // Egy oldal belső fülei (pl. Pénzügy → Beállítások): a tartalom az al-dobozba kerül
+    static alBoxId = null;
+
     static box() {
-        return document.getElementById("adminContent");
+        return (AdminManager.alBoxId && document.getElementById(AdminManager.alBoxId)) || document.getElementById("adminContent");
     }
 
     static loading() {

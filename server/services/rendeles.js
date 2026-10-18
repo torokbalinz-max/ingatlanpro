@@ -343,6 +343,9 @@ async function sajat(user) {
                    (SELECT string_agg(t.megnevezes, ' | ' ORDER BY t.sorrend) FROM penzugy_tetelek t WHERE t.szamla_id = s.id) AS tetelek
             FROM penzugy_szamlak s
             WHERE s.ugyfel_id = ANY($1::int[]) AND s.statusz <> 'piszkozat'
+              -- vásárlásonként egy sor: a kifizetett díjbekérő helyett a számla; a sztornózott díjbekérő nem kell
+              AND NOT (s.tipus = 'dijbekero' AND (s.statusz = 'sztorno'
+                       OR EXISTS (SELECT 1 FROM penzugy_szamlak x WHERE x.dijbekero_id = s.id AND x.statusz <> 'sztorno')))
             ORDER BY s.kiallitva DESC, s.id DESC LIMIT 200`, [ids]);
         const mn = pu.ma();
         szamlak = s.rows.map(x => { pu.szamosit(x, ["brutto"]); x.allapot = pu.szamlaAllapot(x, mn); return x; });
@@ -448,7 +451,11 @@ async function adminLista(f = {}) {
     const b = await pu.beallitas();
     const felt = [];
     const p = [];
-    if (f.statusz && RENDELES_STATUSZOK.includes(f.statusz)) { p.push(f.statusz); felt.push(`r.statusz = $${p.length}`); }
+    // Alapból csak a kifizetett rendelések látszanak (a fizetésre várók nem teendők:
+    // kártyás fizetésnél magától teljesülnek, a ki nem fizetettek maguktól megszűnnek)
+    const st = f.statusz || "fizetett";
+    if (st === "fizetett") felt.push(`r.statusz IN ('aktiv', 'teljesitve', 'lemondva')`);
+    else if (RENDELES_STATUSZOK.includes(st)) { p.push(st); felt.push(`r.statusz = $${p.length}`); }
     if (f.celcsoport === "iroda" || f.celcsoport === "maganszemely") { p.push(f.celcsoport); felt.push(`r.celcsoport = $${p.length}`); }
     if (Number(f.csomag_id)) { p.push(Number(f.csomag_id)); felt.push(`r.csomag_id = $${p.length}`); }
 
@@ -456,8 +463,10 @@ async function adminLista(f = {}) {
         SELECT r.*, s.sorszam, s.esedekes, s.statusz AS szamla_statusz, s.brutto AS szamla_brutto, s.fizetve AS szamla_fizetve,
                u.nev AS ugyfel_nev, u.tipus AS ugyfel_tipus, u.email AS ugyfel_email,
                COALESCE(f.nev, f.felhasznalonev, f.email) AS fiok_nev, f.email AS fiok_email,
-               i.nev AS iroda_nev, c.nev AS csomag_nev, c.kategoria
+               i.nev AS iroda_nev, c.nev AS csomag_nev, c.kategoria,
+               sz.id AS szamla2_id, sz.sorszam AS szamla2_sorszam
         FROM penzugy_rendelesek r
+        LEFT JOIN LATERAL (SELECT x.id, x.sorszam FROM penzugy_szamlak x WHERE x.dijbekero_id = r.szamla_id AND x.tipus = 'szamla' AND x.statusz <> 'sztorno' ORDER BY x.id LIMIT 1) sz ON true
         LEFT JOIN penzugy_szamlak s ON s.id = r.szamla_id
         LEFT JOIN penzugy_ugyfelek u ON u.id = r.ugyfel_id
         LEFT JOIN users f ON f.id = r.user_id
@@ -480,11 +489,11 @@ async function adminLista(f = {}) {
     const evEleje = mn.slice(0, 5) + "01-01";
     const cs = await db.query(`
         SELECT c.id, c.nev, c.nev_ro, c.nev_en, c.kategoria, c.celcsoport, c.ar, c.penznem, c.idoszak, c.aktiv, c.nyilvanos,
-               (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id)::int AS rendelesek,
+               (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id AND r.statusz IN ('aktiv', 'teljesitve', 'lemondva'))::int AS rendelesek,
                (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id AND r.statusz IN ('aktiv', 'teljesitve'))::int AS fizetett,
                (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id AND r.statusz = 'fizetesre_var')::int AS fizetesre_var,
-               (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id AND r.celcsoport = 'iroda')::int AS irodak,
-               (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id AND r.celcsoport = 'maganszemely')::int AS maganszemelyek,
+               (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id AND r.celcsoport = 'iroda' AND r.statusz IN ('aktiv', 'teljesitve', 'lemondva'))::int AS irodak,
+               (SELECT COUNT(*) FROM penzugy_rendelesek r WHERE r.csomag_id = c.id AND r.celcsoport = 'maganszemely' AND r.statusz IN ('aktiv', 'teljesitve', 'lemondva'))::int AS maganszemelyek,
                (SELECT COUNT(*) FROM penzugy_elofizetesek e WHERE e.csomag_id = c.id AND e.statusz = 'aktiv' AND (e.vege IS NULL OR e.vege >= $1::date))::int AS aktiv_elofizetok
         FROM penzugy_csomagok c ORDER BY c.aktiv DESC, c.sorrend, c.id`, [mn]);
 
@@ -493,6 +502,8 @@ async function adminLista(f = {}) {
                SUM(t.brutto) FILTER (WHERE s.fizetve >= $1::date) AS iden
         FROM penzugy_tetelek t JOIN penzugy_szamlak s ON s.id = t.szamla_id
         WHERE s.statusz = 'fizetve' AND t.csomag_id IS NOT NULL
+          -- egy vásárlás egyszer: a díjbekérő csak, ha nem lett belőle számla
+          AND (s.tipus = 'szamla' OR NOT EXISTS (SELECT 1 FROM penzugy_szamlak x WHERE x.dijbekero_id = s.id AND x.statusz <> 'sztorno'))
         GROUP BY 1, 2`, [evEleje]);
 
     const ron = (v, pn) => pu.kerek(pn === "EUR" ? Number(v || 0) * (b.eur_arfolyam || 5) : Number(v || 0));
