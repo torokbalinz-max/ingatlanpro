@@ -1140,7 +1140,8 @@ AdminManager.renderFinSettings = function () {
                                 ${AdminManager.MEGYEK.map(([k, n]) => `<option value="RO-${k}" ${b.efactura_megye === "RO-" + k ? "selected" : ""}>${esc(n)} (${k})</option>`).join("")}
                             </select>
                         </div>
-                        <p class="small text-body-secondary col-12 mb-0">${I18n.t("finEfHelp")}</p>
+                        <p class="small text-body-secondary col-12 mb-0">${I18n.t("finEfHelp")}
+                            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-fin-go="efactura"><i class="fa-solid fa-landmark" aria-hidden="true"></i> ${I18n.t("finEfGoAnaf")}</button></p>
                         <div class="col-sm-6">
                             <label class="form-label small mb-1" for="fbForditas">${I18n.t("finDocLang")}</label>
                             <select class="form-select form-select-sm" id="fbForditas">

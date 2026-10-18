@@ -358,4 +358,13 @@ async function pdf(s) {
     return { hibak: hibak.length ? hibak : [v.nyers ? "Az ANAF most nem adott PDF-et – próbáld később." : "ANAF"] };
 }
 
-module.exports = { xml, hianyok, HIANY_SZOVEG, ellenoriz, pdf, megyeKod, cimAdat };
+// Bármilyen e-Factura XML (pl. egy beérkezett számla) olvasható PDF-je az ANAF-tól
+async function pdfXmlbol(xmlSzoveg) {
+    const tipus = /<(\w+:)?CreditNote\b/.test(String(xmlSzoveg).slice(0, 3000)) ? "FCN" : "FACT1";
+    const v = await anafKeres(`transformare/${tipus}/DA`, xmlSzoveg, "pdf");
+    if (v.pdf) return { pdf: v.pdf };
+    const hibak = v.hiba ? (v.hiba.Messages || v.hiba.messages || []).map(m => String(m.message || JSON.stringify(m))) : [];
+    return { hibak: hibak.length ? hibak : ["Az ANAF most nem adott PDF-et – próbáld később."] };
+}
+
+module.exports = { xml, hianyok, HIANY_SZOVEG, ellenoriz, pdf, pdfXmlbol, megyeKod, cimAdat };

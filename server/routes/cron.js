@@ -30,6 +30,7 @@ router.post("/api/cron/run", async (req, res) => {
         .then(() => napiErtesito(req))
         .then(() => require("./statistics").havontaMent())
         .then(() => require("../services/megbizasAuto").futtat())
+        .then(() => require("../services/efacturaSpv").futtat())
         .catch(err => console.error("Cron hiba:", err));
 
 });

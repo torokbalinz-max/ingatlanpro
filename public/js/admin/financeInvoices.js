@@ -149,6 +149,7 @@ AdminManager.finSzamlaSor = function (s) {
             <div class="finMain">
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <b>${AdminManager.finSorszam(s)}</b> ${AdminManager.finAllapotBadge(s)}
+                    ${AdminManager.efBadge ? AdminManager.efBadge(s.ef, s.id) : ""}
                     <span class="small text-body-secondary">${I18n.t(s.tipus === "szamla" ? "finTypeInvoice" : "finTypeProforma")}${s.kulso_szam ? ` · ${esc(s.kulso_szam)}` : ""}</span>
                 </div>
                 <div class="small"><b>${esc(AdminManager.finVevoNev(s))}</b> · ${(s.tetelek_rovid || []).map(t => esc(t.megnevezes)).join(", ")}</div>
@@ -175,6 +176,7 @@ AdminManager.finSzamlaGombok = function (box, kesz) {
     box.querySelectorAll("[data-fs-fizetve]").forEach(b => { b.onclick = () => AdminManager.finFizetve(Number(b.dataset.fsFizetve), kesz); });
     box.querySelectorAll("[data-fs-email]").forEach(b => { b.onclick = () => AdminManager.finEmail(Number(b.dataset.fsEmail), kesz); });
     box.querySelectorAll("[data-fs-xml]").forEach(b => { b.onclick = () => AdminManager.finXml(Number(b.dataset.fsXml), b.dataset.fsXmlNev); });
+    if (AdminManager.efBadgeKot) AdminManager.efBadgeKot(box, kesz);
 };
 
 // A számla sorszáma (a piszkozat még nem kap sorszámot)

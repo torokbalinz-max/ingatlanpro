@@ -30,6 +30,27 @@ router.get("/api/admin/irattar/export.csv", jog, async (req, res) => {
     } catch (err) { hiba(res, err); }
 });
 
+// A bevétel–kiadás napló (Registrul-jurnal de încasări și plăți) – évre vagy hónapra
+router.get("/api/admin/irattar/registru.csv", jog, async (req, res) => {
+    try {
+        const p = irattar.idoszak(req.query.ev, req.query.honap);
+        res.set("Content-Type", "text/csv; charset=utf-8");
+        res.set("Content-Disposition", `attachment; filename="registru-incasari-plati-${p.nev}.csv"`);
+        res.send(await irattar.registruCsv(p.ev, p.honap));
+    } catch (err) { hiba(res, err); }
+});
+
+// Csomag a könyvelőnek: egy hónap / év minden pénzügyi irata egy ZIP-ben
+router.get("/api/admin/irattar/csomag.zip", jog, async (req, res) => {
+    try {
+        const c = await irattar.csomag(req.query.ev, req.query.honap);
+        res.set("Content-Type", "application/zip");
+        res.set("Content-Disposition", `attachment; filename="${c.nev}"`);
+        res.set("Cache-Control", "private, no-store");
+        res.send(c.adat);
+    } catch (err) { hiba(res, err); }
+});
+
 router.get("/api/admin/irattar/:id", jog, async (req, res) => {
     try {
         const x = await irattar.egy(req.params.id);

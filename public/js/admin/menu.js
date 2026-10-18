@@ -14,7 +14,7 @@
 //                Beolvasás · Bejelentések
 //                rendrakás: Duplikátumok · Nem elérhető · Figyelt oldalak
 //    Értékesítés Megbízások · Naptár · Fotók (a csapat helyszíni munkája) · Beállítások
-//    Pénzügy     Áttekintés · Rendelések · Díjbekérők · Előfizetések · Ügyfelek ·
+//    Pénzügy     Áttekintés · Rendelések · Díjbekérők · e-Factura · Előfizetések · Ügyfelek ·
 //                Kiadások | Csomagok · Számlázás
 //    Irattár     Számlák és pénzügyi iratok · Szerződések
 //    Partnerek   Ingatlanirodák · Reklámfelületek
@@ -42,7 +42,7 @@
         ma: ["overview"],
         hird: ["review", "helyek", "allapot", "import", "reports", "|", "dups", "unavailable", "watch"],
         ert: ["megbizasok", "naptar", "hirdetesek", "|", "megbizasBeall"],
-        penz: ["penzugy", "rendelesek", "szamlak", "onlinefiz", "elofizetesek", "ugyfelek", "kiadasok", "|", "csomagok", "kiemelesek", "penzugyBeall"],
+        penz: ["penzugy", "rendelesek", "szamlak", "efactura", "onlinefiz", "elofizetesek", "ugyfelek", "kiadasok", "|", "csomagok", "kiemelesek", "penzugyBeall"],
         irat: ["irattarSzamla", "irattarSzerzodes"],
         partner: ["irodak", "reklam"],
         rendszer: ["places", "kornyek", "allapotok", "|", "webhely", "csapat", "tools", "sitestats"]

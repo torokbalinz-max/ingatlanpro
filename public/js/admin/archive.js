@@ -93,7 +93,14 @@ class Archive {
         let s = x.statusz;
         // feltöltött pénzügyi irat: nincs „állapota” – csak ha egy kiadáshoz tartozik
         if (x.resz === "szamla" && x.forras === "feltoltott") {
-            return x.kiadas_id ? `<span class="badge text-bg-light"><i class="fa-solid fa-link"></i> ${I18n.t("irLinkedBadge")}</span>` : "";
+            const r = [];
+            if (x.efactura_bejovo) r.push(`<span class="badge text-bg-info"><i class="fa-solid fa-landmark"></i> ${I18n.t("irEfIncoming")}</span>`);
+            if (x.kiadas_id) r.push(`<span class="badge text-bg-light"><i class="fa-solid fa-link"></i> ${I18n.t("irLinkedBadge")}</span>`);
+            return r.join(" ");
+        }
+        // kiállított számla: az állapota mellett az e-Factura (ANAF) állapota is
+        if (x.forras === "app" && x.ef && AdminManager.efBadge) {
+            return `<span class="badge text-bg-${m[s] || "light"}">${esc(I18n.t("irSt_" + s))}</span> ${AdminManager.efBadge(x.ef, x.szamla_id)}`;
         }
         if (x.resz === "szerzodes" && x.forras === "feltoltott" && s === "aktiv" && x.lejar) {
             const nap = Math.round((new Date(x.lejar + "T12:00:00") - new Date()) / 86400000);
@@ -125,6 +132,10 @@ class Archive {
         const sor = x => {
             const muvelet = [];
             if (x.forras === "feltoltott") {
+                // az ANAF-ból letöltött számla (ZIP): olvasható PDF-ként az ANAF alakítja át
+                if (x.van_fajl && x.fajl_mime === "application/zip") {
+                    muvelet.push(`<a class="btn btn-sm btn-outline-primary" href="/api/admin/irattar/${x.id}/anaf-pdf" target="_blank" rel="noopener" title="${esc(I18n.t("irAnafPdfHint"))}"><i class="fa-solid fa-file-pdf"></i> PDF</a>`);
+                }
                 if (x.van_fajl) {
                     muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/admin/irattar/${x.id}/fajl" target="_blank" rel="noopener" title="${esc(I18n.t("irOpen"))}" aria-label="${esc(I18n.t("irOpen"))}"><i class="fa-solid fa-eye"></i></a>`);
                     muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/admin/irattar/${x.id}/fajl?letolt=1" title="${esc(I18n.t("irDownload"))}" aria-label="${esc(I18n.t("irDownload"))}"><i class="fa-solid fa-download"></i></a>`);
@@ -134,6 +145,7 @@ class Archive {
             } else if (x.forras === "app" && x.szamla_id) {
                 muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/admin/penzugy/szamlak/${x.szamla_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener" title="${esc(I18n.t("irOpen"))}" aria-label="${esc(I18n.t("irOpen"))}"><i class="fa-solid fa-eye"></i></a>`);
                 if (x.efactura) {
+                    if (x.ef && x.ef.zip) muvelet.push(`<a class="btn btn-sm btn-outline-success" href="/api/admin/penzugy/szamlak/${x.szamla_id}/efactura/valasz.zip" title="${esc(I18n.t("irEfZipHint"))}"><i class="fa-solid fa-file-zipper"></i> ANAF</a>`);
                     muvelet.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-ir-xml="${x.szamla_id}" data-ir-xml-nev="${esc(x.szam)}" title="${esc(I18n.t("irEfacturaHint"))}"><i class="fa-solid fa-file-code"></i> XML</button>`);
                     muvelet.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-ir-anaf="${x.szamla_id}" title="${esc(I18n.t("finAnafCheckHint"))}" aria-label="${esc(I18n.t("finAnafCheck"))}"><i class="fa-solid fa-shield-halved"></i></button>`);
                 }
@@ -151,6 +163,7 @@ class Archive {
                         <b>${esc(x.cim || "–")}</b> ${forrasJel}
                         <div class="small text-body-secondary">${[x.partner, x.szam && x.szam !== x.cim ? "№ " + x.szam : "", x.fajl_nev].filter(Boolean).map(esc).join(" · ")}</div>
                         ${x.megjegyzes ? `<div class="small text-body-secondary text-truncate irNote" title="${esc(x.megjegyzes)}">${esc(x.megjegyzes)}</div>` : ""}
+                        ${x.megorzes_ig ? `<div class="small irKeep" title="${esc(I18n.t("irKeepHint"))}"><i class="fa-solid fa-box-archive" aria-hidden="true"></i> ${I18n.f("irKeepUntil", { datum: esc(Svc.nap(x.megorzes_ig)) })}</div>` : ""}
                         ${x.cimkek ? `<div>${x.cimkek.split(",").map(c => c.trim()).filter(Boolean).map(c => `<span class="badge text-bg-light">${esc(c)}</span>`).join(" ")}</div>` : ""}
                     </td>
                     <td class="${katOszlop}"><span class="badge text-bg-light irCatBadge">${esc(Archive.katNev(resz, x.kategoria))}</span></td>
@@ -193,6 +206,7 @@ class Archive {
                             <option value="en" ${Dokumentum.adminForditas() === "en" ? "selected" : ""}>${I18n.t("finDocLang_en")}</option>
                         </select>
                         <a class="btn btn-outline-secondary" href="${esc(Archive.url("/api/admin/irattar/export.csv"))}" title="${esc(I18n.t("irCsvHint"))}"><i class="fa-solid fa-file-csv"></i> <span class="d-none d-xl-inline">CSV</span></a>
+                        ${!szerz ? `<button type="button" class="btn btn-outline-primary" id="irCsomag" title="${esc(I18n.t("irPackHint"))}"><i class="fa-solid fa-file-zipper"></i> <span class="d-none d-lg-inline">${I18n.t("irPackBtn")}</span></button>` : ""}
                         <button type="button" class="btn btn-primary" id="irUj"><i class="fa-solid fa-upload"></i> ${I18n.t(szerz ? "irUploadContract" : "irUpload")}</button>
                     </div>
                     ${figyelmeztet.join("")}
@@ -224,6 +238,9 @@ class Archive {
         if (a.q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
         box.querySelector("#irEv").onchange = e => { a.ev = e.target.value; Archive.betolt(); };
         box.querySelector("#irUj").onclick = () => Archive.urlap(null, { kategoria: a.kategoria });
+        const csomagGomb = box.querySelector("#irCsomag");
+        if (csomagGomb) csomagGomb.onclick = () => Archive.csomag();
+        if (AdminManager.efBadgeKot) AdminManager.efBadgeKot(box, () => Archive.betolt());
 
         box.querySelectorAll("[data-ir-szerk]").forEach(b => {
             b.onclick = () => Svc.api(`/api/admin/irattar/${b.dataset.irSzerk}`).then(x => Archive.urlap(x)).catch(e => alert(Svc.hiba(e)));
@@ -268,6 +285,55 @@ class Archive {
         return AdminManager.finXml(id, nev);
     }
 
+    // Csomag a könyvelőnek: egy hónap / év minden pénzügyi irata egy ZIP-ben,
+    // a bevétel–kiadás naplóval (Registrul-jurnal de încasări și plăți)
+    static csomag() {
+        const esc = Utils.escape;
+        const { tartalom, modal } = Svc.modal("irPackModal", "");
+        const most = new Date();
+        // alapból az előző hónap (a könyvelő általában a lezárt hónapot kéri)
+        const elozo = new Date(most.getFullYear(), most.getMonth() - 1, 1);
+        const evek = [];
+        for (let e = most.getFullYear(); e >= most.getFullYear() - 6; e--) evek.push(e);
+        const honapNev = h => new Date(2026, h - 1, 15).toLocaleDateString(Utils.locale(), { month: "long" });
+        tartalom.innerHTML = `
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> ${I18n.t("irPackTitle")}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="OK"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-body-secondary">${I18n.t("irPackIntro")}</p>
+                <div class="row g-2">
+                    <div class="col-6"><label class="form-label small mb-1" for="irPackEv">${I18n.t("irYear")}</label>
+                        <select class="form-select" id="irPackEv">${evek.map(e => `<option ${e === elozo.getFullYear() ? "selected" : ""}>${e}</option>`).join("")}</select></div>
+                    <div class="col-6"><label class="form-label small mb-1" for="irPackHo">${I18n.t("irMonth")}</label>
+                        <select class="form-select" id="irPackHo"><option value="">${I18n.t("irWholeYear")}</option>
+                        ${Array.from({ length: 12 }, (_, i) => i + 1).map(h => `<option value="${h}" ${h === elozo.getMonth() + 1 ? "selected" : ""}>${esc(honapNev(h))}</option>`).join("")}</select></div>
+                </div>
+                <ul class="small mt-3 mb-0">
+                    <li>${I18n.t("irPackItem1")}</li>
+                    <li>${I18n.t("irPackItem2")}</li>
+                    <li>${I18n.t("irPackItem3")}</li>
+                    <li>${I18n.t("irPackItem4")}</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <a class="btn btn-outline-secondary" id="irRegistru" href="#"><i class="fa-solid fa-book" aria-hidden="true"></i> ${I18n.t("irRegisterBtn")}</a>
+                <a class="btn btn-primary" id="irPackLetolt" href="#"><i class="fa-solid fa-download" aria-hidden="true"></i> ${I18n.t("irPackDownload")}</a>
+            </div>`;
+        const $ = q => tartalom.querySelector(q);
+        const frissit = () => {
+            const p = new URLSearchParams({ ev: $("#irPackEv").value });
+            if ($("#irPackHo").value) p.set("honap", $("#irPackHo").value);
+            $("#irPackLetolt").href = "/api/admin/irattar/csomag.zip?" + p;
+            $("#irRegistru").href = "/api/admin/irattar/registru.csv?" + p;
+        };
+        $("#irPackEv").onchange = frissit;
+        $("#irPackHo").onchange = frissit;
+        frissit();
+        modal.show();
+    }
+
     // ---------- Feltöltés / szerkesztés ----------
 
     static urlap(x, elo = {}, kezdoFajl = null) {
@@ -293,7 +359,7 @@ class Archive {
                 </div>
                 <div class="modal-body">
                     <label class="irFile" id="irFileBox" for="irFile">
-                        <input type="file" id="irFile" hidden accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif,.doc,.docx,.xls,.xlsx,.odt,.ods,.txt,.csv,.xml">
+                        <input type="file" id="irFile" hidden accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif,.doc,.docx,.xls,.xlsx,.odt,.ods,.txt,.csv,.xml,.zip">
                         <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
                         <span id="irFileText">${x && x.fajl_nev ? `${esc(x.fajl_nev)} · <u>${I18n.t("irReplaceFile")}</u>` : I18n.t("irChooseFile")}</span>
                         <small>${I18n.t("irFileTypes")}</small>
@@ -348,7 +414,7 @@ class Archive {
         const MIME_KIT = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", gif: "image/gif",
             doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", xls: "application/vnd.ms-excel",
             xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", odt: "application/vnd.oasis.opendocument.text",
-            ods: "application/vnd.oasis.opendocument.spreadsheet", txt: "text/plain", csv: "text/csv", xml: "application/xml" };
+            ods: "application/vnd.oasis.opendocument.spreadsheet", txt: "text/plain", csv: "text/csv", xml: "application/xml", zip: "application/zip" };
 
         const olvas = f => new Promise((ok, nem) => {
             const r = new FileReader();

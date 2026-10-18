@@ -131,11 +131,15 @@ router.get("/api/admin/counts", csapat.csakPanel, async (req, res) => {
         const naptarDb = await naptarSzamlalo(req).catch(() => 0);
         // Irattár: lejáró (30 napon belül) és lejárt szerződések
         const irat = await require("../services/irattar").teendok();
+        // e-Factura: elküldendő számlák (5 munkanap), sürgősek, elutasítottak
+        const ef = await require("../services/efacturaSpv").szamlalok().catch(() => ({}));
 
         res.json({
             ...r.rows[0], ...w.rows[0], ...ir.rows[0], ...egyeb.rows[0], ...penzugy,
             kornyek_javaslat: kornyek, megbizas_uj: megbizasUj, naptar_teendo: naptarDb, reklam_fut: reklamFut, reklam_lejaro: reklamLejaro, ai: ai.elerheto(),
-            szerzodes_lejaro: irat.lejaro, szerzodes_lejart: irat.lejart, szerzodes_teendo: (irat.lejaro || 0) + (irat.lejart || 0)
+            szerzodes_lejaro: irat.lejaro, szerzodes_lejart: irat.lejart, szerzodes_teendo: (irat.lejaro || 0) + (irat.lejart || 0),
+            efactura_kuldendo: ef.kuldendo || 0, efactura_surgos: ef.surgos || 0, efactura_elutasitva: ef.elutasitva || 0,
+            efactura_teendo: (ef.surgos || 0) + (ef.elutasitva || 0)
         });
     } catch (err) {
         hiba(res, err);

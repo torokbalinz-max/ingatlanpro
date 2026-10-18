@@ -1260,6 +1260,29 @@ async function createSchema(db) {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_irattar_resz ON irattar (resz, kategoria, datum)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_irattar_kiadas ON irattar (kiadas_id)`);
 
+    // e-Factura automatikus beküldés (2026. október – services/efacturaSpv.js):
+    //   efactura_allapot  NULL (nincs elküldve) | feldolgozas | ok | nok | hiba | kezi (az SPV-ben kézzel)
+    //   efactura_index    az ANAF feltöltési indexe (index_incarcare)
+    //   efactura_letoltes a válasz letöltési azonosítója (id_descarcare)
+    for (const o of ["efactura_allapot TEXT", "efactura_index TEXT", "efactura_letoltes TEXT", "efactura_kuldve TIMESTAMP",
+        "efactura_valasz_at TIMESTAMP", "efactura_hiba TEXT", "efactura_b2c BOOLEAN"]) {
+        await db.query(`ALTER TABLE penzugy_szamlak ADD COLUMN IF NOT EXISTS ${o}`);
+    }
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_szamla_efactura ON penzugy_szamlak (efactura_allapot)`);
+    // Az ANAF válasza (ZIP: a számla XML + az ANAF digitális aláírása) – 5 évig megőrzendő
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS efactura_valaszok (
+            szamla_id INTEGER PRIMARY KEY REFERENCES penzugy_szamlak(id) ON DELETE CASCADE,
+            letoltes_id TEXT,
+            allapot TEXT,
+            zip BYTEA,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    // A beérkező e-Factura számlák (az ANAF-ból letöltve): az ANAF üzenet azonosítója
+    await db.query(`ALTER TABLE irattar ADD COLUMN IF NOT EXISTS anaf_id TEXT`);
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_irattar_anaf ON irattar (anaf_id) WHERE anaf_id IS NOT NULL`);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

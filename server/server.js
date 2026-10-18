@@ -161,6 +161,7 @@ app.use(require("./routes/csomagok"));
 app.use(require("./routes/megbizas"));
 app.use(require("./routes/csapat"));
 app.use(require("./routes/fizetes"));
+app.use(require("./routes/efactura"));
 app.use(require("./routes/irattar"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
@@ -204,4 +205,9 @@ app.listen(PORT, () => {
     const mbAuto = () => require("./services/megbizasAuto").futtat().catch(() => { });
     setTimeout(mbAuto, 90 * 1000);
     setInterval(mbAuto, 15 * 60 * 1000).unref();
+    // e-Factura: az ANAF-nak küldött számlák állapota, az automatikus feltöltés
+    // (ha be van kapcsolva) és a beérkező számlák letöltése – 30 percenként
+    const efFut = () => require("./services/efacturaSpv").futtat().catch(() => { });
+    setTimeout(efFut, 2 * 60 * 1000);
+    setInterval(efFut, 30 * 60 * 1000).unref();
 });

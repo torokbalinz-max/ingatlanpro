@@ -147,6 +147,15 @@ function alapBeallitas() {
         // e-Factura (UBL XML) a saját számlához: az eladó települése és megyéje
         efactura_varos: "",
         efactura_megye: "",
+        // e-Factura automatikus beküldés az ANAF-hoz (services/efacturaSpv.js):
+        //   efactura_auto    a kiállított számlák maguktól mennek fel (5 munkanap a határidő)
+        //   efactura_kezdet  csak az ettől a naptól kiállított számlák (a régiek / próbák nem)
+        //   efactura_mod     "prod" (éles) vagy "test" (az ANAF próbarendszere)
+        //   efactura_bejovo  a nekünk kiállított számlák letöltése az Irattárba
+        efactura_auto: false,
+        efactura_kezdet: null,
+        efactura_mod: "prod",
+        efactura_bejovo: true,
         // Kiemelés: a csomag havi keretéből egy kiemelés ennyi napig tart
         kiemeles_nap: 7,
         // A nyomtatott számla / díjbekérő: a hivatalos szöveg román; alapból
@@ -204,6 +213,10 @@ async function beallitasMent(b) {
     if ("sajat_szamla" in b) a.sajat_szamla = !!b.sajat_szamla;
     if ("efactura_varos" in b) a.efactura_varos = sz(b.efactura_varos, 80) || "";
     if ("efactura_megye" in b) a.efactura_megye = (sz(b.efactura_megye, 6) || "").toUpperCase().replace(/[^A-Z-]/g, "");
+    if ("efactura_auto" in b) a.efactura_auto = !!b.efactura_auto;
+    if ("efactura_kezdet" in b) a.efactura_kezdet = datum(b.efactura_kezdet);
+    if ("efactura_mod" in b) a.efactura_mod = b.efactura_mod === "test" ? "test" : "prod";
+    if ("efactura_bejovo" in b) a.efactura_bejovo = !!b.efactura_bejovo;
     if ("kiemeles_nap" in b) a.kiemeles_nap = Math.round(n(b.kiemeles_nap, 1, 90, 7));
     if ("bizonylat_forditas" in b) a.bizonylat_forditas = ["hu", "en"].includes(b.bizonylat_forditas) ? b.bizonylat_forditas : "";
     if ("tva_mentes_szoveg" in b) a.tva_mentes_szoveg = sz(b.tva_mentes_szoveg, 300) || "";
@@ -685,6 +698,7 @@ async function szamlak(f = {}) {
     if (f.ugyfel_id) { p.push(Number(f.ugyfel_id)); felt.push(`s.ugyfel_id = $${p.length}`); }
     const r = await db.query(`
         SELECT s.*, u.nev AS ugyfel_nev,
+               EXISTS (SELECT 1 FROM efactura_valaszok v WHERE v.szamla_id = s.id) AS efactura_zip_van,
                (SELECT json_agg(json_build_object('kategoria', t.kategoria, 'brutto', t.brutto, 'megnevezes', t.megnevezes) ORDER BY t.sorrend, t.id)
                   FROM penzugy_tetelek t WHERE t.szamla_id = s.id) AS tetelek_rovid
         FROM penzugy_szamlak s
@@ -693,9 +707,12 @@ async function szamlak(f = {}) {
         ORDER BY s.kiallitva DESC, s.id DESC
         LIMIT 2000`, p);
     const mn = ma();
+    const ef = require("./efacturaSpv");
     return r.rows.map(s => {
         szamosit(s, ["netto", "afa", "brutto"]);
         s.allapot = szamlaAllapot(s, mn);
+        // e-Factura: kell-e, állapot, határidő (5 munkanap)
+        s.ef = ef.szamlaInfo(s, mn);
         s.tetelek_rovid = (s.tetelek_rovid || []).map(t => ({ ...t, brutto: Number(t.brutto) }));
         return s;
     });
@@ -703,7 +720,8 @@ async function szamlak(f = {}) {
 
 async function szamla(id) {
     const r = await db.query(`
-        SELECT s.*, u.nev AS ugyfel_nev, e.megnevezes AS elofizetes_nev, rk.nev AS reklam_nev
+        SELECT s.*, u.nev AS ugyfel_nev, e.megnevezes AS elofizetes_nev, rk.nev AS reklam_nev,
+               EXISTS (SELECT 1 FROM efactura_valaszok v WHERE v.szamla_id = s.id) AS efactura_zip_van
         FROM penzugy_szamlak s
         LEFT JOIN penzugy_ugyfelek u ON u.id = s.ugyfel_id
         LEFT JOIN penzugy_elofizetesek e ON e.id = s.elofizetes_id
@@ -712,6 +730,7 @@ async function szamla(id) {
     if (!r.rowCount) return null;
     const s = szamosit(r.rows[0], ["netto", "afa", "brutto", "arfolyam"]);
     s.allapot = szamlaAllapot(s);
+    s.ef = require("./efacturaSpv").szamlaInfo(s);
     const t = await db.query("SELECT * FROM penzugy_tetelek WHERE szamla_id = $1 ORDER BY sorrend, id", [id]);
     s.tetelek = t.rows.map(x => szamosit(x, ["mennyiseg", "egysegar", "afa_kulcs", "netto", "afa", "brutto"]));
     return s;

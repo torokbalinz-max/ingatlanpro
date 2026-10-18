@@ -25,6 +25,10 @@ AdminManager.maTeendok = function (c) {
     todo(c.bejelentes_uj, 0, "fa-solid fa-flag", "red", I18n.f("ovTodoReports", { n: c.bejelentes_uj }), "reports");
     todo(c.penzugy_rendeles, 0, "fa-solid fa-cart-shopping", "orange", I18n.f("ovTodoOrders", { n: c.penzugy_rendeles }), "rendelesek");
     todo(c.penzugy_lejart, 0, "fa-solid fa-clock", "red", I18n.f("ovTodoFinLate", { n: c.penzugy_lejart }), "szamlak");
+    // e-Factura: 5 munkanapon belül fel kell tölteni – a sürgős (ma / holnap / lejárt) és az elutasított számlák
+    todo(c.efactura_surgos, 0, "fa-solid fa-landmark", "red", I18n.f("ovTodoEfUrgent", { n: c.efactura_surgos }), "efactura");
+    todo(c.efactura_elutasitva, 0, "fa-solid fa-circle-xmark", "red", I18n.f("ovTodoEfRejected", { n: c.efactura_elutasitva }), "efactura");
+    todo(c.efactura_kuldendo && !c.efactura_surgos ? c.efactura_kuldendo - (c.efactura_elutasitva || 0) : 0, 1, "fa-solid fa-paper-plane", "orange", I18n.f("ovTodoEfToSend", { n: c.efactura_kuldendo - (c.efactura_elutasitva || 0) }), "efactura");
     // Napi rutin
     todo(c.review, 1, "fa-solid fa-list-check", "orange", I18n.f("ovTodoReview", { n: c.review }), "review", I18n.t("ovTodoReviewBtn"));
     todo(c.iroda_fuggo, 1, "fa-solid fa-briefcase", "orange", I18n.f("ovTodoAgencies", { n: c.iroda_fuggo }), "irodak");
@@ -129,5 +133,6 @@ AdminManager.COUNT_KEY = {
     pendingCount: "review", unavailableCount: "unavailable", allapotCount: "allapot_hianyzo",
     irodaCount: "iroda_fuggo", kornyekCount: "kornyek_javaslat", reportCount: "bejelentes_uj",
     helyCount: "hely_teendo", reklamCount: "reklam_fut", finLateCount: "penzugy_lejart", finDueCount: "penzugy_esedekes",
-    mandatesCount: "megbizas_uj", naptarCount: "naptar_teendo", ordersCount: "penzugy_rendeles", contractsCount: "szerzodes_teendo"
+    mandatesCount: "megbizas_uj", naptarCount: "naptar_teendo", ordersCount: "penzugy_rendeles", contractsCount: "szerzodes_teendo",
+    efacturaCount: "efactura_teendo"
 };

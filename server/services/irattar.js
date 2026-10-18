@@ -20,6 +20,15 @@
 const crypto = require("crypto");
 const db = require("../db/database");
 const pu = require("./penzugy");
+const zip = require("../lib/zip");
+
+// Megőrzési idő: 5 év a pénzügyi év lezárását követő év július 1-jétől
+// (Legea contabilității 82/1991 art. 25, Legea 36/2023 után; OMFP 2634/2015
+// pct. 37¹ – az e-Factura XML-re is). Pl. egy 2026-os irat 2032. július 1-ig.
+function megorzesIg(d) {
+    const ev = Number(String(d || "").slice(0, 4));
+    return ev > 1900 ? `${ev + 6}-07-01` : null;
+}
 
 function hibaKod(kod) {
     const e = new Error(kod);
@@ -60,7 +69,9 @@ const MIME = {
     "application/msword": "doc", "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "application/vnd.ms-excel": "xls", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
     "application/vnd.oasis.opendocument.text": "odt", "application/vnd.oasis.opendocument.spreadsheet": "ods",
-    "text/plain": "txt", "text/csv": "csv", "application/xml": "xml", "text/xml": "xml"
+    "text/plain": "txt", "text/csv": "csv", "application/xml": "xml", "text/xml": "xml",
+    // az SPV-ből letöltött e-Factura (a számla XML + az ANAF aláírása)
+    "application/zip": "zip", "application/x-zip-compressed": "zip"
 };
 const MAX_MERET = 15 * 1024 * 1024;
 
@@ -75,13 +86,18 @@ const szam = v => {
     return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
 };
 
+// Az e-Factura állapot a listához (a határidővel) – services/efacturaSpv.js
+function efInfo(x) {
+    return require("./efacturaSpv").szamlaInfo(x);
+}
+
 function katOk(resz, kat) {
     return (KATEGORIAK[resz] || []).some(k => k.kod === kat && !k.csakAuto);
 }
 
 const MEZOK = `i.id, i.resz, i.kategoria, i.cim, i.partner, i.szam, i.datum, i.osszeg, i.penznem, i.kezdet, i.lejar, i.felmondas_nap,
     i.statusz, i.megjegyzes, i.cimkek, i.fajl_nev, i.fajl_mime, i.fajl_meret, i.szamla_id, i.kiadas_id, i.megbizas_id,
-    i.created_at, i.updated_at, COALESCE(u.nev, u.felhasznalonev) AS feltoltotte_nev`;
+    i.created_at, i.updated_at, i.anaf_id, COALESCE(u.nev, u.felhasznalonev) AS feltoltotte_nev`;
 
 function sor(x) {
     return {
@@ -89,7 +105,9 @@ function sor(x) {
         forras: "feltoltott",
         datum: pu.pgDatum(x.datum), kezdet: pu.pgDatum(x.kezdet), lejar: pu.pgDatum(x.lejar),
         osszeg: x.osszeg === null ? null : Number(x.osszeg),
-        van_fajl: !!x.fajl_nev
+        van_fajl: !!x.fajl_nev,
+        efactura_bejovo: !!x.anaf_id,
+        megorzes_ig: x.resz === "szamla" ? megorzesIg(pu.pgDatum(x.datum)) : null
     };
 }
 
@@ -124,6 +142,8 @@ async function lista({ resz = "szamla", kategoria = "", ev = "", q = "" } = {}) 
         const tipusok = !kategoria ? ["szamla", "dijbekero"] : [kategoria === "kimeno" ? "szamla" : "dijbekero"];
         const s = await db.query(`
             SELECT s.id, s.sorszam, s.tipus, s.kiallitva, s.statusz, s.brutto, s.penznem, s.kulso_szam, s.dijbekero_id, s.fizetesi_mod,
+                   s.efactura_allapot, s.efactura_index, s.efactura_hiba, s.efactura_kuldve, s.efactura_b2c,
+                   EXISTS (SELECT 1 FROM efactura_valaszok v WHERE v.szamla_id = s.id) AS efactura_zip_van,
                    COALESCE(s.vevo->>'nev', u.nev) AS partner,
                    (SELECT string_agg(t.megnevezes, ' | ' ORDER BY t.sorrend) FROM penzugy_tetelek t WHERE t.szamla_id = s.id) AS tetelek
             FROM penzugy_szamlak s LEFT JOIN penzugy_ugyfelek u ON u.id = s.ugyfel_id
@@ -133,7 +153,10 @@ async function lista({ resz = "szamla", kategoria = "", ev = "", q = "" } = {}) 
             id: "sz-" + x.id, forras: "app", resz: "szamla", kategoria: x.tipus === "szamla" ? "kimeno" : "dijbekero",
             cim: x.sorszam, partner: x.partner, szam: x.sorszam, datum: pu.pgDatum(x.kiallitva), osszeg: Number(x.brutto), penznem: x.penznem,
             statusz: x.statusz, megjegyzes: x.tetelek, szamla_id: x.id, kulso_szam: x.kulso_szam, fizetesi_mod: x.fizetesi_mod,
-            van_fajl: true, efactura: x.tipus === "szamla"
+            van_fajl: true, efactura: x.tipus === "szamla",
+            ef: x.tipus === "szamla" ? efInfo({ ...x, tipus: x.tipus }) : null,
+            // a díjbekérő nem adóügyi bizonylat – nincs megőrzési kötelezettség
+            megorzes_ig: x.tipus === "szamla" ? megorzesIg(pu.pgDatum(x.kiallitva)) : null
         }));
     }
 
@@ -146,7 +169,8 @@ async function lista({ resz = "szamla", kategoria = "", ev = "", q = "" } = {}) 
         k.rows.filter(x => evOk(x.datum) && keresOk(x.leiras, x.szallito, x.szamlaszam)).forEach(x => out.push({
             id: "kd-" + x.id, forras: "kiadas", resz: "szamla", kategoria: "bejovo",
             cim: x.leiras, partner: x.szallito, szam: x.szamlaszam, datum: pu.pgDatum(x.datum), osszeg: Number(x.osszeg), penznem: x.penznem,
-            statusz: "nincs_irat", kiadas_id: x.id, kiadas_kategoria: x.kategoria, van_fajl: false
+            statusz: "nincs_irat", kiadas_id: x.id, kiadas_kategoria: x.kategoria, van_fajl: false,
+            megorzes_ig: megorzesIg(pu.pgDatum(x.datum))
         }));
     }
 
@@ -250,6 +274,7 @@ function fajlBe(b) {
     if (mime === "application/pdf" && fej.toString("latin1", 0, 5) !== "%PDF-") throw hibaKod("bad_file_type");
     if (mime === "image/png" && fej.toString("hex", 0, 4) !== "89504e47") throw hibaKod("bad_file_type");
     if (mime === "image/jpeg" && fej.toString("hex", 0, 3) !== "ffd8ff") throw hibaKod("bad_file_type");
+    if (MIME[mime] === "zip" && fej.toString("latin1", 0, 2) !== "PK") throw hibaKod("bad_file_type");
     const nev = (sz(b.fajl_nev, 160) || ("irat." + MIME[mime])).replace(/[\\/\0]/g, "_");
     return { nev, mime, meret: adat.length, adat, hash: crypto.createHash("sha256").update(adat).digest("hex") };
 }
@@ -342,9 +367,171 @@ async function egy(id) {
 async function csv(szuro) {
     const l = await lista(szuro);
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const fej = ["Kategória", "Megnevezés", "Partner", "Szám", "Dátum", "Összeg", "Pénznem", "Kezdet", "Lejárat", "Állapot", "Megjegyzés", "Fájl"];
-    const sorok = l.map(x => [x.kategoria, x.cim, x.partner, x.szam, x.datum, x.osszeg, x.penznem, x.kezdet, x.lejar, x.statusz, x.megjegyzes, x.fajl_nev || (x.van_fajl ? "app" : "")].map(q).join(";"));
-    return "﻿" + [fej.map(q).join(";"), ...sorok].join("\r\n");
+    const fej = ["Kategória", "Megnevezés", "Partner", "Szám", "Dátum", "Összeg", "Pénznem", "Kezdet", "Lejárat", "Állapot", "e-Factura", "e-Factura index", "Megőrzés eddig", "Megjegyzés", "Fájl"];
+    const sorok = l.map(x => [x.kategoria, x.cim, x.partner, x.szam, x.datum, x.osszeg, x.penznem, x.kezdet, x.lejar, x.statusz,
+        x.ef ? (x.ef.allapot || "nincs elküldve") : (x.efactura_bejovo ? "beérkezett" : ""), x.ef ? x.ef.index : "", x.megorzes_ig,
+        x.megjegyzes, x.fajl_nev || (x.van_fajl ? "app" : "")].map(q).join(";"));
+    return "\ufeff" + [fej.map(q).join(";"), ...sorok].join("\r\n");
 }
 
-module.exports = { KATEGORIAK, RESZEK, MIME, lista, osszesites, teendok, feltolt, modosit, torol, fajl, egy, csv };
+// ===================== REGISTRUL-JURNAL DE ÎNCASĂRI ȘI PLĂȚI =====================
+//  A PFA (egyszeres könyvvitel) bevétel–kiadás naplója egy időszakra:
+//  befolyt bevételek (a kifizetett számlák a fizetés napján) és a kiadások,
+//  készpénz / bank szerint, lejben (devizás számla: a számla árfolyamán).
+//  A kiadásoknál a fizetés módja nincs rögzítve – „bancă”-nak vesszük.
+
+function idoszak(ev, honap) {
+    const e = /^\d{4}$/.test(String(ev)) ? Number(ev) : new Date().getFullYear();
+    const h = /^\d{1,2}$/.test(String(honap || "")) && Number(honap) >= 1 && Number(honap) <= 12 ? Number(honap) : null;
+    const tol = h ? `${e}-${String(h).padStart(2, "0")}-01` : `${e}-01-01`;
+    const igD = h ? new Date(Date.UTC(e, h, 0)) : new Date(Date.UTC(e, 11, 31));
+    return { ev: e, honap: h, tol, ig: igD.toISOString().slice(0, 10), nev: h ? `${e}-${String(h).padStart(2, "0")}` : String(e) };
+}
+
+async function registruSorok(ev, honap) {
+    const p = idoszak(ev, honap);
+    const b = await pu.beallitas();
+    const sorok = [];
+    const inc = await db.query(`
+        SELECT s.id, s.sorszam, s.fizetve, s.brutto, s.penznem, s.arfolyam, s.fizetesi_mod, s.sztorno_eredeti_id,
+               COALESCE(s.vevo->>'nev', u.nev) AS partner, e.fizetve AS eredeti_fizetve
+        FROM penzugy_szamlak s
+        LEFT JOIN penzugy_ugyfelek u ON u.id = s.ugyfel_id
+        LEFT JOIN penzugy_szamlak e ON e.id = s.sztorno_eredeti_id
+        WHERE s.tipus = 'szamla' AND s.fizetve IS NOT NULL AND s.fizetve BETWEEN $1::date AND $2::date
+        ORDER BY s.fizetve, s.id`, [p.tol, p.ig]);
+    inc.rows.forEach(s => {
+        // a sztornó csak akkor csökkenti a bevételt, ha az eredetit kifizették
+        if (s.sztorno_eredeti_id && !s.eredeti_fizetve) return;
+        const arf = s.penznem === "RON" ? 1 : (Number(s.arfolyam) || Number(b.eur_arfolyam) || 5);
+        const ron = Math.round(Number(s.brutto) * arf * 100) / 100;
+        sorok.push({
+            datum: pu.pgDatum(s.fizetve), dokumentum: `Factură ${s.sorszam}`,
+            felul: `Încasare${s.sztorno_eredeti_id ? " (stornare)" : ""}${s.partner ? " – " + s.partner : ""}${s.penznem !== "RON" ? ` (${s.brutto} ${s.penznem}, curs ${arf})` : ""}`,
+            numerar: s.fizetesi_mod === "keszpenz", be: ron, ki: 0
+        });
+    });
+    const kid = await db.query(`SELECT * FROM penzugy_kiadasok WHERE datum BETWEEN $1::date AND $2::date ORDER BY datum, id`, [p.tol, p.ig]);
+    kid.rows.forEach(k => {
+        const arf = k.penznem === "RON" || !k.penznem ? 1 : (Number(b.eur_arfolyam) || 5);
+        sorok.push({
+            datum: pu.pgDatum(k.datum), dokumentum: k.szamlaszam ? `Factură ${k.szamlaszam}` : "Document justificativ",
+            felul: `Plată – ${k.leiras}${k.szallito ? " (" + k.szallito + ")" : ""}${k.penznem && k.penznem !== "RON" ? ` (${k.osszeg} ${k.penznem})` : ""}`,
+            numerar: false, be: 0, ki: Math.round(Number(k.osszeg) * arf * 100) / 100
+        });
+    });
+    sorok.sort((a, b2) => String(a.datum).localeCompare(String(b2.datum)) || (b2.be - a.be));
+    return { p, sorok };
+}
+
+async function registruCsv(ev, honap) {
+    const { p, sorok } = await registruSorok(ev, honap);
+    const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const n = v => (v ? v.toFixed(2).replace(".", ",") : "");
+    const fej = ["Nr. crt.", "Data", "Felul și nr. documentului", "Felul operațiunii (explicații)",
+        "Încasări numerar", "Încasări bancă", "Plăți numerar", "Plăți bancă"];
+    let be = 0, ki = 0;
+    const s = sorok.map((x, i) => {
+        be += x.be; ki += x.ki;
+        return [i + 1, x.datum, x.dokumentum, x.felul,
+            x.numerar ? n(x.be) : "", x.numerar ? "" : n(x.be), x.numerar ? n(x.ki) : "", x.numerar ? "" : n(x.ki)].map(q).join(";");
+    });
+    const osszeg = [q(""), q(""), q(""), q("TOTAL"), q(n(sorok.filter(x => x.numerar).reduce((a, x) => a + x.be, 0))),
+        q(n(sorok.filter(x => !x.numerar).reduce((a, x) => a + x.be, 0))), q(n(sorok.filter(x => x.numerar).reduce((a, x) => a + x.ki, 0))),
+        q(n(sorok.filter(x => !x.numerar).reduce((a, x) => a + x.ki, 0)))].join(";");
+    return "\ufeff" + [
+        q(`Registrul-jurnal de încasări și plăți – ${p.nev} (RON)`),
+        fej.map(q).join(";"), ...s, osszeg,
+        [q(""), q(""), q(""), q("Total încasări – total plăți"), q(n(Math.round((be - ki) * 100) / 100))].join(";"),
+        q("Notă: plățile (cheltuielile) sunt trecute la bancă, dacă modul de plată nu este înregistrat. Documentul se verifică de contabil.")
+    ].join("\r\n");
+}
+
+// ===================== CSOMAG A KÖNYVELŐNEK (ZIP) =====================
+//  Egy hónap / év minden pénzügyi irata egy fájlban:
+//    00_Osszesito.csv                a lista (minden irat, e-Factura állapot, megőrzés)
+//    01_Registru_incasari_plati.csv  a bevétel–kiadás napló
+//    Facturi_emise/                  a kiállított számlák: ANAF ZIP (eredeti, aláírt),
+//                                    e-Factura XML, nyomtatható HTML
+//    Facturi_primite/, Bonuri/, Extrase_bancare/, Fiscal/, Altele/  a feltöltött iratok
+//    CITESTE.txt                     magyarázat (románul és magyarul)
+
+const MAPPA = { bejovo: "Facturi_primite", nyugta: "Bonuri", bankkivonat: "Extrase_bancare", ado: "Fiscal", egyeb: "Altele" };
+const fajlNev = s => String(s || "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "document";
+
+async function csomag(ev, honap) {
+    const p = idoszak(ev, honap);
+    const efactura = require("./efactura");
+    const bizonylatHtml = (...a) => require("../routes/penzugy").bizonylatHtml(...a);
+    const fajlok = [];
+    const hianyok = [];
+
+    // kiállított számlák
+    const sz = await db.query(`
+        SELECT s.id FROM penzugy_szamlak s
+        WHERE s.tipus = 'szamla' AND s.statusz <> 'piszkozat' AND s.kiallitva BETWEEN $1::date AND $2::date
+        ORDER BY s.kiallitva, s.id`, [p.tol, p.ig]);
+    for (const { id } of sz.rows) {
+        const s = await pu.szamla(id);
+        if (!s) continue;
+        const alap = `Facturi_emise/${fajlNev(s.sorszam)}`;
+        const v = await db.query("SELECT zip FROM efactura_valaszok WHERE szamla_id = $1", [id]);
+        if (v.rows[0] && v.rows[0].zip) fajlok.push({ nev: `${alap}_ANAF.zip`, adat: v.rows[0].zip });
+        else hianyok.push(`${s.sorszam}: ${s.efactura_allapot === "kezi" ? "feltöltve az SPV-ben (az aláírt ZIP-et onnan töltsd le)" : "nincs ANAF-válasz (még nincs elküldve / elfogadva)"}`);
+        try { fajlok.push({ nev: `${alap}.xml`, adat: await efactura.xml(s) }); } catch (e) { /* hiányos adatok */ }
+        try { fajlok.push({ nev: `${alap}.html`, adat: await bizonylatHtml(s, { nyomtat: false }) }); } catch (e) { /* nem kritikus */ }
+    }
+
+    // feltöltött pénzügyi iratok (fájllal)
+    const ir = await db.query(`
+        SELECT id, kategoria, cim, szam, datum, fajl_nev, fajl FROM irattar
+        WHERE resz = 'szamla' AND fajl IS NOT NULL AND COALESCE(datum, created_at::date) BETWEEN $1::date AND $2::date
+        ORDER BY datum, id`, [p.tol, p.ig]);
+    ir.rows.forEach(x => {
+        const ext = (String(x.fajl_nev || "").match(/\.[A-Za-z0-9]{1,5}$/) || [""])[0];
+        const nev = `${pu.pgDatum(x.datum) || ""} ${x.szam || x.cim || ""}`.trim();
+        fajlok.push({ nev: `${MAPPA[x.kategoria] || "Altele"}/${fajlNev(nev)}${ext}`, adat: x.fajl });
+    });
+
+    // kiadások irat nélkül – figyelmeztetés a könyvelőnek
+    const kn = await db.query(`
+        SELECT k.datum, k.leiras, k.szallito, k.osszeg, k.penznem FROM penzugy_kiadasok k
+        WHERE k.datum BETWEEN $1::date AND $2::date AND NOT EXISTS (SELECT 1 FROM irattar i WHERE i.kiadas_id = k.id)`, [p.tol, p.ig]);
+    kn.rows.forEach(k => hianyok.push(`Kiadás irat nélkül / Cheltuială fără document: ${pu.pgDatum(k.datum)} ${k.leiras} ${k.szallito || ""} ${k.osszeg} ${k.penznem}`));
+
+    const osszesito = await lista2(p);
+    fajlok.unshift({ nev: "01_Registru_incasari_plati.csv", adat: await registruCsv(p.ev, p.honap) });
+    fajlok.unshift({ nev: "00_Osszesito.csv", adat: osszesito });
+    fajlok.push({
+        nev: "CITESTE.txt", adat: [
+            `Documente financiare – perioada ${p.nev} (${p.tol} – ${p.ig})`,
+            "",
+            "Facturi_emise/  facturile emise: *_ANAF.zip = factura originală (XML) cu semnătura Ministerului Finanțelor,",
+            "                *.xml = fișierul e-Factura (UBL / CIUS-RO), *.html = forma tipăribilă",
+            "Facturi_primite/  facturile primite (din SPV / încărcate), Bonuri/, Extrase_bancare/, Fiscal/, Altele/",
+            "00_Osszesito.csv  lista documentelor; 01_Registru_incasari_plati.csv  registrul-jurnal de încasări și plăți",
+            "Termen de păstrare: 5 ani de la 1 iulie a anului următor închiderii exercițiului financiar.",
+            "",
+            "Magyarul: Facturi_emise = kiállított számlák (az *_ANAF.zip az eredeti, ANAF-aláírással), Facturi_primite = bejövő",
+            "számlák, Bonuri = nyugták, Extrase_bancare = bankkivonatok, Fiscal = adóügyi iratok, Altele = egyéb.",
+            "",
+            hianyok.length ? "Hiányzik / Lipsește:" : "Nincs hiányzó irat / Nu lipsesc documente.",
+            ...hianyok.map(h => "  - " + h)
+        ].join("\r\n")
+    });
+    return { nev: `iratok-${p.nev}.zip`, adat: zip.keszit(fajlok), db: fajlok.length, hianyok: hianyok.length };
+}
+
+// az összesítő CSV egy időszakra (a lista szűrője évre szól – itt a hónapra is szűkítünk)
+async function lista2(p) {
+    const l = (await lista({ resz: "szamla", ev: String(p.ev) })).filter(x => !x.datum || (x.datum >= p.tol && x.datum <= p.ig));
+    const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const fej = ["Kategória / Categorie", "Megnevezés / Denumire", "Partner", "Szám / Număr", "Dátum / Data", "Összeg / Suma", "Pénznem / Moneda",
+        "Állapot / Stare", "e-Factura", "e-Factura index", "Megőrzés eddig / Păstrare până la", "Fájl / Fișier"];
+    const sorok = l.map(x => [x.kategoria, x.cim, x.partner, x.szam, x.datum, x.osszeg, x.penznem, x.statusz,
+        x.ef ? (x.ef.allapot || "nincs elküldve") : (x.efactura_bejovo ? "primită" : ""), x.ef ? x.ef.index : "", x.megorzes_ig,
+        x.fajl_nev || (x.van_fajl ? "app" : "")].map(q).join(";"));
+    return "\ufeff" + [fej.map(q).join(";"), ...sorok].join("\r\n");
+}
+
+module.exports = { KATEGORIAK, RESZEK, MIME, lista, osszesites, teendok, feltolt, modosit, torol, fajl, egy, csv, registruCsv, csomag, idoszak, megorzesIg };

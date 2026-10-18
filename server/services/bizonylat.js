@@ -78,7 +78,8 @@ const T = {
     },
     mentions: { ro: "Mențiuni", hu: "Megjegyzés", en: "Notes" },
     proformaRef: { ro: "Emisă în baza facturii proforme", hu: "A díjbekérő alapján", en: "Based on pro forma" },
-    fizMod: { ro: "Modalitate de plată", hu: "Fizetési mód", en: "Payment method" }
+    fizMod: { ro: "Modalitate de plată", hu: "Fizetési mód", en: "Payment method" },
+    efIndex: { ro: "RO e-Factura, index încărcare", hu: "RO e-Factura, feltöltési index", en: "RO e-Factura upload index" }
 };
 
 const FIZ_MOD = {
@@ -197,6 +198,7 @@ function html(s, u, b, o = {}) {
         ${s.idoszak_tol ? `<div>${L("perioada")}: ${nap(s.idoszak_tol)} – ${nap(s.idoszak_ig || s.idoszak_tol)}</div>` : ""}
         ${!stornoSzamla && s.esedekes && s.statusz !== "fizetve" ? `<div>${L("termen")}: <b>${nap(s.esedekes)}</b></div>` : ""}
         ${!proforma && s.kulso_szam && s.kulso_szam !== s.sorszam && !/^IP-/.test(s.kulso_szam) ? `<div class="kicsi">Ref.: ${esc(s.kulso_szam)}</div>` : ""}
+        ${!proforma && s.efactura_index && ["feldolgozas", "ok", "kezi"].includes(s.efactura_allapot) ? `<div class="kicsi">${L("efIndex")}: ${esc(s.efactura_index)}</div>` : ""}
       </div>
       ${belyeg}
     </div>
