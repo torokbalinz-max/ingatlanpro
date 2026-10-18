@@ -7,6 +7,7 @@
 
     const V18 = {
         hu: {
+            mobPackages: "Csomagok",
             prAfterPay: "Amíg nem fizetsz, nem küldünk semmit. Amikor a befizetés beérkezik, a csomag magától bekapcsol, és e-mailben megkapod a számlát.",
 
             finRightProfileFeat: "{n} kiemelt hirdetés az irodaprofilon",
@@ -67,6 +68,7 @@
             ordGrace_archivalva: "Archiválva"
         },
         ro: {
+            mobPackages: "Pachete",
             prAfterPay: "Până nu plătești, nu îți trimitem nimic. Când plata ajunge, pachetul se activează automat și primești factura pe e-mail.",
 
             finRightProfileFeat: "{n} anunț(uri) promovat(e) pe profilul agenției",
@@ -127,6 +129,7 @@
             ordGrace_archivalva: "Arhivat"
         },
         en: {
+            mobPackages: "Packages",
             prAfterPay: "Until you pay, we send nothing. When the payment arrives, the package switches on automatically and you get the invoice by e-mail.",
 
             finRightProfileFeat: "{n} featured listing(s) on the agency profile",

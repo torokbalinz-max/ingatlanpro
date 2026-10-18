@@ -184,3 +184,16 @@
         var(--bs-body-bg);
 }
 .wsLogoBox img { max-height: 72px; max-width: 100%; object-fit: contain; }
+
+/* ---------- Fejléc: Csomagok és árak; a „Több” panel ne lógjon ki ---------- */
+.navPanelTobb { max-width: calc(100vw - 16px); }
+@media (max-width: 1279.98px) {
+    /* kisebb laptop / iPad fekve: a „Több” panel két oszlopban, keskenyebben */
+    .navPanelTobb { width: min(620px, calc(100vw - 16px)); margin-left: -310px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Alsó sáv (telefon, iPad állva): kikapcsolt „Eladjuk helyetted” esetén a helyén
+   a Csomagok és árak áll – így az öt hely kitöltve marad, nem csúszik el */
+.mobBarCsomag { display: none !important; }
+body.noSales .mobBarCsomag { display: flex !important; }
+body.noSales .mobSheetCsomag { display: none !important; }

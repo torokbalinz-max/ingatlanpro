@@ -16,6 +16,7 @@ class NavMenu {
             csoportok.forEach(x => { if (x !== g) NavMenu.zar(x); });
             g.classList.add("open");
             g.querySelector(".navGroupBtn").setAttribute("aria-expanded", "true");
+            NavMenu.igazit(g);
         };
 
         csoportok.forEach(g => {
@@ -74,7 +75,25 @@ class NavMenu {
         });
 
         window.addEventListener("hashchange", () => csoportok.forEach(NavMenu.zar));
+        window.addEventListener("resize", () => csoportok.forEach(g => { if (g.classList.contains("open")) NavMenu.igazit(g); }));
 
+    }
+
+    // A lenyíló panel ne lógjon ki a képernyőről (iPad, kisebb laptop: a „Több”
+    // gomb helye attól is függ, mely menüpontok látszanak – pl. kikapcsolt
+    // „Eladjuk helyetted”). Szükség esetén vízszintesen beljebb toljuk.
+    static igazit(g) {
+        const p = g.querySelector(".navPanel");
+        if (!p) return;
+        p.style.marginLeft = "";
+        const alap = parseFloat(getComputedStyle(p).marginLeft) || 0;
+        const r = p.getBoundingClientRect();
+        const szel = document.documentElement.clientWidth;
+        const hely = 8;
+        let dx = 0;
+        if (r.right > szel - hely) dx = (szel - hely) - r.right;
+        if (r.left + dx < hely) dx = hely - r.left;
+        if (dx) p.style.marginLeft = `${Math.round(alap + dx)}px`;
     }
 
     static zar(g) {
