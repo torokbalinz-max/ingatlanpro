@@ -311,6 +311,8 @@ class AgencyProfile {
                 </div>
             </div>
 
+            ${typeof AgencyFeatured !== "undefined" ? AgencyFeatured.profilHtml(ir) : ""}
+
             <div class="row g-4">
                 <div class="col-xl-9">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -378,6 +380,9 @@ class AgencyProfile {
                     </div>
                 </div>
             </div>`;
+
+        // A kiemelt hirdetés(ek) a profil tetején
+        if (typeof AgencyFeatured !== "undefined") AgencyFeatured.profilKot(box);
 
         // Kártyák
         box.querySelectorAll("#agProfileCards .listingCard").forEach(card => {

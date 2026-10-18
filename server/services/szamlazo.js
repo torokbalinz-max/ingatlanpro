@@ -246,6 +246,11 @@ pu.fizetveFigyelo(async id => {
     if (be.auto_szamla === false) return;
     const s = await pu.szamla(id);
     if (!s || s.tipus !== "dijbekero" || s.statusz !== "fizetve" || s.hivatalos_szamlazo) return;
+    // Próbafizetés (Stripe teszt mód / demó): valódi pénz nem jött → nincs számla
+    if (await require("./fizetes").tesztFizetes(id).catch(() => false)) {
+        console.log(`Számla: ${s.sorszam} próbafizetés (teszt mód) – számla nem készül.`);
+        return;
+    }
     const v = await kiallit(id, {}).catch(e => { console.error("Számla kiállítása:", e.message); return null; });
     if (v && v.szam && !v.mar_volt) {
         kuldes(id).catch(e => console.error("Számla e-mail:", e.message));

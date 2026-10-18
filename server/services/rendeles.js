@@ -320,7 +320,7 @@ async function sajat(user) {
     for (const i of irodak) {
         const j = await pu.irodaJogosultsag(i.id);
         const n = await db.query("SELECT COUNT(*)::int AS n FROM ingatlanok WHERE iroda_id = $1 AND statusz IN ('aktiv', 'fuggo')", [i.id]);
-        irodaHasznalat.push({ id: i.id, nev: i.nev, statusz: i.statusz, limit: j.hirdetes_limit, db: n.rows[0].n, csomagok: j.csomagok, reklammentes: j.reklammentes, pro_statisztika: j.pro_statisztika });
+        irodaHasznalat.push({ id: i.id, nev: i.nev, statusz: i.statusz, limit: j.hirdetes_limit, db: n.rows[0].n, csomagok: j.csomagok, reklammentes: j.reklammentes, pro_statisztika: j.pro_statisztika, profil_kiemeles: j.profil_kiemeles || 0 });
     }
 
     let elofizetesek = [];

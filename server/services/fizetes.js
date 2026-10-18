@@ -222,7 +222,7 @@ async function kifizetve({ munkamenet, szamlaId, osszegCent, penznem, fizetesAzo
         await pu.szamlaAllapotValt(s.id, { statusz: "fizetve", fizetesi_mod: "kartya" });
         await db.query(
             `UPDATE penzugy_szamlak SET megjegyzes = TRIM(COALESCE(megjegyzes, '') || E'\\n' || $2), updated_at = NOW() WHERE id = $1`,
-            [s.id, `Online kártyás fizetés${fizetesAzon ? " (" + fizetesAzon + ")" : ""}.`]);
+            [s.id, `${/^cs_test_|^demo_/.test(String(munkamenet || "")) ? "TESZT (próba) – nem valódi pénz, számla nem készül. " : ""}Online kártyás fizetés${fizetesAzon ? " (" + fizetesAzon + ")" : ""}.`]);
     }
 
     // A számla magától elkészül (services/szamlazo.js – a „kifizetett” jelzésre)
@@ -375,6 +375,20 @@ async function webhookBeallit(alapCim) {
     }
 }
 
+// ---------- Próbafizetés-e? ----------
+// A Stripe teszt módban (sk_test_ kulcs) a fizetés „sikerül”, de valódi pénz
+// nem mozdul – ilyenkor a csomag a próbához él, de hivatalos számla NEM
+// készül (és az ANAF-hoz sem megy semmi). A teszt munkamenet azonosítója
+// „cs_test_”-tel kezdődik; a demó (FIZETES_DEMO=1) is próba.
+async function tesztFizetes(szamlaId) {
+    const r = await db.query(`
+        SELECT szolgaltato, munkamenet FROM online_fizetesek
+        WHERE szamla_id = $1 AND statusz = 'fizetve' ORDER BY id DESC LIMIT 1`, [Number(szamlaId) || 0]);
+    const f = r.rows[0];
+    if (!f) return false;
+    return f.szolgaltato === "demo" || /^cs_test_/.test(String(f.munkamenet || ""));
+}
+
 // ---------- Admin: a legutóbbi online fizetések ----------
 
 async function adminLista() {
@@ -388,4 +402,4 @@ async function adminLista() {
     return r.rows.map(x => ({ ...x, osszeg: Number(x.osszeg) }));
 }
 
-module.exports = { allapot, kulcsBeallit, kulcsTorol, webhookBeallit, inditas, webhook, ellenoriz, demoFizet, demoAdat, adminLista, _: { alairasOk, urlap } };
+module.exports = { tesztFizetes, allapot, kulcsBeallit, kulcsTorol, webhookBeallit, inditas, webhook, ellenoriz, demoFizet, demoAdat, adminLista, _: { alairasOk, urlap } };

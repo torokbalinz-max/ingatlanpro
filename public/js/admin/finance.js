@@ -650,6 +650,7 @@ AdminManager.renderFinPackages = function () {
             if (j.pro_statisztika) r.push(I18n.t("finRightProStats"));
             if (j.kiemeles) r.push(I18n.f("finRightFeatured", { n: j.kiemeles }));
             if (j.iroda_profil) r.push(I18n.t("finRightAgency"));
+            if (j.profil_kiemeles) r.push(I18n.f("finRightProfileFeat", { n: j.profil_kiemeles }));
             return r.map(x => `<span class="badge text-bg-light">${esc(x)}</span>`).join(" ");
         };
 
@@ -795,6 +796,11 @@ AdminManager.finCsomagSzerk = function (c) {
                     <label class="form-label small mb-1" for="fcKiemelesNap">${I18n.t("finRightFeaturedDays")}</label>
                     <input type="number" min="1" max="365" step="1" class="form-control form-control-sm" id="fcKiemelesNap" value="${j.kiemeles_nap ?? ""}" placeholder="7">
                 </div>
+                <div class="col-6 col-sm-4">
+                    <label class="form-label small mb-1" for="fcProfilKiemeles">${I18n.t("finRightProfileFeatLabel")}</label>
+                    <input type="number" min="0" max="20" step="1" class="form-control form-control-sm" id="fcProfilKiemeles" value="${j.profil_kiemeles ?? ""}" placeholder="–" title="${esc(I18n.t("finRightProfileFeatHint"))}">
+                </div>
+                <div class="col-12 small text-body-secondary">${I18n.t("finRightProfileFeatHint")}</div>
                 <div class="col-12 d-flex flex-wrap gap-3 mt-2">
                     ${[["korlatlan_hirdetes", "finRightUnlimited"], ["reklammentes", "finRightAdFree"], ["pro_statisztika", "finRightProStats"], ["iroda_profil", "finRightAgency"]].map(([k, l]) => `
                         <div class="form-check">
@@ -841,7 +847,8 @@ AdminManager.finCsomagSzerk = function (c) {
             jogosultsag: {
                 hirdetes_limit: ures($("#fcLimit").value), hirdetes_plusz: ures($("#fcPlusz").value), kiemeles: ures($("#fcKiemeles").value), kiemeles_nap: ures($("#fcKiemelesNap").value),
                 korlatlan_hirdetes: $("#fcJ_korlatlan_hirdetes").checked, reklammentes: $("#fcJ_reklammentes").checked,
-                pro_statisztika: $("#fcJ_pro_statisztika").checked, iroda_profil: $("#fcJ_iroda_profil").checked
+                pro_statisztika: $("#fcJ_pro_statisztika").checked, iroda_profil: $("#fcJ_iroda_profil").checked,
+                profil_kiemeles: ures($("#fcProfilKiemeles").value)
             }
         };
         $("#fcMent").disabled = true;

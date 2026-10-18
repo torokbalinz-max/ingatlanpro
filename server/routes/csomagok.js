@@ -40,61 +40,67 @@ router.post("/api/csomagok/rendeles", csakBelepve, async (req, res) => {
     try {
         if (tulSok(req.user.id)) return res.status(429).json({ error: "too_many" });
         const v = await rendeles.rendel(req.user, req.body || {});
+        // Rendeléskor NEM megy e-mail (se a vevőnek díjbekérő, se neked):
+        // a díjbekérő nem kötelező, a fizetési adatok a képernyőn és a
+        // Fiókom → Csomagom és számláim oldalon látszanak. E-mail csak akkor
+        // megy, ha a pénz tényleg megérkezett (lent: rendelesFigyelo).
         res.json({ siker: true, ...v });
-        ertesites(v, req).catch(e => console.error("Rendelés e-mail:", e.message));
     } catch (err) {
         if (err && err.kod === "already_pending") return res.status(409).json({ error: "already_pending", rendeles_id: err.rendeles_id });
         hiba(res, err);
     }
 });
 
-// E-mail a vevőnek (a díjbekérő) és az adminnak (új rendelés)
-async function ertesites(v, req) {
-    if (!mail.elerheto()) return;
-    const s = v.szamla;
-    const u = await oldalAdatok.nyilvanos();
-    const to = s.vevo && s.vevo.email;
-    if (to) {
-        await mail.kuld({
-            to,
-            subject: `Díjbekérő / Factură proformă ${s.sorszam}`,
-            html: await bizonylatHtml(s, { nyomtat: false }),
-            replyTo: u.email || undefined
-        });
-    }
-    if (u.email) {
-        const link = mail.oldalCim(req) + "/#admin/rendelesek";
-        const t = mail.sablon({
-            cim: "Új rendelés az IngatlanPro-n",
-            sorok: [
-                `${(s.vevo && s.vevo.nev) || "Valaki"} megrendelte: ${(s.tetelek || []).map(x => x.megnevezes).join(", ")}`,
-                `Díjbekérő: ${s.sorszam} · ${s.brutto} ${s.penznem}`,
-                "A befizetés után jelöld kifizetettnek – a csomag akkor lesz aktív."
-            ],
-            gomb: "Rendelések",
-            link,
-            lablec: "Admin értesítés."
-        });
-        await mail.kuld({ to: u.email, subject: `Új rendelés: ${s.sorszam}`, html: t.html, text: t.text });
-    }
-}
-
-// Amikor a díjbekérőt kifizetettnek jelölöd: e-mail a vevőnek, hogy a csomag él
+// Amikor a díjbekérő kifizetett lett (kártyával, vagy te jelölted kifizetettnek):
+//  - a vevő e-mailt kap, hogy a csomag él (a számla külön levélben megy – szamlazo.js)
+//  - te (admin) e-mailt kapsz, ha kártyával fizetett (az átutalást te jelölöd,
+//    arról nem kell levél)
+//  - próba (Stripe teszt / demó) fizetésnél a levelekben ott a „TESZT” jelölés
 pu.rendelesFigyelo(async x => {
-    if (!mail.elerheto() || !["aktiv", "teljesitve"].includes(x.statusz) || x.elozo !== "fizetesre_var" || !x.user_id) return;
-    const r = await db.query("SELECT email, ertesites_email FROM users WHERE id = $1", [x.user_id]);
-    const f = r.rows[0];
-    if (!f || !f.email) return;
-    const t = mail.sablon({
-        cim: "A befizetésed megérkezett – a csomagod aktív",
-        sorok: [
-            `${x.megnevezes || "A csomag"}: köszönjük a befizetést, a csomag mostantól él.`,
-            "Plata a fost primită – pachetul este activ."
-        ],
-        gomb: "Csomagom és számláim",
-        link: mail.oldalCim() + "/#fiok/csomag"
-    });
-    await mail.kuld({ to: f.email, subject: "A csomagod aktív / Pachetul este activ", html: t.html, text: t.text });
+    if (!mail.elerheto() || !["aktiv", "teljesitve"].includes(x.statusz) || x.elozo !== "fizetesre_var") return;
+
+    const s = x.szamla_id ? await pu.szamla(x.szamla_id) : null;
+    if (s && Number(s.brutto) === 0) return;            // ingyenes csomag: nincs mit jelezni
+    const teszt = s ? await require("../services/fizetes").tesztFizetes(s.id).catch(() => false) : false;
+    const tesztJel = teszt ? "[TESZT – nem valódi fizetés] " : "";
+
+    // A vevő
+    if (x.user_id) {
+        const r = await db.query("SELECT email FROM users WHERE id = $1", [x.user_id]);
+        const f = r.rows[0];
+        if (f && f.email) {
+            const t = mail.sablon({
+                cim: tesztJel + "A befizetésed megérkezett – a csomagod aktív",
+                sorok: [
+                    `${x.megnevezes || "A csomag"}: köszönjük a befizetést, a csomag mostantól él.`,
+                    "Plata a fost primită – pachetul este activ.",
+                    teszt ? "Ez egy próbafizetés volt (nem terheltünk kártyát) – számla nem készül róla." : ""
+                ].filter(Boolean),
+                gomb: "Csomagom és számláim",
+                link: mail.oldalCim() + "/#fiok/csomag"
+            });
+            await mail.kuld({ to: f.email, subject: tesztJel + "A csomagod aktív / Pachetul este activ", html: t.html, text: t.text });
+        }
+    }
+
+    // Te (admin) – csak kártyás fizetésnél (az átutalást te magad jelölöd kifizetettnek)
+    if (s && s.fizetesi_mod === "kartya") {
+        const u = await oldalAdatok.nyilvanos();
+        if (u.email) {
+            const t = mail.sablon({
+                cim: tesztJel + "Fizetett rendelés az IngatlanPro-n",
+                sorok: [
+                    `${(s.vevo && s.vevo.nev) || "Valaki"} kifizette: ${(s.tetelek || []).map(t => t.megnevezes).join(", ")}`,
+                    `${s.brutto} ${s.penznem} · kártyával · ${s.sorszam}`,
+                    teszt ? "Próbafizetés (Stripe teszt mód) – valódi pénz nem érkezett, számla nem készült." : "A csomag aktív, a számla magától elkészült és elment a vevőnek."
+                ],
+                gomb: "Rendelések",
+                link: mail.oldalCim() + "/#admin/rendelesek",
+                lablec: "Admin értesítés."
+            });
+            await mail.kuld({ to: u.email, subject: `${tesztJel}Fizetett rendelés: ${s.sorszam}`, html: t.html, text: t.text });
+        }
+    }
 });
 
 // ===================== FIÓKOM → CSOMAGOM ÉS SZÁMLÁIM =====================

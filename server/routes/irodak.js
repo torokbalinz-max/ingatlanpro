@@ -219,6 +219,38 @@ function nyilvanosIroda(ir) {
     return { ...x, van_logo: !!(logo || ir.van_logo) };
 }
 
+// ===================== KIEMELT HIRDETÉS AZ IRODAPROFILON =====================
+// A csomag joga (profil_kiemeles = N): az iroda N hirdetését a profilja
+// tetejére teheti, nagy, feltűnő kártyán. Hogy melyiket, azt az iroda
+// vezetője választja ki (Irodám → Hirdetések → „Kiemelt a profilon”).
+// Ha a csomag lejár, a választás megmarad, de nem látszik (újra-előfizetéskor
+// magától visszajön). Csak aktív hirdetés látszik.
+
+async function profilKeret(irodaId) {
+    try {
+        const j = await require("../services/penzugy").irodaJogosultsag(irodaId);
+        return Math.max(0, Number(j && j.profil_kiemeles) || 0);
+    } catch (e) {
+        return 0;
+    }
+}
+
+function profilIds(ertek) {
+    let v = ertek;
+    if (typeof v === "string") { try { v = JSON.parse(v); } catch (e) { v = []; } }
+    return Array.isArray(v) ? [...new Set(v.map(Number).filter(n => Number.isInteger(n) && n > 0))] : [];
+}
+
+// aktivak: az iroda aktív hirdetései (a LISTA_MEZOK sorai)
+async function profilKiemeles(irodaId, aktivak) {
+    const r = await db.query("SELECT profil_kiemelt FROM irodak WHERE id = $1", [irodaId]);
+    const ids = profilIds(r.rows[0] && r.rows[0].profil_kiemelt);
+    const keret = await profilKeret(irodaId);
+    const map = new Map((aktivak || []).map(i => [i.id, i]));
+    const lathato = keret ? ids.map(id => map.get(id)).filter(Boolean).slice(0, keret) : [];
+    return { keret, ids, lathato };
+}
+
 // ===================== IRODÁK LISTÁJA (nyilvános) =====================
 
 // Csak a jóváhagyott irodák: név, város, elérhetőség, aktív hirdetések száma
@@ -381,10 +413,16 @@ router.get("/api/irodak/:id", async (req, res) => {
             delete ki.dontes_ok;
         }
 
+        // Kiemelt hirdetés(ek) a profil tetején – ha a csomagja ad rá jogot
+        const pk = await profilKiemeles(iroda.id, hirdetesek.rows);
+
         res.json({
             ...ki,
             ugynokok: ugynokok.rows,
             hirdetesek: hirdetesek.rows,
+            kiemelt_hirdetesek: pk.lathato,
+            // a tagoknak: mennyit emelhet ki, és mit választott (a kezelő felülethez)
+            ...(j.tag ? { profil_kiemeles: { keret: pk.keret, ids: pk.ids } } : {}),
             jog: j
         });
 
@@ -966,6 +1004,31 @@ router.post("/api/admin/irodak/:id/anaf", csapat.csakResz("irodak"), async (req,
         hiba(res, err);
     }
 
+});
+
+// A kiemelt hirdetés(ek) kiválasztása – csak az iroda vezetője (és az admin)
+//  body: { ids: [ingatlan_id, ...] }  (üres lista: nincs kiemelés)
+router.put("/api/irodak/:id/profil-kiemeles", csakBelepve, async (req, res) => {
+    try {
+        const irodaId = Number(req.params.id) || 0;
+        const j = await jog(req, irodaId);
+        if (!j.vezeto) return res.status(403).json({ error: "forbidden" });
+
+        const keret = await profilKeret(irodaId);
+        const ids = profilIds((req.body || {}).ids);
+        if (ids.length && !keret) return res.status(400).json({ error: "no_profile_feature" });
+        if (ids.length > keret) return res.status(400).json({ error: "too_many_selected", keret });
+
+        if (ids.length) {
+            const r = await db.query("SELECT id FROM ingatlanok WHERE iroda_id = $1 AND statusz = 'aktiv' AND id = ANY($2::int[])", [irodaId, ids]);
+            if (r.rowCount !== ids.length) return res.status(400).json({ error: "listing_not_found" });
+        }
+
+        await db.query("UPDATE irodak SET profil_kiemelt = $2::jsonb, updated_at = NOW() WHERE id = $1", [irodaId, JSON.stringify(ids)]);
+        res.json({ siker: true, keret, ids });
+    } catch (err) {
+        hiba(res, err);
+    }
 });
 
 module.exports = router;

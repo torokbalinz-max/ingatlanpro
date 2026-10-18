@@ -407,6 +407,8 @@ function jogTisztit(j) {
     if (egesz(j.kiemeles)) out.kiemeles = egesz(j.kiemeles);
     // A kiemelés hossza napban (az egyszeri kiemelés terméknél és a havi keretnél)
     if (egesz(j.kiemeles_nap)) out.kiemeles_nap = Math.min(365, egesz(j.kiemeles_nap));
+    // Kiemelt hirdetés az irodaprofilon: ennyi hirdetést tehet a profil tetejére (kiválasztja, melyiket)
+    if (egesz(j.profil_kiemeles)) out.profil_kiemeles = Math.min(20, egesz(j.profil_kiemeles));
     ["korlatlan_hirdetes", "reklammentes", "pro_statisztika", "iroda_profil"].forEach(k => { if (j[k]) out[k] = true; });
     return out;
 }
@@ -1328,7 +1330,7 @@ async function aktivJogok(feltetel, param) {
 }
 
 function jogOsszevon(lista, alapLimit) {
-    const j = { hirdetes_limit: alapLimit, korlatlan_hirdetes: false, reklammentes: false, pro_statisztika: false, kiemeles: 0, csomagok: lista.length };
+    const j = { hirdetes_limit: alapLimit, korlatlan_hirdetes: false, reklammentes: false, pro_statisztika: false, kiemeles: 0, profil_kiemeles: 0, csomagok: lista.length };
     let plusz = 0;
     lista.forEach(({ j: c, db }) => {
         if (c.korlatlan_hirdetes) j.korlatlan_hirdetes = true;
@@ -1337,6 +1339,7 @@ function jogOsszevon(lista, alapLimit) {
         if (c.reklammentes) j.reklammentes = true;
         if (c.pro_statisztika) j.pro_statisztika = true;
         if (c.kiemeles) j.kiemeles += Number(c.kiemeles) * db;
+        if (c.profil_kiemeles) j.profil_kiemeles += Number(c.profil_kiemeles) * db;
     });
     j.hirdetes_limit += plusz;
     if (j.korlatlan_hirdetes) j.hirdetes_limit = null;

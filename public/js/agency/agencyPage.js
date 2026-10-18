@@ -472,7 +472,10 @@ class AgencyPage {
             return u ? u.nev : "";
         };
 
+        const vezeto = AuthManager.isAdmin() || (AuthManager.irodak.find(x => x.id === ir.id) || {}).szerep === "vezeto";
+
         el.innerHTML = `
+            ${typeof AgencyFeatured !== "undefined" ? AgencyFeatured.kezeloHtml(ir, L, vezeto) : ""}
             <div class="agStats">
                 ${[["", "agStatAll", L.length], ["aktiv", "agStatus_aktiv", szam("aktiv")], ["fuggo", "agStatus_fuggo", szam("fuggo")],
                    ["eladva", "agStatus_eladva", szam("eladva")], ["archiv", "agStatus_archiv", szam("archiv")]]
@@ -529,6 +532,7 @@ class AgencyPage {
             </div>`;
 
         // Események
+        if (typeof AgencyFeatured !== "undefined") AgencyFeatured.kot(el);
         el.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { f.statusz = b.dataset.stat; AgencyPage.hirdetesTab(el); });
         el.querySelectorAll("[data-folder]").forEach(b => b.onclick = () => {
             f.mappa = b.dataset.folder === "__all" ? null : b.dataset.folder;

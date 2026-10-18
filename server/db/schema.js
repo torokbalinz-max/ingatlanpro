@@ -388,7 +388,9 @@ async function createSchema(db) {
         "dontes_ok TEXT",
         "dontes_ido TIMESTAMP",
         "logo BYTEA",
-        "logo_mime TEXT"
+        "logo_mime TEXT",
+        // a profil tetején kiemelt hirdetések (azonosítók, sorrendben) – csomag joga: profil_kiemeles
+        "profil_kiemelt JSONB DEFAULT '[]'::jsonb"
     ];
 
     for (const o of irodaOszlopok) {

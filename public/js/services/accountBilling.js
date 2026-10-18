@@ -134,7 +134,11 @@ class AccountBilling {
                                 <div class="d-flex align-items-center gap-2 mb-2"><i class="fa-solid fa-briefcase text-body-secondary" aria-hidden="true"></i> <b>${esc(i.nev)}</b></div>
                                 <div class="small">${i.limit === null ? I18n.f("prUsageUnlimited", { db: i.db }) : I18n.f("prUsage", { db: i.db, limit: i.limit })}</div>
                                 <div class="small text-body-secondary">${i.csomagok ? I18n.f("prYourPlanN", { n: i.csomagok }) : I18n.t("prYourPlanFree")}</div>
-                                <a class="btn btn-sm btn-outline-primary mt-2" href="#csomagok/iroda">${I18n.t("accAgencyPackages")}</a>
+                                ${i.profil_kiemeles ? `<div class="small mt-1"><i class="fa-solid fa-thumbtack text-primary" aria-hidden="true"></i> ${I18n.f("finRightProfileFeat", { n: i.profil_kiemeles })}</div>` : ""}
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    ${i.profil_kiemeles ? `<a class="btn btn-sm btn-primary" href="#iroda/${i.id}:hirdetesek"><i class="fa-solid fa-hand-pointer" aria-hidden="true"></i> ${I18n.t("agFeatPick")}</a>` : ""}
+                                    <a class="btn btn-sm btn-outline-primary" href="#csomagok/iroda">${I18n.t("accAgencyPackages")}</a>
+                                </div>
                             </div>
                         </div>`).join("") : ""}
                 </div>

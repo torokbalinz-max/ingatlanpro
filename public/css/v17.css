@@ -1,0 +1,170 @@
+/* ============================================================
+   17. változat: kiemelt hirdetés az irodaprofilon
+   ============================================================ */
+
+/* ---------- Irodám → Hirdetések: a beállító doboz ---------- */
+.agFeatBox {
+    border: 1px solid rgba(var(--bs-warning-rgb), .45);
+    background: linear-gradient(135deg, rgba(var(--bs-warning-rgb), .10), rgba(var(--bs-warning-rgb), .02));
+}
+.agFeatBox.off {
+    border-color: var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+.agFeatIcon {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--bs-warning-rgb), .22);
+    color: var(--bs-warning-text-emphasis);
+    font-size: 1.05rem;
+}
+.agFeatBox.off .agFeatIcon { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
+
+.agFeatChosen {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+}
+.agFeatChip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 10px;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color-translucent);
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+}
+.agFeatChip:hover { border-color: var(--bs-warning); }
+.agFeatChipImg, .agFeatRowImg {
+    flex: 0 0 56px;
+    width: 56px;
+    height: 42px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bs-secondary-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-secondary-color);
+}
+.agFeatChipImg img, .agFeatRowImg img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- a választó ablak ---------- */
+.agFeatList { display: grid; gap: 8px; }
+.agFeatRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--bs-border-color-translucent);
+    cursor: pointer;
+    margin: 0;
+}
+.agFeatRow:hover { background: var(--bs-tertiary-bg); }
+.agFeatRow.on {
+    border-color: var(--bs-warning);
+    background: rgba(var(--bs-warning-rgb), .10);
+}
+.agFeatRow.dim { opacity: .5; cursor: not-allowed; }
+.agFeatRow .form-check-input { flex: 0 0 auto; margin: 0; }
+
+/* ---------- nyilvános irodaprofil: a kiemelt hirdetés(ek) ---------- */
+.agHeroHead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.agHeroHead i { color: var(--bs-warning); }
+
+.agHeroGrid { display: grid; gap: 16px; }
+.agHeroGrid.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.agHeroGrid.n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.agHeroGrid.n3 .agHero.big { grid-column: 1 / -1; }
+
+.agHero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--bs-body-bg);
+    border: 2px solid var(--bs-warning);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .10), 0 0 0 4px rgba(var(--bs-warning-rgb), .15);
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.agHero:hover, .agHero:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, .14), 0 0 0 5px rgba(var(--bs-warning-rgb), .25);
+    outline: none;
+}
+.agHero.big { flex-direction: row; }
+
+.agHeroImg {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: var(--bs-secondary-bg);
+    overflow: hidden;
+}
+.agHero.big .agHeroImg { flex: 0 0 58%; aspect-ratio: auto; min-height: 300px; }
+.agHeroImg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.agHeroEmpty {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: var(--bs-secondary-color);
+}
+.agHeroImg.noPhoto .agHeroEmpty { display: flex; }
+
+.agHeroBadge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--bs-warning);
+    color: #3b2a00;
+    font-weight: 700;
+    font-size: .85rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .2);
+}
+.agHeroImg .photoCount { position: absolute; right: 12px; bottom: 12px; }
+
+.agHeroBody {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px 20px 20px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.agHero.big .agHeroBody { justify-content: center; padding: 28px; }
+.agHeroPrice { font-size: 1.6rem; font-weight: 800; line-height: 1.1; color: var(--bs-emphasis-color); }
+.agHero.big .agHeroPrice { font-size: 2rem; }
+.agHeroTitle { font-size: 1.1rem; margin: 4px 0 0; overflow-wrap: anywhere; }
+.agHero.big .agHeroTitle { font-size: 1.35rem; }
+.agHeroPlace { color: var(--bs-secondary-color); font-size: .9rem; }
+.agHeroBtn { align-self: flex-start; margin-top: 8px; pointer-events: none; }
+
+@media (max-width: 991.98px) {
+    .agHero.big { flex-direction: column; }
+    .agHero.big .agHeroImg { flex: none; aspect-ratio: 16 / 10; min-height: 0; }
+    .agHero.big .agHeroBody { padding: 18px 20px 20px; }
+}
+@media (max-width: 575.98px) {
+    .agHeroGrid.n2, .agHeroGrid.n3 { grid-template-columns: 1fr; }
+    .agHeroPrice, .agHero.big .agHeroPrice { font-size: 1.4rem; }
+}
