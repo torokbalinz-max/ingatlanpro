@@ -388,6 +388,62 @@ async function keziJelol(id, index) {
     return { allapot: "kezi" };
 }
 
+// ---------- a vevő adatainak kiegészítése (az ANAF-hoz hiányzó adatok) ----------
+//  Kiállított, de az ANAF-hoz még el nem küldött számlán a vevő adatai
+//  kiegészíthetők (pl. település, megye) – a tételek, összegek nem változnak.
+//  ugyfelIs: az ügyfél adatainál is (a következő számlákhoz)
+
+async function hianyLista(id) {
+    const s = await pu.szamla(id);
+    if (!s) throw hibaKod("not_found");
+    const h = await efactura.hianyok(s);
+    return { hianyok: h.map(k => ({ kod: k, szoveg: efactura.HIANY_SZOVEG[k] || k })), vevo: s.vevo || {}, ugyfel_id: s.ugyfel_id };
+}
+
+async function vevoJavit(id, b = {}, { ugyfelIs = false } = {}) {
+    const s = await pu.szamla(id);
+    if (!s) throw hibaKod("not_found");
+    if (["feldolgozas", "ok", "kezi"].includes(s.efactura_allapot)) throw hibaKod("efactura_already_sent");
+    const t = (v, n) => { const x = String(v ?? "").trim(); return x ? x.slice(0, n) : null; };
+    const tipus = ["maganszemely", "pfa", "ceg"].includes(b.tipus) ? b.tipus : ((s.vevo && s.vevo.tipus) || "maganszemely");
+    const orszag = /^[A-Za-z]{2}$/.test(String(b.orszag || "").trim()) ? String(b.orszag).trim().toUpperCase() : "RO";
+    const v = {
+        ...(s.vevo || {}),
+        tipus,
+        nev: t(b.nev, 200) || (s.vevo && s.vevo.nev) || s.ugyfel_nev,
+        cui: (t(b.cui, 20) || "").toUpperCase().replace(/^RO/, "").replace(/\s/g, "") || null,
+        reg_com: tipus === "maganszemely" ? null : t(b.reg_com, 40),
+        cim: t(b.cim, 400),
+        varos: t(b.varos, 80),
+        megye: orszag === "RO" ? (efactura.megyeKod(b.megye) || null) : null,
+        orszag,
+        afa: tipus !== "maganszemely" && !!b.afa,
+        email: t(b.email, 160) || (s.vevo && s.vevo.email) || null,
+        telefon: t(b.telefon, 40) || (s.vevo && s.vevo.telefon) || null
+    };
+    if (!v.nev) throw hibaKod("missing_name");
+    if (!v.cim) throw hibaKod("missing_address");
+    if (!v.varos) throw hibaKod("missing_city");
+    if (orszag === "RO" && !v.megye) throw hibaKod("missing_county");
+    if (v.megye === "RO-B") {
+        const m = `${v.varos} ${v.cim}`.match(/sector(?:ul)?\s*([1-6])\b/i);
+        if (!m) throw hibaKod("bad_sector");
+        v.varos = "Sector " + m[1];
+    }
+    if (tipus !== "maganszemely" && !/^\d{2,10}$/.test(v.cui || "")) throw hibaKod("bad_cui");
+    if (tipus === "maganszemely" && v.cui && !/^\d{13}$/.test(v.cui)) throw hibaKod("bad_cnp");
+
+    await db.query(`UPDATE penzugy_szamlak SET vevo = $2::jsonb, efactura_hiba = NULL,
+                        efactura_allapot = CASE WHEN efactura_allapot = 'hiba' THEN NULL ELSE efactura_allapot END, updated_at = NOW()
+                    WHERE id = $1`, [s.id, JSON.stringify(v)]);
+    if (ugyfelIs && s.ugyfel_id) {
+        await db.query(`UPDATE penzugy_ugyfelek SET tipus = $2, nev = $3, cui = $4, reg_com = $5, cim = $6, varos = $7, megye = $8, orszag = $9,
+                            afa_alany = $10, email = COALESCE($11, email), telefon = COALESCE($12, telefon), updated_at = NOW() WHERE id = $1`,
+            [s.ugyfel_id, v.tipus, v.nev, v.cui, v.reg_com, v.cim, v.varos, v.megye, v.orszag, v.afa, v.email, v.telefon]);
+    }
+    return hianyLista(s.id);
+}
+
 async function valaszZip(id) {
     const r = await db.query("SELECT v.zip, s.sorszam FROM efactura_valaszok v JOIN penzugy_szamlak s ON s.id = v.szamla_id WHERE v.szamla_id = $1", [id]);
     return r.rows[0] || null;
@@ -547,7 +603,7 @@ async function irattarPdf(irattarId) {
 }
 
 module.exports = {
-    HATARIDO_NAP, allapot, kulcsMent, kulcsTorol, lecsatol, authUrl, callback, kuld, frissit, keziJelol, valaszZip,
+    HATARIDO_NAP, hianyLista, vevoJavit, allapot, kulcsMent, kulcsTorol, lecsatol, authUrl, callback, kuld, frissit, keziJelol, valaszZip,
     bejovok, futtat, szamlalok, szamlaInfo, hatarido, irattarPdf, redirectUri,
     _: { attr, hibak, bejovoAdat, szamlaXmlBol, b2cE }
 };

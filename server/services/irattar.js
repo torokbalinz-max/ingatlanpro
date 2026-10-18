@@ -519,7 +519,9 @@ async function csomag(ev, honap) {
             ...hianyok.map(h => "  - " + h)
         ].join("\r\n")
     });
-    return { nev: `iratok-${p.nev}.zip`, adat: zip.keszit(fajlok), db: fajlok.length, hianyok: hianyok.length };
+    // minden egy „2026-10” (vagy „2026”) mappában: a gépen az év mappájába kibontva rendben van
+    const mappaban = fajlok.map(f => ({ ...f, nev: `${p.nev}/${f.nev}` }));
+    return { nev: `iratok-${p.nev}.zip`, adat: zip.keszit(mappaban), db: fajlok.length, hianyok: hianyok.length };
 }
 
 // az összesítő CSV egy időszakra (a lista szűrője évre szól – itt a hónapra is szűkítünk)

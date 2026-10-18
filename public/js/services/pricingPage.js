@@ -327,6 +327,40 @@ class PricingPage {
 
     // ===================== Megrendelés =====================
 
+    // Megyék (ISO 3166-2:RO) – a számlázási címhez
+    static MEGYEK = [["AB", "Alba"], ["AR", "Arad"], ["AG", "Argeș"], ["BC", "Bacău"], ["BH", "Bihor"], ["BN", "Bistrița-Năsăud"], ["BT", "Botoșani"],
+        ["BV", "Brașov"], ["BR", "Brăila"], ["B", "București"], ["BZ", "Buzău"], ["CS", "Caraș-Severin"], ["CL", "Călărași"], ["CJ", "Cluj"],
+        ["CT", "Constanța"], ["CV", "Covasna"], ["DB", "Dâmbovița"], ["DJ", "Dolj"], ["GL", "Galați"], ["GR", "Giurgiu"], ["GJ", "Gorj"],
+        ["HR", "Harghita"], ["HD", "Hunedoara"], ["IL", "Ialomița"], ["IS", "Iași"], ["IF", "Ilfov"], ["MM", "Maramureș"], ["MH", "Mehedinți"],
+        ["MS", "Mureș"], ["NT", "Neamț"], ["OT", "Olt"], ["PH", "Prahova"], ["SM", "Satu Mare"], ["SJ", "Sălaj"], ["SB", "Sibiu"], ["SV", "Suceava"],
+        ["TR", "Teleorman"], ["TM", "Timiș"], ["TL", "Tulcea"], ["VS", "Vaslui"], ["VL", "Vâlcea"], ["VN", "Vrancea"]];
+
+    static ORSZAGOK = ["RO", "HU", "MD", "AT", "DE", "IT", "ES", "FR", "BE", "NL", "GB", "IE", "CH", "US"];
+
+    static orszagok(akt) {
+        let nevek = null;
+        try { nevek = new Intl.DisplayNames([I18n.current], { type: "region" }); } catch (e) { /* régi böngésző */ }
+        const lista = PricingPage.ORSZAGOK.includes(akt) ? PricingPage.ORSZAGOK : [...PricingPage.ORSZAGOK, akt];
+        return lista.map(k => `<option value="${k}" ${k === akt ? "selected" : ""}>${Utils.escape(nevek ? nevek.of(k) : k)}</option>`).join("");
+    }
+
+    // Az ANAF-tól jövő megyenév ("COVASNA", "MUNICIPIUL BUCUREŞTI") → "RO-CV"
+    static megyeKod(nev) {
+        const n = String(nev || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/municipiul|judetul|jud\.?/g, "").replace(/[^a-z]/g, "");
+        if (!n) return "";
+        if (n.includes("bucuresti")) return "RO-B";
+        const t = PricingPage.MEGYEK.find(([, m]) => m.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "") === n);
+        return t ? "RO-" + t[0] : "";
+    }
+
+    // "MUN. SFÂNTU GHEORGHE" → "Sfântu Gheorghe"; Bukarestben "Sector 3"
+    static telepulesNev(s) {
+        const x = String(s || "").replace(/^(mun\.?|municipiul|oraș|oras|com\.?|comuna|sat)\s+/i, "").trim();
+        const sec = x.match(/sector(?:ul)?\s*([1-6])/i);
+        if (sec) return "Sector " + sec[1];
+        return x.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+    }
+
     static rendeles(c, opts = {}) {
 
         const esc = Utils.escape;
@@ -424,10 +458,39 @@ class PricingPage {
                             <label class="form-label small mb-1" for="prRegCom">${I18n.t("prRegCom")}</label>
                             <input class="form-control" id="prRegCom" maxlength="40" value="${esc(sz.reg_com || "")}" placeholder="J14/123/2020">
                         </div>
-                        <div class="col-12">
-                            <label class="form-label small mb-1" for="prCim">${I18n.t("prBillAddress")} *</label>
-                            <input class="form-control" id="prCim" maxlength="400" value="${esc(sz.cim || "")}" autocomplete="street-address">
+                        <div class="col-12 prCegMezo">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="prAfa" ${sz.afa_alany ? "checked" : ""}>
+                                <label class="form-check-label small" for="prAfa">${I18n.t("prVatPayer")}</label>
+                            </div>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="prCim">${I18n.t("prStreet")} *</label>
+                            <input class="form-control" id="prCim" maxlength="400" value="${esc(sz.cim || "")}" autocomplete="street-address" placeholder="${esc(I18n.t("prStreetPh"))}">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small mb-1" for="prVaros">${I18n.t("prCity")} *</label>
+                            <input class="form-control" id="prVaros" maxlength="80" value="${esc(sz.varos || "")}" autocomplete="address-level2" placeholder="Sfântu Gheorghe">
+                        </div>
+                        <div class="col-md-4" id="prMegyeBox">
+                            <label class="form-label small mb-1" for="prMegye">${I18n.t("prCounty")} *</label>
+                            <select class="form-select" id="prMegye" autocomplete="address-level1">
+                                <option value="">–</option>
+                                ${PricingPage.MEGYEK.map(([k, n]) => `<option value="RO-${k}" ${sz.megye === "RO-" + k ? "selected" : ""}>${esc(n)}</option>`).join("")}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1" for="prOrszag">${I18n.t("prCountry")} *</label>
+                            <select class="form-select" id="prOrszag" autocomplete="country">
+                                ${PricingPage.orszagok(sz.orszag || "RO")}
+                            </select>
+                        </div>
+                        <div class="col-12 small text-body-secondary" id="prSectorHint" hidden>${I18n.t("prSectorHint")}</div>
+                        <div class="col-md-6 prMaganMezo">
+                            <label class="form-label small mb-1" for="prCnp">${I18n.t("prCnp")}</label>
+                            <input class="form-control" id="prCnp" maxlength="13" inputmode="numeric" autocomplete="off" placeholder="${esc(sz.cnp_van ? I18n.t("prCnpSaved") : "")}">
+                        </div>
+                        <div class="col-md-6 prMaganMezo small text-body-secondary d-flex align-items-end">${I18n.t("prCnpHint")}</div>
                         <div class="col-md-7">
                             <label class="form-label small mb-1" for="prEmail">${I18n.t("authEmail")} *</label>
                             <input class="form-control" id="prEmail" type="email" maxlength="160" value="${esc(sz.email || (AuthManager.user && AuthManager.user.email) || "")}" autocomplete="email">
@@ -459,7 +522,16 @@ class PricingPage {
             const tipusValt = () => {
                 const t = (tartalom.querySelector("input[name=prTipus]:checked") || {}).value || "maganszemely";
                 tartalom.querySelectorAll(".prCegMezo").forEach(el => { el.hidden = t === "maganszemely"; });
+                tartalom.querySelectorAll(".prMaganMezo").forEach(el => { el.hidden = t !== "maganszemely"; });
             };
+            // A megye csak romániai címnél kell; Bukarestben a település a kerület (Sector 1–6)
+            const orszagValt = () => {
+                $("#prMegyeBox").hidden = $("#prOrszag").value !== "RO";
+                $("#prSectorHint").hidden = !($("#prOrszag").value === "RO" && $("#prMegye").value === "RO-B");
+            };
+            $("#prOrszag").onchange = orszagValt;
+            $("#prMegye").onchange = orszagValt;
+            orszagValt();
             tartalom.querySelectorAll("input[name=prTipus]").forEach(r => { r.onchange = tipusValt; });
             tipusValt();
 
@@ -474,6 +546,8 @@ class PricingPage {
                 $("#prCui").value = i.cui || "";
                 $("#prRegCom").value = i.reg_com || "";
                 $("#prCim").value = i.cim || "";
+                $("#prVaros").value = "";
+                $("#prMegye").value = "";
                 if (i.email) $("#prEmail").value = i.email;
                 if (i.telefon) $("#prTel").value = i.telefon;
                 tipusValt();
@@ -491,8 +565,13 @@ class PricingPage {
                     const a = v && v.adat;
                     if (a) {
                         if (a.nev) $("#prNev").value = a.nev;
-                        if (a.cim) $("#prCim").value = a.cim;
+                        if (a.utca || a.cim) $("#prCim").value = a.utca || a.cim;
+                        if (a.telepules) $("#prVaros").value = PricingPage.telepulesNev(a.telepules);
+                        const mk = PricingPage.megyeKod(a.megye);
+                        if (mk) { $("#prOrszag").value = "RO"; $("#prMegye").value = mk; }
                         if (a.regCom || a.reg_com) $("#prRegCom").value = a.regCom || a.reg_com;
+                        $("#prAfa").checked = !!a.tva;
+                        orszagValt();
                     }
                 }).catch(e => { info.innerHTML = `<span class="text-danger">${esc(AgencyAnaf.hibaSzoveg(e))}</span>`; });
             };
@@ -514,7 +593,9 @@ class PricingPage {
                     szamlazas: {
                         tipus: (tartalom.querySelector("input[name=prTipus]:checked") || {}).value || "maganszemely",
                         nev: $("#prNev").value, cui: $("#prCui").value, reg_com: $("#prRegCom").value,
-                        cim: $("#prCim").value, email: $("#prEmail").value, telefon: $("#prTel").value
+                        cim: $("#prCim").value, varos: $("#prVaros").value, megye: $("#prMegye").value, orszag: $("#prOrszag").value,
+                        cnp: $("#prCnp").value, afa_alany: $("#prAfa").checked,
+                        email: $("#prEmail").value, telefon: $("#prTel").value
                     }
                 };
                 $("#prKuld").disabled = true;

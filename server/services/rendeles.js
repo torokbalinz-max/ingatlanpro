@@ -98,12 +98,19 @@ async function ugyfelKeres(userId, irodaId, sz) {
         cim: sz.cim,
         email: sz.email,
         telefon: sz.telefon,
+        // az e-Facturához külön: település, megye, ország, ÁFA-alany-e
+        varos: sz.varos,
+        megye: sz.megye,
+        orszag: sz.orszag,
+        afa_alany: sz.afa_alany,
         user_id: irodaId ? null : userId,
         iroda_id: irodaId || null
     };
 
     if (r.rowCount) {
         const u = r.rows[0];
+        // a korábban megadott CNP megmarad, ha most nem írta be újra (nem küldjük vissza a böngészőnek)
+        if (adat.tipus === "maganszemely" && !adat.cui && u.tipus === "maganszemely" && u.cui) adat.cui = u.cui;
         // A számlázási adatok frissítése (a már kiállított bizonylatokon a régi marad)
         await pu.ugyfelMent(u.id, { ...adat, user_id: u.user_id || adat.user_id, jegyzet: u.jegyzet });
         return u.id;
@@ -113,21 +120,56 @@ async function ugyfelKeres(userId, irodaId, sz) {
 
 }
 
+// A CNP ellenőrző száma (a magánszemély személyi száma – nem kötelező megadni)
+function cnpErvenyes(cnp) {
+    if (!/^[1-9]\d{12}$/.test(cnp)) return false;
+    const k = "279146358279";
+    let s = 0;
+    for (let i = 0; i < 12; i++) s += Number(cnp[i]) * Number(k[i]);
+    const e = s % 11 === 10 ? 1 : s % 11;
+    return e === Number(cnp[12]);
+}
+
+// A számlázási adatok: mindaz, ami a hivatalos számlához és az ANAF e-Facturához kell
+//   (Legea 227/2015 art. 319; CIUS-RO: a vevő utcája, települése, megyéje, országa külön)
 function szamlazasTisztit(b) {
+    const efactura = require("./efactura");
     const tipus = pu.UGYFEL_TIPUSOK.includes(b.tipus) ? b.tipus : "maganszemely";
+    const orszag = /^[A-Za-z]{2}$/.test(String(b.orszag || "").trim()) ? String(b.orszag).trim().toUpperCase() : "RO";
     const d = {
         tipus,
         nev: sz(b.nev, 200),
         cui: (sz(b.cui, 20) || "").toUpperCase().replace(/^RO/, "").replace(/\s/g, "") || null,
         reg_com: sz(b.reg_com, 40),
         cim: sz(b.cim, 400),
+        varos: sz(b.varos, 80),
+        megye: orszag === "RO" ? (efactura.megyeKod(b.megye) || null) : null,
+        orszag,
+        afa_alany: tipus !== "maganszemely" && !!b.afa_alany,
         email: (sz(b.email, 160) || "").toLowerCase() || null,
         telefon: sz(b.telefon, 40)
     };
     if (!d.nev) throw hibaKod("missing_name");
-    if (!d.cim) throw hibaKod("missing_address");
+    if (!d.cim || d.cim.length < 3) throw hibaKod("missing_address");
+    if (!d.varos) throw hibaKod("missing_city");
+    if (orszag === "RO" && !d.megye) throw hibaKod("missing_county");
+    // Bukarestben a település a kerület (Sector 1–6) – az ANAF így kéri
+    if (d.megye === "RO-B") {
+        const m = `${d.varos} ${d.cim}`.match(/sector(?:ul)?\s*([1-6])\b/i);
+        if (!m) throw hibaKod("bad_sector");
+        d.varos = "Sector " + m[1];
+    }
     if (!d.email || !EMAIL_RE.test(d.email)) throw hibaKod("bad_email");
-    if (tipus !== "maganszemely" && !/^\d{2,10}$/.test(d.cui || "")) throw hibaKod("bad_cui");
+    if (tipus === "maganszemely") {
+        // magánszemély: a CNP nem kötelező (nélküle az ANAF-nak 13 db 0 megy)
+        const cnp = String(b.cnp || "").replace(/\s/g, "");
+        if (cnp && !cnpErvenyes(cnp)) throw hibaKod("bad_cnp");
+        d.cui = cnp || null;
+        d.reg_com = null;
+    } else {
+        if (!/^\d{2,10}$/.test(d.cui || "")) throw hibaKod("bad_cui");
+        if (orszag === "RO" && !require("./anaf").cuiErvenyes(d.cui)) throw hibaKod("bad_cui");
+    }
     return d;
 }
 
@@ -332,11 +374,17 @@ async function sajat(user) {
 }
 
 async function utolsoSzamlazas(user) {
-    const r = await db.query("SELECT tipus, nev, cui, reg_com, cim, email, telefon FROM penzugy_ugyfelek WHERE user_id = $1 AND iroda_id IS NULL ORDER BY id LIMIT 1", [user.id]);
-    if (r.rowCount) return r.rows[0];
+    const r = await db.query(`SELECT tipus, nev, cui, reg_com, cim, varos, megye, COALESCE(orszag, 'RO') AS orszag, COALESCE(afa_alany, false) AS afa_alany,
+                                     email, telefon FROM penzugy_ugyfelek WHERE user_id = $1 AND iroda_id IS NULL ORDER BY id LIMIT 1`, [user.id]);
+    if (r.rowCount) {
+        const x = r.rows[0];
+        // a CNP-t nem küldjük vissza teljes egészében (csak hogy meg van-e adva)
+        if (x.tipus === "maganszemely" && x.cui) { x.cnp_van = true; x.cui = ""; }
+        return x;
+    }
     const u = await db.query("SELECT nev, email, telefon FROM users WHERE id = $1", [user.id]);
     const x = u.rows[0] || {};
-    return { tipus: "maganszemely", nev: x.nev || "", email: x.email || "", telefon: x.telefon || "", cim: "", cui: "", reg_com: "" };
+    return { tipus: "maganszemely", nev: x.nev || "", email: x.email || "", telefon: x.telefon || "", cim: "", varos: "", megye: "", orszag: "RO", cui: "", reg_com: "" };
 }
 
 // Egy bizonylat – csak ha a felhasználóé (vagy az általa vezetett irodáé)

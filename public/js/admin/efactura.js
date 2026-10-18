@@ -76,8 +76,15 @@ AdminManager.efSzamla = function (id, kesz) {
     tartalom.innerHTML = `<div class="modal-body text-center py-5"><div class="spinner-border text-primary"></div></div>`;
     modal.show();
 
-    const rajzol = () => Promise.all([AdminManager.finApi("szamlak/" + id), AdminManager.efAllapotTolt().catch(() => ({}))]).then(([s, a]) => {
+    const rajzol = () => Promise.all([
+        AdminManager.finApi("szamlak/" + id),
+        AdminManager.efAllapotTolt().catch(() => ({})),
+        AdminManager.efApi(`/api/admin/penzugy/szamlak/${id}/efactura/hianyok`).catch(() => ({ hianyok: [] }))
+    ]).then(([s, a, hi]) => {
         const ef = s.ef || {};
+        const hiany = (hi.hianyok || []).filter(h => !["draft", "not_invoice"].includes(h.kod));
+        const vevoHiany = hiany.some(h => /^buyer_/.test(h.kod));
+        const javithato = !["feldolgozas", "ok", "kezi"].includes(ef.allapot);
         const kesz2 = ["ok", "kezi"].includes(ef.allapot);
         const kuldheto = a.kapcsolva && !["ok", "feldolgozas"].includes(ef.allapot);
         const sor = (cimke, ertek) => ertek ? `<div class="efKv"><span>${cimke}</span><b>${ertek}</b></div>` : "";
@@ -94,6 +101,40 @@ AdminManager.efSzamla = function (id, kesz) {
                 ${sor(I18n.t("efIndex"), ef.index ? `<span class="font-monospace">${esc(ef.index)}</span>` : "")}
                 ${sor(I18n.t("efSentAt"), ef.kuldve ? esc(new Date(ef.kuldve).toLocaleString(Utils.locale())) : "")}
                 ${ef.hiba ? `<div class="alert alert-danger small mt-3 mb-0" style="white-space:pre-wrap">${esc(ef.hiba)}</div>` : ""}
+                ${hiany.length && javithato ? `
+                <div class="alert alert-warning small mt-3 mb-0">
+                    <b><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${I18n.t("efMissingTitle")}</b>
+                    <ul class="mb-0 mt-1">${hiany.map(h => `<li>${esc(h.szoveg)}</li>`).join("")}</ul>
+                    ${hiany.some(h => /^seller_/.test(h.kod)) ? `<div class="mt-2">${I18n.t("efMissingSeller")} <a href="#admin/webhely">${I18n.t("efSiteData")}</a> · <a href="#admin/penzugyBeall">${I18n.t("adminTabBilling")}</a></div>` : ""}
+                </div>` : ""}
+                ${javithato ? `
+                <details class="mt-3" ${vevoHiany ? "open" : ""} id="efVevoBox">
+                    <summary class="small fw-semibold">${I18n.t("efBuyerFix")}</summary>
+                    <form class="row g-2 mt-1" id="efVevoForm" novalidate>
+                        <div class="col-sm-4"><label class="form-label small mb-1" for="efvTipus">${I18n.t("efBuyerType")}</label>
+                            <select class="form-select form-select-sm" id="efvTipus">${["maganszemely", "pfa", "ceg"].map(t => `<option value="${t}" ${((s.vevo && s.vevo.tipus) || "maganszemely") === t ? "selected" : ""}>${esc(I18n.t("finCustType_" + t))}</option>`).join("")}</select></div>
+                        <div class="col-sm-8"><label class="form-label small mb-1" for="efvNev">${I18n.t("prBillName")} *</label>
+                            <input class="form-control form-control-sm" id="efvNev" maxlength="200" value="${esc((s.vevo && s.vevo.nev) || s.ugyfel_nev || "")}"></div>
+                        <div class="col-sm-5"><label class="form-label small mb-1" for="efvCui" id="efvCuiLabel">CUI</label>
+                            <input class="form-control form-control-sm" id="efvCui" maxlength="20" value="${esc((s.vevo && s.vevo.cui) || "")}"></div>
+                        <div class="col-sm-4 efvCeg"><label class="form-label small mb-1" for="efvReg">${I18n.t("prRegCom")}</label>
+                            <input class="form-control form-control-sm" id="efvReg" maxlength="40" value="${esc((s.vevo && s.vevo.reg_com) || "")}"></div>
+                        <div class="col-sm-3 efvCeg d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="efvAfa" ${s.vevo && s.vevo.afa ? "checked" : ""}><label class="form-check-label small" for="efvAfa">${I18n.t("efVatShort")}</label></div></div>
+                        <div class="col-12"><label class="form-label small mb-1" for="efvCim">${I18n.t("prStreet")} *</label>
+                            <input class="form-control form-control-sm" id="efvCim" maxlength="400" value="${esc((s.vevo && s.vevo.cim) || "")}"></div>
+                        <div class="col-sm-5"><label class="form-label small mb-1" for="efvVaros">${I18n.t("prCity")} *</label>
+                            <input class="form-control form-control-sm" id="efvVaros" maxlength="80" value="${esc((s.vevo && s.vevo.varos) || "")}"></div>
+                        <div class="col-sm-4"><label class="form-label small mb-1" for="efvMegye">${I18n.t("prCounty")} *</label>
+                            <select class="form-select form-select-sm" id="efvMegye"><option value="">–</option>${PricingPage.MEGYEK.map(([k, n]) => `<option value="RO-${k}" ${s.vevo && s.vevo.megye === "RO-" + k ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>
+                        <div class="col-sm-3"><label class="form-label small mb-1" for="efvOrszag">${I18n.t("prCountry")}</label>
+                            <select class="form-select form-select-sm" id="efvOrszag">${PricingPage.orszagok((s.vevo && s.vevo.orszag) || "RO")}</select></div>
+                        <div class="col-12 d-flex flex-wrap align-items-center gap-3 mt-2">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="efvUgyfel" ${s.ugyfel_id ? "checked" : "disabled"}><label class="form-check-label small" for="efvUgyfel">${I18n.t("efBuyerFixClient")}</label></div>
+                            <button type="submit" class="btn btn-sm btn-primary ms-auto"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("finSave")}</button>
+                        </div>
+                        <div class="col-12 small text-body-secondary">${I18n.t("efBuyerFixHelp")}</div>
+                    </form>
+                </details>` : ""}
                 ${!a.kapcsolva ? `<div class="alert alert-info small mt-3 mb-0"><i class="fa-solid fa-plug-circle-xmark" aria-hidden="true"></i> ${I18n.t("efNotConnectedHint")} <a href="#admin/efactura">${I18n.t("adminTabEfactura")}</a></div>` : ""}
                 ${!kesz2 ? `
                 <details class="mt-3">
@@ -107,6 +148,7 @@ AdminManager.efSzamla = function (id, kesz) {
             </div>
             <div class="modal-footer flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm me-auto" id="efXml"><i class="fa-solid fa-file-code" aria-hidden="true"></i> XML</button>
+                ${!hiany.length ? `<a class="btn btn-outline-secondary btn-sm" href="/api/admin/penzugy/szamlak/${s.id}/efactura.pdf" target="_blank" rel="noopener" title="${esc(I18n.t("efPdfHint"))}"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> ANAF PDF</a>` : ""}
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="efEllenoriz"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ${I18n.t("finAnafCheck")}</button>
                 ${ef.zip ? `<a class="btn btn-outline-success btn-sm" href="/api/admin/penzugy/szamlak/${s.id}/efactura/valasz.zip"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> ${I18n.t("efZip")}</a>` : ""}
                 ${ef.index && ef.allapot === "feldolgozas" ? `<button type="button" class="btn btn-outline-primary btn-sm" id="efFrissit"><i class="fa-solid fa-rotate" aria-hidden="true"></i> ${I18n.t("efRefresh")}</button>` : ""}
@@ -122,6 +164,27 @@ AdminManager.efSzamla = function (id, kesz) {
                 .catch(e => { alert(AdminManager.efHiba(e)); gomb.disabled = false; gomb.innerHTML = r; return rajzol(); });
         };
         $("#efXml").onclick = () => AdminManager.finXml(s.id, s.sorszam);
+        const vf = $("#efVevoForm");
+        if (vf) {
+            const tipusValt = () => {
+                const t = $("#efvTipus").value;
+                tartalom.querySelectorAll(".efvCeg").forEach(el => { el.hidden = t === "maganszemely"; });
+                $("#efvCuiLabel").textContent = t === "maganszemely" ? I18n.t("prCnp") : "CUI *";
+            };
+            $("#efvTipus").onchange = tipusValt;
+            tipusValt();
+            vf.onsubmit = e => {
+                e.preventDefault();
+                const g = vf.querySelector("button[type=submit]");
+                g.disabled = true;
+                AdminManager.efApi(`/api/admin/penzugy/szamlak/${s.id}/efactura/vevo`, { method: "POST", body: {
+                    ugyfelIs: $("#efvUgyfel").checked,
+                    vevo: { tipus: $("#efvTipus").value, nev: $("#efvNev").value, cui: $("#efvCui").value, reg_com: $("#efvReg").value, afa: $("#efvAfa").checked,
+                        cim: $("#efvCim").value, varos: $("#efvVaros").value, megye: $("#efvMegye").value, orszag: $("#efvOrszag").value }
+                } }).then(() => { if (kesz) kesz(); rajzol(); })
+                    .catch(err => { g.disabled = false; alert(AdminManager.efHiba(err)); });
+            };
+        }
         $("#efEllenoriz").onclick = e => AdminManager.finAnaf(s.id, e.currentTarget);
         if ($("#efKuld")) $("#efKuld").onclick = e => {
             if (!confirm(I18n.f("efSendConfirm", { sorszam: s.sorszam, mod: a.mod === "test" ? I18n.t("efModeTest") : I18n.t("efModeProd") }))) return;

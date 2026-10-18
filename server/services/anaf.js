@@ -85,6 +85,9 @@ function feldolgoz(f) {
         allapotSzoveg: String(dg.stare_inregistrare || "").trim() || null,
         forma: String(dg.forma_juridica || dg.forma_organizare || "").trim() || null,
         megye: sediu ? (sediu.sdenumire_Judet || null) : null,
+        // csak az utca, házszám (a számlán / e-Facturában a település és a megye külön mező)
+        utca: sediu ? ([[sediu.sdenumire_Strada, sediu.snumar_Strada].filter(Boolean).join(" "), sediu.sdetalii_Adresa]
+            .map(x => String(x || "").trim()).filter(Boolean).join(", ") || null) : null,
         telepules: sediu ? (sediu.sdenumire_Localitate || null) : null,
         inaktiv: !!inaktiv.statusInactivi,
         torolve,

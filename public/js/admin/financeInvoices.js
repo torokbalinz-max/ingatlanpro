@@ -198,10 +198,20 @@ AdminManager.finXml = function (id, nev) {
             setTimeout(() => URL.revokeObjectURL(u), 3000);
         });
         return r.json().catch(() => ({})).then(j => {
+            // hiányzó adat: az e-Factura ablak megmutatja, mi hiányzik, és ott ki is egészíthető
+            if (AdminManager.efHianyAblak(id)) return;
             const h = AdminManager.finHianyok(j).map(k => "• " + k).join("\n");
             alert(I18n.t("irEfacturaMissing") + (h ? "\n\n" + h : ""));
         });
     }).catch(() => alert(I18n.t("alertLoadError")));
+};
+
+// Ha az e-Factura ablak még nincs nyitva: megnyitja (a hiányok listájával és a kiegészítő űrlappal)
+AdminManager.efHianyAblak = function (id) {
+    const nyitva = document.querySelector("#efModal.show");
+    if (nyitva || !AdminManager.efSzamla) return false;
+    AdminManager.efSzamla(Number(id));
+    return true;
 };
 
 // A hiányzó adatok szövege (a kezelő nyelvén; ha nincs fordítás, a szerver magyar szövege)
@@ -218,7 +228,10 @@ AdminManager.finAnaf = function (id, gomb) {
     return fetch(`/api/admin/penzugy/szamlak/${id}/efactura/ellenoriz`, { method: "POST", credentials: "same-origin" })
         .then(r => r.json().catch(() => ({})))
         .then(j => {
-            if (j.hianyzik) return alert(I18n.t("irEfacturaMissing") + "\n\n" + AdminManager.finHianyok(j).map(k => "• " + k).join("\n"));
+            if (j.hianyzik) {
+                if (AdminManager.efHianyAblak(id)) return;
+                return alert(I18n.t("irEfacturaMissing") + "\n\n" + AdminManager.finHianyok(j).map(k => "• " + k).join("\n"));
+            }
             if (j.stare === "ok") return alert(I18n.t("finAnafOk"));
             alert(I18n.t("finAnafNok") + "\n\n" + (j.hibak || []).map(k => "• " + k).join("\n"));
         })

@@ -90,6 +90,18 @@ router.post("/api/admin/penzugy/szamlak/:id/efactura/kuld", jog, async (req, res
     } catch (err) { spvHiba(res, err); }
 });
 
+// Mi hiányzik a számlából az ANAF-hoz – és a vevő adatainak kiegészítése
+router.get("/api/admin/penzugy/szamlak/:id/efactura/hianyok", jog, async (req, res) => {
+    try { res.json(await spv.hianyLista(Number(req.params.id) || 0)); } catch (err) { spvHiba(res, err); }
+});
+
+router.post("/api/admin/penzugy/szamlak/:id/efactura/vevo", jog, async (req, res) => {
+    try {
+        const b = req.body || {};
+        res.json({ siker: true, ...(await spv.vevoJavit(Number(req.params.id) || 0, b.vevo || {}, { ugyfelIs: !!b.ugyfelIs })) });
+    } catch (err) { spvHiba(res, err); }
+});
+
 router.post("/api/admin/penzugy/szamlak/:id/efactura/frissit", jog, async (req, res) => {
     try { res.json({ siker: true, ...(await spv.frissit(Number(req.params.id) || 0)) }); } catch (err) { spvHiba(res, err); }
 });
