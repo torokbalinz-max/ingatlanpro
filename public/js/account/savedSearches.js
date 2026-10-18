@@ -33,6 +33,7 @@ class SavedSearches {
         const telepulesek = Array.isArray(f.telepulesek) && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
         if (keruletek.length) r.push(FilterManager.felsorol(keruletek.map(k => CityManager.keruletLabel(k, f.varos))));
         if (telepulesek.length) r.push(FilterManager.felsorol(telepulesek.map(t => t === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(t))));
+        if (f.maxTav) r.push(I18n.f("maxTavChip", { km: f.maxTav }));
 
         const ar = tart(f.minAr, f.maxAr, v => Utils.eur(v));
         if (ar) r.push(ar);
@@ -154,6 +155,7 @@ class SavedSearches {
             set("allapot", f.allapot);
             set("keresoHely", f.hely);
             set("keresoJelleg", f.jelleg);
+            set("keresoMaxTav", f.maxTav);
             FilterManager.telepulesMS.values = Array.isArray(f.telepulesek) && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
 
             document.getElementById("hideDuplicates").checked = f.hideDup !== false;

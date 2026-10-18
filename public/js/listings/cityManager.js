@@ -137,7 +137,11 @@ class CityManager {
 
         if (f.telepules) {
             // A környék-városban a falu az anyaváros mellett van ("Uzon, Sepsiszentgyörgy mellett")
-            if (i.telepules) return I18n.f("nearCity", { hely: CityManager.telepulesLabel(i.telepules), varos: anya ? CityManager.displayName(anya) : varos });
+            if (i.telepules) {
+                const d = CityManager.telepulesTav(i.varos, i.telepules);
+                return I18n.f("nearCity", { hely: CityManager.telepulesLabel(i.telepules), varos: anya ? CityManager.displayName(anya) : varos }) +
+                    (d !== null ? ` (${CityManager.tavLabel(d)})` : "");
+            }
             return varos;
         }
 
@@ -145,11 +149,81 @@ class CityManager {
 
     }
 
+    // ---------- Távolság a várostól (légvonalban, km) ----------
+    //  A falu távolsága: a falu hirdetéseinek középső pontja (medián) és a
+    //  város közepe között (Admin → Városok: a város közepe). Így egy faluban
+    //  minden hirdetés ugyanazt a távolságot kapja.
+
+    static kozpontOf(varos) {
+        const v = CityManager.varosAdat(CityManager.parentOf(varos) || varos);
+        return v && v.x && v.y ? [Number(v.x), Number(v.y)] : null;
+    }
+
+    static km(x1, y1, x2, y2) {
+        const r = Math.PI / 180;
+        const a = Math.sin((y2 - y1) * r / 2) ** 2 +
+            Math.cos(y1 * r) * Math.cos(y2 * r) * Math.sin((x2 - x1) * r / 2) ** 2;
+        return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    static tavCache = { forras: null, map: new Map() };
+
+    // varos|telepules -> km (a betöltött hirdetésekből, a lista változásakor újraszámolva)
+    static telepulesTavok() {
+        const lista = (typeof DataManager !== "undefined" && DataManager.ingatlanok) || [];
+        const c = CityManager.tavCache;
+        if (c.forras === lista) return c.map;
+        const pontok = new Map();
+        lista.forEach(i => {
+            if (!i.telepules || !i.x || !i.y || i.hely_pontossag === "nincs") return;
+            const k = i.varos + "|" + i.telepules;
+            if (!pontok.has(k)) pontok.set(k, []);
+            pontok.get(k).push([Number(i.x), Number(i.y)]);
+        });
+        const med = a => { const s = [...a].sort((p, q) => p - q); return s[Math.floor(s.length / 2)]; };
+        const map = new Map();
+        pontok.forEach((p, k) => {
+            const kozep = CityManager.kozpontOf(k.split("|")[0]);
+            if (!kozep) return;
+            map.set(k, CityManager.km(kozep[0], kozep[1], med(p.map(x => x[0])), med(p.map(x => x[1]))));
+        });
+        c.forras = lista;
+        c.map = map;
+        return map;
+    }
+
+    static telepulesTav(varos, telepules) {
+        const d = CityManager.telepulesTavok().get(varos + "|" + telepules);
+        return d === undefined ? null : d;
+    }
+
+    // Egy hirdetés távolsága a várostól (km), vagy null, ha nem tudjuk
+    static tavOf(i) {
+        if (!i) return null;
+        if (i.telepules) {
+            const d = CityManager.telepulesTav(i.varos, i.telepules);
+            if (d !== null) return d;
+        } else if (!CityManager.isKornyek(i.varos)) {
+            return 0; // magában a városban
+        }
+        const kozep = CityManager.kozpontOf(i.varos);
+        if (kozep && i.x && i.y && i.hely_pontossag !== "nincs") return CityManager.km(kozep[0], kozep[1], Number(i.x), Number(i.y));
+        return null;
+    }
+
+    static tavLabel(d) {
+        if (d === null || d === undefined) return "";
+        return (d < 10 ? Utils.num(Math.round(d * 10) / 10, 1) : Utils.num(Math.round(d))) + " km";
+    }
+
     // A kerület vagy a település (táblázat oszlopához)
     static helyReszLabel(i) {
         const f = Types.fieldsOf(i);
         if (f.telepules) {
-            if (i.telepules) return CityManager.telepulesLabel(i.telepules);
+            if (i.telepules) {
+                const d = CityManager.telepulesTav(i.varos, i.telepules);
+                return CityManager.telepulesLabel(i.telepules) + (d !== null ? " · " + CityManager.tavLabel(d) : "");
+            }
             return CityManager.isKornyek(i.varos) ? I18n.t("kornyekNoVillage") : I18n.t("telepulesVarosban");
         }
         return CityManager.keruletLabel(i.kerulet, i.varos);

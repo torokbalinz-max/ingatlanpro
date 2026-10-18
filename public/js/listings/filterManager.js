@@ -96,7 +96,7 @@ class FilterManager {
         });
 
         // Legördülők azonnal szűrnek
-        ["allapot", "keresoHely", "keresoJelleg"].forEach(id => {
+        ["allapot", "keresoHely", "keresoJelleg", "keresoMaxTav"].forEach(id => {
             document.getElementById(id).addEventListener("change", () => FilterManager.apply());
         });
 
@@ -120,6 +120,7 @@ class FilterManager {
             // Új városnál a kerület- és forrásszűrő nem értelmezhető
             FilterManager.keruletMS.clear(true);
             FilterManager.telepulesMS.clear(true);
+            document.getElementById("keresoMaxTav").value = "";
             FilterManager.selectedSources = null;
 
             // A környék-városban a település számít (kerület nincs)
@@ -233,6 +234,8 @@ class FilterManager {
             telepulesek,
             kerulet: keruletek.length === 1 ? keruletek[0] : "",
             telepules: telepulesek.length === 1 ? telepulesek[0] : "",
+            // Legfeljebb ennyi km a várostól (légvonalban) – a falvaknál
+            maxTav: f.telepules ? n("keresoMaxTav") : null,
             hely: document.getElementById("keresoHely").value,
             sources: FilterManager.selectedSources
         };
@@ -277,6 +280,12 @@ class FilterManager {
         // Települések (bármelyik); "_varos" = magában a városban
         const telepulesek = f.telepulesek && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
         if (telepulesek.length && !telepulesek.includes(i.telepules || "_varos")) return false;
+
+        // Távolság a várostól: aminek nem tudjuk, az kimarad
+        if (f.maxTav !== null && f.maxTav !== undefined) {
+            const d = CityManager.tavOf(i);
+            if (d === null || d > f.maxTav) return false;
+        }
 
         if (f.hely && (i.hely_pontossag || (i.x && i.y ? "pontos" : "nincs")) !== f.hely &&
             !(f.hely === "pontos" && i.hely_pontossag === "utca")) return false;
@@ -329,10 +338,17 @@ class FilterManager {
         const nevek = [...new Set((DataManager.ingatlanok || []).map(i => i.telepules).filter(Boolean))]
             .sort((a, b) => CityManager.telepulesLabel(a).localeCompare(CityManager.telepulesLabel(b), I18n.current));
 
+        // A falu távolsága a várostól; a lista a legközelebbivel kezdődik
+        const varos = DataManager.currentCity;
+        const tav = n => CityManager.telepulesTav(varos, n);
+        nevek.sort((a, b) => (tav(a) ?? 999) - (tav(b) ?? 999));
+
         const opciok = nevek.map(n => {
             const fo = CityManager.telepulesLabel(n);
             const masik = I18n.current === "hu" ? n : Telepulesek.nev(n, "hu");
-            return { value: n, label: fo, hint: masik && masik !== fo ? masik : "", count: db.get(n) || 0 };
+            const d = tav(n);
+            const hint = [masik && masik !== fo ? masik : "", d !== null ? CityManager.tavLabel(d) : ""].filter(Boolean).join(" · ");
+            return { value: n, label: fo, hint, count: db.get(n) || 0 };
         });
 
         // A környék-városban nincs "a városban" (ott csak falvak vannak)
@@ -431,6 +447,7 @@ class FilterManager {
         FilterManager.telepulesMS.clear(true);
         document.getElementById("keresoHely").value = "";
         document.getElementById("keresoJelleg").value = "";
+        document.getElementById("keresoMaxTav").value = "";
         document.getElementById("hideDuplicates").checked = true;
         document.getElementById("onlyWithPhotos").checked = false;
 
@@ -468,6 +485,7 @@ class FilterManager {
         const telepulesek = f.telepulesek && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
         if (keruletek.length) chips.push(`${CityManager.reszT(keruletek.length > 1 ? "plural" : "label", f.varos)}: ${Utils.escape(FilterManager.felsorol(keruletek.map(k => CityManager.keruletLabel(k, f.varos))))}`);
         if (telepulesek.length) chips.push(`${I18n.t("telepulesLabel")}: ${Utils.escape(FilterManager.felsorol(telepulesek.map(t => t === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(t))))}`);
+        if (f.maxTav !== null && f.maxTav !== undefined) chips.push(I18n.f("maxTavChip", { km: f.maxTav }));
         if (f.hely) chips.push(`${I18n.t("filterHely")}: ${Utils.escape(I18n.t("hely_" + f.hely))}`);
 
         if (f.sources !== null && f.sources !== undefined) {

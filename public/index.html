@@ -314,6 +314,18 @@
                 <div data-field="telepules" class="mb-3">
                     <label class="form-label" for="keresoTelepules"><span data-i18n="telepulesLabel">Hol van?</span> <small class="text-body-secondary fw-normal" data-i18n="msMultiHint">(több is választható)</small></label>
                     <div id="keresoTelepulesMS"></div>
+
+                    <!-- Legfeljebb ennyi km a várostól (légvonalban) -->
+                    <label class="form-label mt-2" for="keresoMaxTav"><span data-i18n="maxTavLabel">Legfeljebb ennyire a várostól</span> <small class="text-body-secondary fw-normal" data-i18n="maxTavHint">(légvonalban)</small></label>
+                    <select id="keresoMaxTav" class="form-select">
+                        <option value="" data-i18n="allapotMindegy">Mindegy</option>
+                        <option value="5">5 km</option>
+                        <option value="10">10 km</option>
+                        <option value="15">15 km</option>
+                        <option value="20">20 km</option>
+                        <option value="30">30 km</option>
+                        <option value="50">50 km</option>
+                    </select>
                 </div>
 
                 <label class="form-label" for="keresoHely" data-i18n="filterHely">Hely pontossága</label>

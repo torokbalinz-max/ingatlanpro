@@ -35,6 +35,10 @@
             placesResz_kerulet: "Kerület (románul: cartier)",
             placesResz_negyed: "Negyed (románul: cartier)",
             placesResz_varosresz: "Városrész (románul: zonă)",
+            maxTavLabel: "Legfeljebb ennyire a várostól",
+            maxTavHint: "(légvonalban)",
+            maxTavChip: "Legfeljebb {km} km a várostól",
+
             placesReszHelp: "Csak a megnevezés változik, a működés ugyanaz. Ez a név látszik a keresőben, a hirdetésfeladásnál, az értékbecslőben és a táblázatban."
         },
         en: {
@@ -64,6 +68,10 @@
             placesResz_kerulet: "District (Romanian: cartier)",
             placesResz_negyed: "Neighbourhood (Romanian: cartier)",
             placesResz_varosresz: "Area (Romanian: zonă)",
+            maxTavLabel: "At most this far from the city",
+            maxTavHint: "(as the crow flies)",
+            maxTavChip: "At most {km} km from the city",
+
             placesReszHelp: "Only the name changes, everything works the same. This name is shown in search, when posting a listing, in the valuation tool and in the table."
         },
         ro: {
@@ -93,6 +101,10 @@
             placesResz_kerulet: "Kerület – în maghiară (cartier)",
             placesResz_negyed: "Negyed – în maghiară (cartier)",
             placesResz_varosresz: "Városrész – în maghiară (zonă)",
+            maxTavLabel: "Cel mult la această distanță de oraș",
+            maxTavHint: "(în linie dreaptă)",
+            maxTavChip: "Cel mult {km} km de oraș",
+
             placesReszHelp: "Se schimbă doar denumirea, funcționarea rămâne aceeași. Acest nume apare la căutare, la adăugarea anunțului, în evaluator și în tabel."
         }
     };
