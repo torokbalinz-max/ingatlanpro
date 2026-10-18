@@ -209,9 +209,12 @@ AdminManager.adsRow = function (h, napok) {
                     <b class="adsName">${esc(h.nev)}</b>
                     <span class="badge text-bg-${szin}">${I18n.t("adsStatus_" + h.allapot)}</span>
                     ${h.suly > 1 ? `<span class="badge text-bg-light" title="${esc(I18n.t("adsFWeight"))}"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> ${h.suly}</span>` : ""}
+                    ${h.szerzodes_szam ? `<span class="badge text-bg-${h.szerzodes_elfogadva ? "light" : "warning"}" title="${esc(h.szerzodes_szam)}"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> ${I18n.t(h.szerzodes_elfogadva ? "adsContractAccepted" : "adsContractSent")}</span>` : ""}
+                    ${h.fizetve_van ? `<span class="badge text-bg-success"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("finSt_fizetve")}</span>` : h.fizetesre_var ? `<span class="badge text-bg-warning">${I18n.t("adsBillAwaiting")}</span>` : ""}
+                    ${h.fizetes_utan && !h.fizetve_van ? `<span class="badge text-bg-secondary" title="${esc(I18n.t("adsBillAfterPay"))}"><i class="fa-solid fa-lock" aria-hidden="true"></i> ${I18n.t("adsBillHiddenUntilPaid")}</span>` : ""}
                 </div>
                 <div class="small text-body-secondary">
-                    ${h.hirdeto ? `<i class="fa-regular fa-building" aria-hidden="true"></i> ${esc(h.hirdeto)}` : ""}
+                    ${h.hirdeto || h.ugyfel_nev ? `<i class="fa-regular fa-building" aria-hidden="true"></i> ${esc(h.hirdeto || h.ugyfel_nev)}` : ""}${h.ar ? ` · ${esc(Utils.num(h.ar))} ${esc(h.penznem || "RON")}/${esc(I18n.t("adsPerMonth"))}` : ""}
                     ${h.cel_url ? ` · <a href="${esc(h.cel_url)}" target="_blank" rel="noopener nofollow">${esc(AdminManager.adsDomain(h.cel_url))}</a>` : ` · ${I18n.t("adsNoLink")}`}
                 </div>
                 <div class="adsSlotChips">
@@ -593,10 +596,43 @@ AdminManager.adsEditor = function (h) {
                             <input type="number" class="form-control" id="adsEdSuly" min="1" max="10" value="${Number(h.suly) || 1}">
                             <div class="form-text">${I18n.t("adsFWeightHelp")}</div>
                         </div>
-                        <div class="col-sm-6">
-                            <label class="form-label" for="adsEdAr">${I18n.t("adsFPrice")}</label>
-                            <input type="number" class="form-control" id="adsEdAr" min="0" step="any" value="${h.ar !== null && h.ar !== undefined ? esc(String(h.ar)) : ""}">
+
+                    </div>
+
+                    <h6 class="adsEdH mt-4"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i> ${I18n.t("adsBillTitle")}</h6>
+                    <div class="row g-3">
+                        <div class="col-sm-8">
+                            <label class="form-label" for="adsEdUgyfel">${I18n.t("adsBillClient")}</label>
+                            <div class="input-group">
+                                <select class="form-select" id="adsEdUgyfel"><option value="">${I18n.t("adsBillNoClient")}</option></select>
+                                <button type="button" class="btn btn-outline-secondary" id="adsEdUjUgyfel" title="${esc(I18n.t("finNewCustomer"))}"><i class="fa-solid fa-user-plus" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="form-text">${I18n.t("adsBillClientHelp")}</div>
                         </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="adsEdAr">${I18n.t("adsBillMonthly")}</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="adsEdAr" min="0" step="any" value="${h.ar !== null && h.ar !== undefined ? esc(String(h.ar)) : ""}">
+                                <select class="form-select" id="adsEdPenznem" style="max-width:88px">${["RON", "EUR"].map(p => `<option ${(h.penznem || "RON") === p ? "selected" : ""}>${p}</option>`).join("")}</select>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="adsEdSzamlazas">${I18n.t("adsBillMode")}</label>
+                            <select class="form-select" id="adsEdSzamlazas">
+                                <option value="egyben" ${h.szamlazas !== "havonta" ? "selected" : ""}>${I18n.t("adsBillMode_egyben")}</option>
+                                <option value="havonta" ${h.szamlazas === "havonta" ? "selected" : ""}>${I18n.t("adsBillMode_havonta")}</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6 d-flex align-items-end">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="adsEdFizUtan" ${h.fizetes_utan ? "checked" : ""}>
+                                <label class="form-check-label" for="adsEdFizUtan">${I18n.t("adsBillAfterPay")}</label>
+                            </div>
+                        </div>
+                        <div class="col-12" id="adsEdSzamlaAllapot"></div>
+                    </div>
+
+                    <div class="row g-3 mt-1">
                         <div class="col-12">
                             <label class="form-label" for="adsEdMegj">${I18n.t("adsFNote")}</label>
                             <textarea class="form-control" id="adsEdMegj" rows="2" maxlength="2000">${esc(h.megjegyzes || "")}</textarea>
@@ -716,25 +752,82 @@ AdminManager.adsEditor = function (h) {
         if (regiMobil) AdminManager.adsKepLetolt(regiMobil).then(d => { kep.mobil = d; }).catch(() => { });
     }
 
+    const gyujt = () => ({
+        nev: $("adsEdNev").value.trim(),
+        hirdeto: $("adsEdHirdeto").value.trim(),
+        kapcsolat: $("adsEdKapcsolat").value.trim(),
+        cel_url: $("adsEdUrl").value.trim(),
+        alt: $("adsEdAlt").value.trim(),
+        helyek: valasztott(),
+        kezdet: $("adsEdKezdet").value || null,
+        vege: $("adsEdVege").value || null,
+        suly: Number($("adsEdSuly").value) || 1,
+        ar: $("adsEdAr").value === "" ? null : Number($("adsEdAr").value),
+        megjegyzes: $("adsEdMegj").value.trim(),
+        aktiv: $("adsEdAktiv").checked,
+        ugyfel_id: Number($("adsEdUgyfel").value) || null,
+        penznem: $("adsEdPenznem").value,
+        szamlazas: $("adsEdSzamlazas").value,
+        fizetes_utan: $("adsEdFizUtan").checked
+    });
+
+    // ---------- Számlázás: ügyfél, állapot, szerződés küldése ----------
+    const ugyfelTolt = (valaszt) => AdminManager.finUgyfelLista(true).then(lista => {
+        const sel = $("adsEdUgyfel");
+        const akt = valaszt || Number(sel.value) || h.ugyfel_id || null;
+        sel.innerHTML = `<option value="">${esc(I18n.t("adsBillNoClient"))}</option>` +
+            lista.map(u => `<option value="${u.id}" ${u.id === akt ? "selected" : ""}>${esc(u.nev)}${u.cui ? " · " + esc(u.cui) : ""}</option>`).join("");
+    }).catch(() => { });
+    ugyfelTolt();
+    $("adsEdUjUgyfel").onclick = () => AdminManager.finCfg().then(() => AdminManager.finUgyfelSzerk(null, ujId => ugyfelTolt(ujId)));
+
+    const szamlaAllapot = () => {
+        const box = $("adsEdSzamlaAllapot");
+        if (uj) { box.innerHTML = `<div class="small text-body-secondary">${I18n.t("adsBillSaveFirst")}</div>`; return; }
+        Svc.api(`/api/admin/reklamok/${h.id}/szamlazas`).then(a => {
+            const r = a.reklam;
+            const biz = a.bizonylatok.map(b => `<span class="badge text-bg-${b.statusz === "fizetve" ? "success" : b.statusz === "sztorno" ? "secondary" : "warning"}">${esc(b.sorszam)} · ${esc(I18n.t("finSt_" + b.statusz))}</span>`).join(" ");
+            box.innerHTML = `
+                <div class="adsBillBox">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        ${r.szerzodes_szam ? `<span class="badge text-bg-${r.szerzodes_elfogadva ? "success" : "warning"}"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> ${esc(r.szerzodes_szam)} · ${I18n.t(r.szerzodes_elfogadva ? "adsContractAccepted" : "adsContractSent")}</span>` : `<span class="small text-body-secondary">${I18n.t("adsContractNone")}</span>`}
+                        ${biz}
+                        ${a.honapok > 1 ? `<span class="small text-body-secondary">${I18n.f("adsBillMonths", { n: a.honapok })}</span>` : ""}
+                    </div>
+                    ${a.hianyzik.length ? `<div class="small text-warning-emphasis mb-2"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${a.hianyzik.map(k => esc(I18n.t("adsBillMissing_" + k))).join(" · ")}</div>` : ""}
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-primary" id="adsEdKuld" ${a.hianyzik.length ? "disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t(r.szerzodes_szam ? "adsContractResend" : "adsContractSend")}</button>
+                        ${r.szerzodes_szam ? `<a class="btn btn-sm btn-outline-secondary" href="/api/admin/reklamok/${h.id}/szerzodes" target="_blank" rel="noopener"><i class="fa-solid fa-eye" aria-hidden="true"></i> ${I18n.t("adsContractOpen")}</a>` : ""}
+                        ${a.link ? `<button type="button" class="btn btn-sm btn-outline-secondary" id="adsEdLink"><i class="fa-solid fa-link" aria-hidden="true"></i> ${I18n.t("adsContractCopy")}</button>` : ""}
+                    </div>
+                    <div class="small mt-2" id="adsEdKuldMsg"></div>
+                </div>`;
+            const lk = $("adsEdLink");
+            if (lk) lk.onclick = () => navigator.clipboard && navigator.clipboard.writeText(location.origin + a.link).then(() => Utils.toast && Utils.toast(I18n.t("prCopied")));
+            const k = $("adsEdKuld");
+            if (k) k.onclick = () => {
+                if (!confirm(I18n.t("adsContractConfirm"))) return;
+                k.disabled = true;
+                // előbb a mentés (az ügyfél, ár, dátumok), utána a küldés
+                AdminManager.adsKuld("PUT", "/api/admin/reklamok/" + h.id, gyujt())
+                    .then(() => Svc.api(`/api/admin/reklamok/${h.id}/szerzodes-kuld`, { method: "POST" }))
+                    .then(v => {
+                        szamlaAllapot();
+                        setTimeout(() => { const m = $("adsEdKuldMsg"); if (m) m.innerHTML = `<i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${esc(I18n.f(v.emailezve ? "adsContractDoneMail" : "adsContractDone", { sz: v.szerzodes_szam, db: v.dijbekero.sorszam }))}`; }, 600);
+                        AdminManager.adsUtanna(true);
+                    })
+                    .catch(e => { k.disabled = false; alert(e.kod === "ad_billing_missing" ? (e.adat.hianyzik || []).map(x => I18n.t("adsBillMissing_" + x)).join("\n") : AdminManager.adsHiba(e)); });
+            };
+        }).catch(() => { box.innerHTML = ""; });
+    };
+    szamlaAllapot();
+
     $("adsEdSave").onclick = () => {
 
         const err = $("adsEdErr");
         err.hidden = true;
 
-        const body = {
-            nev: $("adsEdNev").value.trim(),
-            hirdeto: $("adsEdHirdeto").value.trim(),
-            kapcsolat: $("adsEdKapcsolat").value.trim(),
-            cel_url: $("adsEdUrl").value.trim(),
-            alt: $("adsEdAlt").value.trim(),
-            helyek: valasztott(),
-            kezdet: $("adsEdKezdet").value || null,
-            vege: $("adsEdVege").value || null,
-            suly: Number($("adsEdSuly").value) || 1,
-            ar: $("adsEdAr").value === "" ? null : Number($("adsEdAr").value),
-            megjegyzes: $("adsEdMegj").value.trim(),
-            aktiv: $("adsEdAktiv").checked
-        };
+        const body = gyujt();
 
         if (!body.nev) {
             err.innerText = I18n.t("adsErr_name_required");

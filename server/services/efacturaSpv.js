@@ -135,6 +135,7 @@ async function allapot(alapCim) {
         auto: !!be.efactura_auto,
         kezdet: be.efactura_kezdet || null,
         bejovo: be.efactura_bejovo !== false,
+        bejovo_kiadas: be.efactura_bejovo_kiadas !== false,
         redirect_uri: redirectUri(alapCim),
         cif: await eladoCif(),
         utolso_futas: tarolt.utolso_futas || null,
@@ -482,6 +483,7 @@ function bejovoAdat(xml) {
             || xmlErtek(xml, ["AccountingSupplierParty", "PartyLegalEntity", "CompanyID"]),
         osszeg: osszeg !== null && osszeg !== "" && Number.isFinite(Number(osszeg)) ? Number(osszeg) : null,
         penznem: ["RON", "EUR", "HUF", "USD"].includes(penznem) ? penznem : "RON",
+        afa: Number(xmlErtek(xml, ["TaxTotal", "TaxAmount"])) || 0,
         tetel: xmlErtek(xml, ["InvoiceLine", "Item", "Name"])
     };
 }
@@ -505,18 +507,44 @@ async function bejovok({ napok = 60 } = {}) {
         const a = bejovoAdat(xml);
         const datum = /^\d{4}-\d{2}-\d{2}$/.test(a.datum || "") ? a.datum : null;
         const partner = a.partner || (m.cif_emitent ? "CUI " + m.cif_emitent : (String(m.detalii || "").match(/cif_emitent=(\d+)/) || [])[1]);
+        // a kiadások közé is felkerül (ellenőrizendő kategóriával) – így a bevétel–kiadás naplóban is benne van
+        let kiadasId = null;
+        const be = await pu.beallitas();
+        if (be.efactura_bejovo_kiadas !== false && a.osszeg !== null) {
+            const k = await db.query(`
+                INSERT INTO penzugy_kiadasok (datum, kategoria, leiras, szallito, osszeg, penznem, afa, szamlaszam, jegyzet, auto)
+                VALUES (COALESCE($1::date, CURRENT_DATE), $2, $3, $4, $5, $6, $7, $8, $9, true) RETURNING id`,
+                [datum, kiadasKategoria(`${a.partner || ""} ${a.tetel || ""}`), vagott(a.tetel || a.partner || "Factură primită", 300), vagott(partner, 200),
+                 a.osszeg, a.penznem || "RON", a.afa || 0, vagott(a.szam, 80),
+                 "Automatikusan, az ANAF-ból beérkezett e-Factura számlából – ellenőrizd a kategóriát."]);
+            kiadasId = k.rows[0].id;
+        }
         await db.query(`
             INSERT INTO irattar (resz, kategoria, cim, partner, szam, datum, osszeg, penznem, megjegyzes, cimkek,
-                                 fajl_nev, fajl_mime, fajl_meret, fajl_hash, fajl, anaf_id)
-            VALUES ('szamla', 'bejovo', $1, $2, $3, COALESCE($4::date, CURRENT_DATE), $5, $6, $7, 'e-Factura', $8, 'application/zip', $9, $10, $11, $12)
+                                 fajl_nev, fajl_mime, fajl_meret, fajl_hash, fajl, anaf_id, kiadas_id)
+            VALUES ('szamla', 'bejovo', $1, $2, $3, COALESCE($4::date, CURRENT_DATE), $5, $6, $7, 'e-Factura', $8, 'application/zip', $9, $10, $11, $12, $13)
             ON CONFLICT DO NOTHING`,
             [vagott(`${a.partner || partner || "Factură"}${a.szam ? " – " + a.szam : ""}`, 200), vagott(partner, 200), vagott(a.szam, 80), datum,
              a.osszeg, a.penznem || "RON", vagott([a.tetel, a.partner_cui ? "CUI " + a.partner_cui : ""].filter(Boolean).join(" · "), 2000),
-             `efactura-${anafId}.zip`, d.buf.length, crypto.createHash("sha256").update(d.buf).digest("hex"), d.buf, anafId]);
+             `efactura-${anafId}.zip`, d.buf.length, crypto.createHash("sha256").update(d.buf).digest("hex"), d.buf, anafId, kiadasId]);
         uj++;
     }
     await ment({ bejovo_utolso: new Date().toISOString() });
     return { uj, osszes: uzenetek.length };
+}
+
+// A beérkező számla kiadás-kategóriája a szállító és a tétel neve alapján (átírható)
+function kiadasKategoria(s) {
+    const t = String(s || "").toLowerCase();
+    if (/g[aă]zduire|hosting|server|render|neon|cloud|vps/.test(t)) return "tarhely";
+    if (/domeniu|domain|rotld|\.ro\b/.test(t)) return "domain";
+    if (/contabil|expert/.test(t)) return "konyveles";
+    if (/publicit|reclam|marketing|google ads|facebook|meta platforms/.test(t)) return "marketing";
+    if (/internet|telefon|mobil|digi |orange|vodafone|telekom|energie|electrica|gaz\b|apă|apa nova/.test(t)) return "egyeb";
+    if (/licen|software|abonament|subscription|saas|program/.test(t)) return "szoftver";
+    if (/banc[aă]|comision|bank|revolut|stripe/.test(t)) return "bank";
+    if (/anaf|tax[aă]|impozit|cas\b|cass\b/.test(t)) return "adok";
+    return "egyeb";
 }
 
 const vagott = (s, n) => (s === null || s === undefined || s === "" ? null : String(s).slice(0, n));
@@ -605,5 +633,5 @@ async function irattarPdf(irattarId) {
 module.exports = {
     HATARIDO_NAP, hianyLista, vevoJavit, allapot, kulcsMent, kulcsTorol, lecsatol, authUrl, callback, kuld, frissit, keziJelol, valaszZip,
     bejovok, futtat, szamlalok, szamlaInfo, hatarido, irattarPdf, redirectUri,
-    _: { attr, hibak, bejovoAdat, szamlaXmlBol, b2cE }
+    _: { attr, hibak, bejovoAdat, szamlaXmlBol, b2cE, kiadasKategoria }
 };

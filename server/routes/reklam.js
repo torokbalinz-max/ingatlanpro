@@ -75,6 +75,57 @@ router.delete("/api/admin/reklamok/:id", csapat.csakResz("reklam"), async (req, 
     }
 });
 
+// ---------- Számlázás, szerződés (services/reklamSzamla.js) ----------
+
+const rsz = require("../services/reklamSzamla");
+const dok = require("../services/dokumentum");
+const mail = require("../services/mail");
+
+router.get("/api/admin/reklamok/:id/szamlazas", csapat.csakResz("reklam"), async (req, res) => {
+    try { res.json(await rsz.allapot(Number(req.params.id))); } catch (err) { hibaKod(res, err); }
+});
+
+router.post("/api/admin/reklamok/:id/szerzodes-kuld", csapat.csakResz("reklam"), async (req, res) => {
+    try { res.json({ siker: true, ...(await rsz.kuld(Number(req.params.id), mail.oldalCim(req))) }); }
+    catch (err) {
+        if (err && err.kod === "ad_billing_missing") return res.status(400).json({ error: err.kod, hianyzik: String(err.reszlet || "").split(",") });
+        hibaKod(res, err);
+    }
+});
+
+// A szerződés az adminnak (nyomtatható)
+router.get("/api/admin/reklamok/:id/szerzodes", csapat.csakResz("reklam"), async (req, res) => {
+    try {
+        const r = await rsz.reklamAdat(Number(req.params.id));
+        if (!r || !r.szerzodes_szam) return res.status(404).send("Nincs szerződés");
+        res.set("Content-Type", "text/html; charset=utf-8");
+        res.set("Content-Security-Policy", dok.CSP);
+        res.set("Cache-Control", "private, no-store");
+        res.send(await rsz.html(r, { ford: dok.fordKer(req.query, "hu"), ui: dok.uiKer(req.query, "hu"), vissza: "/#admin/reklam" }));
+    } catch (err) { hiba(res, err); }
+});
+
+// A hirdető oldala: a szerződés + elfogadás (belépés nélkül, a titkos linkkel)
+router.get("/reklam-szerzodes/:token", async (req, res) => {
+    try {
+        const r = await rsz.tokennel(req.params.token);
+        if (!r) return res.status(404).send("Contract inexistent / Nincs ilyen szerződés");
+        res.set("Content-Type", "text/html; charset=utf-8");
+        res.set("Content-Security-Policy", dok.CSP);
+        res.set("Cache-Control", "private, no-store");
+        res.set("X-Robots-Tag", "noindex");
+        res.send(await rsz.html(r, { ford: dok.fordKer(req.query, ""), ui: dok.uiKer(req.query, "ro"), elfogadhato: true, token: req.params.token }));
+    } catch (err) { hiba(res, err); }
+});
+
+router.post("/reklam-szerzodes/:token/elfogad", async (req, res) => {
+    try {
+        const ip = String(req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
+        await rsz.elfogad(req.params.token, ip);
+        res.json({ siker: true });
+    } catch (err) { hibaKod(res, err); }
+});
+
 router.get("/api/admin/reklamok/:id/stat", csapat.csakResz("reklam"), async (req, res) => {
     try {
         res.json({ napi: await reklam.napiStat(Number(req.params.id), 60) });

@@ -1283,6 +1283,25 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE irattar ADD COLUMN IF NOT EXISTS anaf_id TEXT`);
     await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_irattar_anaf ON irattar (anaf_id) WHERE anaf_id IS NOT NULL`);
 
+    // Reklámfelület bérlése (services/reklamSzamla.js): ügyfél, havi ár, számlázás,
+    // szerződés online elfogadással, megjelenés csak a befizetés után
+    for (const o of ["ugyfel_id INTEGER REFERENCES penzugy_ugyfelek(id) ON DELETE SET NULL", "penznem TEXT DEFAULT 'RON'",
+        "szamlazas TEXT DEFAULT 'egyben'", "fizetes_utan BOOLEAN DEFAULT false", "szerzodes_szam TEXT", "szerzodes_token TEXT",
+        "szerzodes_kuldve TIMESTAMP", "szerzodes_elfogadva TIMESTAMP", "szerzodes_ip TEXT", "elofizetes_id INTEGER"]) {
+        await db.query(`ALTER TABLE reklamok ADD COLUMN IF NOT EXISTS ${o}`);
+    }
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_reklam_token ON reklamok (szerzodes_token) WHERE szerzodes_token IS NOT NULL`);
+    await db.query(`ALTER TABLE penzugy_elofizetesek ADD COLUMN IF NOT EXISTS reklam_id INTEGER REFERENCES reklamok(id) ON DELETE SET NULL`);
+    // Kiadás, amit a beérkezett e-Factura számlából az app vett fel (ellenőrizendő)
+    await db.query(`ALTER TABLE penzugy_kiadasok ADD COLUMN IF NOT EXISTS auto BOOLEAN DEFAULT false`);
+    // Szinkron a gépre (Irattár → a helyi mappa): a letöltött iratok
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS irattar_szinkron (
+            kulcs TEXT PRIMARY KEY,
+            letoltve TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

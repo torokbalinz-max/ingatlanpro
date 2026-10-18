@@ -87,7 +87,7 @@ class Archive {
     static allapotBadge(x) {
         const esc = Utils.escape;
         const m = {
-            fizetve: "success", kiallitva: "warning", sztorno: "secondary", nincs_irat: "danger",
+            fizetve: "success", kiallitva: "warning", sztorno: "secondary", nincs_irat: "danger", kuldve: "warning",
             aktiv: "success", elfogadva: "info", lejart: "danger", megszunt: "secondary", archiv: "secondary"
         };
         let s = x.statusz;
@@ -149,6 +149,8 @@ class Archive {
                     muvelet.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-ir-xml="${x.szamla_id}" data-ir-xml-nev="${esc(x.szam)}" title="${esc(I18n.t("irEfacturaHint"))}"><i class="fa-solid fa-file-code"></i> XML</button>`);
                     muvelet.push(`<button type="button" class="btn btn-sm btn-outline-primary" data-ir-anaf="${x.szamla_id}" title="${esc(I18n.t("finAnafCheckHint"))}" aria-label="${esc(I18n.t("finAnafCheck"))}"><i class="fa-solid fa-shield-halved"></i></button>`);
                 }
+            } else if (x.forras === "app" && x.reklam_id) {
+                muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/admin/reklamok/${x.reklam_id}/szerzodes${Dokumentum.q(true)}" target="_blank" rel="noopener" title="${esc(I18n.t("irOpen"))}" aria-label="${esc(I18n.t("irOpen"))}"><i class="fa-solid fa-eye"></i></a>`);
             } else if (x.forras === "app" && x.megbizas_id) {
                 muvelet.push(`<a class="btn btn-sm btn-outline-secondary" href="/api/megbizas/${x.megbizas_id}/szerzodes${Dokumentum.q(true)}" target="_blank" rel="noopener" title="${esc(I18n.t("irOpen"))}" aria-label="${esc(I18n.t("irOpen"))}"><i class="fa-solid fa-eye"></i></a>`);
             } else if (x.forras === "kiadas") {
@@ -207,6 +209,7 @@ class Archive {
                         </select>
                         <a class="btn btn-outline-secondary" href="${esc(Archive.url("/api/admin/irattar/export.csv"))}" title="${esc(I18n.t("irCsvHint"))}"><i class="fa-solid fa-file-csv"></i> <span class="d-none d-xl-inline">CSV</span></a>
                         ${!szerz ? `<button type="button" class="btn btn-outline-primary" id="irCsomag" title="${esc(I18n.t("irPackHint"))}"><i class="fa-solid fa-file-zipper"></i> <span class="d-none d-lg-inline">${I18n.t("irPackBtn")}</span></button>` : ""}
+                        <button type="button" class="btn btn-outline-success" id="irSzinkron" title="${esc(I18n.t("irSyncHint"))}"><i class="fa-solid fa-computer"></i> <span class="d-none d-lg-inline">${I18n.t("irSyncBtn")}</span></button>
                         <button type="button" class="btn btn-primary" id="irUj"><i class="fa-solid fa-upload"></i> ${I18n.t(szerz ? "irUploadContract" : "irUpload")}</button>
                     </div>
                     ${figyelmeztet.join("")}
@@ -240,6 +243,7 @@ class Archive {
         box.querySelector("#irUj").onclick = () => Archive.urlap(null, { kategoria: a.kategoria });
         const csomagGomb = box.querySelector("#irCsomag");
         if (csomagGomb) csomagGomb.onclick = () => Archive.csomag();
+        box.querySelector("#irSzinkron").onclick = () => Archive.szinkron();
         if (AdminManager.efBadgeKot) AdminManager.efBadgeKot(box, () => Archive.betolt());
 
         box.querySelectorAll("[data-ir-szerk]").forEach(b => {
@@ -332,6 +336,65 @@ class Archive {
         $("#irPackHo").onchange = frissit;
         frissit();
         modal.show();
+    }
+
+    // Szinkron a gépre: kulcs a helyi programnak (eszkozok/szinkron-telepites.bat)
+    static szinkron() {
+        const esc = Utils.escape;
+        const { tartalom, modal } = Svc.modal("irSyncModal", "modal-lg");
+        const datum = d => d ? new Date(d).toLocaleString(Utils.locale()) : "–";
+        const rajzol = (all, ujKulcs = null, cim = "") => {
+            tartalom.innerHTML = `
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fa-solid fa-computer" aria-hidden="true"></i> ${I18n.t("irSyncTitle")}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="OK"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small">${I18n.t("irSyncIntro")}</p>
+                    <div class="alert ${all.van_kulcs ? "alert-success" : "alert-secondary"} py-2 small">
+                        ${all.van_kulcs
+                            ? `<i class="fa-solid fa-circle-check"></i> ${I18n.f("irSyncActive", { d: esc(datum(all.letrehozva)) })}<br>${I18n.f("irSyncLast", { d: esc(datum(all.utolso)), n: all.utolso_db || 0 })}`
+                            : `<i class="fa-solid fa-circle-info"></i> ${I18n.t("irSyncNone")}`}
+                    </div>
+                    ${ujKulcs ? `
+                        <div class="alert alert-warning small">
+                            <strong>${I18n.t("irSyncKeyOnce")}</strong>
+                            <div class="input-group input-group-sm mt-2"><span class="input-group-text">${I18n.t("irSyncSite")}</span><input class="form-control font-monospace" readonly value="${esc(cim)}"></div>
+                            <div class="input-group input-group-sm mt-2"><span class="input-group-text">${I18n.t("irSyncKey")}</span><input class="form-control font-monospace" id="irSyncKulcs" readonly value="${esc(ujKulcs)}">
+                            <button type="button" class="btn btn-outline-secondary" id="irSyncMasol"><i class="fa-solid fa-copy"></i></button></div>
+                        </div>` : ""}
+                    <h6 class="mt-3">${I18n.t("irSyncSteps")}</h6>
+                    <ol class="small mb-0">
+                        <li>${I18n.t("irSyncStep1")}</li>
+                        <li>${I18n.t("irSyncStep2")}</li>
+                        <li>${I18n.t("irSyncStep3")}</li>
+                        <li>${I18n.t("irSyncStep4")}</li>
+                    </ol>
+                </div>
+                <div class="modal-footer">
+                    ${all.van_kulcs ? `<button type="button" class="btn btn-outline-danger me-auto" id="irSyncTorol"><i class="fa-solid fa-ban"></i> ${I18n.t("irSyncRevoke")}</button>` : ""}
+                    <button type="button" class="btn btn-primary" id="irSyncUj"><i class="fa-solid fa-key"></i> ${I18n.t(all.van_kulcs ? "irSyncNewKeyAgain" : "irSyncNewKey")}</button>
+                </div>`;
+            const $ = q => tartalom.querySelector(q);
+            $("#irSyncUj").onclick = () => {
+                if (all.van_kulcs && !confirm(I18n.t("irSyncNewConfirm"))) return;
+                Svc.api("/api/admin/irattar/szinkron/kulcs", { method: "POST" })
+                    .then(r => Svc.api("/api/admin/irattar/szinkron").then(a2 => rajzol(a2, r.kulcs, r.cim)))
+                    .catch(e => alert(Svc.hiba(e)));
+            };
+            if ($("#irSyncTorol")) $("#irSyncTorol").onclick = () => {
+                if (!confirm(I18n.t("irSyncRevokeConfirm"))) return;
+                Svc.api("/api/admin/irattar/szinkron/kulcs", { method: "DELETE" })
+                    .then(() => Svc.api("/api/admin/irattar/szinkron").then(a2 => rajzol(a2)))
+                    .catch(e => alert(Svc.hiba(e)));
+            };
+            if ($("#irSyncMasol")) $("#irSyncMasol").onclick = () => {
+                const i = $("#irSyncKulcs");
+                i.select();
+                (navigator.clipboard ? navigator.clipboard.writeText(i.value) : Promise.reject()).catch(() => document.execCommand("copy"));
+            };
+        };
+        Svc.api("/api/admin/irattar/szinkron").then(all => { rajzol(all); modal.show(); }).catch(e => alert(Svc.hiba(e)));
     }
 
     // ---------- Feltöltés / szerkesztés ----------

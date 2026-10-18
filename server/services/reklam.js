@@ -167,6 +167,10 @@ const MEZOK = `r.id, r.nev, r.hirdeto, r.kapcsolat, r.cel_url, r.alt, r.kep_mime
     (r.kep_mobil IS NOT NULL) AS van_mobil, r.kep_mobil_w, r.kep_mobil_h,
     r.helyek, r.kezdet::text AS kezdet, r.vege::text AS vege, r.aktiv, r.suly, r.ar, r.megjegyzes,
     r.megjelenes, r.kattintas, r.created_at, r.updated_at,
+    r.ugyfel_id, r.penznem, r.szamlazas, r.fizetes_utan, r.szerzodes_szam, r.szerzodes_kuldve, r.szerzodes_elfogadva,
+    (SELECT u.nev FROM penzugy_ugyfelek u WHERE u.id = r.ugyfel_id) AS ugyfel_nev,
+    EXISTS (SELECT 1 FROM penzugy_szamlak s WHERE s.reklam_id = r.id AND s.tipus = 'dijbekero' AND s.statusz = 'fizetve') AS fizetve_van,
+    EXISTS (SELECT 1 FROM penzugy_szamlak s WHERE s.reklam_id = r.id AND s.tipus = 'dijbekero' AND s.statusz IN ('kiallitva', 'piszkozat')) AS fizetesre_var,
     EXTRACT(EPOCH FROM r.updated_at)::bigint AS v`;
 
 async function lista(napok = 30) {
@@ -227,7 +231,12 @@ function tisztit(b) {
         aktiv: b.aktiv !== false,
         suly,
         ar: isFinite(ar) ? ar : null,
-        megjegyzes: sz(b.megjegyzes, 2000)
+        megjegyzes: sz(b.megjegyzes, 2000),
+        // számlázás (services/reklamSzamla.js)
+        ugyfel_id: Number(b.ugyfel_id) || null,
+        penznem: ["RON", "EUR"].includes(b.penznem) ? b.penznem : "RON",
+        szamlazas: b.szamlazas === "havonta" ? "havonta" : "egyben",
+        fizetes_utan: !!b.fizetes_utan
     };
 
 }
@@ -247,6 +256,7 @@ async function letrehoz(b) {
         kep ? kep.buf : null, kep ? kep.mime : null, kep ? kep.w : null, kep ? kep.h : null,
         mobil ? mobil.buf : null, mobil ? mobil.mime : null, mobil ? mobil.w : null, mobil ? mobil.h : null]);
 
+    await szamlazasMent(r.rows[0].id, d);
     aktivCache = null;
     return egy(r.rows[0].id);
 
@@ -268,6 +278,7 @@ async function modosit(id, b) {
             aktiv=$9, suly=$10, ar=$11, megjegyzes=$12, updated_at=NOW()
         WHERE id=$13
     `, [d.nev, d.hirdeto, d.kapcsolat, d.cel_url, d.alt, JSON.stringify(d.helyek), d.kezdet, d.vege, d.aktiv, d.suly, d.ar, d.megjegyzes, id]);
+    await szamlazasMent(id, d);
 
     if (kep) {
         await db.query("UPDATE reklamok SET kep=$1, kep_mime=$2, kep_w=$3, kep_h=$4, updated_at=NOW() WHERE id=$5", [kep.buf, kep.mime, kep.w, kep.h, id]);
@@ -282,6 +293,11 @@ async function modosit(id, b) {
     aktivCache = null;
     return egy(id);
 
+}
+
+async function szamlazasMent(id, d) {
+    await db.query("UPDATE reklamok SET ugyfel_id = $2, penznem = $3, szamlazas = $4, fizetes_utan = $5 WHERE id = $1",
+        [id, d.ugyfel_id, d.penznem, d.szamlazas, d.fizetes_utan]);
 }
 
 async function torol(id) {
@@ -313,6 +329,10 @@ async function aktivak() {
               AND (r.kezdet IS NULL OR r.kezdet <= ${NAP})
               AND (r.vege IS NULL OR r.vege >= ${NAP})
               AND jsonb_array_length(COALESCE(r.helyek, '[]'::jsonb)) > 0
+              -- „csak a befizetés után”: a mai napra kifizetett díjbekérő kell
+              AND (NOT COALESCE(r.fizetes_utan, false) OR EXISTS (
+                    SELECT 1 FROM penzugy_szamlak s WHERE s.reklam_id = r.id AND s.tipus = 'dijbekero' AND s.statusz = 'fizetve'
+                      AND (s.idoszak_tol IS NULL OR s.idoszak_tol <= ${NAP}) AND (s.idoszak_ig IS NULL OR s.idoszak_ig >= ${NAP})))
         `);
         adat = r.rows.map(x => ({
             id: x.id,
@@ -400,6 +420,6 @@ async function lejarok(napok = 7) {
 }
 
 module.exports = {
-    HELYEK, olvas, ment, lista, egy, letrehoz, modosit, torol, kep, aktivak,
+    HELYEK, olvas, ment, lista, egy, letrehoz, modosit, torol, kep, aktivak, cacheUrit: () => { aktivCache = null; },
     megjelenesek, kattintas, napiStat, osszesites, lejarok
 };

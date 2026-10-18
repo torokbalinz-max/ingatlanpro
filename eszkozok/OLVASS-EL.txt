@@ -1,0 +1,17 @@
+Iratok szinkronja a gépre
+=========================
+
+Az app (Irattár) iratai óránként maguktól letöltődnek ide:
+  Dokumentumok\IngatlanPro iratok\
+
+Telepítés (egyszer):
+  1. Admin → Irattár → „Szinkron a gépre” → Új kulcs – másold ki.
+  2. Kattints duplán: szinkron-telepites.bat
+     Írd be az oldal címét (Enter = https://ingatlanpro.onrender.com) és a kulcsot.
+  3. Kész – óránként fut, ablak nélkül (ha a gép be van kapcsolva).
+
+Kézi futtatás: iratok-szinkron.bat
+Napló: Dokumentumok\IngatlanPro iratok\.szinkron-naplo.txt
+Leállítás: szinkron-eltavolitas.bat (a letöltött iratok megmaradnak)
+
+A kulcs a mappában van (.szinkron.json), nem a kódban – nem kerül fel a GitHubra.

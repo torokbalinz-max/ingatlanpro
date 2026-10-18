@@ -30,6 +30,47 @@ router.get("/api/admin/irattar/export.csv", jog, async (req, res) => {
     } catch (err) { hiba(res, err); }
 });
 
+// ---------- Szinkron a gépre (services/szinkron.js) ----------
+const szinkron = require("../services/szinkron");
+const { csakAdmin } = require("../lib/http");
+
+router.get("/api/admin/irattar/szinkron", jog, async (req, res) => {
+    try { res.json(await szinkron.allapot()); } catch (err) { hiba(res, err); }
+});
+
+// Új kulcs a gépnek (csak az admin) – csak most látszik
+router.post("/api/admin/irattar/szinkron/kulcs", csakAdmin, async (req, res) => {
+    try { res.json({ siker: true, kulcs: await szinkron.ujKulcs(), cim: require("../services/mail").oldalCim(req) }); } catch (err) { hiba(res, err); }
+});
+
+router.delete("/api/admin/irattar/szinkron/kulcs", csakAdmin, async (req, res) => {
+    try { await szinkron.visszavon(); res.json({ siker: true }); } catch (err) { hiba(res, err); }
+});
+
+// A gépen futó program hívja – a kulccsal (nem kell hozzá belépés)
+async function szinkronJog(req, res, next) {
+    try {
+        if (await szinkron.ellenoriz(req.headers.authorization)) return next();
+        res.status(401).json({ error: "bad_key" });
+    } catch (err) { hiba(res, err); }
+}
+
+router.get("/szinkron/lista", szinkronJog, async (req, res) => {
+    try { res.set("Cache-Control", "no-store"); res.json({ fajlok: await szinkron.lista() }); } catch (err) { hiba(res, err); }
+});
+
+router.get("/szinkron/fajl", szinkronJog, async (req, res) => {
+    try {
+        const f = await szinkron.fajl(String(req.query.kulcs || ""));
+        res.set("Content-Type", f.mime);
+        res.set("Cache-Control", "no-store");
+        res.send(f.adat);
+    } catch (err) {
+        if (err && err.kod) return res.status(404).json({ error: err.kod });
+        hiba(res, err);
+    }
+});
+
 // A bevétel–kiadás napló (Registrul-jurnal de încasări și plăți) – évre vagy hónapra
 router.get("/api/admin/irattar/registru.csv", jog, async (req, res) => {
     try {

@@ -268,8 +268,9 @@ AdminManager.finFizetve = function (id, kesz) {
             <input type="date" class="form-control form-control-sm mb-2" id="ffDatum" value="${AdminManager.finMa()}">
             <label class="form-label small mb-1" for="ffMod">${I18n.t("finPayMethod")}</label>
             <select class="form-select form-select-sm mb-2" id="ffMod">${L.fizetesiModok.map(m => `<option value="${m}" ${(s.fizetesi_mod || "atutalas") === m ? "selected" : ""}>${esc(I18n.t("finPay_" + m))}</option>`).join("")}</select>
-            <label class="form-label small mb-1" for="ffKulso">${I18n.t("finOfficialNumber")}</label>
-            <input class="form-control form-control-sm" id="ffKulso" value="${esc(s.kulso_szam || "")}" maxlength="60" placeholder="${esc(I18n.t("finOfficialNumberPh"))}">
+            ${s.kulso_szam ? `<label class="form-label small mb-1" for="ffKulso">${I18n.t("finOfficialNumber")}</label>
+            <input class="form-control form-control-sm" id="ffKulso" value="${esc(s.kulso_szam)}" maxlength="60" placeholder="${esc(I18n.t("finOfficialNumberPh"))}">`
+                : `<div class="form-text">${I18n.t("finPaidAutoInvoice")}</div>`}
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${I18n.t("adsCancel")}</button>
@@ -281,7 +282,7 @@ AdminManager.finFizetve = function (id, kesz) {
         btn.disabled = true;
         AdminManager.finApi(`szamlak/${id}/allapot`, {
             method: "POST",
-            body: { statusz: "fizetve", fizetve: tartalom.querySelector("#ffDatum").value, fizetesi_mod: tartalom.querySelector("#ffMod").value, kulso_szam: tartalom.querySelector("#ffKulso").value }
+            body: { statusz: "fizetve", fizetve: tartalom.querySelector("#ffDatum").value, fizetesi_mod: tartalom.querySelector("#ffMod").value, kulso_szam: tartalom.querySelector("#ffKulso") ? tartalom.querySelector("#ffKulso").value : (s.kulso_szam || "") }
         })
             .then(() => { modal.hide(); AdminManager.refreshPendingCount(); if (kesz) kesz(); })
             .catch(e => { btn.disabled = false; AdminManager.finHiba(e); });

@@ -30,7 +30,7 @@ router.put("/api/admin/efactura/beallitas", csakAdmin, async (req, res) => {
     try {
         const b = req.body || {};
         const d = {};
-        ["efactura_auto", "efactura_kezdet", "efactura_mod", "efactura_bejovo"].forEach(k => { if (k in b) d[k] = b[k]; });
+        ["efactura_auto", "efactura_kezdet", "efactura_mod", "efactura_bejovo", "efactura_bejovo_kiadas"].forEach(k => { if (k in b) d[k] = b[k]; });
         await pu.beallitasMent(d);
         res.json({ siker: true, ...(await spv.allapot(mail.oldalCim(req))) });
     } catch (err) { hiba(res, err); }

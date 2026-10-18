@@ -47,3 +47,11 @@
 .irKeep { color: var(--bs-secondary-color); font-size: .78rem; }
 .irKeep i { opacity: .7; }
 .irSt .efBadge { margin-top: 2px; }
+
+/* Reklám: számlázás / szerződés doboz */
+.adsBillBox {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    padding: .75rem;
+    background: var(--bs-tertiary-bg);
+}

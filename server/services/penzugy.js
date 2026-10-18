@@ -156,6 +156,7 @@ function alapBeallitas() {
         efactura_kezdet: null,
         efactura_mod: "prod",
         efactura_bejovo: true,
+        efactura_bejovo_kiadas: true,   // a beérkező számla a Kiadások közé is felkerül
         // Kiemelés: a csomag havi keretéből egy kiemelés ennyi napig tart
         kiemeles_nap: 7,
         // A nyomtatott számla / díjbekérő: a hivatalos szöveg román; alapból
@@ -217,6 +218,7 @@ async function beallitasMent(b) {
     if ("efactura_kezdet" in b) a.efactura_kezdet = datum(b.efactura_kezdet);
     if ("efactura_mod" in b) a.efactura_mod = b.efactura_mod === "test" ? "test" : "prod";
     if ("efactura_bejovo" in b) a.efactura_bejovo = !!b.efactura_bejovo;
+    if ("efactura_bejovo_kiadas" in b) a.efactura_bejovo_kiadas = !!b.efactura_bejovo_kiadas;
     if ("kiemeles_nap" in b) a.kiemeles_nap = Math.round(n(b.kiemeles_nap, 1, 90, 7));
     if ("bizonylat_forditas" in b) a.bizonylat_forditas = ["hu", "en"].includes(b.bizonylat_forditas) ? b.bizonylat_forditas : "";
     if ("tva_mentes_szoveg" in b) a.tva_mentes_szoveg = sz(b.tva_mentes_szoveg, 300) || "";
@@ -632,7 +634,7 @@ async function elofizetesTorol(id) {
 }
 
 // Esedékes előfizetések: a következő díjbekérő dátuma legfeljebb "elore_nap" napon belül
-async function esedekesek(b) {
+async function esedekesek(b, csakReklam = false) {
     b = b || await beallitas();
     const hatar = napHozzaad(ma(), b.elore_nap || 0);
     const r = await db.query(`
@@ -640,15 +642,16 @@ async function esedekesek(b) {
         JOIN penzugy_ugyfelek u ON u.id = e.ugyfel_id
         WHERE e.statusz = 'aktiv' AND e.kovetkezo IS NOT NULL AND e.kovetkezo <= $1::date
           AND (e.vege IS NULL OR e.kovetkezo <= e.vege)
+          ${csakReklam ? "AND e.reklam_id IS NOT NULL" : ""}
         ORDER BY e.kovetkezo`, [hatar]);
     return r.rows.map(e => szamosit(e, ["ar"]));
 }
 
 // A díjbekérők elkészítése az esedékes előfizetésekhez. Egy előfizetésnél több
 // lejárt időszak is lehet (pl. 3 hónapja nem futott) – mindegyikhez egy.
-async function esedekesDijbekerok() {
+async function esedekesDijbekerok({ csakReklam = false } = {}) {
     const b = await beallitas();
-    const lista = await esedekesek(b);
+    const lista = await esedekesek(b, csakReklam);
     const keszult = [];
     const hatar = napHozzaad(ma(), b.elore_nap || 0);
 
@@ -662,6 +665,7 @@ async function esedekesDijbekerok() {
                 tipus: "dijbekero",
                 ugyfel_id: e.ugyfel_id,
                 elofizetes_id: e.id,
+                reklam_id: e.reklam_id || null,
                 kiallitva: ma(),
                 esedekes: kov > ma() ? kov : napHozzaad(ma(), b.fizetesi_hatarido),
                 idoszak_tol: kov,
@@ -669,7 +673,7 @@ async function esedekesDijbekerok() {
                 penznem: e.penznem,
                 tetelek: [{
                     megnevezes: `${e.megnevezes} (${kov} – ${ig})`,
-                    kategoria: null,
+                    kategoria: e.reklam_id ? "reklamfelulet" : null,
                     csomag_id: e.csomag_id,
                     mennyiseg: e.mennyiseg || 1,
                     egysegar: e.ar
@@ -1368,7 +1372,12 @@ async function exportKiadasok(f) {
 async function napi() {
     try {
         const b = await beallitas();
-        if (!b.auto_dijbekero) return;
+        // a bérelt reklámfelületek havi díjbekérői mindig maguktól készülnek (a szerződés szerint)
+        if (!b.auto_dijbekero) {
+            const r = await esedekesDijbekerok({ csakReklam: true });
+            if (r.length) console.log(`Pénzügy: ${r.length} reklám díjbekérő elkészült.`);
+            return;
+        }
         const k = await esedekesDijbekerok();
         if (k.length) console.log(`Pénzügy: ${k.length} díjbekérő elkészült (esedékes előfizetések).`);
     } catch (e) {

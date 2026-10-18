@@ -51,6 +51,7 @@ const KATEGORIAK = {
     ],
     szerzodes: [
         { kod: "megbizasi", icon: "fa-solid fa-file-signature", auto: true },
+        { kod: "reklam", icon: "fa-solid fa-rectangle-ad", auto: true, csakAuto: true },
         { kod: "ugyfel", icon: "fa-solid fa-user-tie" },
         { kod: "partner", icon: "fa-solid fa-handshake" },
         { kod: "szolgaltato", icon: "fa-solid fa-plug" },
@@ -193,6 +194,23 @@ async function lista({ resz = "szamla", kategoria = "", ev = "", q = "" } = {}) 
         });
     }
 
+    // reklám szerződések (Reklámfelületek → Szerződés és díjbekérő küldése)
+    if (resz === "szerzodes" && (!kategoria || kategoria === "reklam")) {
+        const lista = await require("./reklamSzamla").irattarLista();
+        const ma = pu.ma();
+        lista.forEach(x => {
+            const d = pu.pgDatum(x.szerzodes_elfogadva || x.szerzodes_kuldve);
+            if (!evOk(d) || !keresOk(x.szerzodes_szam, x.nev, x.hirdeto, x.ugyfel_nev)) return;
+            out.push({
+                id: "rk-" + x.id, forras: "app", resz: "szerzodes", kategoria: "reklam",
+                cim: x.szerzodes_szam, partner: x.ugyfel_nev || x.hirdeto, szam: x.szerzodes_szam, datum: d,
+                kezdet: x.kezdet, lejar: x.vege, osszeg: x.ar === null ? null : Number(x.ar), penznem: x.penznem || "RON",
+                statusz: !x.szerzodes_elfogadva ? "kuldve" : (x.vege && x.vege < ma ? "megszunt" : "aktiv"),
+                megjegyzes: x.nev, reklam_id: x.id, van_fajl: true
+            });
+        });
+    }
+
     out.sort((a, b) => String(b.datum || "").localeCompare(String(a.datum || "")));
     return out;
 }
@@ -227,6 +245,8 @@ async function osszesites(resz) {
     } else {
         const m = await db.query("SELECT COUNT(*)::int AS n FROM megbizasok WHERE szerzodes_allapot IN ('elfogadva', 'alairva') OR alairva IS NOT NULL");
         kat.megbizasi = (kat.megbizasi || 0) + m.rows[0].n;
+        const rk = await db.query("SELECT COUNT(*)::int AS n FROM reklamok WHERE szerzodes_szam IS NOT NULL").catch(() => ({ rows: [{ n: 0 }] }));
+        kat.reklam = (kat.reklam || 0) + rk.rows[0].n;
         const l = await db.query(`
             SELECT COUNT(*) FILTER (WHERE lejar >= CURRENT_DATE AND lejar <= CURRENT_DATE + 30)::int AS lejaro,
                    COUNT(*) FILTER (WHERE lejar < CURRENT_DATE)::int AS lejart

@@ -192,6 +192,7 @@ async function sajat(s, fizetesiMod) {
         fizetesi_mod: fizetesiMod || s.fizetesi_mod || null,
         idoszak_tol: s.idoszak_tol,
         idoszak_ig: s.idoszak_ig,
+        reklam_id: s.reklam_id || null,
         megjegyzes: `Díjbekérő / Proforma: ${s.sorszam}`,
         tetelek: (s.tetelek || []).map(t => ({
             megnevezes: t.megnevezes, megnevezes_ro: t.megnevezes_ro, megnevezes_en: t.megnevezes_en, kategoria: t.kategoria, csomag_id: t.csomag_id,
@@ -246,7 +247,11 @@ pu.fizetveFigyelo(async id => {
     const s = await pu.szamla(id);
     if (!s || s.tipus !== "dijbekero" || s.statusz !== "fizetve" || s.hivatalos_szamlazo) return;
     const v = await kiallit(id, {}).catch(e => { console.error("Számla kiállítása:", e.message); return null; });
-    if (v && v.szam && !v.mar_volt) kuldes(id).catch(e => console.error("Számla e-mail:", e.message));
+    if (v && v.szam && !v.mar_volt) {
+        kuldes(id).catch(e => console.error("Számla e-mail:", e.message));
+        // e-Factura: ha az automatikus feltöltés be van kapcsolva, rögtön megy az ANAF-hoz
+        if (be.efactura_auto) setTimeout(() => require("./efacturaSpv").futtat().catch(() => { }), 3000);
+    }
 });
 
 // A saját számla e-mailben a vevőnek (a külső számlázók maguk küldik)

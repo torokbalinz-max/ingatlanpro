@@ -358,6 +358,11 @@ AdminManager.renderEfactura = function () {
                                     <label class="form-check-label" for="efBejovo">${I18n.t("efIncoming")}</label>
                                 </div>
                                 <div class="small text-body-secondary">${I18n.t("efIncomingHelp")}</div>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="efBejovoKiadas" ${a.bejovo_kiadas ? "checked" : ""} ${admin ? "" : "disabled"}>
+                                    <label class="form-check-label" for="efBejovoKiadas">${I18n.t("efIncomingExpense")}</label>
+                                </div>
+                                <div class="small text-body-secondary">${I18n.t("efIncomingExpenseHelp")}</div>
                             </div>
                             ${admin ? `<div class="col-12 d-flex align-items-center gap-2"><button class="btn btn-sm btn-primary" type="submit">${I18n.t("finSave")}</button><span class="small" id="efBeallMsg"></span></div>` : ""}
                         </form>
@@ -406,7 +411,7 @@ AdminManager.renderEfactura = function () {
             if (!admin) return;
             const auto = $("#efAuto").checked;
             if (auto && !a.auto && !$("#efKezdet").value && !confirm(I18n.t("efAutoNoStartConfirm"))) return;
-            AdminManager.efApi("/api/admin/efactura/beallitas", { method: "PUT", body: { efactura_auto: auto, efactura_kezdet: $("#efKezdet").value || null, efactura_mod: $("#efMod").value, efactura_bejovo: $("#efBejovo").checked } })
+            AdminManager.efApi("/api/admin/efactura/beallitas", { method: "PUT", body: { efactura_auto: auto, efactura_kezdet: $("#efKezdet").value || null, efactura_mod: $("#efMod").value, efactura_bejovo: $("#efBejovo").checked, efactura_bejovo_kiadas: $("#efBejovoKiadas").checked } })
                 .then(() => { AdminManager.fin.cfg = null; ujra(); })
                 .catch(err => alert(AdminManager.efHiba(err)));
         };
