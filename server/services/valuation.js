@@ -1,7 +1,20 @@
 // ============================================================
-//  Ingatlan értékbecslő (4. változat – lásd lent: "4. változat")
-//  Az alábbi leírás a 3. változaté (árarány-modell), amit a 4. változat
-//  az átszámításhoz és a kerületek árszintjéhez használ.
+//  Ingatlan értékbecslő
+//
+//  LAKÁS: 5. változat (2026. október 18.) = az alábbi két lépés
+//  (árarány-modell + átszámolt hasonlók), de a méretet a szobaszámhoz
+//  képest számolja: egy 2 szobás tipikusan ~50 m²; a nagyobb 2 szobás
+//  többet ér, de a többlet m² nem a teljes átlagos €/m²-t éri, csak
+//  ~60 %-át (lásd SZOBA_MERET). A 4. változatban a hasonlók €/m²-ét
+//  egyszerűen az alapterülettel szoroztuk, így pl. 50 -> 57 m² +13 600 €
+//  lett (több mint az átlagár!); most +7 300 €.
+//  Pontosság az élő adatokon (Sepsiszentgyörgy, 199 lakás): medián hiba
+//  8,3 % (4. változat: 9,7 %), kiadó lakás 9,3 % (13,8 %).
+//
+//  HÁZ, TELEK, ÜZLET, IRODA: 4. változat (lásd lent: "4. változat").
+//
+//  Az alábbi leírás a 3. változaté (árarány-modell), erre épül az 5.,
+//  és ezt használja a 4. az átszámításhoz és a kerületek árszintjéhez.
 //
 //  Két lépés, mint egy ingatlanértékelőnél:
 //
@@ -282,7 +295,83 @@ const ELOZETES = {
 
 // Mennyire ragaszkodunk az előzetes arányhoz – nagyjából "ennyi hirdetésnyi"
 // bizonyíték kell, hogy elmozduljon tőle
-const ERO = { meret: 15, kicsi: 6, nagy: 8, szoba: 8, allapot: 4, emelet: 6, ev: 6, uj: 3, hely: 3, ujhely: 4, jelleg: 4, telek: 15 };
+const ERO = { szobaSzint: 6, meret: 15, kicsi: 6, nagy: 8, szoba: 8, allapot: 4, emelet: 6, ev: 6, uj: 3, hely: 3, ujhely: 4, jelleg: 4, telek: 15 };
+
+// ============================================================
+//  Lakás: a méret a szobaszámhoz képest (5. változat)
+//
+//  Egy lakás árát főleg a szobaszám (milyen lakás) és az, hogy ahhoz
+//  képest mekkora, határozza meg. Egy 2 szobás tipikusan ~50 m²; egy
+//  57 m²-es 2 szobás többet ér, de NEM a teljes átlagos €/m²-rel
+//  számolva: a többlet m² ára a tipikus €/m²-nek csak egy része
+//  (rugalmasság: 1 = arányos, 0,6 = a többlet m² ~60 %-ot ér).
+//
+//    ár = tipikus ár (szobaszám) × (m² / tipikus m²)^rugalmasság
+//
+//  Pl. 2 szobás, tipikus 50 m², 1500 €/m² (75 000 €), rugalmasság 0,6:
+//    57 m² -> 75 000 × (57/50)^0,6 = 81 100 €  (+6 100 €, ~870 €/m² a 7 m²-re)
+//    arányosan (a régi számítás) 85 500 € lett volna (+10 500 €).
+//  A kisebb lakásnál ugyanígy: kevesebbet ér, de a hiányzó m² sem a
+//  teljes átlagárral csökkenti.
+//  A szobaszámok tipikus €/m²-ét (pl. a garzonok drágábbak m²-re) a
+//  hirdetésekből tanulja a modell.
+// ============================================================
+
+const SZOBA_MERET = {
+    // Ha kevés a hirdetés egy szobaszámból, ezek a tipikus méretek
+    alap: { 1: 28, 2: 50, 3: 67, 4: 82 },
+    // A tipikus €/m² a 2 szobáshoz képest (kiinduló arányok; a hirdetésekből tanul)
+    szobaElozetes: { 1: 1.08, 3: 0.92, 4: 0.9 },
+    // Rugalmasság a tipikus mérettől eltérve (nagyobb / kisebb lakás)
+    rugalmassag: {
+        elado: { nagyobb: 0.6, kisebb: 0.75 },
+        kiado: { nagyobb: 0.45, kisebb: 0.6 }
+    },
+    // Mennyire ragaszkodunk hozzá ("ennyi hirdetésnyi" bizonyíték kell az elmozduláshoz).
+    // A nagyobb lakásnál erősen: a kért árakban a nagyobb lakások gyakran
+    // túlárazottak (a hirdetők m²-re számolnak), a valós piaci érték kevésbé nő.
+    ero: { nagyobb: 400, kisebb: 40 }
+};
+
+if (process.env.SZOBA_MERET_TEST) Object.assign(SZOBA_MERET, JSON.parse(process.env.SZOBA_MERET_TEST));
+
+const szobaOsztaly = i => i.szobak > 0 ? Math.min(Math.round(i.szobak), 4) : null;
+
+// A szobaszámok tipikus mérete (a meglévő lakások mediánja, legalább 4 hirdetésből)
+function tipikusMeretek(pool) {
+    const t = { ...SZOBA_MERET.alap };
+    for (const r of [1, 2, 3, 4]) {
+        const l = pool.filter(i => !i._uj && szobaOsztaly(i) === r).map(i => i.nm);
+        if (l.length >= 4) t[r] = (median(l) * l.length + SZOBA_MERET.alap[r] * 3) / (l.length + 3);
+    }
+    // Növekvő sorrend (több szoba = nagyobb tipikus méret)
+    for (const r of [2, 3, 4]) t[r] = Math.max(t[r], t[r - 1] * 1.15);
+    return t;
+}
+
+// Melyik szobaszám-osztály (ismert szobaszámnál egyértelmű; ismeretlennél a méret
+// szerint a két szomszédos osztály között, folytonosan) -> { szoba: arány }
+function szobaResz(i, tip) {
+    const r = szobaOsztaly(i);
+    if (r) return { [r]: 1 };
+    const l = Math.log(i.nm);
+    if (l <= Math.log(tip[1])) return { 1: 1 };
+    if (l >= Math.log(tip[4])) return { 4: 1 };
+    for (let k = 1; k < 4; k++) {
+        const a = Math.log(tip[k]), b = Math.log(tip[k + 1]);
+        if (l <= b) { const t = (l - a) / (b - a); return { [k]: 1 - t, [k + 1]: t }; }
+    }
+    return { 4: 1 };
+}
+
+// Mennyivel tér el a mérete a szobaszámához tipikustól (log)
+function meretElteres(i, tip) {
+    const r = szobaOsztaly(i);
+    if (r) return Math.log(i.nm / tip[r]);
+    if (i.nm < tip[1]) return Math.log(i.nm / tip[1]);
+    if (i.nm > tip[4]) return Math.log(i.nm / tip[4]);
+    return 0;
+}
 
 // A jellemzők (oszlopok). fn: a hirdetés értéke, null = ismeretlen (a modell a
 // tipikus értéket veszi helyette)
@@ -294,14 +383,33 @@ function jellemzok(pool, ctx) {
     const [kicsiT, nagyT] = MERET_TORES[tipus] || MERET_TORES.lakas;
     const kozep = Math.sqrt(kicsiT * nagyT);
 
-    // Méret (log), a kicsi és a nagy ingatlanoknál külön meredekséggel
-    add("meret", "meret", i => Math.log(i.nm / kozep), ELOZETES.meretTipus[tipus] ?? (ELOZETES.meret[ugylet] ?? -0.15), ERO.meret);
-    add("kicsi", "meret", i => Math.max(0, Math.log(kicsiT / i.nm)), ELOZETES.kicsi, ERO.kicsi);
-    add("nagy", "meret", i => Math.max(0, Math.log(i.nm / nagyT)), 0, ERO.nagy);
+    if (tipus === "lakas" && !ctx.regiMeret) {
 
-    // Szobaszám a mérethez képest (sok kis szoba vs. kevés nagy)
-    if (["lakas", "haz", "iroda"].includes(tipus)) {
-        add("szoba_suruseg", "szoba", i => i.szobak > 0 ? Math.log((i.szobak * 25) / i.nm) : null, 0, ERO.szoba);
+        // Lakás: méret a szobaszámhoz képest (5. változat, lásd SZOBA_MERET)
+        //  - minden szobaszámnak van egy tipikus mérete (a hirdetésekből: pl. 2 szobás ~50 m²)
+        //    és egy tipikus €/m²-e (ezt tanulja a modell: szoba_1, szoba_3...)
+        //  - a tipikustól eltérő méret csak részben számít: egy nagyobb 2 szobás többet ér,
+        //    de a többlet m² nem éri a teljes átlagárat (alapból ~60 %-át)
+        const tip = tipikusMeretek(pool);
+        cols.tipikus = tip;
+        const resz = i => szobaResz(i, tip);
+        [1, 3, 4].forEach(r => add("szoba_" + r, "meret", i => resz(i)[r] || 0, Math.log(SZOBA_MERET.szobaElozetes[r]), ERO.szobaSzint));
+        const rug = SZOBA_MERET.rugalmassag[ugylet] ?? SZOBA_MERET.rugalmassag.elado;
+        add("meret_nagyobb", "meret", i => Math.max(0, meretElteres(i, tip)), rug.nagyobb - 1, SZOBA_MERET.ero.nagyobb);
+        add("meret_kisebb", "meret", i => Math.min(0, meretElteres(i, tip)), rug.kisebb - 1, SZOBA_MERET.ero.kisebb);
+
+    } else {
+
+        // Méret (log), a kicsi és a nagy ingatlanoknál külön meredekséggel
+        add("meret", "meret", i => Math.log(i.nm / kozep), ELOZETES.meretTipus[tipus] ?? (ELOZETES.meret[ugylet] ?? -0.15), ERO.meret);
+        add("kicsi", "meret", i => Math.max(0, Math.log(kicsiT / i.nm)), ELOZETES.kicsi, ERO.kicsi);
+        add("nagy", "meret", i => Math.max(0, Math.log(i.nm / nagyT)), 0, ERO.nagy);
+
+        // Szobaszám a mérethez képest (sok kis szoba vs. kevés nagy)
+        if (["lakas", "haz", "iroda"].includes(tipus)) {
+            add("szoba_suruseg", "szoba", i => i.szobak > 0 ? Math.log((i.szobak * 25) / i.nm) : null, 0, ERO.szoba);
+        }
+
     }
 
     // Állapot ("jó" a viszonyítás; az admin által megadott kiinduló arányokkal)
@@ -640,8 +748,13 @@ const T = {
     allapotTavUj: 0.6,
     ismeretlenAllapotTav: 0.5,
     monoton: false,
-    monotonModell: true
+    monotonModell: true,
+    // Lakásnál a méret-különbség súlya a hasonlóságban (a méretet a modell már
+    // átszámolja, így a hasonlók összetétele ne ugráljon a mérettel)
+    meretTav: 1
 };
+
+if (process.env.T_TEST) Object.assign(T, JSON.parse(process.env.T_TEST));
 
 const PONTOS_HELY = ["pontos", "utca"];
 
@@ -652,7 +765,7 @@ const helyTav = (cel, ctx) => ctx.telepulesSzerint ? T.telepulesTav : (cel._uj ?
 // méretváltozás csak kicsit változtat rajta)
 function tavolsag(cel, i, ctx) {
 
-    let d = Math.abs(Math.log(cel.nm / i.nm)) * 2.2;
+    let d = Math.abs(Math.log(cel.nm / i.nm)) * (ctx.tipus === "lakas" && !ctx.regiMeret ? T.meretTav : 2.2);
 
     if (cel.szobak) d += (i.szobak > 0 ? Math.abs(cel.szobak - i.szobak) : 1.5) * 0.5;
 
@@ -916,8 +1029,27 @@ function szamol(pool, params, ctx, opts = {}) {
 
     const medianArNm = l => l.length ? arNmKerek(median(l.map(i => i.arNm))) : null;
 
+    // A méret szabálya (lakás, 5. változat): a szobaszám tipikus mérete, és hogy a
+    // tipikusnál nagyobb / kisebb méret hány %-ban számít (1 m² ennyit ér most)
+    let meretSzabaly = null;
+    if (m && m.cols.tipikus && nm > 0) {
+        const r5 = szobaOsztaly(cel);
+        const k = nev => { const n = m.cols.findIndex(c => c.nev === nev); return n >= 0 ? Math.round((1 + m.beta[n + 1]) * 100) / 100 : null; };
+        const kov = becslesLog(celAdat({ ...params, nm: nm + 1 }, ctx), pool, elo, m, ctx, opts).becsultLog;
+        const egy = Math.exp(kov + igazitas) * (nm + 1) - becsultArNm * nm;
+        meretSzabaly = {
+            rooms: r5,
+            typicalNm: r5 ? Math.round(m.cols.tipikus[r5] * 10) / 10 : null,
+            elasticityLarger: k("meret_nagyobb"),
+            elasticitySmaller: k("meret_kisebb"),
+            // +1 m² ennyivel növeli a becslést, és ez a mostani €/m² hány %-a
+            nextNmValue: Math.round(egy),
+            nextNmPctOfAvg: Math.round(egy / becsultArNm * 100)
+        };
+    }
+
     return {
-        version: 3,
+        version: otodik(ctx) ? 5 : 3,
         estimate: becsles,
         // A kerekített becslésből (így a felhasználó osztása is ugyanezt adja)
         arNm: arNmKerek(becsles / nm),
@@ -953,7 +1085,9 @@ function szamol(pool, params, ctx, opts = {}) {
             conditionAdjustment: Math.round((Math.exp(igazitas) - 1) * 1000) / 10,
             // A kerület admin által megadott árszintje (1 = legdrágább), ha van
             districtTier: ctx.szintek && cel._hely ? ctx.szintek.get(cel._hely) || null : null,
-            factors: m ? tenyezok(m, xCel) : []
+            factors: m ? tenyezok(m, xCel) : [],
+            // Lakás (5. változat): a méret a szobaszámhoz képest
+            sizeRule: meretSzabaly
         },
         comparables: hasonlok.map(x => ({
             id: x.i.id,
@@ -1387,6 +1521,10 @@ function szamolRegi(pool, params) {
 //  Nyilvános függvények
 // ============================================================
 
+// Az 5. változat ezekre a típusokra él (a többinél a 4. marad)
+const V5_TIPUSOK = ["lakas"];
+const otodik = ctx => V5_TIPUSOK.includes(ctx.tipus) && !ctx.regiMeret;
+
 async function becsles(params) {
 
     await allapotok.kesz();
@@ -1417,7 +1555,9 @@ async function becsles(params) {
         return { error: "not_enough_data", count: pool.length };
     }
 
-    const e = szamol4(pool, { ...params, nm }, ctx);
+    // Lakás: az 5. változat (árarány-modell + átszámolt hasonlók, a méret a szobaszámhoz
+    // képest); a többi típus: a 4. változat (változatlan)
+    const e = (otodik(ctx) ? szamol : szamol4)(pool, { ...params, nm }, ctx);
     if (e.error) return e;
 
     return { ...e, excluded: kihagy ? { id: kihagy, sajat: kihagyva.sajat > 0, ikrek: kihagyva.ikrek } : null, cleaned: kihagyva };
@@ -1462,11 +1602,25 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
         const regi = szamolRegi(pool, params);
         if (!regi) continue;
 
-        // Az előző (3., modell + hasonlók keverése) és az új (4., hasonlósági %) módszer
-        const m3 = modellIllesztes(pool, ctx);
-        const elo3 = modellTenyezok(pool, m3);
-        const elozo = szamol(pool, params, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
-        const uj = szamol4(pool, params, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
+        // Az előző és a mostani módszer:
+        //  - lakásnál: előző = 4. (hasonlósági %), mostani = 5. (modell + átszámolt hasonlók,
+        //    a méret a szobaszámhoz képest)
+        //  - a többi típusnál: előző = 3., mostani = 4. (mint eddig)
+        const o = { csakSzam: true, pontokKeszek: true };
+        let elozoFn, ujFn;
+        if (otodik(ctx)) {
+            const ctx4 = { ...ctx, regiMeret: true };
+            const m4 = modellIllesztes(pool, ctx4), elo4 = modellTenyezok(pool, m4);
+            const m5 = modellIllesztes(pool, ctx), elo5 = modellTenyezok(pool, m5);
+            elozoFn = p => szamol4(pool, p, ctx4, { ...o, modell: m4, elo: elo4 });
+            ujFn = p => szamol(pool, p, ctx, { ...o, modell: m5, elo: elo5 });
+        } else {
+            const m3 = modellIllesztes(pool, ctx), elo3 = modellTenyezok(pool, m3);
+            elozoFn = p => szamol(pool, p, ctx, { ...o, modell: m3, elo: elo3 });
+            ujFn = p => szamol4(pool, p, ctx, { ...o, modell: m3, elo: elo3 });
+        }
+        const elozo = elozoFn(params);
+        const uj = ujFn(params);
 
         hibak.regi.push(e(regi));
         hibak.elozo.push(e(elozo));
@@ -1481,8 +1635,8 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
 
         // Stabilitás: +1 m² (a hirdetés saját hiánya mellett, ugyanazzal a modellel)
         const p1 = { ...params, nm: i.nm + 1 };
-        const e2b = szamol(pool, p1, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
-        const e3b = szamol4(pool, p1, ctx, { modell: m3, elo: elo3, csakSzam: true, pontokKeszek: true });
+        const e2b = elozoFn(p1);
+        const e3b = ujFn(p1);
         stab.elozo.push(Math.abs((e2b / (i.nm + 1)) / (elozo / i.nm) - 1) * 100);
         stab.uj.push(Math.abs((e3b / (i.nm + 1)) / (uj / i.nm) - 1) * 100);
 
@@ -1508,7 +1662,7 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
     const stabil = l => ({ atlag: Math.round(atlag(l) * 100) / 100, max: Math.round(Math.max(0, ...l) * 100) / 100 });
 
     return {
-        varos, tipus: ctx.tipus, ugylet: ctx.ugylet, hirdetesek: osszes.length, verzio: 4,
+        varos, tipus: ctx.tipus, ugylet: ctx.ugylet, hirdetesek: osszes.length, verzio: otodik(ctx) ? 5 : 4,
         modellSuly: T.modellSuly, atszamitas: T.atszamitas,
         eredmeny, csoportok: csoportokOut,
         stabilitas: { elozo: stabil(stab.elozo), uj: stabil(stab.uj) }
