@@ -27,6 +27,18 @@ const { hiba, csakBelepve } = require("../lib/http");
 
 const router = express.Router();
 
+// Ha az értékesítés ki van kapcsolva (Admin → Webhely adatai → Funkciók):
+// új megbízás, foglalás, ajánlat, üzenet nem indítható; ami már megvan,
+// az olvasható marad (az admin asztal is működik)
+router.use(async (req, res, next) => {
+    if (req.method === "GET" || !/^\/api\/(megbizas|ertekesites)\b/.test(req.path)) return next();
+    try {
+        if (await require("../services/funkciok").ertekesites()) return next();
+    } catch (e) { return next(); }
+    if (req.szerep === "admin" && !/^\/api\/megbizas\/(hirdetes|sajat)\b|^\/api\/megbizas$/.test(req.path)) return next();
+    res.status(403).json({ error: "feature_off" });
+});
+
 const ip = req => req.ip || (req.socket && req.socket.remoteAddress) || "";
 
 // Háttérben futó értesítés – a hiba nem akadályozza a választ

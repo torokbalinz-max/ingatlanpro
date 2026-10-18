@@ -55,3 +55,11 @@
     padding: .75rem;
     background: var(--bs-tertiary-bg);
 }
+
+/* Kikapcsolt értékesítés (Admin → Webhely adatai → Funkciók): minden rá mutató link rejtve */
+body.noSales a[href^="#eladjuk"],
+body.noSales a[href^="#eladas"],
+body.noSales a[href^="#erdeklodes"],
+body.noSales a[href^="#fiok/megbizasok"],
+body.noSales .lmBadge,
+body.noSales .prPromo { display: none !important; }

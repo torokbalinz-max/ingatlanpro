@@ -32,7 +32,7 @@ class ListingMandate {
 
     static hook(i) {
 
-        if (!i || !i.megbizas_id) return;
+        if (!i || !i.megbizas_id || !Utils.ertekesites()) return;
 
         const box = document.getElementById("listingContent");
         if (!box) return;

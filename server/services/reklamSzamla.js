@@ -65,10 +65,11 @@ async function allapot(id) {
         SELECT id, sorszam, tipus, statusz, brutto, penznem, idoszak_tol::text AS tol, idoszak_ig::text AS ig, kulso_szam, fizetve::text AS fizetve
         FROM penzugy_szamlak WHERE reklam_id = $1 ORDER BY kiallitva, id`, [r.id]);
     const ugyfel = await ugyfelAdat(r.ugyfel_id);
-    const hianyzik = [];
+    const hianyzik = [], figyel = [];
     if (!r.ugyfel_id) hianyzik.push("ugyfel");
     else {
-        if (!ugyfel.email) hianyzik.push("ugyfel_email");
+        // e-mail nélkül is megy: a szerződés linkjét / a díjbekérőt kézzel adod át
+        if (!ugyfel.email) figyel.push("ugyfel_email");
         if (!ugyfel.cim || !ugyfel.varos || (ugyfel.orszag === "RO" && !ugyfel.megye)) hianyzik.push("ugyfel_cim");
     }
     if (!(Number(r.ar) > 0)) hianyzik.push("ar");
@@ -80,7 +81,8 @@ async function allapot(id) {
         bizonylatok: sz.rows.map(x => ({ ...x, brutto: Number(x.brutto) })),
         fizetve: sz.rows.some(x => x.tipus === "dijbekero" && x.statusz === "fizetve"),
         link: r.szerzodes_token ? `/reklam-szerzodes/${r.szerzodes_token}` : null,
-        hianyzik
+        hianyzik,
+        figyel
     };
 }
 

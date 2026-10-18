@@ -28,6 +28,8 @@ let fut = false;
 async function futtat() {
 
     if (fut) return null;
+    // kikapcsolt értékesítés: nincs automatikus levél / emlékeztető
+    try { if (!(await require("./funkciok").ertekesites())) return null; } catch (e) { /* megy tovább */ }
     fut = true;
     const ered = { elado: 0, elotte: 0, elotte2: 0, lezaratlan: 0, lejart: 0, lepes: 0 };
 

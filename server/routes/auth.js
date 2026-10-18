@@ -29,6 +29,8 @@ router.get("/api/config", async (req, res) => {
     try { reklamAdat = await reklam.olvas(); } catch (e) { /* alapból látszanak a helyőrzők */ }
     try { reklamok = await reklam.aktivak(); } catch (e) { /* nincs futó hirdetés */ }
     try { await allapotok.kesz(); allapotLista = allapotok.nyilvanos(); } catch (e) { /* a beépített lista marad */ }
+    let funkciok = { ...require("../services/funkciok").ALAP };
+    try { funkciok = await require("../services/funkciok").olvas(); } catch (e) { /* alapértékek */ }
 
     res.json({
         nyilvanos: nyilvanosMod(),
@@ -45,6 +47,8 @@ router.get("/api/config", async (req, res) => {
         },
         allapotok: allapotLista,
         uzemelteto,
+        // Ki/bekapcsolható részek (Admin → Webhely adatai → Funkciók)
+        funkciok,
         // Reklámfelületek: látszanak-e (összesen és helyenként), üresen a "Bérelhető"
         // helyőrző, hova írjanak az érdeklődők, és a ma futó hirdetések (kép nélkül)
         reklam: {

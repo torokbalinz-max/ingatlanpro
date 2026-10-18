@@ -786,7 +786,14 @@ AdminManager.adsEditor = function (h) {
         if (uj) { box.innerHTML = `<div class="small text-body-secondary">${I18n.t("adsBillSaveFirst")}</div>`; return; }
         Svc.api(`/api/admin/reklamok/${h.id}/szamlazas`).then(a => {
             const r = a.reklam;
-            const biz = a.bizonylatok.map(b => `<span class="badge text-bg-${b.statusz === "fizetve" ? "success" : b.statusz === "sztorno" ? "secondary" : "warning"}">${esc(b.sorszam)} · ${esc(I18n.t("finSt_" + b.statusz))}</span>`).join(" ");
+            // a bizonylatok: a számla megnyitható; a ki nem fizetett díjbekérő itt jelölhető fizetettnek
+            const biz = a.bizonylatok.map(b => {
+                const jel = `<span class="badge text-bg-${b.statusz === "fizetve" ? "success" : b.statusz === "sztorno" ? "secondary" : "warning"}">${esc(b.sorszam)} · ${esc(I18n.t("finSt_" + b.statusz))}</span>`;
+                return b.tipus === "szamla" && b.statusz !== "sztorno"
+                    ? `<a href="/api/admin/penzugy/szamlak/${b.id}/nyomtat" target="_blank" rel="noopener" class="text-decoration-none" title="${esc(I18n.t("adsInvoiceOpen"))}">${jel} <i class="fa-solid fa-arrow-up-right-from-square small" aria-hidden="true"></i></a>`
+                    : jel;
+            }).join(" ");
+            const nyitott = a.bizonylatok.find(b => b.tipus === "dijbekero" && (b.statusz === "kiallitva" || b.statusz === "piszkozat"));
             box.innerHTML = `
                 <div class="adsBillBox">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -795,8 +802,17 @@ AdminManager.adsEditor = function (h) {
                         ${a.honapok > 1 ? `<span class="small text-body-secondary">${I18n.f("adsBillMonths", { n: a.honapok })}</span>` : ""}
                     </div>
                     ${a.hianyzik.length ? `<div class="small text-warning-emphasis mb-2"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${a.hianyzik.map(k => esc(I18n.t("adsBillMissing_" + k))).join(" · ")}</div>` : ""}
+                    ${(a.figyel || []).length ? `<div class="small text-body-secondary mb-2"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${a.figyel.map(k => esc(I18n.t("adsBillNote_" + k))).join(" · ")}</div>` : ""}
+                    ${nyitott ? `
+                        <div class="adsPayRow d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <span class="small">${esc(I18n.f("adsPaidQuestion", { db: nyitott.sorszam, osszeg: Utils.num(nyitott.brutto) + " " + (nyitott.penznem || "RON") }))}</span>
+                            <select class="form-select form-select-sm w-auto" id="adsEdFizMod" aria-label="${esc(I18n.t("finPayMethod"))}">
+                                ${["atutalas", "keszpenz", "kartya", "egyeb"].map(m => `<option value="${m}">${esc(I18n.t("finPay_" + m))}</option>`).join("")}
+                            </select>
+                            <button type="button" class="btn btn-sm btn-success" id="adsEdFizetve" data-id="${nyitott.id}"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("adsPaidInvoice")}</button>
+                        </div>` : ""}
                     <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-sm btn-primary" id="adsEdKuld" ${a.hianyzik.length ? "disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t(r.szerzodes_szam ? "adsContractResend" : "adsContractSend")}</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="adsEdKuld" ${a.hianyzik.length ? "disabled" : ""}><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t(r.szerzodes_szam ? "adsContractResend" : (a.figyel || []).includes("ugyfel_email") ? "adsContractMake" : "adsContractSend")}</button>
                         ${r.szerzodes_szam ? `<a class="btn btn-sm btn-outline-secondary" href="/api/admin/reklamok/${h.id}/szerzodes" target="_blank" rel="noopener"><i class="fa-solid fa-eye" aria-hidden="true"></i> ${I18n.t("adsContractOpen")}</a>` : ""}
                         ${a.link ? `<button type="button" class="btn btn-sm btn-outline-secondary" id="adsEdLink"><i class="fa-solid fa-link" aria-hidden="true"></i> ${I18n.t("adsContractCopy")}</button>` : ""}
                     </div>
@@ -804,6 +820,21 @@ AdminManager.adsEditor = function (h) {
                 </div>`;
             const lk = $("adsEdLink");
             if (lk) lk.onclick = () => navigator.clipboard && navigator.clipboard.writeText(location.origin + a.link).then(() => Utils.toast && Utils.toast(I18n.t("prCopied")));
+            const fb = $("adsEdFizetve");
+            if (fb) fb.onclick = () => {
+                if (!confirm(I18n.t("adsPaidConfirm"))) return;
+                fb.disabled = true;
+                const most = new Date();
+                const ma = `${most.getFullYear()}-${String(most.getMonth() + 1).padStart(2, "0")}-${String(most.getDate()).padStart(2, "0")}`;
+                Svc.api(`/api/admin/penzugy/szamlak/${fb.dataset.id}/allapot`, { method: "POST", body: { statusz: "fizetve", fizetve: ma, fizetesi_mod: $("adsEdFizMod").value } })
+                    .then(() => {
+                        const m = $("adsEdKuldMsg");
+                        if (m) m.innerHTML = `<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> ${I18n.t("adsInvoiceMaking")}`;
+                        // a számlát a szerver a fizetés után magától állítja ki (pár másodperc)
+                        setTimeout(() => { szamlaAllapot(); AdminManager.adsUtanna(true); }, 2500);
+                    })
+                    .catch(e => { fb.disabled = false; alert(Svc.hiba(e)); });
+            };
             const k = $("adsEdKuld");
             if (k) k.onclick = () => {
                 if (!confirm(I18n.t("adsContractConfirm"))) return;

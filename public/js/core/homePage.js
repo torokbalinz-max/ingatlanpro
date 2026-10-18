@@ -211,11 +211,11 @@ class HomePage {
                                 <span class="pathIcon"><i class="${u.icon}" aria-hidden="true"></i></span>
                                 <div>
                                     <h3 class="pathTitle">${t(u.cim)}</h3>
-                                    <p class="pathText">${t(u.szoveg)}</p>
+                                    <p class="pathText">${t(Utils.ertekesites() ? u.szoveg : u.szoveg + "NoSales")}</p>
                                 </div>
                             </div>
                             <div class="pathList">
-                                ${u.pontok.map(p => `
+                                ${u.pontok.filter(p => Utils.ertekesites() || !Utils.ERTEKESITES_OLDALAK.includes(p.hova)).map((p, i, l) => ({ ...p, fo: p.fo || (i === 0 && !l.some(x => x.fo)) })).map(p => `
                                     <a class="pathItem ${p.fo ? "fo" : ""}" href="#${p.hova}" ${p.hova === "map" ? 'data-feat="map"' : ""}>
                                         <i class="${p.icon}" aria-hidden="true"></i>
                                         <span><b>${t(p.cim)}</b><small>${t(p.szoveg)}</small></span>

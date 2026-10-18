@@ -29,6 +29,15 @@ router.put("/api/admin/oldal-adatok", csapat.csakResz("beallitasok"), async (req
     }
 });
 
+// Funkciók ki/be (pl. az „Eladjuk helyetted” értékesítés)
+router.get("/api/admin/funkciok", csapat.csakResz("beallitasok"), async (req, res) => {
+    try { res.json(await require("../services/funkciok").olvas()); } catch (err) { hiba(res, err); }
+});
+
+router.put("/api/admin/funkciok", csakAdmin, async (req, res) => {
+    try { res.json({ siker: true, adat: await require("../services/funkciok").ment(req.body || {}) }); } catch (err) { hiba(res, err); }
+});
+
 // Cégadatok adószám (CUI) alapján – az irodaregisztrációhoz és az
 // üzemeltető adataihoz. Bejelentkezve; óránként legfeljebb 30 lekérdezés.
 router.get("/api/anaf/:cui", csakBelepve, async (req, res) => {

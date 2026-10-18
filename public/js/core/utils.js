@@ -4,6 +4,13 @@
 
 class Utils {
 
+    // Az „Eladjuk helyetted” értékesítés be van-e kapcsolva (Admin → Webhely adatai → Funkciók)
+    static ERTEKESITES_OLDALAK = ["eladjuk", "eladas", "erdeklodes"];
+    static ertekesites() {
+        const f = typeof AuthManager !== "undefined" && AuthManager.config && AuthManager.config.funkciok;
+        return !f || f.ertekesites !== false;
+    }
+
     // A téma kiemelő színe (a térképi jelölőkhöz)
     static accent() {
         try {

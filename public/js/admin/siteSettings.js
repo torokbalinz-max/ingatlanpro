@@ -107,6 +107,17 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
                         </div>
                     </div>
                 </div>
+                <div class="card mb-4" id="wsFunkciok">
+                    <div class="card-body">
+                        <h6 class="mb-2"><i class="fa-solid fa-toggle-on" aria-hidden="true"></i> ${I18n.t("wsFeaturesTitle")}</h6>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="wsErtekesites" ${Utils.ertekesites() ? "checked" : ""}>
+                            <label class="form-check-label" for="wsErtekesites"><b>${I18n.t("wsFeatSales")}</b></label>
+                        </div>
+                        <p class="small text-body-secondary mb-0 mt-1">${I18n.t("wsFeatSalesHelp")}</p>
+                        <div class="small mt-2" id="wsFunkMsg"></div>
+                    </div>
+                </div>
                 <div class="card mb-4">
                     <div class="card-body d-flex align-items-start gap-3">
                         <i class="fa-solid fa-rectangle-ad fs-4 text-primary" aria-hidden="true"></i>
@@ -127,6 +138,22 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
         </div>`;
 
     box.querySelectorAll("[data-go-tab]").forEach(b => b.onclick = () => AdminManager.open(b.dataset.goTab));
+
+    // Funkciók ki/be – azonnal érvényes (a nyilvános oldalon is)
+    const funk = box.querySelector("#wsErtekesites");
+    if (funk) funk.onchange = () => {
+        funk.disabled = true;
+        fetch("/api/admin/funkciok", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ertekesites: funk.checked }) })
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(v => {
+                AuthManager.config.funkciok = v.adat;
+                document.body.classList.toggle("noSales", !Utils.ertekesites());
+                if (AdminManager.renderNav) AdminManager.renderNav();
+                box.querySelector("#wsFunkMsg").innerHTML = `<i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${I18n.t(v.adat.ertekesites ? "wsFeatSalesOn" : "wsFeatSalesOff")}`;
+            })
+            .catch(() => { funk.checked = !funk.checked; alert(I18n.t("alertSaveError")); })
+            .finally(() => { funk.disabled = false; });
+    };
 
     const form = document.getElementById("wsForm");
     const msg = form.querySelector(".wsMsg");

@@ -88,6 +88,9 @@ class AuthManager {
             // Az üzemeltető adatai (Admin → Webhely adatai) a láblécbe
             if (typeof LegalPage !== "undefined") LegalPage.labLec();
 
+            // Kikapcsolt értékesítés: minden rá mutató link / menüpont rejtve (css: body.noSales)
+            document.body.classList.toggle("noSales", !Utils.ertekesites());
+
             AuthManager.setMe(me);
 
             if (AuthManager.resetToken) {

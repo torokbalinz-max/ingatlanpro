@@ -72,6 +72,8 @@
     // „panel” jog: bárki, aki az admin felületet látja
     const lathato = AdminManager.lathato;
     AdminManager.lathato = function (t) {
+        // kikapcsolt értékesítés: az „Értékesítés” modul rejtve (Webhely adatai → Funkciók)
+        if (t && t.group === "ert" && !Utils.ertekesites()) return false;
         if (t && t.jog === "panel") return AuthManager.panel();
         return lathato.call(this, t);
     };

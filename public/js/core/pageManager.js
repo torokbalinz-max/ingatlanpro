@@ -66,7 +66,12 @@ class PageManager {
 
     static show(target, opts = {}) {
 
-        const { page, param } = PageManager.parse(target);
+        let { page, param } = PageManager.parse(target);
+        // kikapcsolt értékesítés: az oldalai helyett a kezdőlap
+        if (Utils.ERTEKESITES_OLDALAK.includes(page) && !Utils.ertekesites()) {
+            page = "home"; param = null;
+            if (opts.fromHash) history.replaceState(null, "", "#home");
+        }
         const hash = param ? `${page}/${param}` : page;
 
         // Belépés nélkül: előbb a belépő ablak, utána megyünk tovább
