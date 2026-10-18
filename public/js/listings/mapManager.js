@@ -172,7 +172,7 @@ class MapManager {
 
         if (!k) return "";
 
-        return `<div class="mapPopupPlace"><i class="fa-solid fa-draw-polygon"></i> ${I18n.t("kerulet")}: <b>${Utils.escape(CityManager.keruletLabel(k, i.varos))}</b></div>`;
+        return `<div class="mapPopupPlace"><i class="fa-solid fa-draw-polygon"></i> ${CityManager.reszT("label", i.varos)}: <b>${Utils.escape(CityManager.keruletLabel(k, i.varos))}</b></div>`;
 
     }
 

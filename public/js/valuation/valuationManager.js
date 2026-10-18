@@ -332,7 +332,7 @@ class ValuationManager {
 
         // Piaci háttér: mediánok (a kilógó árak nem húzzák el), a keresett ingatlan szegmensében
         const uj = d.segment === "uj";
-        const helyNev = d.helySzerint === "telepules" ? I18n.t("valVillageMedian") : I18n.t(uj ? "valDistrictMedianNew" : "valDistrictMedianOld");
+        const helyNev = d.helySzerint === "telepules" ? I18n.t("valVillageMedian") : CityManager.reszT(uj ? "medNew" : "medOld", params.varos);
         const hatter = [
             `${I18n.t(uj ? "valCityMedianNew" : "valCityMedianOld")}: <b>${Utils.eurNm(d.cityMedianArNm || d.cityAvgArNm)}</b>`,
             (d.districtMedianArNm || d.districtAvgArNm) ? `${helyNev}: <b>${Utils.eurNm(d.districtMedianArNm || d.districtAvgArNm)}</b> (${d.districtCount} ${I18n.t("pcsWord")})` : null,
@@ -435,7 +435,7 @@ class ValuationManager {
                                     <th class="text-center">${I18n.t("colSzoba")}</th>
                                     <th>${I18n.t("colEmelet")}</th>
                                     <th>${I18n.t("colAllapot")}</th>
-                                    <th>${I18n.t(d.helySzerint === "telepules" ? "telepulesLabel" : "colKerulet")}</th>
+                                    <th>${d.helySzerint === "telepules" ? I18n.t("telepulesLabel") : CityManager.reszT("col", params.varos)}</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -474,7 +474,7 @@ class ValuationManager {
                 <li>${I18n.f("valM4Used", { n: m.used, sim: m.avgSimilarity })}${m.dropped ? ` <span class="text-body-secondary">${I18n.f("valM4Dropped", { n: m.dropped })}</span>` : ""}</li>
                 <li>${I18n.f(m.converted === false ? "valM4WeightedRaw" : "valM4Weighted", { arnm: Utils.eurNm(m.weightedArNm), nm: Utils.nm(d.nm) })}</li>
                 <li>${I18n.f("valM4Raw", { min: Utils.eurNm(m.rawMinArNm), max: Utils.eurNm(m.rawMaxArNm) })}</li>
-                ${kerek ? `<li>${I18n.t(d.helySzerint === "telepules" ? "valM4Villages" : "valM4Districts")}: ${kerek}</li>` : ""}
+                ${kerek ? `<li>${d.helySzerint === "telepules" ? I18n.t("valM4Villages") : CityManager.reszT("m4", params.varos)}: ${kerek}</li>` : ""}
                 ${m.conditionAdjustment && Math.abs(m.conditionAdjustment) >= 0.5 ? `<li>${I18n.f("valCondAdjusted", { pct: Utils.pct(m.conditionAdjustment, 1) })}</li>` : ""}
             </ul>
             <p class="small text-body-secondary mb-0">${I18n.t("valM4Note")}</p>`;
@@ -498,7 +498,7 @@ class ValuationManager {
             .sort((a, b) => Math.abs(b.szorzo - 1) - Math.abs(a.szorzo - 1))
             .map(t => {
                 const pct = (t.szorzo - 1) * 100;
-                return `<li>${I18n.t("valF_" + t.csoport)}: <b class="${pct >= 0 ? "text-success" : "text-danger"}">${Utils.pct(pct, 0)}</b></li>`;
+                return `<li>${t.csoport === "kerulet" ? CityManager.reszT("factor", params.varos) : I18n.t("valF_" + t.csoport)}: <b class="${pct >= 0 ? "text-success" : "text-danger"}">${Utils.pct(pct, 0)}</b></li>`;
             }).join("");
 
         const igazitas = m.conditionAdjustment && Math.abs(m.conditionAdjustment) >= 0.5

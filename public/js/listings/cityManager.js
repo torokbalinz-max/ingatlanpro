@@ -44,6 +44,60 @@ class CityManager {
         return CityManager.varosok.find(v => v.anyavaros && v.anyavaros === nev) || null;
     }
 
+    // ---------- A városon belüli részek neve ----------
+    //  Városonként az admin választja ki (Admin → Városok → Szerkesztés):
+    //  kerület / negyed / városrész. Ugyanazt jelenti, csak más a neve
+    //  (románul: cartier / cartier / zonă). Üres = az alap szövegek.
+
+    static RESZ_ALAP = {
+        label: "kerulet", form: "newKerulet", plural: "keruletekLabel", choose: "bulkKeruletChoose",
+        col: "colKerulet", factor: "valF_kerulet", medOld: "valDistrictMedianOld", medNew: "valDistrictMedianNew", m4: "valM4Districts"
+    };
+
+    static reszTipus(varos) {
+        const v = CityManager.varosAdat(varos);
+        return v && v.resz_nev ? v.resz_nev : null;
+    }
+
+    // CityManager.reszT("label", "Sepsiszentgyorgy") -> "Negyed" / "Cartier" / "Neighbourhood"
+    static reszT(kind, varos) {
+        const tipus = CityManager.reszTipus(varos);
+        if (tipus) {
+            const k = ["form", "col", "factor"].includes(kind) ? "label" : kind;
+            const key = `resz_${tipus}_${k}`;
+            const s = I18n.t(key);
+            if (s !== key) return s;
+        }
+        return I18n.t(CityManager.RESZ_ALAP[kind] || kind);
+    }
+
+    // A [data-resz] feliratok (kereső, hirdetésfeladás, értékbecslő, tömeges szerkesztés)
+    //  data-resz-varos: melyik városválasztóhoz tartozik ("current" = a kiválasztott város)
+    static applyReszLabels() {
+        document.querySelectorAll("[data-resz]").forEach(el => {
+            const forras = el.dataset.reszVaros;
+            const sel = forras && forras !== "current" ? document.getElementById(forras) : null;
+            const varos = sel ? sel.value : DataManager.currentCity;
+            el.innerText = CityManager.reszT(el.dataset.resz, varos) + (el.dataset.reszSuffix || "");
+        });
+    }
+
+    static reszFigyel = false;
+
+    static watchReszLabels() {
+        if (CityManager.reszFigyel) return;
+        CityManager.reszFigyel = true;
+        document.addEventListener("change", e => {
+            const id = e.target && e.target.id;
+            if (!["citySelect", "ujVaros", "valVaros"].includes(id)) return;
+            // A város-váltás többi kezelője előbb lefut (DataManager.currentCity)
+            setTimeout(() => {
+                CityManager.applyReszLabels();
+                if (id === "citySelect" && typeof TableManager !== "undefined") TableManager.refreshColumns();
+            }, 0);
+        });
+    }
+
     // ---------- Kerületek: magyar és román név ----------
     //  Az adatbázisban a "nev" a magyar név, a "nev_ro" a román.
     //  Magyarul a magyar név látszik, angolul és románul a román.
@@ -134,6 +188,11 @@ class CityManager {
             }
 
             CityManager.initButtons();
+
+            // A városon belüli részek neve (kerület / negyed / városrész)
+            CityManager.watchReszLabels();
+            CityManager.applyReszLabels();
+            if (typeof TableManager !== "undefined") TableManager.refreshColumns();
 
             // A városok listája megvan: a "<város> és környéke" városban más mezők látszanak
             if (typeof FilterManager !== "undefined") FilterManager.onTypeChange();
@@ -314,6 +373,8 @@ class CityManager {
 
     // Nyelvváltáskor az "üres" opciók szövege frissüljön
     static refreshLabels() {
+
+        CityManager.applyReszLabels();
 
         if (typeof FilterManager !== "undefined") {
             FilterManager.renderTelepulesek();

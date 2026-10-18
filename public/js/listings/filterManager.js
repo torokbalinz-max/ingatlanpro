@@ -466,7 +466,7 @@ class FilterManager {
         if (f.allapot) chips.push(`${I18n.t("allapot")}: ${Utils.allapotLabel(f.allapot)}`);
         const keruletek = f.keruletek && f.keruletek.length ? f.keruletek : (f.kerulet ? [f.kerulet] : []);
         const telepulesek = f.telepulesek && f.telepulesek.length ? f.telepulesek : (f.telepules ? [f.telepules] : []);
-        if (keruletek.length) chips.push(`${I18n.t(keruletek.length > 1 ? "keruletekLabel" : "kerulet")}: ${Utils.escape(FilterManager.felsorol(keruletek.map(k => CityManager.keruletLabel(k, f.varos))))}`);
+        if (keruletek.length) chips.push(`${CityManager.reszT(keruletek.length > 1 ? "plural" : "label", f.varos)}: ${Utils.escape(FilterManager.felsorol(keruletek.map(k => CityManager.keruletLabel(k, f.varos))))}`);
         if (telepulesek.length) chips.push(`${I18n.t("telepulesLabel")}: ${Utils.escape(FilterManager.felsorol(telepulesek.map(t => t === "_varos" ? I18n.t("telepulesVarosban") : CityManager.telepulesLabel(t))))}`);
         if (f.hely) chips.push(`${I18n.t("filterHely")}: ${Utils.escape(I18n.t("hely_" + f.hely))}`);
 

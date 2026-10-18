@@ -307,7 +307,7 @@
 
                 <!-- Több kerület / település is kiválasztható (js/core/multiSelect.js) -->
                 <div data-field="kerulet" class="mb-3">
-                    <label class="form-label" for="keresoKerulet"><span data-i18n="kerulet">Kerület</span> <small class="text-body-secondary fw-normal" data-i18n="msMultiHint">(több is választható)</small></label>
+                    <label class="form-label" for="keresoKerulet"><span data-resz="label" data-resz-varos="citySelect">Kerület</span> <small class="text-body-secondary fw-normal" data-i18n="msMultiHint">(több is választható)</small></label>
                     <div id="keresoKeruletMS"></div>
                 </div>
 
@@ -595,7 +595,7 @@
                             <strong id="bulkEditCount">0</strong>
                             <span data-i18n="bulkSelectedSuffix">ingatlan kiválasztva</span>
 
-                            <span class="ms-2 me-1" data-i18n="bulkKeruletLabel">Kerület:</span>
+                            <span class="ms-2 me-1" data-resz="label" data-resz-varos="current" data-resz-suffix=":">Kerület:</span>
 
                             <select id="bulkKerulet" class="form-select form-select-sm" style="max-width:200px;">
                                 <option value="" data-i18n="bulkKeruletChoose">— válassz kerületet —</option>
@@ -937,7 +937,7 @@
                         </div>
 
                         <div class="col-md-6" data-field="kerulet">
-                            <label class="form-label req" for="ujKerulet" data-i18n="newKerulet">Kerület / városrész</label>
+                            <label class="form-label req" for="ujKerulet" data-resz="form" data-resz-varos="ujVaros">Kerület / városrész</label>
                             <div class="input-group">
                                 <select id="ujKerulet" class="form-select">
                                     <option value="" data-i18n="newKeruletNincs">— nincs megadva —</option>
@@ -1131,7 +1131,7 @@
                     <select id="valVaros" class="form-select mb-3"></select>
 
                     <div id="valKeruletBox">
-                        <label class="form-label" for="valKerulet" data-i18n="newKerulet">Kerület / városrész</label>
+                        <label class="form-label" for="valKerulet" data-resz="form" data-resz-varos="valVaros">Kerület / városrész</label>
                         <select id="valKerulet" class="form-select mb-3">
                             <option value="" data-i18n="allapotMindegy">Mindegy</option>
                         </select>
@@ -1390,6 +1390,7 @@
 <script src="js/core/i18n-v13.js"></script>
 <script src="js/core/i18n-v14.js"></script>
 <script src="js/core/i18n-v15.js"></script>
+<script src="js/core/i18n-v16.js"></script>
 <script src="js/core/dokumentum.js"></script>
 <script src="js/core/gridLocale.js"></script>
 <script src="js/core/telepulesek.js"></script>

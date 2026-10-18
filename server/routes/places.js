@@ -22,7 +22,7 @@ router.get("/api/varosok", async (req, res) => {
         // db: az aktív hirdetések száma (a keresőben a környék-város ajánlásához)
         await kornyek.osszekapcsol().catch(() => 0);
         const result = await db.query(`
-            SELECT v.id, v.nev, v.nev_ro, v.megye, v.x, v.y, v.sugar_km, v.anyavaros,
+            SELECT v.id, v.nev, v.nev_ro, v.megye, v.x, v.y, v.sugar_km, v.anyavaros, v.resz_nev,
                    (SELECT COUNT(*) FROM ingatlanok i WHERE i.varos = v.nev AND i.statusz = 'aktiv')::int AS db
             FROM varosok v ORDER BY v.nev`);
         res.json(result.rows);
@@ -113,15 +113,19 @@ router.put("/api/varosok/:id", csapat.csakResz("helyek"), async (req, res) => {
             sugar_km: szam(b.sugar_km, v.sugar_km),
             // Melyik város környéke. Üres szöveg = az admin szerint önálló város
             // (a "… és környéke" nevű várost se kösse magától senkihez)
-            anyavaros: b.anyavaros !== undefined ? (String(b.anyavaros || "").trim()) : v.anyavaros
+            anyavaros: b.anyavaros !== undefined ? (String(b.anyavaros || "").trim()) : v.anyavaros,
+            // A városon belüli részek neve (kerület / negyed / városrész), üres = alap
+            resz_nev: b.resz_nev !== undefined
+                ? (["kerulet", "negyed", "varosresz"].includes(b.resz_nev) ? b.resz_nev : null)
+                : (v.resz_nev || null)
         };
 
         if (uj.sugar_km !== null && !(uj.sugar_km >= 1 && uj.sugar_km <= 40)) return res.status(400).json({ error: "bad_radius" });
         if (uj.anyavaros === v.nev) uj.anyavaros = "";
 
         await db.query(
-            "UPDATE varosok SET nev_ro = $1, megye = $2, x = $3, y = $4, sugar_km = $5, anyavaros = $6 WHERE id = $7",
-            [uj.nev_ro, uj.megye, uj.x, uj.y, uj.sugar_km, uj.anyavaros, v.id]
+            "UPDATE varosok SET nev_ro = $1, megye = $2, x = $3, y = $4, sugar_km = $5, anyavaros = $6, resz_nev = $7 WHERE id = $8",
+            [uj.nev_ro, uj.megye, uj.x, uj.y, uj.sugar_km, uj.anyavaros, uj.resz_nev, v.id]
         );
 
         location.cacheUrit();

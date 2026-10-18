@@ -139,7 +139,7 @@ AdminManager.renderPlaces = function () {
                                     <span>${v.anyavaros
                                         ? `${esc(v.nev_ro || "")}${v.nev_ro ? " · " : ""}${I18n.f("placesKornyekGeo", { varos: esc(CityManager.displayName(v.anyavaros)) })}`
                                         : v.x && v.y
-                                            ? `${esc(v.nev_ro || "")}${v.megye ? " · " + esc(v.megye) : ""} · ${I18n.f("placesRadius", { km: v.sugar_km || 6 })}`
+                                            ? `${esc(v.nev_ro || "")}${v.megye ? " · " + esc(v.megye) : ""} · ${I18n.f("placesRadius", { km: v.sugar_km || 6 })}${v.resz_nev ? " · " + esc(I18n.t("placesResz_" + v.resz_nev)) : ""}`
                                             : `<span class="text-warning">${I18n.t("placesNoCenter")}</span>`}</span>
                                     <button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-geo-edit="${v.id}">${I18n.t("placesEdit")}</button>
                                 </div>
@@ -362,6 +362,14 @@ AdminManager.cityGeoEdit = function (v) {
                 <div class="col-md-4"><label class="form-label" for="cgMegye">${I18n.t("placesCounty")}</label><input class="form-control" id="cgMegye" value="${esc(v.megye || "")}"></div>
                 <div class="col-md-3"><label class="form-label" for="cgSugar">${I18n.t("placesRadiusLabel")}</label><input class="form-control" id="cgSugar" type="number" min="1" max="40" step="0.5" value="${v.sugar_km || 6}"></div>
                 <div class="col-12">
+                    <label class="form-label" for="cgResz">${I18n.t("placesReszLabel")}</label>
+                    <select class="form-select" id="cgResz">
+                        <option value="">${I18n.t("placesReszDefault")}</option>
+                        ${["kerulet", "negyed", "varosresz"].map(t => `<option value="${t}" ${v.resz_nev === t ? "selected" : ""}>${esc(I18n.t("placesResz_" + t))}</option>`).join("")}
+                    </select>
+                    <div class="form-text">${I18n.t("placesReszHelp")}</div>
+                </div>
+                <div class="col-12">
                     <label class="form-label" for="cgAnya">${I18n.t("placesParentLabel")}</label>
                     <select class="form-select" id="cgAnya">
                         <option value="">${I18n.t("placesParentNone")}</option>
@@ -398,6 +406,7 @@ AdminManager.cityGeoEdit = function (v) {
                 megye: document.getElementById("cgMegye").value,
                 sugar_km: document.getElementById("cgSugar").value,
                 anyavaros: document.getElementById("cgAnya").value,
+                resz_nev: document.getElementById("cgResz").value,
                 x: h.x || v.x, y: h.y || v.y
             })
         }).then(r => {
@@ -407,6 +416,8 @@ AdminManager.cityGeoEdit = function (v) {
                 CityManager.fillCitySelect(document.getElementById("citySelect"), DataManager.currentCity);
                 FilterManager.onTypeChange();
                 FilterManager.renderKornyekHint();
+                CityManager.applyReszLabels();
+                TableManager.refreshColumns();
                 AdminManager.renderPlaces();
             });
         });

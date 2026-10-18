@@ -115,7 +115,7 @@ class TableManager {
 
             {
                 colId: "kerulet",
-                headerName: I18n.t("colKerulet"),
+                headerName: CityManager.reszT("col", DataManager.currentCity),
                 minWidth: 110,
                 flex: 1,
                 valueGetter: p => CityManager.helyReszLabel(p.data)

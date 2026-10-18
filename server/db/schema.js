@@ -302,6 +302,10 @@ async function createSchema(db) {
     // "<város> és környéke": melyik város környéke (pl. "Sepsiszentgyörgy és környéke" -> Sepsiszentgyorgy)
     await db.query(`ALTER TABLE varosok ADD COLUMN IF NOT EXISTS anyavaros TEXT`);
 
+    // Hogyan hívjuk a városon belüli részeket: 'kerulet', 'negyed', 'varosresz'
+    // (NULL = alap: "Kerület / városrész"). Ugyanazt jelenti, csak más a neve.
+    await db.query(`ALTER TABLE varosok ADD COLUMN IF NOT EXISTS resz_nev TEXT`);
+
     // Más oldalak környék-nevei, amelyek ehhez a kerülethez tartoznak (vesszővel)
     await db.query(`ALTER TABLE keruletek ADD COLUMN IF NOT EXISTS aliasok TEXT`);
 

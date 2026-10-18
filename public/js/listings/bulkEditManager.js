@@ -127,7 +127,7 @@ class BulkEditManager {
             .then(r => r.json())
             .then(lista => {
 
-                select.innerHTML = `<option value="">${I18n.t("bulkKeruletChoose")}</option>`;
+                select.innerHTML = `<option value="">${CityManager.reszT("choose", DataManager.currentCity)}</option>`;
 
                 (Array.isArray(lista) ? lista : []).forEach(k => {
 
