@@ -187,7 +187,7 @@ function html(s, u, b, o = {}) {
     const tartalom = `
   <div class="fej">
     <div class="kibocsato">
-      <div class="logo">${esc(u.nev || "IngatlanPro")}</div>
+      ${o.logoData ? `<img class="logoKep" src="${esc(o.logoData)}" alt="${esc(u.nev || "IngatlanPro")}">` : `<div class="logo">${esc(u.nev || "IngatlanPro")}</div>`}
       ${u.nev && u.nev !== "IngatlanPro" ? `<div class="kicsi">IngatlanPro</div>` : ""}
     </div>
     <div class="cim">
@@ -279,6 +279,7 @@ function html(s, u, b, o = {}) {
     const css = `
   .fej { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 3px solid #1f6f5c; padding-bottom: 14px; margin-bottom: 18px; }
   .logo { font-size: 21px; font-weight: bold; color: #1f6f5c; }
+  .logoKep { display: block; max-height: 64px; max-width: 240px; }
   .kicsi { font-size: 11.5px; color: #6a746f; }
   .cim { text-align: right; }
   h1 { font-size: 21px; margin: 0 0 6px; letter-spacing: .02em; }

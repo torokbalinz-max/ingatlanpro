@@ -21,10 +21,13 @@ function esc(s) {
 }
 
 // Egyszerű, olvasható levél: cím, bekezdések, egy gomb
-function sablon({ cim, sorok = [], gomb, link, lablec }) {
+// logo: a cég logójának címe (services/logo.url) – ha nincs, az „IngatlanPro” felirat
+function sablon({ cim, sorok = [], gomb, link, lablec, logo, fejNev }) {
     const html = `
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c2321">
-  <div style="padding:18px 0;font-size:20px;font-weight:bold;color:#1f6f5c">IngatlanPro</div>
+  <div style="padding:18px 0;font-size:20px;font-weight:bold;color:#1f6f5c">${logo
+        ? `<img src="${esc(logo)}" alt="${esc(fejNev || "IngatlanPro")}" style="max-height:56px;max-width:240px;display:block;border:0">`
+        : esc(fejNev || "IngatlanPro")}</div>
   <h2 style="font-size:18px;margin:0 0 12px">${esc(cim)}</h2>
   ${sorok.map(s => `<p style="margin:0 0 12px;line-height:1.5;white-space:pre-line">${esc(s)}</p>`).join("")}
   ${link ? `<p style="margin:20px 0"><a href="${esc(link)}" style="background:#1f6f5c;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">${esc(gomb || "Megnyitás")}</a></p>` : ""}
@@ -34,7 +37,8 @@ function sablon({ cim, sorok = [], gomb, link, lablec }) {
     return { html, text };
 }
 
-async function kuld({ to, subject, html, text, replyTo }) {
+// csatolmanyok: [{ nev: "szamla.pdf", tartalom: Buffer }]
+async function kuld({ to, subject, html, text, replyTo, csatolmanyok }) {
 
     if (!elerheto() || !to) return false;
 
@@ -55,7 +59,8 @@ async function kuld({ to, subject, html, text, replyTo }) {
                     subject,
                     htmlContent: html,
                     textContent: text,
-                    ...(replyTo ? { replyTo: { email: replyTo } } : {})
+                    ...(replyTo ? { replyTo: { email: replyTo } } : {}),
+                    ...(csatolmanyok && csatolmanyok.length ? { attachment: csatolmanyok.map(c => ({ name: c.nev, content: Buffer.from(c.tartalom).toString("base64") })) } : {})
                 }),
                 signal: AbortSignal.timeout(15000)
             });
@@ -69,7 +74,8 @@ async function kuld({ to, subject, html, text, replyTo }) {
                     subject,
                     html,
                     text,
-                    ...(replyTo ? { reply_to: replyTo } : {})
+                    ...(replyTo ? { reply_to: replyTo } : {}),
+                    ...(csatolmanyok && csatolmanyok.length ? { attachments: csatolmanyok.map(c => ({ filename: c.nev, content: Buffer.from(c.tartalom).toString("base64") })) } : {})
                 }),
                 signal: AbortSignal.timeout(15000)
             });

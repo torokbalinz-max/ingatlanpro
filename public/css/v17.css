@@ -168,3 +168,19 @@
     .agHeroGrid.n2, .agHeroGrid.n3 { grid-template-columns: 1fr; }
     .agHeroPrice, .agHero.big .agHeroPrice { font-size: 1.4rem; }
 }
+
+/* ---------- Admin → Webhely adatai: logó előnézet ---------- */
+.wsLogoBox {
+    min-height: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px dashed var(--bs-border-color);
+    background:
+        linear-gradient(45deg, var(--bs-tertiary-bg) 25%, transparent 25%, transparent 75%, var(--bs-tertiary-bg) 75%) 0 0 / 16px 16px,
+        linear-gradient(45deg, var(--bs-tertiary-bg) 25%, transparent 25%, transparent 75%, var(--bs-tertiary-bg) 75%) 8px 8px / 16px 16px,
+        var(--bs-body-bg);
+}
+.wsLogoBox img { max-height: 72px; max-width: 100%; object-fit: contain; }

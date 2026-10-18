@@ -29,6 +29,39 @@ router.put("/api/admin/oldal-adatok", csapat.csakResz("beallitasok"), async (req
     }
 });
 
+// ===================== LOGÓ (számla, e-mail) =====================
+
+// Nyilvános: a logó képe (a számla PDF-ben és az e-mail fejlécében)
+router.get("/api/oldal/logo.png", async (req, res) => {
+    try {
+        const l = await require("../services/logo").olvas();
+        if (!l) return res.status(404).end();
+        res.set("Content-Type", "image/png");
+        res.set("Cache-Control", "public, max-age=86400");
+        res.send(l.png);
+    } catch (err) { hiba(res, err); }
+});
+
+router.get("/api/admin/oldal-logo", csapat.csakResz("beallitasok"), async (req, res) => {
+    try {
+        const l = await require("../services/logo").olvas();
+        res.json(l ? { van: true, w: l.w, h: l.h, v: l.v } : { van: false });
+    } catch (err) { hiba(res, err); }
+});
+
+router.put("/api/admin/oldal-logo", csapat.csakResz("beallitasok"), async (req, res) => {
+    try {
+        res.json({ siker: true, ...(await require("../services/logo").ment((req.body || {}).kep)) });
+    } catch (err) {
+        if (err && err.kod) return res.status(400).json({ error: err.kod });
+        hiba(res, err);
+    }
+});
+
+router.delete("/api/admin/oldal-logo", csapat.csakResz("beallitasok"), async (req, res) => {
+    try { await require("../services/logo").torol(); res.json({ siker: true }); } catch (err) { hiba(res, err); }
+});
+
 // Funkciók ki/be (pl. az „Eladjuk helyetted” értékesítés)
 router.get("/api/admin/funkciok", csapat.csakResz("beallitasok"), async (req, res) => {
     try { res.json(await require("../services/funkciok").olvas()); } catch (err) { hiba(res, err); }

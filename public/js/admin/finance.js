@@ -1169,6 +1169,9 @@ AdminManager.renderFinSettings = function () {
                         ${mezo("fbIngyenes", I18n.t("finFreeListings"), b.ingyenes_hirdetes, 'type="number" min="0" max="1000"', "col-6 col-sm-3")}
                         ${mezo("fbIrodaIngyenes", I18n.t("finFreeListingsAgency"), b.iroda_ingyenes_hirdetes, 'type="number" min="0" max="1000"', "col-6 col-sm-3")}
                         ${kapcs("fbKorlat", `<b>${I18n.t("finEnforce")}</b>`, b.korlatok_be, I18n.t("finEnforceHelp"))}
+                        ${mezo("fbLejTurelem", I18n.t("finExpiryGrace"), b.lejarat_turelem_nap ?? 30, 'type="number" min="0" max="180"', "col-6 col-sm-3")}
+                        ${mezo("fbLejFigy", I18n.t("finExpiryWarn"), b.lejarat_figyelmeztet_nap ?? 7, 'type="number" min="1" max="60"', "col-6 col-sm-3")}
+                        <p class="small text-body-secondary col-12 mb-0">${I18n.t("finExpiryHelp")}</p>
                         <div class="col-12">
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="fbElonezet"><i class="fa-solid fa-users-viewfinder" aria-hidden="true"></i> ${I18n.t("finLimitPreview")}</button>
                             <div id="fbElonezetBox" class="mt-2"></div>
@@ -1222,6 +1225,7 @@ AdminManager.renderFinSettings = function () {
                 auto_dijbekero: $("#fbAuto").checked, elore_nap: $("#fbElore").value, turelmi_nap: $("#fbTurelmi").value,
                 eur_arfolyam: $("#fbArfolyam").value,
                 ingyenes_hirdetes: $("#fbIngyenes").value, iroda_ingyenes_hirdetes: $("#fbIrodaIngyenes").value, korlatok_be: $("#fbKorlat").checked,
+                lejarat_turelem_nap: $("#fbLejTurelem").value, lejarat_figyelmeztet_nap: $("#fbLejFigy").value,
                 online_fizetes: $("#fbOnline").checked, auto_szamla: $("#fbAutoSzamla").checked, sajat_szamla: $("#fbSajatSzamla").checked,
                 efactura_varos: $("#fbEfVaros").value, efactura_megye: $("#fbEfMegye").value, kiemeles_nap: $("#fbKiemelesNap").value,
                 bizonylat_forditas: $("#fbForditas").value, tva_mentes_szoveg: $("#fbTvaMentes").value

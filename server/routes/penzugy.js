@@ -148,6 +148,19 @@ router.delete("/api/admin/penzugy/szamlak/:id", csapat.csakResz("penzugy"), asyn
     try { await pu.szamlaTorol(id(req)); res.json({ siker: true }); } catch (err) { hiba(res, err); }
 });
 
+// A bizonylat PDF-ben (letöltés)
+router.get("/api/admin/penzugy/szamlak/:id/pdf", csapat.csakResz("penzugy"), async (req, res) => {
+    try {
+        const s = await pu.szamla(id(req));
+        if (!s) return res.status(404).send("Nincs ilyen bizonylat");
+        const p = await bizonylatPdf(s, {});
+        res.set("Content-Type", "application/pdf");
+        res.set("Content-Disposition", `${req.query.letolt ? "attachment" : "inline"}; filename="${p.nev}"`);
+        res.set("Cache-Control", "private, no-store");
+        res.send(p.tartalom);
+    } catch (err) { hiba(res, err); }
+});
+
 // Nyomtatható díjbekérő (új lapon nyílik; a böngészőből PDF-be menthető)
 router.get("/api/admin/penzugy/szamlak/:id/nyomtat", csapat.csakResz("penzugy"), async (req, res) => {
     try {
@@ -171,12 +184,8 @@ router.post("/api/admin/penzugy/szamlak/:id/email", csapat.csakResz("penzugy"), 
         const to = String((req.body && req.body.email) || (s.vevo && s.vevo.email) || "").trim().toLowerCase();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) return res.status(400).json({ error: "bad_email" });
         const u = await oldalAdatok.nyilvanos();
-        const ok = await mail.kuld({
-            to,
-            subject: `${s.tipus === "szamla" ? "Számla / Factură" : "Díjbekérő / Factură proformă"} ${s.sorszam}`,
-            html: await bizonylatHtml(s, { nyomtat: false }),
-            replyTo: u.email || undefined
-        });
+        const level = await require("../services/szamlazo").szamlaLevel(s, { pdf: true });
+        const ok = await mail.kuld({ to, ...level, replyTo: u.email || undefined });
         if (!ok) return res.status(502).json({ error: "mail_failed" });
         await require("../db/database").query("UPDATE penzugy_szamlak SET emailezve = NOW() WHERE id = $1", [s.id]);
         res.json({ siker: true, to });
@@ -236,7 +245,8 @@ const XML_UZENET = {
 };
 
 // s: a bizonylat; o: { nyomtat, ford, ui, vissza, admin }
-async function bizonylatHtml(s, o = {}) {
+// A bizonylathoz tartozó adatok (üzemeltető, beállítások, hivatkozott iratok, logó)
+async function bizonylatAdat(s, o = {}) {
     const u = await oldalAdatok.nyilvanos();
     const b = await pu.beallitas();
     const ford = o.ford === undefined ? (b.bizonylat_forditas || "") : o.ford;
@@ -244,15 +254,38 @@ async function bizonylatHtml(s, o = {}) {
     const eredeti = await egy(s.sztorno_eredeti_id);
     const sztornoja = s.tipus === "szamla" ? (await db.query("SELECT id, sorszam, kiallitva FROM penzugy_szamlak WHERE sztorno_eredeti_id = $1 ORDER BY id LIMIT 1", [s.id]).catch(() => ({ rows: [] }))).rows[0] || null : null;
     const dijbekero = s.tipus === "szamla" ? await egy(s.dijbekero_id) : null;
-    const ui = o.ui || "hu";
-    return bizonylat.html(s, u, b, {
-        ford, ui, nyomtat: !!o.nyomtat, vissza: o.vissza || "/", admin: !!o.admin,
+    const logo = await require("../services/logo").olvas().catch(() => null);
+    return {
+        u, b, ford, logo,
         eredeti: eredeti && { ...eredeti, kiallitva: pu.pgDatum(eredeti.kiallitva) },
         sztornoja: sztornoja && { ...sztornoja, kiallitva: pu.pgDatum(sztornoja.kiallitva) },
-        dijbekero, uiSzovegek: XML_UZENET[ui] || XML_UZENET.hu
+        dijbekero
+    };
+}
+
+async function bizonylatHtml(s, o = {}) {
+    const a = await bizonylatAdat(s, o);
+    const ui = o.ui || "hu";
+    return bizonylat.html(s, a.u, a.b, {
+        ford: a.ford, ui, nyomtat: !!o.nyomtat, vissza: o.vissza || "/", admin: !!o.admin,
+        eredeti: a.eredeti, sztornoja: a.sztornoja, dijbekero: a.dijbekero,
+        logoData: a.logo ? "data:image/png;base64," + a.logo.png.toString("base64") : null,
+        uiSzovegek: XML_UZENET[ui] || XML_UZENET.hu
     });
 }
 
+// A bizonylat PDF-ben (e-mail csatolmány, letöltés) → { nev, tartalom: Buffer }
+async function bizonylatPdf(s, o = {}) {
+    const a = await bizonylatAdat(s, o);
+    const tartalom = await require("../services/szamlaPdf").pdf(s, a.u, a.b, {
+        ford: a.ford, logo: a.logo ? a.logo.png : null,
+        eredeti: a.eredeti, sztornoja: a.sztornoja, dijbekero: a.dijbekero
+    });
+    const elo = s.tipus === "szamla" ? (Number(s.brutto) < 0 || s.sztorno_eredeti_id ? "Factura-stornare" : "Factura") : "Proforma";
+    return { nev: `${elo}-${String(s.sorszam || s.id).replace(/[^\w.-]/g, "_")}.pdf`, tartalom };
+}
+
 router.bizonylatHtml = bizonylatHtml;
+router.bizonylatPdf = bizonylatPdf;
 
 module.exports = router;

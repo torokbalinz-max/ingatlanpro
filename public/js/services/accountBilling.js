@@ -106,8 +106,19 @@ class AccountBilling {
         const online = d.fizetes && d.fizetes.online;
         const fizetheto = s => online && s.tipus === "dijbekero" && ["kiallitva", "lejart"].includes(s.allapot) && Number(s.brutto) > 0;
 
+        const turelem = (d.turelem || []).map(t => `
+            <div class="alert alert-warning d-flex gap-3 align-items-start">
+                <i class="fa-solid fa-hourglass-half fs-4" aria-hidden="true"></i>
+                <div class="flex-fill">
+                    <b>${t.iroda_nev ? esc(t.iroda_nev) + ": " : ""}${I18n.t("abGraceTitle")}</b>
+                    <div class="small">${I18n.f("abGraceText", { vege: esc(Svc.nap(t.vege)), db: t.db, keret: t.keret })}</div>
+                </div>
+                <a class="btn btn-sm btn-warning" href="#csomagok${t.iroda_id ? "/iroda" : ""}">${I18n.t("abGraceRenew")}</a>
+            </div>`).join("");
+
         el.innerHTML = `
             <div id="abPayResult"></div>
+            ${turelem}
             <div class="row g-4">
                 <div class="col-lg-5">
                     <div class="card abPlan">

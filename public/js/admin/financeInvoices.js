@@ -188,6 +188,7 @@ AdminManager.finSzamlaSor = function (s) {
             <div class="finActions">
                 ${["kiallitva", "piszkozat"].includes(s.statusz) ? `<button type="button" class="btn btn-sm btn-success" data-fs-fizetve="${s.id}"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("finMarkPaid")}</button>` : ""}
                 <a class="btn btn-sm btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener" title="${esc(I18n.t("finPrint"))}"><i class="fa-solid fa-print" aria-hidden="true"></i><span class="visually-hidden">${I18n.t("finPrint")}</span></a>
+                ${s.statusz !== "piszkozat" ? `<a class="btn btn-sm btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/pdf" target="_blank" rel="noopener" title="PDF"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span class="visually-hidden">PDF</span></a>` : ""}
                 ${s.tipus === "szamla" && s.statusz !== "piszkozat" ? `<button type="button" class="btn btn-sm btn-outline-primary" data-fs-xml="${s.id}" data-fs-xml-nev="${esc(s.sorszam)}" title="${esc(I18n.t("finXmlHint"))}"><i class="fa-solid fa-file-code" aria-hidden="true"></i> XML</button>` : ""}
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-fs-email="${s.id}" title="${esc(I18n.t("finSendEmail"))}"><i class="fa-solid fa-envelope" aria-hidden="true"></i><span class="visually-hidden">${I18n.t("finSendEmail")}</span></button>
                 <button type="button" class="btn btn-sm btn-outline-primary" data-fs-szerk="${s.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${I18n.t("adsEdit")}</button>
@@ -520,7 +521,8 @@ AdminManager.finSzamlaUrlap = function (s, o) {
                      <button type="button" class="btn btn-outline-primary" id="fszAnaf" title="${esc(I18n.t("finAnafCheckHint"))}"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ${I18n.t("finAnafCheck")}</button>
                      <a class="btn btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/efactura.pdf" target="_blank" rel="noopener" title="${esc(I18n.t("finAnafPdfHint"))}"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> ANAF PDF</a>` : ""}
             ${!uj ? `<button type="button" class="btn btn-outline-secondary" id="fszMasol"><i class="fa-solid fa-copy" aria-hidden="true"></i> ${I18n.t("finCopy")}</button>
-                     <a class="btn btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener"><i class="fa-solid fa-print" aria-hidden="true"></i> ${I18n.t("finPrint")}</a>` : ""}
+                     <a class="btn btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener"><i class="fa-solid fa-print" aria-hidden="true"></i> ${I18n.t("finPrint")}</a>
+                     ${s.statusz !== "piszkozat" ? `<a class="btn btn-outline-secondary" href="/api/admin/penzugy/szamlak/${s.id}/pdf" target="_blank" rel="noopener"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF</a>` : ""}` : ""}
             <span class="me-auto"></span>
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${I18n.t("adsCancel")}</button>
             <button type="button" class="btn btn-primary" id="fszMent"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t(uj ? "finCreate" : "finSave")}</button>

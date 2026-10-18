@@ -137,6 +137,11 @@ function alapBeallitas() {
         ingyenes_hirdetes: 2,       // magánszemély ennyi aktív hirdetést tehet fel ingyen
         iroda_ingyenes_hirdetes: 2, // iroda előfizetés nélkül
         turelmi_nap: 10,            // lejárt díjbekérő után ennyi napig még él a csomag
+        // Lejárt csomag után: ennyi napig minden hirdetés fent marad (új nem tölthető fel),
+        // utána a keret feletti hirdetések archiválódnak (services/turelem.js);
+        // a türelmi idő vége előtt ennyi nappal emlékeztető megy
+        lejarat_turelem_nap: 30,
+        lejarat_figyelmeztet_nap: 7,
         // Online fizetés (bankkártya – a kulcsok a szerver beállításaiban: STRIPE_SECRET_KEY...)
         online_fizetes: true,       // ha be van állítva a Stripe, a díjbekérő kártyával is fizethető
         // Számla a fizetés után: a kifizetett díjbekérőből magától elkészül a számla –
@@ -209,6 +214,8 @@ async function beallitasMent(b) {
     if ("ingyenes_hirdetes" in b) a.ingyenes_hirdetes = Math.round(n(b.ingyenes_hirdetes, 0, 1000, 2));
     if ("iroda_ingyenes_hirdetes" in b) a.iroda_ingyenes_hirdetes = Math.round(n(b.iroda_ingyenes_hirdetes, 0, 1000, 2));
     if ("turelmi_nap" in b) a.turelmi_nap = Math.round(n(b.turelmi_nap, 0, 90, 10));
+    if ("lejarat_turelem_nap" in b) a.lejarat_turelem_nap = Math.round(n(b.lejarat_turelem_nap, 0, 180, 30));
+    if ("lejarat_figyelmeztet_nap" in b) a.lejarat_figyelmeztet_nap = Math.round(n(b.lejarat_figyelmeztet_nap, 1, 60, 7));
     if ("online_fizetes" in b) a.online_fizetes = !!b.online_fizetes;
     if ("auto_szamla" in b) a.auto_szamla = !!b.auto_szamla;
     if ("sajat_szamla" in b) a.sajat_szamla = !!b.sajat_szamla;
@@ -711,13 +718,18 @@ async function megujitasRendeles(e, szamlaId) {
     const to = (s.vevo && s.vevo.email) || "";
     if (!mail.elerheto() || !to) return;
     const link = `${mail.oldalCim().replace(/\/+$/, "")}/#fiok/csomag`;
+    const be = await beallitas();
+    const cj = r.csomag_id ? (await db.query("SELECT jogosultsag FROM penzugy_csomagok WHERE id = $1", [r.csomag_id])).rows[0] : null;
+    const jj = (cj && cj.jogosultsag) || {};
+    const hirdetesJog = !!be.korlatok_be && (jj.hirdetes_limit !== undefined || !!jj.hirdetes_plusz || !!jj.korlatlan_hirdetes);
     const t = mail.sablon({
         cim: `Reînnoire abonament / Csomag megújítása – ${s.sorszam}`,
         sorok: [
             `Abonamentul „${r.megnevezes}” se reînnoiește: ${s.idoszak_tol} – ${s.idoszak_ig}. Factura proformă ${s.sorszam}: ${s.brutto} ${s.penznem}. Plata se poate face cu cardul din contul tău.`,
             `A(z) „${r.megnevezes}” csomagod megújul: ${s.idoszak_tol} – ${s.idoszak_ig}. Díjbekérő: ${s.sorszam}, ${s.brutto} ${s.penznem}. A fiókodban kártyával is kifizetheted.`,
-            "Dacă nu mai dorești abonamentul, nu trebuie să faci nimic – expiră automat. / Ha nem kéred tovább, nem kell tenned semmit – magától lejár."
-        ],
+            "Dacă nu mai dorești abonamentul, nu trebuie să faci nimic – expiră automat. / Ha nem kéred tovább, nem kell tenned semmit – magától lejár.",
+            hirdetesJog ? `Fontos: ha nem újítod meg, a lejárat után még ${be.lejarat_turelem_nap ?? 30} napig minden hirdetésed fent marad (új hirdetést addig nem tölthetsz fel), utána a csomag nélküli keret feletti hirdetések archiválódnak. / Dacă nu reînnoiești, anunțurile rămân online încă ${be.lejarat_turelem_nap ?? 30} zile după expirare, apoi cele peste limita gratuită se arhivează.` : ""
+        ].filter(Boolean),
         gomb: "Plătește / Fizetés",
         link,
         lablec: "IngatlanPro"
@@ -1455,6 +1467,8 @@ async function napi() {
         const k = await esedekesDijbekerok({ csakCsomag: !b.auto_dijbekero });
         if (k.length) console.log(`Pénzügy: ${k.length} díjbekérő elkészült (esedékes előfizetések).`);
         await webesLejart(b);
+        // lejárt csomagok: türelmi idő a hirdetéseknek, értesítők, archiválás
+        await require("./turelem").futtat();
     } catch (e) {
         console.error("Pénzügy napi futás:", e.message);
     }

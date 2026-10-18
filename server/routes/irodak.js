@@ -832,9 +832,21 @@ router.patch("/api/irodak/:id/hirdetesek", csakBelepve, async (req, res) => {
                 r = await db.query(`UPDATE ingatlanok SET statusz = 'archiv', updated_at = NOW() ${hol} AND statusz = 'aktiv'`, [id, ids]);
                 break;
 
-            case "aktival":
-                r = await db.query(`UPDATE ingatlanok SET statusz = 'aktiv', updated_at = NOW() ${hol} AND statusz = 'archiv'`, [id, ids]);
+            case "aktival": {
+                // A csomag kerete (ha a korlátok be vannak kapcsolva): archívumból csak annyi jöhet vissza, amennyi belefér
+                const pu = require("../services/penzugy");
+                const be = await pu.beallitas();
+                if (be.korlatok_be && req.szerep !== "admin") {
+                    const keret = (await pu.irodaJogosultsag(id)).hirdetes_limit;
+                    if (keret !== null) {
+                        const n = (await db.query("SELECT COUNT(*)::int AS n FROM ingatlanok WHERE iroda_id = $1 AND statusz IN ('aktiv', 'fuggo')", [id])).rows[0].n;
+                        const jon = (await db.query(`SELECT COUNT(*)::int AS n FROM ingatlanok ${hol} AND statusz = 'archiv'`, [id, ids])).rows[0].n;
+                        if (n + jon > keret) return res.status(402).json({ error: "listing_limit", limit: keret, db: n, iroda: true });
+                    }
+                }
+                r = await db.query(`UPDATE ingatlanok SET statusz = 'aktiv', csomag_archivalva = NULL, updated_at = NOW() ${hol} AND statusz = 'archiv'`, [id, ids]);
                 break;
+            }
 
             case "eladva":
                 r = await db.query(`UPDATE ingatlanok SET eladva = true, updated_at = NOW() ${hol}`, [id, ids]);

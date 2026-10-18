@@ -103,6 +103,8 @@ AdminManager.renderOrders = function () {
                 </div>
             </div>
 
+            <div id="ordTurelem"></div>
+
             <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
                 <h5 class="mb-0 flex-fill">${I18n.t("ordList")} <span class="badge text-bg-secondary">${d.rendelesek.length}</span></h5>
                 <select class="form-select form-select-sm w-auto" id="ordSt" aria-label="${esc(I18n.t("ordStatus"))}">
@@ -141,7 +143,7 @@ AdminManager.renderOrders = function () {
                                 <td>${esc(r.megnevezes || r.csomag_nev || "")}${r.ingatlan_id ? ` <a class="small" href="#listing/${r.ingatlan_id}" target="_blank">#${r.ingatlan_id}</a>` : ""}${r.megjegyzes ? `<div class="small text-body-secondary">„${esc(r.megjegyzes)}”</div>` : ""}</td>
                                 <td class="text-end text-nowrap">${esc(AdminManager.finPenz(r.ar, r.penznem))}</td>
                                 <td class="text-nowrap small">${r.szamla2_id
-                                    ? `<a href="/api/admin/penzugy/szamlak/${r.szamla2_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i> ${esc(r.szamla2_sorszam)}</a>`
+                                    ? `<a href="/api/admin/penzugy/szamlak/${r.szamla2_id}/pdf" target="_blank" rel="noopener"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> ${esc(r.szamla2_sorszam)}</a>`
                                     : r.szamla_id ? `<a href="/api/admin/penzugy/szamlak/${r.szamla_id}/nyomtat${Dokumentum.q(true)}" target="_blank" rel="noopener">${esc(r.sorszam || "#" + r.szamla_id)}</a>` : "–"}${r.esedekes && r.statusz === "fizetesre_var" ? `<div class="text-body-secondary">${I18n.t("prDue")}: ${esc(AdminManager.finNap(r.esedekes))}</div>` : ""}</td>
                                 <td>${statusz(r)}</td>
                                 <td class="text-end text-nowrap">
@@ -155,6 +157,7 @@ AdminManager.renderOrders = function () {
             </div>` : `<div class="emptyState"><i class="fa-solid fa-cart-shopping"></i><h5>${I18n.t(f.statusz === "fizetesre_var" ? "ordNoneWaiting" : "ordNone")}</h5><p>${I18n.t("ordNoneText")}</p><a class="btn btn-outline-primary" href="#csomagok" target="_blank">${I18n.t("menuCsomagok")}</a></div>`}`;
 
         AdminManager.finBindGo(box);
+        AdminManager.ordTurelem(box.querySelector("#ordTurelem"));
 
         const szur = () => {
             AdminManager.ordSzuro = { statusz: box.querySelector("#ordSt").value, celcsoport: box.querySelector("#ordCel").value, csomag_id: box.querySelector("#ordCs").value };
@@ -188,4 +191,38 @@ AdminManager.renderOrders = function () {
 
     }).catch(() => AdminManager.finHibaDoboz());
 
+};
+
+
+// Lejárt csomag miatt türelmi időben lévők (a hirdetéseik még fent vannak)
+AdminManager.ordTurelem = function (el) {
+    if (!el) return;
+    AdminManager.finApi("turelem").then(lista => {
+        const esc = Utils.escape;
+        const nyitott = lista.filter(t => !t.lezarva);
+        const lezart = lista.filter(t => t.lezarva);
+        if (!lista.length) { el.innerHTML = ""; return; }
+        const sor = t => `
+            <tr>
+                <td><i class="fa-solid ${t.iroda_id ? "fa-briefcase" : "fa-user"} text-body-secondary" aria-hidden="true"></i> ${esc(t.iroda_nev || t.user_nev || "–")}${t.user_email && !t.iroda_id ? `<div class="small text-body-secondary">${esc(t.user_email)}</div>` : ""}</td>
+                <td class="text-end">${t.db} / ${t.keret}</td>
+                <td class="text-nowrap">${esc(AdminManager.finNap(t.kezdet))} – <b>${esc(AdminManager.finNap(t.vege))}</b></td>
+                <td>${t.lezarva
+                    ? `<span class="badge text-bg-${t.eredmeny === "archivalva" ? "secondary" : "success"}">${esc(I18n.t("ordGrace_" + t.eredmeny))}${t.archivalt ? ` (${t.archivalt})` : ""}</span>`
+                    : `<span class="badge text-bg-warning">${I18n.t("ordGraceOpen")}</span>${t.ertesitve_figyelmeztet ? ` <i class="fa-regular fa-bell text-body-secondary" title="${esc(I18n.t("ordGraceWarned"))}"></i>` : ""}`}</td>
+            </tr>`;
+        el.innerHTML = `
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> ${I18n.t("ordGraceTitle")} <span class="badge text-bg-warning">${nyitott.length}</span></h5></div>
+                <div class="card-body">
+                    <p class="sectionNote">${I18n.t("ordGraceNote")}</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>${I18n.t("ordCustomer")}</th><th class="text-end">${I18n.t("ordGraceListings")}</th><th>${I18n.t("ordGracePeriod")}</th><th>${I18n.t("ordStatus")}</th></tr></thead>
+                            <tbody>${nyitott.map(sor).join("")}${lezart.map(sor).join("")}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+    }).catch(() => { el.innerHTML = ""; });
 };

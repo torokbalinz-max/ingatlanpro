@@ -293,13 +293,7 @@ class PricingPage {
                 </span>
                 <span class="btn btn-light">${I18n.t("navFeatureMore")} <i class="fa-solid fa-arrow-right"></i></span>
             </a>
-
-            <h2 class="prSub">${I18n.t("prHowTitle")}</h2>
-            <ol class="prSteps">
-                <li><span>1</span><div><b>${I18n.t("prHow1")}</b><p>${I18n.t("prHow1d")}</p></div></li>
-                <li><span>2</span><div><b>${I18n.t("prHow2")}</b><p>${I18n.f("prHow2d", { n: d.fizetesi_hatarido || 14 })}</p></div></li>
-                <li><span>3</span><div><b>${I18n.t("prHow3")}</b><p>${I18n.t("prHow3d")}</p></div></li>
-            </ol>`;
+`;
 
         box.querySelectorAll("[data-nezet]").forEach(b => {
             b.onclick = () => {

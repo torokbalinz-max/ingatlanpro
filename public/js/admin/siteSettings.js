@@ -92,6 +92,21 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
             </div>
 
             <div class="col-xl-5">
+                <div class="card mb-4" id="wsLogoCard">
+                    <div class="card-body">
+                        <h6 class="mb-1"><i class="fa-regular fa-image" aria-hidden="true"></i> ${I18n.t("wsLogoTitle")}</h6>
+                        <p class="small text-body-secondary mb-3">${I18n.t("wsLogoHelp")}</p>
+                        <div class="wsLogoBox mb-3" id="wsLogoPrev"><span class="text-body-secondary small">${I18n.t("wsLogoNone")}</span></div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <label class="btn btn-sm btn-primary mb-0">
+                                <i class="fa-solid fa-upload" aria-hidden="true"></i> ${I18n.t("wsLogoUpload")}
+                                <input type="file" accept="image/png,image/jpeg,image/webp" id="wsLogoFile" hidden>
+                            </label>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="wsLogoDel" hidden><i class="fa-solid fa-trash" aria-hidden="true"></i> ${I18n.t("wsLogoDelete")}</button>
+                        </div>
+                        <div class="small mt-2" id="wsLogoMsg" aria-live="polite"></div>
+                    </div>
+                </div>
                 <div class="card mb-4">
                     <div class="card-body">
                         <h6 class="mb-2"><i class="fa-solid ${hianyzik.length ? "fa-triangle-exclamation text-warning" : "fa-circle-check text-success"}" aria-hidden="true"></i> ${I18n.t(hianyzik.length ? "wsMissingTitle" : "wsCompleteTitle")}</h6>
@@ -138,6 +153,9 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
         </div>`;
 
     box.querySelectorAll("[data-go-tab]").forEach(b => b.onclick = () => AdminManager.open(b.dataset.goTab));
+
+    // Logó (a számlán és a számlát kísérő e-mailben)
+    AdminManager.wsLogo(box);
 
     // Funkciók ki/be – azonnal érvényes (a nyilvános oldalon is)
     const funk = box.querySelector("#wsErtekesites");
@@ -204,6 +222,57 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
                 });
             })
             .catch(() => { msg.hidden = false; msg.className = "wsMsg alert alert-danger small py-2 mt-3 mb-0"; msg.innerText = I18n.t("alertSaveError"); });
+    };
+
+};
+
+
+// ---------- Logó: feltöltés, előnézet, törlés ----------
+AdminManager.wsLogo = function (box) {
+
+    const prev = box.querySelector("#wsLogoPrev");
+    const del = box.querySelector("#wsLogoDel");
+    const file = box.querySelector("#wsLogoFile");
+    const msg = box.querySelector("#wsLogoMsg");
+    if (!prev) return;
+
+    const mutat = d => {
+        if (d && d.van) {
+            prev.innerHTML = `<img src="/api/oldal/logo.png?v=${encodeURIComponent(d.v)}" alt="">`;
+            del.hidden = false;
+        } else {
+            prev.innerHTML = `<span class="text-body-secondary small">${I18n.t("wsLogoNone")}</span>`;
+            del.hidden = true;
+        }
+    };
+
+    fetch("/api/admin/oldal-logo").then(r => r.json()).then(mutat).catch(() => mutat(null));
+
+    file.onchange = () => {
+        const f = file.files && file.files[0];
+        file.value = "";
+        if (!f) return;
+        if (f.size > 4 * 1024 * 1024) { msg.innerHTML = `<span class="text-danger">${I18n.t("wsLogoTooBig")}</span>`; return; }
+        const r = new FileReader();
+        r.onload = () => {
+            msg.innerHTML = `<span class="spinner-border spinner-border-sm text-primary"></span>`;
+            fetch("/api/admin/oldal-logo", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kep: r.result }) })
+                .then(x => x.json().then(v => ({ ok: x.ok, v })))
+                .then(({ ok, v }) => {
+                    if (!ok) throw new Error(v.error || "x");
+                    mutat({ van: true, v: v.v });
+                    msg.innerHTML = `<i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${I18n.t("wsLogoSaved")}`;
+                })
+                .catch(e => { msg.innerHTML = `<span class="text-danger">${I18n.t(e.message === "too_large" ? "wsLogoTooBig" : "wsLogoBad")}</span>`; });
+        };
+        r.readAsDataURL(f);
+    };
+
+    del.onclick = () => {
+        if (!confirm(I18n.t("wsLogoDeleteConfirm"))) return;
+        fetch("/api/admin/oldal-logo", { method: "DELETE" })
+            .then(x => { if (!x.ok) throw new Error(); mutat(null); msg.innerHTML = ""; })
+            .catch(() => alert(I18n.t("alertSaveError")));
     };
 
 };

@@ -361,8 +361,19 @@ async function sajat(user) {
         WHERE r.user_id = $1
         ORDER BY r.id DESC LIMIT 100`, [user.id]);
 
+    // Lejárt csomag: türelmi idő (a hirdetések még fent vannak, de újat nem tölthet fel)
+    let turelem = [];
+    try {
+        await require("./turelem").tablak();
+        const t = await db.query(`
+            SELECT t.vege, t.keret, t.db, t.iroda_id, i.nev AS iroda_nev FROM csomag_turelem t LEFT JOIN irodak i ON i.id = t.iroda_id
+            WHERE t.lezarva IS NULL AND (t.user_id = $1 OR t.iroda_id = ANY($2::int[]))`, [user.id, irodak.map(i => i.id)]);
+        turelem = t.rows.map(x => ({ ...x, vege: pu.pgDatum(x.vege) }));
+    } catch (e) { /* még nincs tábla */ }
+
     return {
         jog,
+        turelem,
         hasznalat: { db: hasz.rows[0].n, limit: jog ? jog.hirdetes_limit : b.ingyenes_hirdetes, korlatok_be: !!b.korlatok_be },
         irodak: irodaHasznalat,
         elofizetesek,

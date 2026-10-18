@@ -115,7 +115,7 @@ router.get("/api/sajat-csomag/szamlak/:id/hivatalos", csakBelepve, async (req, r
         if (!s) return res.status(404).json({ error: "not_found" });
         const p = await szamlazo.pdf(s);
         if (!p) return res.status(404).json({ error: "not_found" });
-        if (p.belso) return res.redirect(302, `/api/sajat-csomag/szamlak/${p.belso}/nyomtat${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`);
+        if (p.belso) return res.redirect(302, `/api/sajat-csomag/szamlak/${p.belso}/pdf`);
         if (p.link) return res.redirect(302, p.link);
         res.set("Content-Type", "application/pdf");
         res.set("Content-Disposition", `inline; filename="${p.nev.replace(/[^\w.-]/g, "_")}"`);
@@ -197,7 +197,7 @@ router.get("/api/admin/penzugy/szamlak/:id/hivatalos", csapat.csakResz("penzugy"
         const s = await pu.szamla(Number(req.params.id) || 0);
         const p = await szamlazo.pdf(s);
         if (!p) return res.status(404).json({ error: "not_found" });
-        if (p.belso) return res.redirect(302, `/api/admin/penzugy/szamlak/${p.belso}/nyomtat${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`);
+        if (p.belso) return res.redirect(302, `/api/admin/penzugy/szamlak/${p.belso}/pdf`);
         if (p.link) return res.redirect(302, p.link);
         res.set("Content-Type", "application/pdf");
         res.send(p.pdf);

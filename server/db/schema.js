@@ -83,6 +83,8 @@ async function createSchema(db) {
     await db.query(`UPDATE ingatlanok SET tipus = 'lakas' WHERE tipus IS NULL`);
     await db.query(`UPDATE ingatlanok SET ugylet = 'elado' WHERE ugylet IS NULL`);
     await db.query(`UPDATE ingatlanok SET statusz = 'aktiv' WHERE statusz IS NULL`);
+    // a lejárt csomag türelmi ideje után archivált hirdetés (újra előfizetve visszajön – services/turelem.js)
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS csomag_archivalva TIMESTAMP`);
 
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_varos ON ingatlanok (varos)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_statusz ON ingatlanok (statusz)`);

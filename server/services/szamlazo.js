@@ -253,13 +253,83 @@ pu.fizetveFigyelo(async id => {
     }
     const v = await kiallit(id, {}).catch(e => { console.error("Számla kiállítása:", e.message); return null; });
     if (v && v.szam && !v.mar_volt) {
-        kuldes(id).catch(e => console.error("Számla e-mail:", e.message));
+        // 1) a vevő megkapja a számlát PDF-ben, 2) te (admin) egy másolatot – ha kártyával fizetett
+        await kuldes(id).catch(e => console.error("Számla e-mail:", e.message));
+        if (s.fizetesi_mod === "kartya") adminMasolat(id).catch(e => console.error("Számla admin e-mail:", e.message));
         // e-Factura: ha az automatikus feltöltés be van kapcsolva, rögtön megy az ANAF-hoz
         if (be.efactura_auto) setTimeout(() => require("./efacturaSpv").futtat().catch(() => { }), 3000);
     }
 });
 
-// A saját számla e-mailben a vevőnek (a külső számlázók maguk küldik)
+// ---------- A számlát kísérő levél ----------
+// s: a bizonylat (számla, sztornó számla vagy díjbekérő)
+// → { subject, html, text, csatolmanyok: [PDF] }
+async function szamlaLevel(s, { pdf: pdfKell = true } = {}) {
+    const mail = require("./mail");
+    const u = await require("./oldalAdatok").nyilvanos();
+    const { penz, nap } = require("./bizonylat");
+    const ceg = u.nev || "IngatlanPro";
+    const logo = await require("./logo").url(mail.oldalCim()).catch(() => null);
+    const v = s.vevo || {};
+    const proforma = s.tipus !== "szamla";
+    const storno = !proforma && (!!s.sztorno_eredeti_id || Number(s.brutto) < 0);
+    const osszeg = penz(s.brutto, s.penznem);
+    const tetelek = (s.tetelek || []).map(t => t.megnevezes_ro || t.megnevezes).filter(Boolean).join(", ");
+    const tetelekHu = (s.tetelek || []).map(t => t.megnevezes).filter(Boolean).join(", ");
+
+    const ro = proforma ? { mi: "factura proformă", miT: "Factura proformă" }
+        : storno ? { mi: "factura de stornare", miT: "Factura de stornare" } : { mi: "factura", miT: "Factura" };
+    const hu = proforma ? { mi: "díjbekérőt", miT: "Díjbekérő" }
+        : storno ? { mi: "sztornó számlát", miT: "Sztornó számla" } : { mi: "számlát", miT: "Számla" };
+
+    const nev = v.nev ? `, ${v.nev}` : "";
+    const sorok = [
+        `Bună ziua${nev}!`,
+        proforma
+            ? `Vă trimitem atașat ${ro.mi} nr. ${s.sorszam} din ${nap(s.kiallitva)}, în valoare de ${osszeg}${s.esedekes ? `, cu termen de plată ${nap(s.esedekes)}` : ""}.`
+            : storno
+                ? `Vă trimitem atașat ${ro.mi} nr. ${s.sorszam} din ${nap(s.kiallitva)}, în valoare de ${osszeg}.`
+                : `Vă mulțumim pentru plată! Vă trimitem atașat ${ro.mi} nr. ${s.sorszam} din ${nap(s.kiallitva)}, în valoare de ${osszeg} (achitată).`,
+        tetelek ? `Servicii: ${tetelek}` : "",
+        "———",
+        `Kedves ${v.nev || "Ügyfelünk"}!`,
+        proforma
+            ? `Csatoltan küldjük a(z) ${s.sorszam} számú ${hu.mi} (kelte: ${nap(s.kiallitva)}, összeg: ${osszeg}${s.esedekes ? `, fizetési határidő: ${nap(s.esedekes)}` : ""}).`
+            : storno
+                ? `Csatoltan küldjük a(z) ${s.sorszam} számú ${hu.mi} (kelte: ${nap(s.kiallitva)}, összeg: ${osszeg}).`
+                : `Köszönjük a befizetést! Csatoltan küldjük a(z) ${s.sorszam} számú ${hu.mi} (kelte: ${nap(s.kiallitva)}, összeg: ${osszeg}, kifizetve).`,
+        tetelekHu && tetelekHu !== tetelek ? `Szolgáltatás: ${tetelekHu}` : "",
+        "Factura este și în contul dvs. IngatlanPro, la „Pachetul meu și facturi”. / A számla a fiókodban, a „Csomagom és számláim” oldalon is mindig elérhető.",
+        `Cu stimă / Üdvözlettel,\n${ceg}`
+    ].filter(Boolean);
+
+    const lablec = [ceg, u.adoszam ? `CIF ${u.adoszam}` : "", u.cegjegyzekszam, u.cim, u.email, u.telefon].filter(Boolean).join(" · ");
+    const t = mail.sablon({
+        cim: `${ro.miT} / ${hu.miT} ${s.sorszam}`,
+        sorok,
+        gomb: "Contul meu / Fiókom",
+        link: mail.oldalCim() + "/#fiok/csomag",
+        lablec,
+        logo,
+        fejNev: ceg
+    });
+
+    const csatolmanyok = [];
+    if (pdfKell) {
+        // ha a PDF valamiért nem készül el (pl. hiányzik a pdfkit csomag), a levél akkor is megy
+        try { csatolmanyok.push(await require("../routes/penzugy").bizonylatPdf(s, {})); }
+        catch (e) { console.error("Számla PDF:", e.message); }
+    }
+
+    return {
+        subject: `${ro.miT} ${s.sorszam} – ${ceg} / ${hu.miT}`,
+        html: t.html,
+        text: t.text,
+        csatolmanyok
+    };
+}
+
+// A saját számla e-mailben a vevőnek, PDF-ben csatolva (a külső számlázók maguk küldik)
 async function kuldes(dijbekeroId) {
     const mail = require("./mail");
     if (!mail.elerheto()) return;
@@ -268,9 +338,43 @@ async function kuldes(dijbekeroId) {
     const s = await pu.szamla(Number(d.hivatalos_link.slice(6)));
     const to = s && s.vevo && s.vevo.email;
     if (!to || s.emailezve) return;
-    const html = await require("../routes/penzugy").bizonylatHtml(s, { nyomtat: false });
-    await mail.kuld({ to, subject: `Számla / Factură ${s.sorszam}`, html });
-    await db.query("UPDATE penzugy_szamlak SET emailezve = NOW() WHERE id = $1", [s.id]);
+    const u = await require("./oldalAdatok").nyilvanos();
+    const level = await szamlaLevel(s, { pdf: true });
+    if (await mail.kuld({ to, ...level, replyTo: u.email || undefined })) {
+        await db.query("UPDATE penzugy_szamlak SET emailezve = NOW() WHERE id = $1", [s.id]);
+    }
+}
+
+// Másolat neked (admin): ki fizetett, mit, a számla PDF-ben, és hogy ment-e az ANAF-hoz
+async function adminMasolat(dijbekeroId) {
+    const mail = require("./mail");
+    if (!mail.elerheto()) return;
+    const u = await require("./oldalAdatok").nyilvanos();
+    if (!u.email) return;
+    const d = await pu.szamla(dijbekeroId);
+    if (!d) return;
+    const belso = String(d.hivatalos_link || "").startsWith("belso:") ? await pu.szamla(Number(d.hivatalos_link.slice(6))) : null;
+    const be = await pu.beallitas();
+    const sz = belso || d;
+    const { penz } = require("./bizonylat");
+    const t = mail.sablon({
+        cim: `Fizetett rendelés – számla: ${belso ? belso.sorszam : (d.kulso_szam || d.sorszam)}`,
+        sorok: [
+            `${(d.vevo && d.vevo.nev) || "Valaki"} kártyával kifizette: ${(d.tetelek || []).map(t => t.megnevezes).join(", ")}`,
+            `${penz(d.brutto, d.penznem)} · díjbekérő ${d.sorszam}${belso ? ` → számla ${belso.sorszam}` : d.kulso_szam ? ` → számla ${d.kulso_szam} (${d.hivatalos_szamlazo})` : ""}`,
+            "A csomag aktív, a számla elment a vevőnek e-mailben (PDF – csatolva ennek a levélnek is).",
+            belso
+                ? (be.efactura_auto
+                    ? "e-Factura: az automatikus feltöltés be van kapcsolva – a számla magától megy az ANAF-hoz (az állapota: Admin → Pénzügy → e-Factura)."
+                    : "e-Factura: az automatikus feltöltés KI van kapcsolva – 5 munkanapon belül töltsd fel: Admin → Pénzügy → e-Factura (egy gomb).")
+                : ""
+        ].filter(Boolean),
+        gomb: "Számlák",
+        link: mail.oldalCim() + "/#admin/szamlak",
+        lablec: "Admin értesítés."
+    });
+    const csatolmanyok = belso ? [await require("../routes/penzugy").bizonylatPdf(sz, {}).catch(e => { console.error("Számla PDF:", e.message); return null; })].filter(Boolean) : [];
+    await mail.kuld({ to: u.email, subject: `Fizetett rendelés: ${belso ? belso.sorszam : d.sorszam}`, html: t.html, text: t.text, csatolmanyok });
 }
 
 // A számla: Oblio → link; SmartBill → letöltjük és továbbadjuk; saját → a mi bizonylatunk
@@ -285,4 +389,4 @@ async function pdf(s) {
     return null;
 }
 
-module.exports = { allapot, kiallit, pdf, melyik, kulso };
+module.exports = { allapot, kiallit, pdf, melyik, kulso, szamlaLevel };

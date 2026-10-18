@@ -12,6 +12,8 @@ const oldalAdatok = require("../services/oldalAdatok");
 const db = require("../db/database");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
 const csapat = require("../services/csapat");
+// a lejárt csomag türelmi ideje: induláskor feliratkozik a fizetésekre (újra előfizetve visszaállít)
+require("../services/turelem");
 
 const router = express.Router();
 
@@ -74,7 +76,7 @@ pu.rendelesFigyelo(async x => {
                 sorok: [
                     `${x.megnevezes || "A csomag"}: köszönjük a befizetést, a csomag mostantól él.`,
                     "Plata a fost primită – pachetul este activ.",
-                    teszt ? "Ez egy próbafizetés volt (nem terheltünk kártyát) – számla nem készül róla." : ""
+                    teszt ? "Ez egy próbafizetés volt (nem terheltünk kártyát) – számla nem készül róla." : "A számlát külön levélben, PDF-ben küldjük. / Factura vă este trimisă separat, în format PDF."
                 ].filter(Boolean),
                 gomb: "Csomagom és számláim",
                 link: mail.oldalCim() + "/#fiok/csomag"
@@ -83,8 +85,12 @@ pu.rendelesFigyelo(async x => {
         }
     }
 
-    // Te (admin) – csak kártyás fizetésnél (az átutalást te magad jelölöd kifizetettnek)
-    if (s && s.fizetesi_mod === "kartya") {
+    // Te (admin) – csak kártyás fizetésnél (az átutalást te magad jelölöd kifizetettnek).
+    // Ha a számla magától elkészül, a levelet a számlázó küldi (a számla PDF-jével
+    // együtt – services/szamlazo.js); itt csak akkor, ha számla nem készül
+    // (próbafizetés, vagy kikapcsoltad az automatikus számlát).
+    const szamlaLesz = !teszt && (await pu.beallitas()).auto_szamla !== false && !!(await require("../services/szamlazo").melyik());
+    if (s && s.fizetesi_mod === "kartya" && !szamlaLesz) {
         const u = await oldalAdatok.nyilvanos();
         if (u.email) {
             const t = mail.sablon({
@@ -92,7 +98,7 @@ pu.rendelesFigyelo(async x => {
                 sorok: [
                     `${(s.vevo && s.vevo.nev) || "Valaki"} kifizette: ${(s.tetelek || []).map(t => t.megnevezes).join(", ")}`,
                     `${s.brutto} ${s.penznem} · kártyával · ${s.sorszam}`,
-                    teszt ? "Próbafizetés (Stripe teszt mód) – valódi pénz nem érkezett, számla nem készült." : "A csomag aktív, a számla magától elkészült és elment a vevőnek."
+                    teszt ? "Próbafizetés (Stripe teszt mód) – valódi pénz nem érkezett, számla nem készült." : "A csomag aktív. Az automatikus számla ki van kapcsolva – a számlát neked kell kiállítanod."
                 ],
                 gomb: "Rendelések",
                 link: mail.oldalCim() + "/#admin/rendelesek",
@@ -122,6 +128,18 @@ router.get("/api/sajat-csomag/szamlak/:id/nyomtat", csakBelepve, async (req, res
     } catch (err) { hiba(res, err); }
 });
 
+router.get("/api/sajat-csomag/szamlak/:id/pdf", csakBelepve, async (req, res) => {
+    try {
+        const s = await rendeles.sajatSzamla(req.user, req.params.id);
+        if (!s) return res.status(404).send("Nincs ilyen bizonylat / Document inexistent");
+        const p = await require("./penzugy").bizonylatPdf(s, {});
+        res.set("Content-Type", "application/pdf");
+        res.set("Content-Disposition", `${req.query.letolt ? "attachment" : "inline"}; filename="${p.nev}"`);
+        res.set("Cache-Control", "private, no-store");
+        res.send(p.tartalom);
+    } catch (err) { hiba(res, err); }
+});
+
 router.post("/api/sajat-csomag/elofizetes/:id/lemond", csakBelepve, async (req, res) => {
     try { res.json({ siker: true, ...(await rendeles.lemond(req.user, req.params.id)) }); } catch (err) { hiba(res, err); }
 });
@@ -136,6 +154,11 @@ router.get("/api/admin/penzugy/rendelesek", csapat.csakResz("penzugy"), async (r
     try {
         res.json(await rendeles.adminLista({ statusz: req.query.statusz, celcsoport: req.query.celcsoport, csomag_id: req.query.csomag_id }));
     } catch (err) { hiba(res, err); }
+});
+
+// Lejárt csomag miatt türelmi időben lévők (Admin → Pénzügy → Rendelések)
+router.get("/api/admin/penzugy/turelem", csapat.csakResz("penzugy"), async (req, res) => {
+    try { res.json(await require("../services/turelem").adminLista()); } catch (err) { hiba(res, err); }
 });
 
 module.exports = router;
