@@ -236,3 +236,40 @@ body.noSales .mobSheetCsomag { display: none !important; }
     .srcRowGo { font-size: 0; }
     .srcRowGo i { font-size: 1rem; }
 }
+
+/* ---------- Reklámhelyek: a teljes rendelkezésre álló szélességet kitöltik ---------- */
+.adSlot,
+.ad-billboard, .ad-csik, .ad-leaderboard, .ad-negyzet, .ad-allo, .ad-rectangle {
+    max-width: none;
+    width: 100%;
+}
+.adMount { width: 100%; }
+
+/* Valódi hirdetés: a kép a hely teljes szélességében, arányosan */
+.adSlot.adReal .adLink { display: block; width: 100%; }
+.adSlot.adReal .adLink img { width: 100%; max-width: 100%; height: auto; }
+.adReal.ad-billboard .adLink img,
+.adReal.ad-csik .adLink img,
+.adReal.ad-leaderboard .adLink img,
+.adReal.ad-negyzet .adLink img { max-height: none; }
+/* Álló: ne legyen magasabb, mint ami kifér – ilyenkor középen, háttérrel */
+.adReal.ad-allo .adLink img { max-height: calc(100vh - var(--ip-nav-h, 64px) - 4rem); object-fit: contain; }
+
+/* Üres helyőrző: kitölti a helyet, a tartalma szépen elosztva */
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-csik .adInner,
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-leaderboard .adInner,
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-billboard .adInner {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    text-align: left;
+    padding-inline: clamp(0.25rem, 2vw, 1.5rem);
+}
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-csik .adText,
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-leaderboard .adText,
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-billboard .adText { flex: 1; min-width: 0; }
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-negyzet,
+body:not([data-page="admin"]) .adSlot.adPlaceholder.ad-allo { aspect-ratio: auto; }
+@media (max-width: 575.98px) {
+    body:not([data-page="admin"]) .adSlot.adPlaceholder .adInner { flex-wrap: wrap; justify-content: center; text-align: center; }
+}
