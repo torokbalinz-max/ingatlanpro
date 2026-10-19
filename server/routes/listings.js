@@ -31,6 +31,12 @@ router.get("/api/ingatlanok", async (req, res) => {
             ? await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.varos = $1 AND i.statusz = 'aktiv' ORDER BY i.id`, [city])
             : await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.statusz = 'aktiv' ORDER BY i.id`);
 
+        // Más oldalról átvett hirdetés: a forrás szövegét (címét) nyilvánosan nem
+        // mutatjuk – a felület az adatokból (típus, szobák, város) állít össze címet
+        if (req.szerep !== "admin") {
+            result.rows.forEach(r => { if (r.forras_tipus === "import") r.cim = null; });
+        }
+
         res.json(result.rows);
 
     } catch (err) {
@@ -108,7 +114,8 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
         const szerkesztheti = req.user ? (await sajatVagyAdmin(req, i.id)).ok : false;
         if (!szerkesztheti) {
             delete i.forras_szoveg;
-            if (i.forras_tipus === "import") { i.leiras = null; i.leiras_rejtve = true; }
+            // Csak az adatokat használjuk: se a leírás, se a hirdetés saját címe nem jelenik meg
+            if (i.forras_tipus === "import") { i.leiras = null; i.cim = null; i.leiras_rejtve = true; }
         }
 
         res.json({ ...i, ...belso, iroda, ugynok, kepek: kepek.rows.map(k => k.id) });

@@ -7,6 +7,12 @@
 
     const V18 = {
         hu: {
+            srcBlockTitle1: "Ez a hirdetés egy másik oldalon is fent van",
+            srcBlockTitleN: "Ez a hirdetés {n} oldalon van fent",
+            srcBlockHelp: "Az eredeti hirdetést itt nézheted meg:",
+            srcBlockHelpImport: "A teljes leírást, a hirdető elérhetőségét és a további részleteket az eredeti hirdetésben találod:",
+            srcBlockNote: "Itt csak a hirdetés fő adatait mutatjuk (ár, méret, szobák, hely), hogy könnyen összehasonlíthasd. A hirdetés a hirdetőé – ha hibát látsz, vagy le szeretnéd vetetni, írj nekünk.",
+            srcOpen: "Megnyitás",
             mobPackages: "Csomagok",
             prAfterPay: "Amíg nem fizetsz, nem küldünk semmit. Amikor a befizetés beérkezik, a csomag magától bekapcsol, és e-mailben megkapod a számlát.",
 
@@ -68,6 +74,12 @@
             ordGrace_archivalva: "Archiválva"
         },
         ro: {
+            srcBlockTitle1: "Acest anunț este publicat și pe alt site",
+            srcBlockTitleN: "Acest anunț este publicat pe {n} site-uri",
+            srcBlockHelp: "Vezi anunțul original aici:",
+            srcBlockHelpImport: "Descrierea completă, datele de contact ale agentului/proprietarului și celelalte detalii le găsești în anunțul original:",
+            srcBlockNote: "Aici afișăm doar datele principale (preț, suprafață, camere, locație), ca să le poți compara ușor. Anunțul aparține celui care l-a publicat – dacă vezi o greșeală sau vrei să fie scos, scrie-ne.",
+            srcOpen: "Deschide",
             mobPackages: "Pachete",
             prAfterPay: "Până nu plătești, nu îți trimitem nimic. Când plata ajunge, pachetul se activează automat și primești factura pe e-mail.",
 
@@ -129,6 +141,12 @@
             ordGrace_archivalva: "Arhivat"
         },
         en: {
+            srcBlockTitle1: "This listing is also published on another site",
+            srcBlockTitleN: "This listing is published on {n} sites",
+            srcBlockHelp: "See the original listing here:",
+            srcBlockHelpImport: "You'll find the full description, the advertiser's contact details and everything else in the original listing:",
+            srcBlockNote: "We only show the key facts here (price, size, rooms, location) so you can compare easily. The listing belongs to its advertiser – if you see a mistake or want it removed, write to us.",
+            srcOpen: "Open",
             mobPackages: "Packages",
             prAfterPay: "Until you pay, we send nothing. When the payment arrives, the package switches on automatically and you get the invoice by e-mail.",
 

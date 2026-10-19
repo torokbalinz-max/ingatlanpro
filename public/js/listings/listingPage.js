@@ -94,20 +94,49 @@ class ListingPage {
                </div>`;
 
         // Hol van meghirdetve
-        const linkek = [i.link, ...(i.tovabbi_linkek || [])].filter(l => l && Sources.fromLink(l) !== "other");
+        const linkek = [...new Set([i.link, ...(i.tovabbi_linkek || [])].filter(l => l && Sources.fromLink(l) !== "other"))];
 
         // A hirdető itt (fiókkal) töltötte fel, és más oldalakon is fent van:
         // itt közvetlenül neki lehet írni
         const sajatEsMas = i.owner_id && linkek.length && !i.iroda;
-        const forrasHtml = (sajatEsMas ? `
-                <div class="sourceLink local ownUpload"><i class="fa-solid fa-house-flag"></i> <span>${I18n.t("lpOwnUploadHere")}</span></div>
-                <p class="small text-body-secondary mb-2 mt-1">${I18n.t("lpAlsoOnOther")}</p>` : "") + (linkek.length
-            ? linkek.map(l => `
-                <a class="sourceLink" href="${Utils.escape(l)}" target="_blank" rel="noopener">
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                    ${I18n.f("viewOnSite", { site: Utils.escape(Sources.label(Sources.fromLink(l))) })}
-                </a>`).join("")
-            : `<div class="sourceLink local"><i class="fa-solid fa-house-flag"></i> ${I18n.t("onlyHere")}</div>`);
+        const atvett = i.forras_tipus === "import" || i.leiras_rejtve;
+
+        // Más oldalakon is fent van: nagy, feltűnő blokk közvetlenül az adatok alatt
+        const forrasFo = linkek.length ? `
+            <div class="srcBlock mt-4">
+                <div class="srcBlockHead">
+                    <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                    <div>
+                        <h5 class="mb-1">${I18n.f(linkek.length > 1 ? "srcBlockTitleN" : "srcBlockTitle1", { n: linkek.length })}</h5>
+                        <p class="mb-0">${I18n.t(sajatEsMas ? "lpAlsoOnOther" : atvett ? "srcBlockHelpImport" : "srcBlockHelp")}</p>
+                    </div>
+                </div>
+                ${sajatEsMas ? `<div class="sourceLink local ownUpload mb-2"><i class="fa-solid fa-house-flag"></i> <span>${I18n.t("lpOwnUploadHere")}</span></div>` : ""}
+                <div class="srcBlockList">
+                    ${linkek.map(l => {
+                        const k = Sources.fromLink(l);
+                        return `
+                        <a class="srcRow" href="${Utils.escape(l)}" target="_blank" rel="noopener noreferrer nofollow">
+                            <span class="srcRowIcon"><i class="fa-solid fa-globe" aria-hidden="true"></i></span>
+                            <span class="srcRowText">
+                                <b>${Utils.escape(Sources.label(k))}</b>
+                                <small>${Utils.escape(k)}</small>
+                            </span>
+                            <span class="srcRowGo">${I18n.t("srcOpen")} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span>
+                        </a>`;
+                    }).join("")}
+                </div>
+                ${atvett ? `<p class="srcBlockNote mb-0"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${I18n.t("srcBlockNote")}</p>` : ""}
+            </div>` : "";
+
+        // Csak itt van fent: a jobb oldali sávban marad a kis jelzés
+        const forrasOldal = linkek.length ? "" : `
+                        <div class="card mt-4">
+                            <div class="card-body">
+                                <h6 class="mb-3">${I18n.t("listedOn")}</h6>
+                                <div class="sourceLink local"><i class="fa-solid fa-house-flag"></i> ${I18n.t("onlyHere")}</div>
+                            </div>
+                        </div>`;
 
         const hianyzo = Array.isArray(i.hianyzo) ? i.hianyzo : [];
 
@@ -235,17 +264,17 @@ class ListingPage {
                         ${ListingPage.fact("fa-solid fa-euro-sign", I18n.t("detailArNm"), Utils.arNm(i) ? Utils.eurNm(Utils.arNm(i)) : "")}
                     </div>
 
+                    ${forrasFo}
+
+                    ${atvett ? "" : `
                     <div class="card mt-4">
                         <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-align-left"></i> ${I18n.t("newLeiras")}</h5></div>
                         <div class="card-body">
                             ${i.leiras
                                 ? `<div class="listingDesc">${Utils.escape(i.leiras)}</div>`
-                                : i.leiras_rejtve && i.link
-                                    ? `<p class="mb-2">${I18n.t("descOnSource")}</p>
-                                       <a class="btn btn-outline-primary btn-sm" href="${Utils.escape(i.link)}" target="_blank" rel="noopener noreferrer nofollow"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> ${I18n.t("descOnSourceBtn")}</a>`
-                                    : `<p class="text-body-secondary mb-0">${I18n.t("noDescription")}</p>`}
+                                : `<p class="text-body-secondary mb-0">${I18n.t("noDescription")}</p>`}
                         </div>
-                    </div>
+                    </div>`}
 
                     <div class="card mt-4">
                         <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-map-location-dot"></i> ${I18n.t("newHely")}</h5></div>
@@ -279,12 +308,7 @@ class ListingPage {
                             </div>
                         </div>
 
-                        <div class="card mt-4">
-                            <div class="card-body">
-                                <h6 class="mb-3">${I18n.t("listedOn")}</h6>
-                                ${forrasHtml}
-                            </div>
-                        </div>
+                        ${forrasOldal}
 
                         ${kapcsolatBox}
 

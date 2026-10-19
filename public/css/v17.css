@@ -197,3 +197,42 @@
 .mobBarCsomag { display: none !important; }
 body.noSales .mobBarCsomag { display: flex !important; }
 body.noSales .mobSheetCsomag { display: none !important; }
+
+/* ---------- Hirdetés oldal: hol van fent (forrásoldalak) – az adatok alatt ---------- */
+.srcBlock {
+    border: 1px solid var(--bs-primary-border-subtle, var(--bs-border-color));
+    background: var(--bs-primary-bg-subtle, var(--bs-tertiary-bg));
+    border-radius: 14px;
+    padding: 18px;
+}
+.srcBlockHead { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+.srcBlockHead > i { font-size: 1.5rem; color: var(--bs-primary); margin-top: 2px; }
+.srcBlockHead h5 { font-weight: 700; }
+.srcBlockHead p { color: var(--bs-secondary-color); }
+.srcBlockList { display: grid; gap: 10px; }
+.srcRow {
+    display: flex; align-items: center; gap: 14px;
+    width: 100%; padding: 14px 16px;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    color: var(--bs-body-color); text-decoration: none;
+    transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.srcRow:hover, .srcRow:focus-visible { border-color: var(--bs-primary); box-shadow: 0 4px 14px rgba(0,0,0,.08); transform: translateY(-1px); color: var(--bs-body-color); }
+.srcRowIcon {
+    flex: none; width: 40px; height: 40px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: var(--bs-primary-bg-subtle, var(--bs-tertiary-bg)); color: var(--bs-primary);
+}
+.srcRowText { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.srcRowText b { font-size: 1.05rem; }
+.srcRowText small { color: var(--bs-secondary-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srcRowGo { flex: none; font-weight: 600; color: var(--bs-primary); white-space: nowrap; }
+.srcBlockNote { margin-top: 14px; font-size: .85rem; color: var(--bs-secondary-color); }
+@media (max-width: 575.98px) {
+    .srcBlock { padding: 14px; }
+    .srcRow { padding: 12px; gap: 10px; }
+    .srcRowGo { font-size: 0; }
+    .srcRowGo i { font-size: 1rem; }
+}
