@@ -1,51 +1,62 @@
 // ============================================================
 //  Térkép (#map)
 //
-//  - Pontos helyű hirdetés: telt, színes pont (szín = állapot)
-//  - Ha több pontos helyű hirdetés ugyanarra a pontra esik (ugyanaz az
-//    épület, vagy a hirdető iroda címe): EGY jelölő a számukkal, és a
-//    felugró ablakban a lista. Korábban ezek egymásra rajzolódtak, és csak
-//    a legfelső látszott – ezért "tűnt el" egy-egy hirdetés a térképről.
-//  - Közelítő helyű hirdetés: kicsi, üres, szaggatott gyűrű. Az egy
-//    helyre eső közelítő hirdetések EGY jelölőbe kerülnek (számmal),
-//    így nem takarják egymást. A valószínű környék köre csak akkor
-//    látszik, ha a jelölőre kattintasz.
-//  - Kerülethatárok (ha az admin megrajzolta): halvány sokszögek névvel.
-//    A nevek a jelölők ALATT vannak, így nem takarnak el hirdetést.
-//  A két réteg a térkép fölötti kapcsolókkal ki-be kapcsolható; ha a
-//  közelítő helyek ki vannak kapcsolva, a térkép fölött szól róla.
+//  Csak a PONTOS (vagy utca szintű) helyű hirdetések kerülnek a
+//  térképre – ártáblás jelölővel, és ahol sok van egymás közelében,
+//  csoportba vonva (a csoportra kattintva a térkép rájuk nagyít; egy
+//  házban lévő több hirdetés a legnagyobb nagyításnál szétnyílik).
+//
+//  A csak kerület / negyed szintű ("közelítő") helyű hirdetések NEM
+//  pontként jelennek meg (különben egy-egy kerület közepén száz pont
+//  lenne egymáson): a kártyájuk "Térképen" gombja a körzetüket mutatja
+//  (AreaMap). Ahol semmilyen hely nincs, ott térképes megjelenés sincs.
+//
+//  Kerülethatárok (ha az admin megrajzolta): halvány sokszögek névvel.
 // ============================================================
 
 class MapManager {
 
     static map = null;
     static layer = null;
+    static tiles = null;
     static districtLayer = null;
-    static legend = null;
     static markerMap = new Map();
     static dirty = false;
-    static focusCircle = null;
+    static aktivId = null;
 
-    static opts = { hatarok: true, kozelito: true };
+    static opts = { hatarok: true };
 
-    // Ennyi méteren belüli pontos helyek egy jelölőbe kerülnek
-    static EGY_PONT_M = 12;
+    // A régi beállítás ("közelítő helyek" kapcsoló) – már nincs hatása
+    static setApprox() { /* a közelítő helyek nem pontként jelennek meg */ }
 
-    // A jelölő színe az állapot szerint (a színeket az admin állítja: Admin → Állapotok)
-    static color(allapot) {
-        return Utils.allapotSzin(allapot);
+    // Térképre kerül-e pontként
+    static pontos(i) {
+        const x = Number(i.x), y = Number(i.y);
+        return !!(x && y) && ["pontos", "utca"].includes(i.hely_pontossag || "pontos");
     }
 
     static loadOpts() {
         try {
             const v = JSON.parse(localStorage.getItem("mapOpts") || "{}");
             if (typeof v.hatarok === "boolean") MapManager.opts.hatarok = v.hatarok;
-            if (typeof v.kozelito === "boolean") MapManager.opts.kozelito = v.kozelito;
         } catch (e) { /* nem kritikus */ }
     }
 
     static saveOpts() {
         try { localStorage.setItem("mapOpts", JSON.stringify(MapManager.opts)); } catch (e) { /* nem kritikus */ }
+    }
+
+    static sotet() {
+        return document.documentElement.getAttribute("data-bs-theme") === "dark";
+    }
+
+    // Modern, halvány alaptérkép (CARTO – OpenStreetMap adatokkal); sötét módban sötét változat
+    static tileLayer() {
+        return L.tileLayer(`https://{s}.basemaps.cartocdn.com/${MapManager.sotet() ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`, {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+            subdomains: "abcd",
+            maxZoom: 19
+        });
     }
 
     static ensureMap() {
@@ -54,11 +65,10 @@ class MapManager {
 
         MapManager.loadOpts();
 
-        MapManager.map = L.map("map").setView([45.8590, 25.7900], 13);
+        MapManager.map = L.map("map", { zoomControl: false }).setView([45.8590, 25.7900], 13);
+        L.control.zoom({ position: "bottomright" }).addTo(MapManager.map);
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution: "© OpenStreetMap"
-        }).addTo(MapManager.map);
+        MapManager.tiles = MapManager.tileLayer().addTo(MapManager.map);
 
         // A kerületek alul, a nevük fölöttük, de a jelölők alatt
         MapManager.map.createPane("districtPane");
@@ -67,38 +77,44 @@ class MapManager {
         MapManager.map.getPane("districtLabelPane").style.zIndex = 380;
         MapManager.map.getPane("districtLabelPane").style.pointerEvents = "none";
 
-        MapManager.layer = L.featureGroup().addTo(MapManager.map);
+        MapManager.layer = typeof L.markerClusterGroup === "function"
+            ? L.markerClusterGroup({
+                showCoverageOnHover: false,
+                spiderfyOnMaxZoom: true,
+                maxClusterRadius: 48,
+                disableClusteringAtZoom: 18,
+                iconCreateFunction: MapManager.clusterIcon
+            })
+            : L.featureGroup();
 
-        MapManager.map.on("popupclose", () => MapManager.hideCircle());
+        MapManager.layer.addTo(MapManager.map);
+
+        MapManager.map.on("popupclose", () => MapManager.jelol(null));
+
+        // Témaváltáskor az alaptérkép is váltson
+        new MutationObserver(() => {
+            if (!MapManager.map) return;
+            MapManager.tiles.remove();
+            MapManager.tiles = MapManager.tileLayer().addTo(MapManager.map);
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-bs-theme"] });
 
         MapManager.bindToggles();
 
     }
 
-    // A térkép fölötti kapcsolók (kerülethatárok, közelítő helyek)
     static bindToggles() {
 
         const h = document.getElementById("mapShowDistricts");
-        const k = document.getElementById("mapShowApprox");
 
         if (h) {
             h.checked = MapManager.opts.hatarok;
             h.onchange = () => { MapManager.opts.hatarok = h.checked; MapManager.saveOpts(); MapManager.drawDistricts(); };
         }
 
-        if (k) {
-            k.checked = MapManager.opts.kozelito;
-            k.onchange = () => { MapManager.setApprox(k.checked); };
-        }
-
-    }
-
-    static setApprox(be) {
-        MapManager.opts.kozelito = !!be;
-        MapManager.saveOpts();
+        // A régi "közelítő helyek" kapcsoló már nem kell
         const k = document.getElementById("mapShowApprox");
-        if (k) k.checked = MapManager.opts.kozelito;
-        MapManager.load(DataManager.szurtIngatlanok);
+        if (k) { const w = k.closest(".form-check"); if (w) w.hidden = true; }
+
     }
 
     static drawDistricts() {
@@ -119,13 +135,12 @@ class MapManager {
         MapManager.districtLayer = L.layerGroup();
 
         Districts.list(varos).forEach(k => {
-            const szin = Districts.color(k);
             L.polygon(Districts.latlngs(k.hatar), {
-                pane: "districtPane", color: szin, weight: 1.5, opacity: 0.65,
-                fillColor: szin, fillOpacity: 0.05, interactive: false
+                pane: "districtPane", color: Utils.accent(), weight: 1, opacity: 0.35, dashArray: "4 4",
+                fillColor: Utils.accent(), fillOpacity: 0.025, interactive: false
             })
                 .bindTooltip(Utils.escape(CityManager.keruletLabelOf(k)), {
-                    permanent: true, direction: "center", offset: [0, -24], className: "districtLabel",
+                    permanent: true, direction: "center", className: "districtLabel ipDistrictLabel",
                     interactive: false, pane: "districtLabelPane"
                 })
                 .addTo(MapManager.districtLayer);
@@ -135,180 +150,76 @@ class MapManager {
 
     }
 
-    static renderLegend() {
-
-        if (MapManager.legend) MapManager.legend.remove();
-
-        MapManager.legend = L.control({ position: "bottomright" });
-
-        MapManager.legend.onAdd = () => {
-
-            const div = L.DomUtil.create("div", "mapLegend");
-
-            div.innerHTML = Utils.ALLAPOTOK
-                .map(a => `<span><i style="background:${Utils.allapotSzin(a)}"></i>${Utils.escape(Utils.allapotLabel(a))}</span>`)
-                .join("") +
-                `<span class="mapLegendSep"><i class="legendStack">2</i>${I18n.t("mapLegendStack")}</span>` +
-                `<span><i class="legendApprox"></i>${I18n.t("hely_kozelito")}</span>`;
-
-            return div;
-
-        };
-
-        MapManager.legend.addTo(MapManager.map);
-
+    // Rövid ár a jelölőre: 76 900 € -> "76,9e €"; kiadónál "350 €"
+    static rovidAr(i) {
+        const a = Number(i.ar);
+        if (!(a > 0)) return "–";
+        if (i.ugylet === "kiado" || a < 10000) return Utils.num(Math.round(a)) + " €";
+        // ezer: magyarul "e", angolul / románul "k"
+        const e = I18n.current === "hu" ? "e" : "k";
+        if (a >= 1000000) return Utils.num(Math.round(a / 100000) / 10, 1) + "M €";
+        return Utils.num(Math.round(a / 1000)) + e + " €";
     }
 
-    // Hol van: kerület (a határ szerint is) vagy település
-    static helySor(i) {
+    static priceIcon(i) {
+        const cls = ["ipPin"];
+        if (CardsView.kiemelt(i)) cls.push("isFeat");
+        if (i.hely_pontossag === "utca") cls.push("isStreet");
+        if (i.id === MapManager.aktivId) cls.push("isActive");
+        return L.divIcon({
+            className: "ipPinWrap",
+            html: `<span class="${cls.join(" ")}">${Utils.escape(MapManager.rovidAr(i))}</span>`,
+            iconSize: null,
+            iconAnchor: [0, 0],
+            popupAnchor: [0, -20]
+        });
+    }
 
-        const f = Types.fieldsOf(i);
+    static clusterIcon(c) {
+        const n = c.getChildCount();
+        const meret = n < 10 ? 38 : n < 50 ? 46 : 56;
+        return L.divIcon({
+            className: "ipClusterWrap",
+            html: `<span class="ipCluster" style="width:${meret}px;height:${meret}px"><b>${n}</b></span>`,
+            iconSize: [meret, meret]
+        });
+    }
 
-        if (f.telepules && i.telepules) {
-            return `<div class="mapPopupPlace"><i class="fa-solid fa-location-dot"></i> ${Utils.escape(CityManager.helyLabel(i))}</div>`;
-        }
-
-        const k = typeof Districts !== "undefined" ? Districts.ofListing(i) : i.kerulet;
-
-        if (!k) return "";
-
-        return `<div class="mapPopupPlace"><i class="fa-solid fa-draw-polygon"></i> ${CityManager.reszT("label", i.varos)}: <b>${Utils.escape(CityManager.keruletLabel(k, i.varos))}</b></div>`;
-
+    // A kiválasztott hirdetés jelölője kiemelve
+    static jelol(id) {
+        const elozo = MapManager.aktivId;
+        MapManager.aktivId = id;
+        [elozo, id].forEach(x => {
+            const m = x && MapManager.markerMap.get(x);
+            if (m && m._ipI) m.setIcon(MapManager.priceIcon(m._ipI));
+        });
     }
 
     static popupHtml(i) {
 
         const foto = Utils.photoUrl(i);
+        const kulso = ListingPage.forrasra(i);
+        const cim = i.cim || `${Types.label(i.tipus)} · ${CityManager.helyReszLabel(i) || CityManager.displayName(i.varos)}`;
+        const tenyek = [
+            i.nm ? Utils.nm(i.nm) : "",
+            i.szobak && Types.fieldsOf(i).szobak ? I18n.f("roomsLabel", { n: i.szobak }) : "",
+            i.emelet && Types.fieldsOf(i).emelet ? I18n.t("cfFloor") + ": " + CardsView.emelet(i.emelet) : "",
+            i.allapot ? Utils.allapotLabel(i.allapot) : ""
+        ].filter(Boolean);
 
         return `
-            <div class="mapPopup">
-                ${foto ? `<img class="mapPopupImg" src="${Utils.escape(foto)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">` : ""}
-                <h6>${Utils.escape(i.cim || I18n.t("popupProperty") + i.id)}</h6>
-                ${MapManager.helySor(i)}
-                <div class="mapPopupPrice">${Utils.price(i)}</div>
-                <div>${i.nm ? Utils.nm(i.nm) + " · " : ""}${Utils.eurNm(Utils.arNm(i))}</div>
-                <div>${i.szobak ? I18n.f("roomsLabel", { n: i.szobak }) + " · " : ""}${i.allapot ? Utils.allapotLabel(i.allapot) : ""}</div>
-                ${i.iroda_nev ? `<div class="small text-body-secondary"><i class="fa-solid fa-briefcase"></i> ${Utils.escape(i.iroda_nev)}</div>` : ""}
-                <div class="mt-1">${(i.forrasok || [i.forras]).map(Sources.badge).join(" ")} ${Utils.helyBadge(i)}</div>
-                <button class="btn btn-primary btn-sm w-100 mt-2" onclick="ListingPage.open(${Number(i.id)})">${ListingPage.forrasra(i)
-                    ? `${Utils.escape(I18n.f("openOnSource", { s: Sources.label(Sources.fromLink(i.link)) }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>`
-                    : I18n.t("detailOpenListing")}</button>
-            </div>`;
-
-    }
-
-    // Egy helyre eső több hirdetés: rövid lista (a kiemelt az, amit a kártyáról / táblázatból kerestek)
-    static groupPopupHtml(lista, kozelito, kiemelt) {
-
-        const elso = lista[0];
-
-        return `
-            <div class="mapPopup mapPopupGroup">
-                <h6>${I18n.f(kozelito ? "mapApproxGroup" : "mapStackGroup", { n: lista.length })}</h6>
-                ${MapManager.helySor(elso)}
-                <p class="small text-body-secondary mb-2">${I18n.t(kozelito ? "mapApproxGroupHelp" : "mapStackGroupHelp")}</p>
-                <div class="mapGroupList">
-                    ${lista.map(i => `
-                        <button type="button" class="mapGroupItem ${i.id === kiemelt ? "active" : ""}" onclick="ListingPage.open(${Number(i.id)})">
-                            <i class="dot" style="background:${MapManager.color(i.allapot)}"></i>
-                            <span class="t">${Utils.escape(i.cim || Types.label(i.tipus))}<small>${[i.nm ? Utils.nm(i.nm) : "", i.szobak ? I18n.f("roomsLabel", { n: i.szobak }) : ""].filter(Boolean).join(" · ")}</small></span>
-                            <b>${Utils.price(i)}${ListingPage.forrasra(i) ? ` <i class="fa-solid fa-arrow-up-right-from-square small text-body-secondary" title="${Utils.escape(Sources.label(Sources.fromLink(i.link)))}" aria-hidden="true"></i>` : ""}</b>
-                        </button>`).join("")}
+            <div class="ipPopup">
+                ${foto ? `<div class="ipPopupImg"><img src="${Utils.escape(foto)}" referrerpolicy="no-referrer" alt="" onerror="this.parentElement.remove()"></div>` : ""}
+                <div class="ipPopupBody">
+                    <div class="ipPopupPrice">${Utils.price(i)}${Utils.arNm(i) ? ` <small>${Utils.eurNm(Utils.arNm(i))}</small>` : ""}</div>
+                    <div class="ipPopupTitle">${Utils.escape(cim)}</div>
+                    <div class="ipPopupPlace"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${Utils.escape(CityManager.helyLabel(i))}${i.hely_pontossag === "utca" ? ` <span class="ipPopupApprox">${I18n.t("mapStreetLevel")}</span>` : ""}</div>
+                    ${tenyek.length ? `<div class="ipPopupFacts">${tenyek.map(t => `<span>${Utils.escape(t)}</span>`).join("")}</div>` : ""}
+                    <button type="button" class="btn btn-primary btn-sm w-100 mt-2" onclick="ListingPage.open(${Number(i.id)})">${kulso
+                        ? `${Utils.escape(I18n.f("openOnSource", { s: Sources.label(Sources.fromLink(i.link)) }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>`
+                        : I18n.t("detailOpenListing")}</button>
                 </div>
             </div>`;
-
-    }
-
-    static showCircle(lat, lng, radius, szin) {
-        MapManager.hideCircle();
-        MapManager.focusCircle = L.circle([lat, lng], {
-            radius, color: szin, weight: 1.5, opacity: 0.8, fillOpacity: 0.08, dashArray: "4 4", interactive: false
-        }).addTo(MapManager.map);
-    }
-
-    static hideCircle() {
-        if (MapManager.focusCircle) {
-            MapManager.focusCircle.remove();
-            MapManager.focusCircle = null;
-        }
-    }
-
-    // Közelítő jelölő: üres gyűrű; ha több hirdetés van ugyanott, a számuk
-    static approxIcon(lista) {
-
-        const n = lista.length;
-        const szin = n === 1 ? MapManager.color(lista[0].allapot) : "#475569";
-
-        return L.divIcon({
-            className: "approxMarker",
-            html: n > 1
-                ? `<span class="approxRing multi" style="border-color:${szin}"><b>${n}</b></span>`
-                : `<span class="approxRing" style="border-color:${szin}"></span>`,
-            iconSize: n > 1 ? [28, 28] : [16, 16],
-            iconAnchor: n > 1 ? [14, 14] : [8, 8],
-            popupAnchor: [0, -8]
-        });
-
-    }
-
-    // Egy ponton álló több pontos helyű hirdetés: telt kör a számukkal
-    // (a színe az állapoté, ha mind egyforma)
-    static stackIcon(lista) {
-
-        const szinek = [...new Set(lista.map(i => MapManager.color(i.allapot)))];
-        const szin = szinek.length === 1 ? szinek[0] : Utils.accent();
-
-        return L.divIcon({
-            className: "stackMarker",
-            html: `<span class="stackDot" style="--stack:${szin}"><b>${lista.length}</b></span>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
-            popupAnchor: [0, -12]
-        });
-
-    }
-
-    // Két pont távolsága méterben (kis távolságra elég pontos)
-    static meter(y1, x1, y2, x2) {
-        const dy = (y2 - y1) * 111320;
-        const dx = (x2 - x1) * 111320 * Math.cos(y1 * Math.PI / 180);
-        return Math.hypot(dx, dy);
-    }
-
-    // A pontos helyek csoportosítása: az egymástól EGY_PONT_M méteren belüliek egy csoport
-    static pontCsoportok(lista) {
-
-        const csoportok = [];
-        const racs = new Map();            // ~100 m-es rács a gyors kereséshez
-        const sor = y => Math.floor(y / 0.001);
-        const oszlop = x => Math.floor(x / 0.0014);
-
-        lista.forEach(i => {
-
-            const y = Number(i.y), x = Number(i.x);
-            const ky = sor(y), kx = oszlop(x);
-            let talalt = null;
-
-            for (let a = -1; a <= 1 && !talalt; a++) {
-                for (let b = -1; b <= 1 && !talalt; b++) {
-                    const resz = racs.get((ky + a) + ":" + (kx + b)) || [];
-                    talalt = resz.find(g => MapManager.meter(g.y, g.x, y, x) <= MapManager.EGY_PONT_M) || null;
-                }
-            }
-
-            if (talalt) {
-                talalt.lista.push(i);
-            } else {
-                const g = { y, x, lista: [i] };
-                csoportok.push(g);
-                const k = ky + ":" + kx;
-                if (!racs.has(k)) racs.set(k, []);
-                racs.get(k).push(g);
-            }
-
-        });
-
-        return csoportok;
 
     }
 
@@ -321,167 +232,65 @@ class MapManager {
 
         MapManager.layer.clearLayers();
         MapManager.markerMap.clear();
-        MapManager.hideCircle();
 
         MapManager.drawDistricts();
 
-        let helyNelkul = 0;
-        let kozelitoDb = 0;
-        const kozelitoCsop = new Map();          // "lat,lng" -> [hirdetések]
-        const pontosak = [];
         const pontok = [];
+        let nemPontos = 0;
 
-        lista.forEach(ingatlan => {
+        const markerek = [];
 
-            const x = Number(ingatlan.x);
-            const y = Number(ingatlan.y);
+        lista.forEach(i => {
 
-            // Hiányzó / 0 koordináta: nem tesszük ki a térképre
-            if (!x || !y || isNaN(x) || isNaN(y)) { helyNelkul++; return; }
+            if (!MapManager.pontos(i)) { nemPontos++; return; }
 
-            if (ingatlan.hely_pontossag === "kozelito") {
+            const y = Number(i.y), x = Number(i.x);
 
-                kozelitoDb++;
+            const m = L.marker([y, x], { icon: MapManager.priceIcon(i), keyboard: true, title: `${Utils.price(i)} · ${CityManager.helyLabel(i)}`, riseOnHover: true })
+                .bindPopup(() => MapManager.popupHtml(i), { maxWidth: 280, minWidth: 240, className: "ipPopupWrap", closeButton: true });
 
-                if (!MapManager.opts.kozelito) return;
+            m._ipI = i;
+            m.on("click", () => { MapManager.jelol(i.id); AppController.select(i, { fromMap: true }); });
 
-                const kulcs = y.toFixed(4) + "," + x.toFixed(4);
-                if (!kozelitoCsop.has(kulcs)) kozelitoCsop.set(kulcs, []);
-                kozelitoCsop.get(kulcs).push(ingatlan);
-                return;
-
-            }
-
-            pontosak.push(ingatlan);
-
-        });
-
-        // Pontos helyek: egy jelölő pontonként (a több hirdetéses pont számmal)
-        MapManager.pontCsoportok(pontosak).forEach(g => {
-
-            if (g.lista.length === 1) {
-
-                const ingatlan = g.lista[0];
-
-                const marker = L.circleMarker([g.y, g.x], {
-                    radius: 7,
-                    weight: 2,
-                    color: "#ffffff",
-                    fillColor: MapManager.color(ingatlan.allapot),
-                    fillOpacity: 0.95
-                })
-                .bindPopup(MapManager.popupHtml(ingatlan));
-
-                marker.on("click", () => AppController.select(ingatlan, { fromMap: true }));
-
-                marker.addTo(MapManager.layer);
-
-                MapManager.markerMap.set(ingatlan.id, marker);
-
-            } else {
-
-                const marker = L.marker([g.y, g.x], {
-                    icon: MapManager.stackIcon(g.lista),
-                    keyboard: true,
-                    title: I18n.f("mapStackGroup", { n: g.lista.length }),
-                    zIndexOffset: 200
-                })
-                .bindPopup(MapManager.groupPopupHtml(g.lista, false), { maxWidth: 320 });
-
-                marker._ipLista = g.lista;
-                marker._ipKozelito = false;
-
-                marker.addTo(MapManager.layer);
-
-                g.lista.forEach(i => MapManager.markerMap.set(i.id, marker));
-
-            }
-
-            pontok.push([g.y, g.x]);
-
-        });
-
-        // Közelítő helyek: helyenként egy jelölő
-        kozelitoCsop.forEach(csoport => {
-
-            const i0 = csoport[0];
-            const y = Number(i0.y), x = Number(i0.x);
-            const sugar = Math.max(...csoport.map(i => i.hely_sugar || (i.telepules ? 1500 : 500)));
-
-            const marker = L.marker([y, x], {
-                icon: MapManager.approxIcon(csoport),
-                keyboard: true,
-                title: csoport.length > 1 ? I18n.f("mapApproxGroup", { n: csoport.length }) : I18n.t("hely_kozelito"),
-                zIndexOffset: -100
-            })
-            .bindPopup(csoport.length > 1 ? MapManager.groupPopupHtml(csoport, true) : MapManager.popupHtml(i0), { maxWidth: 320 });
-
-            marker.on("popupopen", () => MapManager.showCircle(y, x, sugar, csoport.length > 1 ? "#475569" : MapManager.color(i0.allapot)));
-
-            if (csoport.length === 1) marker.on("click", () => AppController.select(i0, { fromMap: true }));
-            else { marker._ipLista = csoport; marker._ipKozelito = true; }
-
-            marker.addTo(MapManager.layer);
-
-            csoport.forEach(i => MapManager.markerMap.set(i.id, marker));
+            markerek.push(m);
+            MapManager.markerMap.set(i.id, m);
             pontok.push([y, x]);
 
         });
 
+        if (typeof MapManager.layer.addLayers === "function") MapManager.layer.addLayers(markerek);
+        else markerek.forEach(m => m.addTo(MapManager.layer));
+
         if (pontok.length > 0) {
-            MapManager.map.fitBounds(L.latLngBounds(pontok), { padding: [30, 30], maxZoom: 15 });
+            MapManager.map.fitBounds(L.latLngBounds(pontok), { padding: [40, 40], maxZoom: 15 });
         }
 
         const cnt = document.getElementById("mapCount");
-        if (cnt) cnt.innerText = lista.length - helyNelkul - (MapManager.opts.kozelito ? 0 : kozelitoDb);
+        if (cnt) cnt.innerText = pontok.length;
 
         const nl = document.getElementById("mapNoLoc");
-        if (nl) {
-            const reszek = [];
-            if (kozelitoDb && MapManager.opts.kozelito) reszek.push(I18n.f("mapApproxCount", { n: kozelitoDb }));
-            if (helyNelkul) reszek.push(I18n.f("mapNoLocCount", { n: helyNelkul }));
-            nl.innerText = reszek.length ? " · " + reszek.join(" · ") : "";
-        }
+        if (nl) nl.innerText = "";
 
-        MapManager.renderNotes(MapManager.opts.kozelito ? 0 : kozelitoDb, helyNelkul);
-
-        MapManager.renderLegend();
+        MapManager.renderNotes(nemPontos);
 
     }
 
-    //  A térkép fölötti figyelmeztetés: ami a szűrésben benne van, de nem látszik
-    //   - a kikapcsolt közelítő helyek (egy kattintással visszakapcsolható)
-    //   - a hely nélküli hirdetések (a listában megnézhetők)
-    static renderNotes(rejtettKozelito, helyNelkul) {
+    //  A térkép fölötti megjegyzés: a szűrés hirdetései közül ennyi nincs pontosan
+    //  a térképen (csak a kerületük ismert, vagy semmi) – a listában megnézhetők
+    static renderNotes(nemPontos) {
 
         const box = document.getElementById("mapHiddenNote");
         if (!box) return;
 
-        const reszek = [];
-
-        if (rejtettKozelito) {
-            reszek.push(`<span><i class="fa-regular fa-eye-slash" aria-hidden="true"></i> ${I18n.f("mapApproxHidden", { n: rejtettKozelito })}</span>
-                <button type="button" class="btn btn-sm btn-outline-primary" data-map-note="approx">${I18n.t("mapApproxShow")}</button>`);
-        }
-
-        if (helyNelkul) {
-            reszek.push(`<span><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> ${I18n.f("mapNoLocNote", { n: helyNelkul })}</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-map-note="list">${I18n.t("mapNoLocList")}</button>`);
-        }
-
-        box.innerHTML = reszek.map(r => `<div class="mapNoteRow">${r}</div>`).join("");
-        box.hidden = !reszek.length;
-
-        const a = box.querySelector('[data-map-note="approx"]');
-        if (a) a.onclick = () => MapManager.setApprox(true);
+        box.innerHTML = nemPontos ? `
+            <div class="mapNoteRow">
+                <span><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${I18n.f("mapNotExactNote", { n: nemPontos })}</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-map-note="list">${I18n.t("mapNoLocList")}</button>
+            </div>` : "";
+        box.hidden = !nemPontos;
 
         const l = box.querySelector('[data-map-note="list"]');
-        if (l) l.onclick = () => {
-            const sel = document.getElementById("keresoHely");
-            if (sel) sel.value = "nincs";
-            FilterManager.apply();
-            PageManager.show("properties");
-        };
+        if (l) l.onclick = () => PageManager.show("properties");
 
     }
 
@@ -501,17 +310,111 @@ class MapManager {
 
         if (!MapManager.map) return;
 
-        // (ha a közelítő helyek ki vannak kapcsolva, a térkép fölötti sáv szól róla)
         const marker = MapManager.markerMap.get(ingatlan.id);
-
         if (!marker) return;
 
-        // A csoport listájában kiemeljük a keresett hirdetést
-        if (marker._ipLista) marker.setPopupContent(MapManager.groupPopupHtml(marker._ipLista, marker._ipKozelito, ingatlan.id));
+        MapManager.jelol(ingatlan.id);
 
-        MapManager.map.flyTo(marker.getLatLng(), 16, { animate: true, duration: 0.8 });
+        const nyit = () => {
+            MapManager.map.flyTo(marker.getLatLng(), Math.max(MapManager.map.getZoom(), 17), { animate: true, duration: 0.8 });
+            setTimeout(() => marker.openPopup(), 850);
+        };
 
-        marker.openPopup();
+        if (typeof MapManager.layer.zoomToShowLayer === "function") MapManager.layer.zoomToShowLayer(marker, nyit);
+        else nyit();
+
+    }
+
+}
+
+// ============================================================
+//  A hirdetés körzete (közelítő hely): felugró ablak a kerülettel
+//  vagy a hirdetés körével – a "Térképen" gomb nyitja a kártyáról
+// ============================================================
+
+class AreaMap {
+
+    static map = null;
+
+    // Mit tudunk mutatni: "pont" (pontos – a nagy térképen), "kor" (a hirdetés köre),
+    // "kerulet" (a kerület határa), vagy null (semmit)
+    static mod(i) {
+        if (!i) return null;
+        if (MapManager.pontos(i)) return "pont";
+        if (AreaMap.kerulet(i)) return "kerulet";
+        if (Number(i.x) && Number(i.y) && i.hely_pontossag === "kozelito") return "kor";
+        return null;
+    }
+
+    static kerulet(i) {
+        if (!i.kerulet || typeof Districts === "undefined") return null;
+        return Districts.list(i.varos).find(k => k.nev === i.kerulet) || null;
+    }
+
+    static open(i) {
+
+        const mod = AreaMap.mod(i);
+        if (!mod || mod === "pont") return;
+
+        let modal = document.getElementById("areaMapModal");
+
+        if (!modal) {
+            modal = document.createElement("div");
+            modal.className = "modal fade";
+            modal.id = "areaMapModal";
+            modal.tabIndex = -1;
+            modal.setAttribute("aria-hidden", "true");
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content ipAreaModal">
+                        <div class="modal-header">
+                            <div>
+                                <h5 class="modal-title" id="areaMapTitle"></h5>
+                                <div class="small text-body-secondary" id="areaMapSub"></div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-0"><div id="areaMapBox"></div></div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.addEventListener("shown.bs.modal", () => AreaMap.rajzol());
+        }
+
+        AreaMap.aktiv = i;
+
+        const k = AreaMap.kerulet(i);
+        document.getElementById("areaMapTitle").textContent = I18n.f("areaTitle", { hely: CityManager.helyLabel(i) });
+        document.getElementById("areaMapSub").textContent = I18n.t(k ? "areaSubDistrict" : "areaSubCircle");
+
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+
+    }
+
+    static rajzol() {
+
+        const i = AreaMap.aktiv;
+        if (!i) return;
+
+        if (AreaMap.map) { AreaMap.map.remove(); AreaMap.map = null; }
+
+        AreaMap.map = L.map("areaMapBox", { scrollWheelZoom: true, zoomControl: true });
+        MapManager.tileLayer().addTo(AreaMap.map);
+
+        const szin = Utils.accent();
+        const k = AreaMap.kerulet(i);
+        let reteg;
+
+        if (k) {
+            reteg = L.polygon(Districts.latlngs(k.hatar), { color: szin, weight: 2, fillColor: szin, fillOpacity: 0.16 })
+                .bindTooltip(Utils.escape(CityManager.keruletLabelOf(k)), { permanent: true, direction: "center", className: "districtLabel ipDistrictLabel" });
+        } else {
+            reteg = L.circle([Number(i.y), Number(i.x)], { radius: Number(i.hely_sugar) || 600, color: szin, weight: 2, fillColor: szin, fillOpacity: 0.16, dashArray: "6 6" });
+        }
+
+        reteg.addTo(AreaMap.map);
+        AreaMap.map.fitBounds(reteg.getBounds(), { padding: [30, 30], maxZoom: 16 });
+        setTimeout(() => AreaMap.map && AreaMap.map.invalidateSize(), 60);
 
     }
 

@@ -64,6 +64,12 @@ function problemak(d, ctx = {}) {
 
 }
 
+function nincsHely(d, vannakKeruletek) {
+    const f = TIPUS_MEZOK[d.tipus] || TIPUS_MEZOK.lakas;
+    const keruletKotelezo = f.kerulet && !(f.nemKotelezo || []).includes("kerulet");
+    return keruletKotelezo && vannakKeruletek && !(d.x && d.y) && !d.kerulet && !d.telepules;
+}
+
 async function ertekel(d, opts = {}) {
 
     const vannakKeruletek = opts.vannakKeruletek !== undefined
@@ -85,6 +91,14 @@ async function ertekel(d, opts = {}) {
     const blokkolo = mod === "import"
         ? hianyzo.filter(m => KOTELEZO_IMPORT.includes(m) && !(m === "szobak" && d.tipus !== "lakas"))
         : hianyzo;
+
+    // Semmilyen hely: se pont a térképen, se kerület (lakás, üzlet, iroda – kerületes
+    // városban). Az ilyen hirdetés az Admin → Hely-ellenőrzés "Hely nélkül" listájába
+    // kerül, és amíg nincs legalább kerülete, nem számít bele a statisztikába / becslésbe.
+    if (nincsHely(d, vannakKeruletek)) {
+        if (!hianyzo.includes("hely")) hianyzo.push("hely");
+        if (!blokkolo.includes("hely")) blokkolo.push("hely");
+    }
 
     return {
         hianyzo,
@@ -274,4 +288,4 @@ async function aliasHozzaad(varos, kerulet, alias) {
 
 }
 
-module.exports = { ertekel, problemak, median, keruletKeres, keruletSzovegbol, keruletHelybol, aliasHozzaad, aliasTisztitas, ekezetNelkul, KOTELEZO_IMPORT };
+module.exports = { ertekel, nincsHely, problemak, median, keruletKeres, keruletSzovegbol, keruletHelybol, aliasHozzaad, aliasTisztitas, ekezetNelkul, KOTELEZO_IMPORT };

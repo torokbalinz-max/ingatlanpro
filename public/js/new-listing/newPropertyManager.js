@@ -508,7 +508,7 @@ class NewPropertyManager {
         if (!d.varos) h.push("varos");
 
         const keruletSelect = document.getElementById("ujKerulet");
-        if (f.kerulet && !d.kerulet && keruletSelect.options.length > 1) h.push("kerulet");
+        if (Types.kotelezo(d.tipus, "kerulet", d.varos) && !d.kerulet && keruletSelect.options.length > 1) h.push("kerulet");
 
         if (local && (!d.leiras || d.leiras.length < 20)) h.push("leiras");
         if (local && d.tipus !== "telek" && !(d.x && d.y)) h.push("hely");

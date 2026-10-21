@@ -240,7 +240,7 @@ async function besorol(varos) {
         const vanHely = !!(i.x && i.y);
         const szint = i.hely_pontossag || (vanHely ? "pontos" : "nincs");
 
-        if (vanHely && pontosSzint(szint)) {
+        if (vanHely && pontosSzint(szint) && !i.telepules) {
 
             const k = valaszt(keruletek, Number(i.x), Number(i.y));
 
@@ -314,7 +314,7 @@ async function ellenorzes(varos) {
 
     const r = await db.query(`
         SELECT id, x, y, kerulet, cim, hely_pontossag, statusz FROM ingatlanok
-        WHERE varos = $1 AND tipus = ANY($2::text[]) AND x IS NOT NULL AND y IS NOT NULL
+        WHERE varos = $1 AND tipus = ANY($2::text[]) AND x IS NOT NULL AND y IS NOT NULL AND telepules IS NULL
           AND COALESCE(hely_pontossag, 'pontos') IN ('pontos', 'utca') AND statusz IN ('aktiv', 'fuggo')
     `, [varos, keruletes]);
 

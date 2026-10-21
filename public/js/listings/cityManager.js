@@ -142,7 +142,8 @@ class CityManager {
                 return I18n.f("nearCity", { hely: CityManager.telepulesLabel(i.telepules), varos: anya ? CityManager.displayName(anya) : varos }) +
                     (d !== null ? ` (${CityManager.tavLabel(d)})` : "");
             }
-            return varos;
+            // A városban lévő ház / telek: a kerület, ha megvan
+            return [varos, i.kerulet ? CityManager.keruletLabel(i.kerulet, i.varos) : null].filter(Boolean).join(" · ");
         }
 
         return [varos, CityManager.keruletLabel(i.kerulet, i.varos)].filter(Boolean).join(" · ");
@@ -224,6 +225,7 @@ class CityManager {
                 const d = CityManager.telepulesTav(i.varos, i.telepules);
                 return CityManager.telepulesLabel(i.telepules) + (d !== null ? " · " + CityManager.tavLabel(d) : "");
             }
+            if (i.kerulet) return CityManager.keruletLabel(i.kerulet, i.varos);
             return CityManager.isKornyek(i.varos) ? I18n.t("kornyekNoVillage") : I18n.t("telepulesVarosban");
         }
         return CityManager.keruletLabel(i.kerulet, i.varos);

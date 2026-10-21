@@ -31,8 +31,10 @@ const Telepulesek = require("../../public/js/core/telepulesek");
 // induláskor minden hirdetésen újra lefut (2: ár, belterület/külterület, kerület a helyből;
 // 3: hely-ellenőrzés – a forrásoldal rossz pontjai, hasonló nevű falvak;
 // 4: állapot a leírásból / az építés évéből, pontosabb emelet, terület, évszám, nevezetes helyek;
-// 5: pontosabb hely – az utca összes szakasza, házszám, a cím / leírás / forrás szerinti kerület)
-const VERZIO = 5;
+// 5: pontosabb hely – az utca összes szakasza, házszám, a cím / leírás / forrás szerinti kerület;
+// 6: háznál / teleknél is kerület (a városban, a pontos helyből), a hely nélküli
+//    hirdetések kimaradnak a statisztikából)
+const VERZIO = 6;
 
 const ures = v => v === null || v === undefined || v === "" || (typeof v === "number" && !(v > 0));
 
@@ -92,7 +94,16 @@ async function javaslat(i, extra = {}) {
 
     // ---- 2) Kerület (lakás, üzlet, iroda): a forrás / cím szerinti név,
     //         aztán a hely (térkép), végül a leírás
-    let keruletKell = mezok.kerulet && ures(i.kerulet) && i.varos && !kornyekAnya;
+    let keruletKell = mezok.kerulet && ures(i.kerulet) && i.varos && !kornyekAnya && !(mezok.telepules && i.telepules);
+
+    // Háznál, teleknél (ahol település is lehet) a kerületet csak a pontos
+    // helyből adjuk meg – a szövegben említett név lehet egy falué is
+    if (keruletKell && mezok.telepules) {
+        const pontosHely = i.x && i.y && ["pontos", "utca"].includes(i.hely_pontossag || "pontos");
+        const k = pontosHely ? await districts.keruletPontbol(i.varos, Number(i.x), Number(i.y)) : null;
+        if (k) v.kerulet = k;
+        keruletKell = false;
+    }
 
     if (keruletKell) {
 
@@ -172,7 +183,7 @@ async function javaslat(i, extra = {}) {
     // és egy megrajzolt kerülethatáron belül van, az a kerület – akkor is, ha
     // a forrásoldal szövege mást írt, vagy a hely-ellenőrzés közben áthelyezte
     // a pontot (különben a térképen A kerületben látszana, de B-nek számítana).
-    if (mezok.kerulet && i.varos) {
+    if (mezok.kerulet && i.varos && !(mezok.telepules && (v.telepules || i.telepules))) {
         const x = "x" in v ? v.x : i.x;
         const y = "y" in v ? v.y : i.y;
         const szint = "hely_pontossag" in v ? v.hely_pontossag : i.hely_pontossag;

@@ -560,7 +560,7 @@ AdminManager.lpTakarit = function () {
 // Az egyes városok és szűrők száma
 AdminManager.lpDb = function (varos, mod) {
     const v = (AdminManager.lp.szamok || {}).varosok || {};
-    const egy = x => !x ? 0 : mod === "nincs" ? x.nincs : mod === "kozelito" ? x.kozelito : x.nincs + x.kozelito;
+    const egy = x => !x ? 0 : mod === "semmi" ? (x.semmi || 0) : mod === "nincs" ? x.nincs : mod === "kozelito" ? x.kozelito : x.nincs + x.kozelito;
     if (varos) return egy(v[varos]);
     return Object.values(v).reduce((s, x) => s + egy(x), 0);
 };
@@ -584,9 +584,9 @@ AdminManager.lpDraw = function () {
 
         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <div class="typeTabs mb-0" role="tablist">
-                ${["mind", "nincs", "kozelito"].map(m => `
-                    <button type="button" class="typeTab ${lp.mod === m ? "active" : ""}" data-lp-mod="${m}">
-                        <i class="fa-solid ${m === "nincs" ? "fa-location-pin-lock" : m === "kozelito" ? "fa-circle-dot" : "fa-layer-group"}" aria-hidden="true"></i>
+                ${["semmi", "mind", "nincs", "kozelito"].map(m => `
+                    <button type="button" class="typeTab ${lp.mod === m ? "active" : ""}${m === "semmi" ? " lpSemmiTab" : ""}" data-lp-mod="${m}" ${m === "semmi" ? `title="${esc(I18n.t("lpFilter_semmiHelp"))}"` : ""}>
+                        <i class="fa-solid ${m === "semmi" ? "fa-circle-question" : m === "nincs" ? "fa-location-pin-lock" : m === "kozelito" ? "fa-circle-dot" : "fa-layer-group"}" aria-hidden="true"></i>
                         ${I18n.t("lpFilter_" + m)} <span class="typeTabCount">${Utils.num(db(m))}</span>
                     </button>`).join("")}
             </div>

@@ -10,6 +10,7 @@
 const cheerio = require("cheerio");
 const { arHiheto } = require("./textParse");
 const { biztonsagosFetch } = require("../lib/biztonsagosFetch");
+const forrasHely = require("./forrasHely");
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
@@ -271,6 +272,28 @@ function extract(html, url, finalUrl) {
 
     const ogKep = absUrl(meta("og:image"), url);
 
+    // ===== OLX / Storia: a hirdetés saját adatcsomagja (pontos hely, teljes leírás) =====
+    {
+        const host = (() => { try { return new URL(finalUrl || url).hostname; } catch (e) { return ""; } })();
+        const s = /olx\.ro$/i.test(host) ? forrasHely.olxOldalbol(html)
+            : /storia\.ro$/i.test(host) ? forrasHely.storiaOldalbol(html) : null;
+        if (s) {
+            if (s.hely && s.x && s.y) { d.x = s.x; d.y = s.y; d.forrasHely = s.hely; d.forrasok.x = "oldal"; }
+            else if (s.hely === null && (d.forrasok.x === "jsonld" || d.forrasok.x === "meta")) {
+                // A forrás csak városnyi kört adott – a JSON-LD / meta pont is csak a város közepe
+                d.x = null; d.y = null;
+            }
+            if (s.utca) set("utca", s.utca, "oldal");
+            if (s.kerulet) set("kerulet", s.kerulet, "oldal");
+            if (s.ar) set("ar", s.ar, "oldal");
+            if (s.nm) set("nm", s.nm, "oldal");
+            if (s.szobak) set("szobak", s.szobak, "oldal");
+            if (s.emelet) set("emelet", s.emelet, "oldal");
+            if (s.leiras && s.leiras.length > 40) set("leiras", s.leiras, "oldal");
+            if (s.kulso_kepek && s.kulso_kepek.length) s.kulso_kepek.forEach(k => d.kulso_kepek.push(k));
+        }
+    }
+
     // ===== Képek =====
     if (isRoam(url)) {
 
@@ -524,8 +547,12 @@ function keresesiElem(o) {
     const forrasok = (o.sellerSources || []).filter(s => s && s.viewAdUrl);
     const linkek = forrasok.map(s => String(s.viewAdUrl).split("#")[0].split("?")[0]);
 
-    const link = linkek[0] || (o.url ? String(o.url) : null);
+    const link = linkek[0] || (o.url ? absUrl(String(o.url), "https://www.imoradar24.ro") : null);
     if (!link) return null;
+
+    // Az Imoradar24 adatlapja (a "link-extern" bejelentkezés nélkül nem visz tovább –
+    // ha a valódi forrást nem találjuk meg, ez lesz a link)
+    const reszletUrl = o.url && /\/oferta\//.test(String(o.url)) ? absUrl(String(o.url), "https://www.imoradar24.ro") : null;
 
     const hl = {};
     (o.highlights || []).forEach(h => { if (h && h.key) hl[h.key] = h.label; });
@@ -540,6 +567,8 @@ function keresesiElem(o) {
         link,
         tovabbi_linkek: linkek.slice(1),
         imoId: nemAlkalmazhato(ga.cubeid) || nemAlkalmazhato(o.phoneApiEntityId),
+        forrasNev: o.sourceName || (forrasok[0] && forrasok[0].sourceName) || null,
+        reszletUrl,
         elerheto: !o.isArchived && !/unavailable|sold|inactive|archived/i.test(String(ga.propertyAvailability || "")),
         cim: decodeEntities(o.title || o.heading || ga.item_name || "").trim().slice(0, 200) || null,
         leiras: o.descriptionPreview ? decodeEntities(o.descriptionPreview).trim() : null,

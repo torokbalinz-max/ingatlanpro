@@ -123,6 +123,27 @@ const PONTATLAN = `i.statusz IN ('aktiv', 'fuggo') AND NOT COALESCE(i.hely_kezi,
               AND NOT (i.hely_eredeti IS NOT NULL AND i.hely_eredeti->>'ok' IS NOT NULL
                        AND COALESCE((i.hely_eredeti->>'elfogadva')::boolean, false) = false)`;
 
+// Semmilyen hely: se pont, se kerület, se település – a statisztikából kimarad,
+// amíg legalább a kerülete meg nincs (services/quality.js)
+const SEMMI = `((i.x IS NULL OR i.y IS NULL OR COALESCE(i.hely_pontossag, 'nincs') = 'nincs')
+              AND NULLIF(i.kerulet, '') IS NULL AND NULLIF(i.telepules, '') IS NULL)`;
+
+// Kézi helymegadás után az adatminőség újraszámolása (a hely nélküli hirdetés így
+// visszakerül a statisztikába, ha most már van kerülete / helye)
+async function minosegFrissit(id) {
+    const quality = require("../services/quality");
+    const r = await db.query(`SELECT i.*, (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db FROM ingatlanok i WHERE i.id = $1`, [id]);
+    const i = r.rows[0];
+    if (!i) return;
+    const q = await quality.ertekel(i, {
+        mod: i.forras_tipus === "import" ? "import" : (i.link ? "link" : "kezi"),
+        jovahagyva: i.jovahagyva,
+        kepDb: (i.kep_db || 0) + (Array.isArray(i.kulso_kepek) ? i.kulso_kepek.length : 0)
+    });
+    await db.query("UPDATE ingatlanok SET hianyzo = $1::jsonb, problemak = $2::jsonb, ellenorzott = $3 WHERE id = $4",
+        [JSON.stringify(q.hianyzo), JSON.stringify(q.problemak), q.ellenorzott, id]);
+}
+
 router.get("/api/admin/hely-athelyezett", helyJog, async (req, res) => {
     try {
         const params = [];
@@ -145,7 +166,7 @@ router.get("/api/admin/hely-athelyezett", helyJog, async (req, res) => {
 //   ?varos=…  -> { lista: [...], szamok: { nincs, kozelito, varosok: {város: db} } }
 router.get("/api/admin/hely-pontatlan", helyJog, async (req, res) => {
     try {
-        const mod = ["nincs", "kozelito", "mind"].includes(req.query.mod) ? req.query.mod : "mind";
+        const mod = ["semmi", "nincs", "kozelito", "mind"].includes(req.query.mod) ? req.query.mod : "mind";
         const params = [];
         const hol = await helySql(req, params);
         const alap = `${PONTATLAN} AND ${hol}`;
@@ -153,13 +174,14 @@ router.get("/api/admin/hely-pontatlan", helyJog, async (req, res) => {
         const sz = await db.query(`
             SELECT i.varos,
                    COUNT(*) FILTER (WHERE i.x IS NULL OR i.y IS NULL OR COALESCE(i.hely_pontossag, 'nincs') = 'nincs')::int AS nincs,
-                   COUNT(*) FILTER (WHERE i.x IS NOT NULL AND i.y IS NOT NULL AND i.hely_pontossag = 'kozelito')::int AS kozelito
+                   COUNT(*) FILTER (WHERE i.x IS NOT NULL AND i.y IS NOT NULL AND i.hely_pontossag = 'kozelito')::int AS kozelito,
+                   COUNT(*) FILTER (WHERE ${SEMMI})::int AS semmi
             FROM ingatlanok i WHERE ${alap} GROUP BY i.varos`, params);
 
         const varosok = {};
-        let nincs = 0, kozelito = 0;
-        sz.rows.forEach(x => { varosok[x.varos || ""] = { nincs: x.nincs, kozelito: x.kozelito }; nincs += x.nincs; kozelito += x.kozelito; });
-        const szamok = { nincs, kozelito, osszes: nincs + kozelito, varosok };
+        let nincs = 0, kozelito = 0, semmi = 0;
+        sz.rows.forEach(x => { varosok[x.varos || ""] = { nincs: x.nincs, kozelito: x.kozelito, semmi: x.semmi }; nincs += x.nincs; kozelito += x.kozelito; semmi += x.semmi; });
+        const szamok = { nincs, kozelito, semmi, osszes: nincs + kozelito, varosok };
 
         // Csak a számok (a fül váltójához)
         if (req.query.csak === "szam") return res.json({ lista: [], szamok });
@@ -168,6 +190,7 @@ router.get("/api/admin/hely-pontatlan", helyJog, async (req, res) => {
         const felt = [alap];
         if (mod === "nincs") felt.push("(i.x IS NULL OR i.y IS NULL OR COALESCE(i.hely_pontossag, 'nincs') = 'nincs')");
         if (mod === "kozelito") felt.push("(i.x IS NOT NULL AND i.y IS NOT NULL AND i.hely_pontossag = 'kozelito')");
+        if (mod === "semmi") felt.push(SEMMI);
         if (req.query.varos) { lp.push(String(req.query.varos)); felt.push(`i.varos = $${lp.length}`); }
 
         const r = await db.query(`
@@ -293,6 +316,8 @@ router.post("/api/admin/hely-athelyezett/:id/kezi", helyJog, helyIdJog, async (r
                 if (kerulet !== undefined) await db.query("UPDATE ingatlanok SET kerulet = $1 WHERE id = $2", [kerulet, id]);
             }
         } catch (er) { /* nem kritikus */ }
+
+        await minosegFrissit(id).catch(e => console.error("Minőség frissítése:", e.message));
 
         res.json({ siker: true, x, y, hely_pontossag: pontossag, hely_sugar: sugar, kerulet: kerulet === undefined ? null : kerulet });
     } catch (err) {

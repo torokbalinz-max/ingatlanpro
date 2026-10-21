@@ -179,7 +179,9 @@ class CardsView {
         const admin = AuthManager.resz("ellenorzes");
 
         const kulso = ListingPage.forrasra(i);
-        const terkep = Number(i.x) && Number(i.y);
+        // Térkép: pontos helynél a nagy térkép, kerület / közelítő helynél a körzet; ha semmi, nincs gomb
+        const terkep = !!AreaMap.mod(i);
+        const korzet = terkep && AreaMap.mod(i) !== "pont";
         const szeles = !!opts.wide;
         const oszlop = opts.col || "col-sm-6 col-xl-4 col-4k-3";
 
@@ -262,7 +264,7 @@ class CardsView {
                         <div class="ipFoot">
                             <div class="ipSrcs">${forrasok.map(forrasChip).join("")}</div>
                             <div class="ipActions">
-                                ${terkep ? `<button type="button" class="ipMapBtn" data-map="${i.id}" title="${Utils.escape(I18n.t("cardShowOnMap"))}"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> <span>${I18n.t("cardShowOnMapShort")}</span></button>` : ""}
+                                ${terkep ? `<button type="button" class="ipMapBtn${korzet ? " isArea" : ""}" data-map="${i.id}" title="${Utils.escape(I18n.t(korzet ? "cardShowAreaHint" : "cardShowOnMap"))}"><i class="fa-solid ${korzet ? "fa-draw-polygon" : "fa-map-location-dot"}" aria-hidden="true"></i> <span>${I18n.t(korzet ? "cardShowAreaShort" : "cardShowOnMapShort")}</span></button>` : ""}
                             </div>
                         </div>
 
@@ -401,18 +403,16 @@ class CardsView {
 
     }
 
-    // "Megnyitás térképen": a térkép oldal, a hirdetés jelölője kinyitva
+    // "Térképen": pontos helynél a térkép oldal (a jelölő kinyitva), csak kerület /
+    // közelítő helynél a hirdetés körzete egy felugró térképen
     static showOnMap(id) {
 
         const i = CardsView.objektumok.get(id) || DataManager.ingatlanok.find(x => x.id === id);
         if (!i) return;
 
-        // A közelítő helyű hirdetés jelölője csak bekapcsolt közelítő helyekkel látszik
-        if (i.hely_pontossag === "kozelito" && !MapManager.opts.kozelito) {
-            MapManager.opts.kozelito = true;
-            MapManager.saveOpts();
-            MapManager.dirty = true;
-        }
+        const mod = AreaMap.mod(i);
+        if (!mod) return;
+        if (mod !== "pont") return AreaMap.open(i);
 
         PageManager.show("map");
 

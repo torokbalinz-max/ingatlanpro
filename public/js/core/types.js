@@ -7,8 +7,9 @@ class Types {
 
     static LIST = [
         { key: "lakas", icon: "fa-solid fa-building", label: "typeLakas", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, becsles: true },
-        { key: "haz", icon: "fa-solid fa-house-chimney", label: "typeHaz", fields: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true, jelleg: false }, becsles: false },
-        { key: "telek", icon: "fa-solid fa-mountain-sun", label: "typeTelek", fields: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true, jelleg: true }, becsles: false },
+        // Ház, telek: a városban a kerület is megadható (nem kötelező), faluban a település
+        { key: "haz", icon: "fa-solid fa-house-chimney", label: "typeHaz", fields: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: true, telepules: true, jelleg: false }, nemKotelezo: ["kerulet"], becsles: false },
+        { key: "telek", icon: "fa-solid fa-mountain-sun", label: "typeTelek", fields: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: true, telepules: true, jelleg: true }, nemKotelezo: ["kerulet"], becsles: false },
         // Üzlet, iroda: gyakran külön épület – a szobaszám és az emelet megadható, de nem kötelező
         { key: "kereskedelmi", icon: "fa-solid fa-store", label: "typeKereskedelmi", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, nemKotelezo: ["szobak", "emelet"], becsles: true },
         { key: "iroda", icon: "fa-solid fa-briefcase", label: "typeIroda", fields: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, jelleg: false }, nemKotelezo: ["szobak", "emelet"], becsles: true }

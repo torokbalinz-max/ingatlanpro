@@ -21,6 +21,8 @@ const { normalize, normLink } = require("./listing");
 const quality = require("./quality");
 const autofix = require("./autofix");
 const kornyek = require("./kornyek");
+const forrasHely = require("./forrasHely");
+const location = require("./location");
 
 const jobs = new Map();
 let jobSzamlalo = 0;
@@ -96,13 +98,16 @@ function elemKulcsok(d) {
 
 async function meglevoLinkek() {
 
-    const r = await db.query("SELECT id, link, ar, statusz, tovabbi_linkek FROM ingatlanok");
+    const r = await db.query("SELECT id, link, ar, statusz, tovabbi_linkek, kulso_azon FROM ingatlanok");
     const m = new Map();
 
     r.rows.forEach(i => {
         [i.link, ...(i.tovabbi_linkek || [])].forEach(l => {
             linkKulcsok(l).forEach(k => { if (!m.has(k)) m.set(k, i); });
         });
+        // A közvetítő (Imoradar24) azonosítói: a valódi forrásra cserélt link mellett
+        // így a következő beolvasás is felismeri
+        (Array.isArray(i.kulso_azon) ? i.kulso_azon : []).forEach(k => { if (!m.has(k)) m.set(k, i); });
     });
 
     return m;
@@ -127,9 +132,15 @@ async function elokeszit(d, alap) {
         tipus: d.tipus || alap.tipus,
         ugylet: d.ugylet || alap.ugylet,
         varos: alap.varos,
-        kerulet: null,
-        telepules: null
+        // A beolvasáskor megadott kerület (pl. egy kerület keresési listája)
+        kerulet: alap.kerulet || null,
+        telepules: null,
+        // A forrásoldal saját térképes helye (pontos vagy a hirdetés körzete)
+        hely_pontossag: d.forrasHely ? d.forrasHely.hely_pontossag : undefined,
+        hely_sugar: d.forrasHely ? d.forrasHely.hely_sugar : undefined
     });
+
+    if (adat.x && adat.y) adat.hely_forras = "forras";
 
     adat.forras_kerulet = d.kerulet || null;
     adat.forras_szoveg = d.forrasSzoveg || null;
@@ -145,6 +156,29 @@ async function elokeszit(d, alap) {
 
     return adat;
 
+}
+
+// A város román neve (az OLX kereséshez)
+async function varosRo(varos) {
+    const va = await location.varosAdat(varos).catch(() => null);
+    return (va && va.nev_ro) || require("./geocode").VAROS_RO[varos] || varos;
+}
+
+// A közvetítő azonosítói, amelyek alapján a hirdetést később is felismerjük
+function kulsoAzon(d, regi) {
+    const k = new Set(Array.isArray(regi) ? regi : []);
+    if (d.imoId) k.add("imo:" + d.imoId);
+    [d.kozvetitoLink, forrasHely.kozvetitoOldal(d.link) ? d.link : null].filter(Boolean)
+        .forEach(l => linkKulcsok(l).forEach(x => k.add(x)));
+    return [...k];
+}
+
+// A forrás pontos helye előrébb van-e, mint a mostani (pontos > utca > közelítő > nincs)
+const HELY_RANG = { pontos: 3, utca: 2, kozelito: 1, nincs: 0 };
+function jobbHely(i, h) {
+    if (!h || i.hely_kezi || i.hely_forras === "kezi") return false;
+    const most = i.x && i.y ? (HELY_RANG[i.hely_pontossag || "pontos"] || 0) : 0;
+    return (HELY_RANG[h.hely_pontossag] || 0) > most;
 }
 
 // ---------- beolvasás ----------
@@ -178,6 +212,20 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         return;
     }
 
+    // A valódi forrás (közvetítő helyett) és a forrásoldal pontos helye
+    await forrasHely.gazdagit(d, await varosRo(alap.varos)).catch(e => console.error("Forrás kiegészítés:", e.message));
+
+    // Ha a valódi forrás már nálunk van (pl. közvetlenül beolvasva), az frissül
+    if (d.kozvetitoLink) {
+        const mar = keresMeglevo(meglevo, linkKulcsok(d.link));
+        if (mar) {
+            const r = await db.query("SELECT * FROM ingatlanok WHERE id = $1", [mar.id]);
+            if (r.rows[0]) await frissitAdatbol(r.rows[0], d, job);
+            kulcsok.forEach(k => meglevo.set(k, mar));
+            return;
+        }
+    }
+
     const adat = await elokeszit(d, alap);
     const q = await quality.ertekel(adat);
 
@@ -187,10 +235,10 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
          tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
          kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, forras_kerulet, evszam,
          tovabbi_linkek, telepules, telek_jelleg, hely_sugar, utolso_ellenorzes, auto_javitva, auto_javitva_v,
-         hely_forras, hely_eredeti, allapot_forras, varos_ok, varos_eredeti)
+         hely_forras, hely_eredeti, allapot_forras, varos_ok, varos_eredeti, kulso_azon, kozvetito)
         VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$12,$13,$14,$15,$16,'aktiv','import',$17,
                 $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,$26,$27,$28,NOW(),NOW(),$29,
-                $30,$31::jsonb,$32,$33,$34)
+                $30,$31::jsonb,$32,$33,$34,$35::jsonb,$36)
         RETURNING id
     `, [
         d.link, adat.ar, adat.nm, adat.arnm, adat.szobak, adat.emelet, adat.allapot,
@@ -198,15 +246,16 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         adat.cim, adat.leiras, adat.telek_nm, adat.hely_pontossag,
         JSON.stringify(d.kulso_kepek || []), JSON.stringify(q.hianyzo), JSON.stringify(q.problemak),
         q.ellenorzott, adat.forras_szoveg, adat.forras_kerulet, adat.evszam,
-        JSON.stringify(d.tovabbi_linkek || []), adat.telepules, adat.telek_jelleg || null, adat.hely_sugar || null,
+        JSON.stringify((d.tovabbi_linkek || []).filter(l => !forrasHely.kozvetitoOldal(l))), adat.telepules, adat.telek_jelleg || null, adat.hely_sugar || null,
         autofix.VERZIO, adat.hely_forras || (adat.x && adat.y ? "forras" : null),
         adat.hely_eredeti ? JSON.stringify(adat.hely_eredeti) : null,
         adat.allapot ? (adat.allapot_forras || "szoveg") : null,
-        adat.varos_ok || null, adat.varos_eredeti || null
+        adat.varos_ok || null, adat.varos_eredeti || null,
+        JSON.stringify(kulsoAzon(d)), d.kozvetito || null
     ]);
 
     const uj = { id: r.rows[0].id, link: d.link, ar: adat.ar };
-    kulcsok.forEach(k => meglevo.set(k, uj));
+    [...kulcsok, ...linkKulcsok(d.link)].forEach(k => meglevo.set(k, uj));
 
     job.uj++;
     naplo(job, { url: d.link, eredmeny: "uj", id: uj.id, hianyzo: q.hianyzo, problemak: q.problemak });
@@ -243,7 +292,9 @@ async function listaOldalak(url, job, maxOldal = MAX_OLDAL) {
 
         const elotte = elemek.size + linkek.size;
 
-        const talalt = extractSearchItems(p.html);
+        // Imoradar24: a beágyazott adatcsomag; Storia: a __NEXT_DATA__ találati lista
+        let talalt = extractSearchItems(p.html);
+        if (!talalt.length && /storia\.ro/i.test(u)) talalt = forrasHely.storiaListabol(p.html);
 
         if (talalt.length) {
             talalt.forEach(d => { if (!elemek.has(normLink(d.link))) elemek.set(normLink(d.link), d); });
@@ -484,13 +535,49 @@ async function frissitAdatbol(i, d, job) {
     }
 
     // A forrás további linkjei (ugyanaz a hirdetés több oldalon)
+    // A közvetítő link helyett a valódi forrás (ha eddig nem sikerült, most újra próbáljuk)
+    if (forrasHely.kozvetitoOldal(i.link) && forrasHely.kozvetitoLink(d.link)) {
+        await forrasHely.gazdagit(d, await varosRo(i.varos)).catch(() => null);
+        if (d.valodiForras && d.link && !forrasHely.kozvetitoOldal(d.link)) {
+            potol.link = d.link;
+            potol.kozvetito = null;
+            valtozas.push("link");
+        } else if (forrasHely.kozvetitoLink(i.link) && d.reszletUrl) {
+            // A régi "link-extern" link (bejelentkezés nélkül nem visz tovább) helyett az adatlap
+            potol.link = d.reszletUrl;
+            potol.kozvetito = "imoradar24";
+        }
+        if (ures(i.leiras) && d.leiras) potol.leiras = d.leiras;
+    }
+
+    const aktLink = potol.link || i.link;
     const tovabbi = [...new Set([...(i.tovabbi_linkek || []), ...(d.tovabbi_linkek || []), d.link]
-        .filter(l => l && normLink(l) !== normLink(i.link)))];
-    if (tovabbi.length !== (i.tovabbi_linkek || []).length) potol.tovabbi_linkek = JSON.stringify(tovabbi);
+        .filter(l => l && !forrasHely.kozvetitoOldal(l) && normLink(l) !== normLink(aktLink)))];
+    const regiTovabbi = i.tovabbi_linkek || [];
+    if (tovabbi.length !== regiTovabbi.length || tovabbi.some((l, n) => l !== regiTovabbi[n])) potol.tovabbi_linkek = JSON.stringify(tovabbi);
+
+    // A közvetítő azonosítói (a következő beolvasás így is felismeri)
+    {
+        const azon = kulsoAzon(d, i.kulso_azon);
+        if (azon.length !== (i.kulso_azon || []).length) potol.kulso_azon = JSON.stringify(azon);
+    }
+
+    // A forrásoldal pontos helye – ha pontosabb, mint a mostani (az ember által
+    // letett helyhez nem nyúlunk)
+    if (d.forrasHely && d.x && d.y && jobbHely(i, d.forrasHely)) {
+        potol.x = d.x;
+        potol.y = d.y;
+        potol.hely_pontossag = d.forrasHely.hely_pontossag;
+        potol.hely_sugar = d.forrasHely.hely_sugar;
+        potol.hely_forras = "forras";
+        valtozas.push("hely");
+    }
 
     // Ami még mindig hiányzik: a szövegből (kerület, település, telek, hely...)
     {
         const alap = { ...i, ...potol, forras_kerulet: potol.forras_kerulet || i.forras_kerulet };
+        if (typeof alap.tovabbi_linkek === "string") alap.tovabbi_linkek = JSON.parse(alap.tovabbi_linkek);
+        if (typeof alap.kulso_azon === "string") alap.kulso_azon = JSON.parse(alap.kulso_azon);
         if (typeof alap.kulso_kepek === "string") alap.kulso_kepek = d.kulso_kepek;
         const v = await autofix.javaslat(alap, { utca: d.utca, varosForras: d.varosForras });
         Object.keys(v).forEach(k => { if (!(k in potol)) potol[k] = v[k]; });
@@ -515,7 +602,7 @@ async function frissitAdatbol(i, d, job) {
     if (uj.ar > 0 && uj.nm > 0) potol.arnm = uj.ar / uj.nm;
 
     const kulcsok = Object.keys(potol);
-    const sets = kulcsok.map((k, idx) => `${k} = $${idx + 1}${["kulso_kepek", "hianyzo", "problemak", "tovabbi_linkek", "hely_eredeti"].includes(k) ? "::jsonb" : ""}`);
+    const sets = kulcsok.map((k, idx) => `${k} = $${idx + 1}${["kulso_kepek", "hianyzo", "problemak", "tovabbi_linkek", "hely_eredeti", "kulso_azon"].includes(k) ? "::jsonb" : ""}`);
 
     const params = kulcsok.map(k => potol[k]);
     params.push(i.id);

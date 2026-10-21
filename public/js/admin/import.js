@@ -21,6 +21,11 @@ AdminManager.renderImport = function () {
                         <div class="stepBlock">
                             <div class="stepHead"><span class="stepNo">1</span> ${I18n.t("importStepCity")}</div>
                             <select id="impVaros" class="form-select" aria-label="${I18n.t("detailVaros")}">${AdminManager.cityOptions(allapot.varos)}</select>
+                            <div class="mt-2" id="impKeruletBox">
+                                <label class="form-label small mb-1" for="impKerulet">${I18n.t("importDistrictLabel")}</label>
+                                <select id="impKerulet" class="form-select form-select-sm"></select>
+                                <div class="form-text">${I18n.t("importDistrictHelp")}</div>
+                            </div>
                         </div>
 
                         <div class="stepBlock">
@@ -65,12 +70,27 @@ AdminManager.renderImport = function () {
 
     const cel = () => {
         document.getElementById("impTarget").innerText =
-            `${CityManager.displayName(allapot.varos)} · ${Types.label(allapot.tipus)} · ${Types.ugyletLabel(allapot.ugylet)}`;
+            [CityManager.displayName(allapot.varos), allapot.kerulet ? CityManager.keruletLabel(allapot.kerulet, allapot.varos) : null,
+             Types.label(allapot.tipus), Types.ugyletLabel(allapot.ugylet)].filter(Boolean).join(" · ");
+    };
+
+    // Kerület szintű beolvasás: a város kerületei (ha vannak)
+    const keruletTolt = () => {
+        const box = document.getElementById("impKeruletBox");
+        CityManager.loadKeruletekInto("impKerulet", allapot.varos, allapot.kerulet || "", "importDistrictAll").then(() => {
+            const sel = document.getElementById("impKerulet");
+            if (!sel) return;
+            box.hidden = sel.options.length <= 1;
+            if (sel.value !== (allapot.kerulet || "")) allapot.kerulet = sel.value || null;
+            cel();
+        });
     };
 
     Types.renderGrid("impTypeGrid", allapot.tipus, t => { allapot.tipus = t; cel(); });
 
-    document.getElementById("impVaros").onchange = e => { allapot.varos = e.target.value; cel(); };
+    document.getElementById("impVaros").onchange = e => { allapot.varos = e.target.value; allapot.kerulet = null; keruletTolt(); cel(); };
+    document.getElementById("impKerulet").onchange = e => { allapot.kerulet = e.target.value || null; cel(); };
+    keruletTolt();
     document.querySelectorAll('input[name="impUgylet"]').forEach(r => r.onchange = () => { allapot.ugylet = r.value; cel(); });
 
     cel();
@@ -90,6 +110,7 @@ AdminManager.renderImport = function () {
         const body = {
             urls: document.getElementById("impUrls").value,
             varos: allapot.varos,
+            kerulet: allapot.kerulet || null,
             tipus: allapot.tipus,
             ugylet: allapot.ugylet
         };

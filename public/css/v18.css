@@ -457,3 +457,116 @@ html body .ipCard .ipCount {
 
 /* ---------- Admin: kattintás beállítása az adatlapon ---------- */
 .lpOpenModeBox .form-text { font-size: .75rem; }
+
+/* ============================================================
+   Térkép (v18): ártáblás jelölők, csoportok, modern felugró kártya
+   ============================================================ */
+.ipPinWrap { background: none; border: 0; }
+.ipPin {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, calc(-100% - 7px));
+    display: inline-block;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--ip-surface, #fff);
+    color: var(--ip-ink, #14201b);
+    font: 700 12px/1.2 inherit;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    border: 1.5px solid color-mix(in srgb, var(--ip-accent, #1f6f5c) 55%, transparent);
+    box-shadow: 0 3px 10px rgba(20, 32, 27, .22);
+    cursor: pointer;
+    transition: transform .12s, background .12s, color .12s;
+}
+.ipPin::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    background: inherit;
+    border-right: inherit;
+    border-bottom: inherit;
+    transform: rotate(45deg);
+    border-radius: 0 0 3px 0;
+}
+.ipPin:hover { transform: translate(-50%, calc(-100% - 7px)) scale(1.07); z-index: 2; }
+.ipPin.isStreet { border-style: dashed; }
+.ipPin.isFeat { background: var(--ip-gold, #c9a227); color: #fff; border-color: var(--ip-gold, #c9a227); }
+.ipPin.isActive { background: var(--ip-accent, #1f6f5c); color: #fff; border-color: var(--ip-accent, #1f6f5c); }
+
+.ipClusterWrap { background: none; border: 0; }
+.ipCluster {
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--ip-accent, #1f6f5c) 88%, #000);
+    color: #fff;
+    font-weight: 750;
+    font-size: 13px;
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--ip-accent, #1f6f5c) 22%, transparent), 0 4px 14px rgba(0, 0, 0, .25);
+    transition: transform .12s;
+}
+.ipCluster:hover { transform: scale(1.06); }
+
+.ipDistrictLabel {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    color: color-mix(in srgb, var(--ip-ink, #14201b) 55%, transparent);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    text-shadow: 0 0 3px var(--ip-surface, #fff), 0 0 3px var(--ip-surface, #fff);
+}
+.ipDistrictLabel::before { display: none; }
+
+/* Felugró kártya */
+.ipPopupWrap .leaflet-popup-content-wrapper {
+    padding: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--ip-surface, #fff);
+    color: var(--ip-ink, #14201b);
+    box-shadow: 0 14px 40px rgba(20, 32, 27, .22);
+}
+.ipPopupWrap .leaflet-popup-content { margin: 0; width: 260px !important; }
+.ipPopupWrap .leaflet-popup-tip { background: var(--ip-surface, #fff); }
+.ipPopupWrap a.leaflet-popup-close-button {
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .92);
+    color: #14201b;
+    line-height: 26px;
+    z-index: 2;
+}
+.ipPopupImg { aspect-ratio: 16 / 10; background: var(--bs-tertiary-bg); overflow: hidden; }
+.ipPopupImg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ipPopupBody { padding: .75rem .9rem .85rem; }
+.ipPopupPrice { font-size: 1.15rem; font-weight: 780; letter-spacing: -.02em; }
+.ipPopupPrice small { font-size: .72rem; font-weight: 650; color: var(--ip-accent, #1f6f5c); margin-left: 4px; }
+.ipPopupTitle { font-weight: 650; font-size: .86rem; margin-top: 2px; line-height: 1.3; }
+.ipPopupPlace { font-size: .78rem; color: var(--ip-muted, #6b7280); margin-top: 3px; }
+.ipPopupPlace i { color: var(--ip-accent, #1f6f5c); }
+.ipPopupApprox { font-size: .68rem; padding: 1px 6px; border-radius: 999px; background: var(--bs-tertiary-bg); margin-left: 2px; }
+.ipPopupFacts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ipPopupFacts span { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--ip-ink, #14201b) 5%, transparent); }
+.ipPopupWrap .btn { color: #fff !important; }
+
+/* A kártya "Körzet" gombja (csak kerület / környék ismert) */
+.ipMapBtn.isArea i { color: var(--ip-muted, #6b7280); }
+
+/* A körzet felugró térképe */
+.ipAreaModal { border-radius: 18px; overflow: hidden; }
+#areaMapBox { height: min(62vh, 520px); }
+
+[data-bs-theme="dark"] .ipPin { background: #1b2120; color: #eef2f0; }
+[data-bs-theme="dark"] .ipDistrictLabel { text-shadow: 0 0 3px #111, 0 0 3px #111; }

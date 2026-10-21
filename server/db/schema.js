@@ -76,6 +76,11 @@ async function createSchema(db) {
         // Mi nyíljon meg, ha a látogató a hirdetésre kattint (NULL = automatikus:
         // a más oldalról átvett hirdetés a forrásoldalra visz, a többi saját adatlapot kap)
         "megnyitas TEXT",                        // NULL | lap | forras
+        // Közvetítő oldalról (Imoradar24) jött hirdetés: a közvetítő azonosítói (hogy a
+        // valódi forrásra cserélt link mellett is felismerjük), és ha a valódi forrást
+        // nem találtuk meg, a közvetítő neve (a link ilyenkor a közvetítő adatlapja)
+        "kulso_azon JSONB",
+        "kozvetito TEXT",
         "updated_at TIMESTAMP DEFAULT NOW()"
     ];
 

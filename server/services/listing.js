@@ -14,8 +14,10 @@ const UGYLETEK = ["elado", "kiado"];
 //             mellette van, melyik településen (üres = a városban)
 const TIPUS_MEZOK = {
     lakas: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false },
-    haz: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: false, telepules: true },
-    telek: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: false, telepules: true, jelleg: true },
+    // Ház, telek: ha a városban van, a kerület is megadható (nem kötelező); ha
+    // faluban, a település számít
+    haz: { szobak: true, emelet: false, allapot: true, telek: true, kerulet: true, telepules: true, nemKotelezo: ["kerulet"] },
+    telek: { szobak: false, emelet: false, allapot: false, telek: false, kerulet: true, telepules: true, jelleg: true, nemKotelezo: ["kerulet"] },
     // Üzlet, iroda: gyakran külön épület (nincs emelet), és a helyiségek száma sem
     // mindig értelmes – megadható, de nem kötelező, és a hiánya nem hiba
     kereskedelmi: { szobak: true, emelet: true, allapot: true, telek: false, kerulet: true, telepules: false, nemKotelezo: ["szobak", "emelet"] },
@@ -101,7 +103,8 @@ function normalize(b) {
         x: vanHely ? x : null,
         y: vanHely ? y : null,
         varos: szoveg(b.varos, 100),
-        kerulet: mezok.kerulet ? szoveg(b.kerulet, 100) : null,
+        // Faluban lévő háznál / teleknél kerület nincs (a település számít)
+        kerulet: mezok.kerulet && !(mezok.telepules && szoveg(b.telepules, 100)) ? szoveg(b.kerulet, 100) : null,
         telepules: mezok.telepules ? szoveg(b.telepules, 100) : null,
         hely_pontossag: vanHely
             ? (["kozelito", "utca", "pontos"].includes(b.hely_pontossag) ? b.hely_pontossag : "pontos")
@@ -138,7 +141,7 @@ function hianyzoMezok(d, opts = {}) {
 
     // Kerület: csak ahol értelmes (lakás, üzlet, iroda), és nem a beolvasottaknál –
     // azokat a kerület-párosítás (Admin → Városok, kerületek) intézi
-    if (mezok.kerulet && mod !== "import" && opts.vannakKeruletek && !d.kerulet) h.push("kerulet");
+    if (kotelezo(mezok, "kerulet") && mod !== "import" && opts.vannakKeruletek && !d.kerulet) h.push("kerulet");
 
     if (kotelezo(mezok, "szobak") && !(d.szobak > 0)) h.push("szobak");
 

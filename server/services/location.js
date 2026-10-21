@@ -408,7 +408,7 @@ async function helyKeres(d, szoveg, extra = {}) {
     const egeszSzoveg = [r.cim, r.leiras, r.forras_szoveg].filter(Boolean).join("\n") || szoveg || "";
 
     // A szöveg szerinti kerület (lakás, üzlet, iroda)
-    const ker = keruletesTipus(d.tipus) && !(v && v.kornyek) ? await keruletAdatok(d.varos) : [];
+    const ker = keruletesTipus(d.tipus) && !d.telepules && !(v && v.kornyek) ? await keruletAdatok(d.varos) : [];
     const allitott = ker.length ? helySzoveg.allitottKerulet({ ...r, forras_kerulet: d.forras_kerulet }, ker) : null;
     const keruletNev = allitott ? allitott.kerulet : (d.kerulet || null);
     const kerulet = ker.find(k => k.nev === keruletNev) || null;
@@ -564,7 +564,7 @@ async function ellenoriz(i, szoveg, extra = {}) {
     let km = tavol ? tavol.km : null;
 
     // A szöveg szerinti kerület (lakás, üzlet, iroda; a megrajzolt határokkal)
-    const ker = keruletesTipus(i.tipus) && !v.kornyek ? await keruletAdatok(i.varos) : [];
+    const ker = keruletesTipus(i.tipus) && !i.telepules && !v.kornyek ? await keruletAdatok(i.varos) : [];
     const vanHatar = ker.some(k => Array.isArray(k.hatar) && k.hatar.length >= 3);
     const allitott = ker.length ? helySzoveg.allitottKerulet({ ...r, forras_kerulet: i.forras_kerulet }, ker) : null;
     const allitottK = allitott ? ker.find(k => k.nev === allitott.kerulet) : null;

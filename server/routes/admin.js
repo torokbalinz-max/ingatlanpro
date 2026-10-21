@@ -447,7 +447,9 @@ router.post("/api/admin/import", csapat.csakResz("beolvasas"), async (req, res) 
         const job = importer.indit(urls, {
             varos,
             tipus: req.body.tipus || "lakas",
-            ugylet: req.body.ugylet || "elado"
+            ugylet: req.body.ugylet || "elado",
+            // Kerület szintű beolvasás: minden hirdetés ebbe a kerületbe kerül
+            kerulet: String(req.body.kerulet || "").trim().slice(0, 100) || null
         });
 
         res.json({ jobId: job.id });

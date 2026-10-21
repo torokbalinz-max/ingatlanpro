@@ -11,13 +11,16 @@ class ListingPage {
 
     // Kattintásra a forrásoldal nyíljon-e meg a saját adatlap helyett.
     // Az admin hirdetésenként állítja (megnyitas: lap | forras); ha nincs
-    // beállítva (automatikus): a más oldalról átvett hirdetés a forrásra visz.
+    // beállítva (automatikus): minden linkkel rendelkező hirdetés egyből a
+    // forrásoldalra visz – kivéve, amit a hirdető itt, fiókkal töltött fel
+    // (iroda, megbízás, magánszemély): annak saját adatlapja van.
     static forrasra(i) {
         if (!i) return false;
         const k = Sources.fromLink(i.link);
         if (k === "local" || k === "other") return false;
         if (i.megnyitas === "lap") return false;
         if (i.megnyitas === "forras") return true;
+        if ("sajat_feltoltes" in i) return !i.sajat_feltoltes;
         return i.forras_tipus === "import";
     }
 
@@ -606,9 +609,7 @@ class ListingPage {
 
             ListingPage.map = L.map("listingMap", { scrollWheelZoom: false }).setView([i.y, i.x], 15);
 
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                attribution: "© OpenStreetMap"
-            }).addTo(ListingPage.map);
+            MapManager.tileLayer().addTo(ListingPage.map);
 
             // A hirdetés kerületének határa (ha meg van rajzolva)
             const kn = Districts.ofListing(i);
