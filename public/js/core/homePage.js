@@ -267,18 +267,9 @@ class HomePage {
             HomePage.go({ ...ertek(), page: "map" });
         });
 
-        box.querySelectorAll(".homeFeatured .listingCard").forEach(k => {
-            k.style.cursor = "pointer";
-            k.addEventListener("click", e => {
-                const fav = e.target.closest("[data-fav]");
-                if (fav) {
-                    e.stopPropagation();
-                    DataManager.toggleFavorite(Number(fav.dataset.fav));
-                    return;
-                }
-                window.location.hash = "listing/" + k.dataset.id;
-            });
-        });
+        // A kiemelt kártyák ugyanúgy működnek, mint a találati listában
+        // (képlapozás, térkép gomb, forrásoldalra vivő hirdetés)
+        CardsView.bindCards(box.querySelector(".homeFeatured"));
 
         box.querySelectorAll("[data-cat]").forEach(a => {
             a.addEventListener("click", e => {

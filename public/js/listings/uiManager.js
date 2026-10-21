@@ -127,7 +127,7 @@ class UIManager {
 
         document.getElementById("btnOpenListing").onclick = () => {
             if (!UIManager.requireSelection()) return;
-            ListingPage.open(UIManager.selectedIngatlan.id);
+            ListingPage.open(UIManager.selectedIngatlan.id, UIManager.selectedIngatlan);
         };
 
         document.getElementById("btnValuateThis").onclick = () => {

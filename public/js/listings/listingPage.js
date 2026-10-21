@@ -9,7 +9,44 @@ class ListingPage {
     static kepIdx = 0;
     static map = null;
 
-    static open(id) {
+    // Kattintásra a forrásoldal nyíljon-e meg a saját adatlap helyett.
+    // Az admin hirdetésenként állítja (megnyitas: lap | forras); ha nincs
+    // beállítva (automatikus): a más oldalról átvett hirdetés a forrásra visz.
+    static forrasra(i) {
+        if (!i) return false;
+        const k = Sources.fromLink(i.link);
+        if (k === "local" || k === "other") return false;
+        if (i.megnyitas === "lap") return false;
+        if (i.megnyitas === "forras") return true;
+        return i.forras_tipus === "import";
+    }
+
+    // Az automatikus beállítás mit jelent ennél a hirdetésnél
+    static autoMod(i) {
+        return ListingPage.forrasra({ ...i, megnyitas: null }) ? "forras" : "lap";
+    }
+
+    static keres(id) {
+        return (typeof CardsView !== "undefined" && CardsView.objektumok.get(id))
+            || DataManager.ingatlanok.find(x => x.id === id)
+            || (ListingPage.current && ListingPage.current.id === id ? ListingPage.current : null);
+    }
+
+    // Az eredeti hirdetés új lapon (link-kattintásként, hogy a böngésző ne tiltsa le)
+    static forrastNyit(i) {
+        const a = document.createElement("a");
+        a.href = i.link;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer nofollow";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    static open(id, obj) {
+        id = Number(id);
+        const i = obj || ListingPage.keres(id);
+        if (i && ListingPage.forrasra(i)) return ListingPage.forrastNyit(i);
         PageManager.show("listing/" + id);
     }
 
@@ -27,7 +64,13 @@ class ListingPage {
             .then(i => {
                 DataManager.prepare([i]);
                 ListingPage.current = i;
-                ListingPage.render(i);
+                // A forrásoldalra vivő hirdetésnek nincs nyilvános adatlapja (pl. régi
+                // linkről vagy a térképről érkezett látogató): rövid összefoglaló + link
+                if (ListingPage.forrasra(i) && !AuthManager.resz("ellenorzes") && !AuthManager.canEdit(i)) {
+                    ListingPage.renderKulso(i);
+                } else {
+                    ListingPage.render(i);
+                }
             })
             .catch(() => {
                 box.innerHTML = `
@@ -42,8 +85,87 @@ class ListingPage {
 
     static rerender() {
         if (PageManager.current === "listing" && ListingPage.current) {
-            ListingPage.render(ListingPage.current);
+            const i = ListingPage.current;
+            if (ListingPage.forrasra(i) && !AuthManager.resz("ellenorzes") && !AuthManager.canEdit(i)) ListingPage.renderKulso(i);
+            else ListingPage.render(i);
         }
+    }
+
+    // A forrásoldalra vivő hirdetés rövid lapja: a fő adatok, a képek kicsiben,
+    // és egy nagy gomb az eredeti hirdetéshez
+    static renderKulso(i) {
+
+        const box = document.getElementById("listingContent");
+        const forrasNev = Sources.label(Sources.fromLink(i.link));
+
+        if (ListingPage.map) { ListingPage.map.remove(); ListingPage.map = null; }
+
+        box.innerHTML = `
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <button class="btn btn-link px-0" id="lpBack"><i class="fa-solid fa-arrow-left"></i> ${I18n.t("backToResults")}</button>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-md-8 col-lg-6">
+                    <div class="extCardWrap row g-0">${CardsView.cardHtml(i).replace('class="col-sm-6 col-xl-4 col-4k-3"', 'class="col-12"')}</div>
+                    <div class="card mt-3 extInfo">
+                        <div class="card-body">
+                            <h5 class="mb-1"><i class="fa-solid fa-globe" aria-hidden="true"></i> ${Utils.escape(I18n.f("extTitle", { s: forrasNev }))}</h5>
+                            <p class="text-body-secondary small mb-3">${I18n.t("extHelp")}</p>
+                            <a class="btn btn-primary w-100" href="${Utils.escape(i.link)}" target="_blank" rel="noopener noreferrer nofollow">
+                                ${Utils.escape(I18n.f("extOpen", { s: forrasNev }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+        CardsView.bindCards(box);
+
+        document.getElementById("lpBack").onclick = () => PageManager.show(PageManager.lastListPage || "properties");
+
+    }
+
+    // Admin: mi nyíljon meg kattintásra ennél a hirdetésnél
+    static megnyitasBox(i) {
+
+        const k = Sources.fromLink(i.link);
+        if (k === "local" || k === "other") return "";
+
+        const most = i.megnyitas || "auto";
+        const auto = I18n.f("openMode_autoNow", { m: I18n.t("openMode_" + ListingPage.autoMod(i)) });
+        const opt = (v, label) => `<option value="${v}" ${most === v ? "selected" : ""}>${Utils.escape(label)}</option>`;
+
+        return `
+            <div class="mb-3 lpOpenModeBox">
+                <label class="form-label small fw-semibold mb-1" for="lpOpenMode"><i class="fa-solid fa-arrow-pointer"></i> ${I18n.t("openModeLabel")}</label>
+                <select class="form-select form-select-sm" id="lpOpenMode">
+                    ${opt("auto", auto)}
+                    ${opt("forras", I18n.f("openMode_forrasNev", { s: Sources.label(k) }))}
+                    ${opt("lap", I18n.t("openMode_lap"))}
+                </select>
+                <div class="form-text">${I18n.t("openModeHelp")}</div>
+                ${ListingPage.forrasra(i) ? `<div class="alert alert-info small py-2 mt-2 mb-0"><i class="fa-solid fa-circle-info"></i> ${Utils.escape(I18n.f("openModeAdminNote", { s: Sources.label(k) }))}</div>` : ""}
+            </div>`;
+
+    }
+
+    // Beállítás mentése (egy vagy több hirdetésnél) – a betöltött listában is átírjuk
+    static setMegnyitas(ids, megnyitas) {
+        return fetch("/api/ingatlanok/bulk-megnyitas", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids, megnyitas })
+        })
+            .then(r => r.json().then(v => ({ ok: r.ok, v })))
+            .then(({ ok, v }) => {
+                if (!ok || !v.siker) throw new Error(v.error || "megnyitas");
+                const ertek = megnyitas === "auto" ? null : megnyitas;
+                const set = new Set(ids);
+                DataManager.ingatlanok.forEach(x => { if (set.has(x.id)) x.megnyitas = ertek; });
+                if (typeof CardsView !== "undefined") CardsView.objektumok.forEach((x, id) => { if (set.has(id)) x.megnyitas = ertek; });
+                if (ListingPage.current && set.has(ListingPage.current.id)) ListingPage.current.megnyitas = ertek;
+                return v;
+            });
     }
 
     // Egy adat-doboz (az érték szöveg – mindig "escape"-elve, mert a hirdetésből jön)
@@ -219,6 +341,7 @@ class ListingPage {
                     ${(i.problemak || []).length ? `<div class="small mb-2">${I18n.t("problemsLabel")}: ${(i.problemak || []).map(m => `<span class="badge text-bg-danger">${I18n.t("prob_" + m)}</span>`).join(" ")}</div>` : ""}
                     ${i.statusz === "nem_elerheto" ? `<div class="alert alert-secondary small py-2">${I18n.t("listingUnavailable")}</div>` : ""}
                     ${helyInfo}
+                    ${ListingPage.megnyitasBox(i)}
                     ${i.ellenorzott === false ? `<button class="btn btn-warning btn-sm w-100 mb-2" id="lpReview"><i class="fa-solid fa-list-check"></i> ${I18n.t("openInReview")}</button>` : ""}
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-secondary btn-sm flex-fill" id="lpEdit"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
@@ -424,6 +547,18 @@ class ListingPage {
 
         const ft = document.getElementById("lpFeature");
         if (ft) ft.onclick = () => FeatureModal.nyit(i.id, () => DataManager.init && DataManager.init());
+
+        const om = document.getElementById("lpOpenMode");
+        if (om) om.onchange = () => {
+            om.disabled = true;
+            ListingPage.setMegnyitas([i.id], om.value)
+                .then(() => {
+                    if (typeof Utils.toast === "function") Utils.toast(I18n.t("openModeSaved"));
+                    ListingPage.render(i);
+                    if (typeof CardsView !== "undefined" && CardsView.lista.length) CardsView.render(CardsView.lista);
+                })
+                .catch(() => { alert(I18n.t("bulkAlertError")); om.disabled = false; });
+        };
 
         const edit = document.getElementById("lpEdit");
         if (edit) edit.onclick = () => NewPropertyManager.startEdit(i);

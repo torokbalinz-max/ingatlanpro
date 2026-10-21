@@ -5,6 +5,8 @@
 class CardsView {
 
     static PAGE_SIZE = 24;
+    static MAX_KEP = 15;
+    static objektumok = new Map();      // a kártyákon látható hirdetések (azonosító → adatok)
     static page = 0;
     static lista = [];
 
@@ -70,17 +72,58 @@ class CardsView {
 
         if (i.nm) out.push(`<span><i class="fa-solid fa-ruler-combined"></i> ${Utils.nm(i.nm)}</span>`);
         if (f.szobak && i.szobak) out.push(`<span><i class="fa-solid fa-bed"></i> ${I18n.f("roomsLabel", { n: i.szobak })}</span>`);
-        if (f.emelet && i.emelet) out.push(`<span><i class="fa-solid fa-stairs"></i> ${Utils.escape(Utils.emeletLabel(i.emelet))}</span>`);
+        if (f.emelet && i.emelet) out.push(`<span><i class="fa-solid fa-stairs"></i> ${Utils.escape(CardsView.emelet(i.emelet))}</span>`);
+        if (f.allapot && i.allapot) out.push(`<span><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> ${Utils.escape(Utils.allapotLabel(i.allapot))}</span>`);
         if (f.telek && i.telek_nm) out.push(`<span><i class="fa-solid fa-tree"></i> ${Utils.nm(i.telek_nm)}</span>`);
         if (i.tipus === "telek" && i.telek_jelleg) out.push(`<span><i class="fa-solid fa-signs-post" aria-hidden="true"></i> ${I18n.t("jelleg_" + i.telek_jelleg)}</span>`);
+        if (i.evszam) out.push(`<span><i class="fa-regular fa-calendar" aria-hidden="true"></i> ${Number(i.evszam)}</span>`);
 
         return out.join("");
 
     }
 
+    // Emelet a kártyán: a pontos szám, és ha ismert, az épület szintjei (pl. "2. emelet / 4")
+    static emelet(e) {
+        const n = Utils.emeletSzam(e);
+        if (n === null) return String(e);
+        const alap = n <= 0 ? I18n.t("groundFloorLabel") : `${n}. ${I18n.t("floorWord")}`;
+        const m = String(e).match(/\/\s*(\d+)/);
+        return m ? `${alap} / ${m[1]}` : alap;
+    }
+
+    // A hirdetés képei (saját feltöltöttek, vagy a forrásoldalról beolvasottak)
+    static kepek(i) {
+        if (Array.isArray(i.kep_idk) && i.kep_idk.length) return i.kep_idk.slice(0, CardsView.MAX_KEP).map(id => "/api/kepek/" + id);
+        if (i.kep_id) return ["/api/kepek/" + i.kep_id];
+        if (Array.isArray(i.kulso_kepek) && i.kulso_kepek.length) return i.kulso_kepek.slice(0, CardsView.MAX_KEP).map(Utils.imgUrl);
+        return [];
+    }
+
+    // Lapozható képsáv a kártya tetején (ujjal húzható, egérrel a nyilakkal);
+    // csak az első kép töltődik be azonnal, a többi lapozáskor
+    static kepSav(i) {
+
+        const kepek = CardsView.kepek(i);
+
+        if (!kepek.length) return "";
+
+        const sav = kepek.map((u, n) => n === 0
+            ? `<img src="${Utils.escape(u)}" referrerpolicy="no-referrer" loading="lazy" alt="">`
+            : `<img data-src="${Utils.escape(u)}" referrerpolicy="no-referrer" alt="">`).join("");
+
+        return `
+            <div class="thumbStrip" data-strip>${sav}</div>
+            ${kepek.length > 1 ? `
+                <button type="button" class="thumbNav prev" data-nav="-1" aria-label="${Utils.escape(I18n.t("cardPhotoPrev"))}"><i class="fa-solid fa-chevron-left"></i></button>
+                <button type="button" class="thumbNav next" data-nav="1" aria-label="${Utils.escape(I18n.t("cardPhotoNext"))}"><i class="fa-solid fa-chevron-right"></i></button>` : ""}`;
+
+    }
+
     static cardHtml(i) {
 
-        const foto = Utils.photoUrl(i);
+        CardsView.objektumok.set(i.id, i);
+
+        const kepek = CardsView.kepek(i);
         const cim = i.cim || `${Types.label(i.tipus)} · ${CityManager.displayName(i.varos)}`;
         const hely = CityManager.helyLabel(i);
         const fav = DataManager.isFavorite(i.id);
@@ -89,17 +132,27 @@ class CardsView {
 
         const hianyos = Array.isArray(i.hianyzo) && i.hianyzo.length;
 
+        // Kattintásra a forrásoldal nyílik meg (az admin a belső adatlapot is elérheti)
+        const kulso = ListingPage.forrasra(i);
+        const forrasNev = kulso ? Sources.label(Sources.fromLink(i.link)) : "";
+        const terkep = Number(i.x) && Number(i.y);
+
+        const muveletek = terkep || kulso ? `
+            <div class="listingActions">
+                ${terkep ? `<button type="button" class="btn btn-sm btn-outline-secondary listingMapBtn" data-map="${i.id}"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> ${I18n.t("cardShowOnMap")}</button>` : ""}
+                ${kulso ? `<span class="listingExt" title="${Utils.escape(I18n.f("cardExtTitle", { s: forrasNev }))}">${Utils.escape(forrasNev)} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span>` : ""}
+                ${kulso && AuthManager.resz("ellenorzes") ? `<button type="button" class="btn btn-sm btn-link listingAdminPage" data-lap="${i.id}" title="${Utils.escape(I18n.t("cardAdminPage"))}"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></button>` : ""}
+            </div>` : "";
+
         return `
             <div class="col-sm-6 col-xl-4 col-4k-3">
-                <article class="listingCard${CardsView.kiemelt(i) ? " isFeatured" : ""}" data-id="${i.id}">
-                    <div class="listingThumb${foto ? "" : " noPhoto"}" data-tipus="${Utils.escape(i.tipus || "")}">
-                        ${foto
-                            ? `<img src="${Utils.escape(foto)}" loading="lazy" referrerpolicy="no-referrer" alt="" onerror="this.parentElement.classList.add('noPhoto');this.remove();">`
-                            : ""}
+                <article class="listingCard${CardsView.kiemelt(i) ? " isFeatured" : ""}${kulso ? " isExternal" : ""}" data-id="${i.id}"${kulso ? ` title="${Utils.escape(I18n.f("cardExtTitle", { s: forrasNev }))}"` : ""}>
+                    <div class="listingThumb${kepek.length ? "" : " noPhoto"}" data-tipus="${Utils.escape(i.tipus || "")}">
+                        ${CardsView.kepSav(i)}
                         <span class="listingThumbEmpty"><i class="${Types.get(i.tipus).icon}"></i><small>${Utils.escape(CityManager.helyReszLabel(i) || Types.label(i.tipus))}</small></span>
                         <button class="favBtn ${fav ? "active" : ""}" data-fav="${i.id}" title="${I18n.t("favAdd")}">${fav ? "★" : "☆"}</button>
                         ${CardsView.kiemelt(i) ? `<span class="featuredBadge"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("featured")}</span>` : ""}
-                        ${i.kep_db > 1 ? `<span class="photoCount"><i class="fa-solid fa-camera"></i> ${i.kep_db}</span>` : ""}
+                        ${kepek.length > 1 ? `<span class="photoCount" data-count><i class="fa-solid fa-camera"></i> <b>1</b> / ${kepek.length}</span>` : ""}
                     </div>
                     <div class="listingBody">
                         <div class="listingPrice">${Utils.price(i)}</div>
@@ -109,9 +162,153 @@ class CardsView {
                         <div class="listingPlace"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> <span>${Utils.escape(hely)}</span> ${Utils.helyBadge(i)}</div>
                         ${i.iroda_nev ? `<div class="listingAgency"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> <span>${Utils.escape(i.iroda_nev)}</span></div>` : ""}
                         <div class="listingBadges">${badges}${i.ellenorzott === false ? ` <span class="badge text-bg-light" title="${I18n.t("unverifiedHint")}"><i class="fa-solid fa-hourglass-half"></i> ${I18n.t("unverified")}</span>` : ""}${hianyos && AuthManager.isAdmin() ? ` <span class="badge text-bg-warning" title="${I18n.t("incompleteHint")}"><i class="fa-solid fa-triangle-exclamation"></i> ${I18n.t("incomplete")}</span>` : ""}</div>
+                        ${muveletek}
                     </div>
                 </article>
             </div>`;
+
+    }
+
+    // A kártyák eseményei (a találati lista és a kezdőlap kiemelt kártyái is ezt használják)
+    static bindCards(root) {
+
+        if (!root) return;
+
+        root.querySelectorAll(".listingCard").forEach(card => {
+
+            if (card.dataset.bound) return;
+            card.dataset.bound = "1";
+
+            const id = Number(card.dataset.id);
+
+            CardsView.bindStrip(card);
+
+            card.addEventListener("click", e => {
+
+                const favBtn = e.target.closest("[data-fav]");
+                if (favBtn) {
+                    e.stopPropagation();
+                    DataManager.toggleFavorite(Number(favBtn.dataset.fav));
+                    return;
+                }
+
+                if (e.target.closest("[data-nav]")) return;
+
+                if (e.target.closest("[data-map]")) {
+                    e.stopPropagation();
+                    CardsView.showOnMap(id);
+                    return;
+                }
+
+                if (e.target.closest("[data-lap]")) {
+                    e.stopPropagation();
+                    PageManager.show("listing/" + id);
+                    return;
+                }
+
+                ListingPage.open(id, CardsView.objektumok.get(id));
+
+            });
+
+        });
+
+    }
+
+    // A képsáv lapozása: nyilak, húzás, számláló, a következő kép előtöltése
+    static bindStrip(card) {
+
+        const strip = card.querySelector("[data-strip]");
+        if (!strip) return;
+
+        const thumb = card.querySelector(".listingThumb");
+        const szamlalo = card.querySelector("[data-count]");
+
+        const betolt = idx => {
+            [idx, idx + 1].forEach(n => {
+                const img = strip.children[n];
+                if (img && img.dataset.src) {
+                    img.src = img.dataset.src;
+                    img.removeAttribute("data-src");
+                }
+            });
+        };
+
+        const aktualis = () => Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth));
+
+        const frissit = () => {
+            const n = strip.children.length;
+            const idx = Math.min(aktualis(), n - 1);
+            betolt(idx);
+            if (szamlalo) {
+                szamlalo.hidden = n < 2;
+                const b = szamlalo.querySelector("b");
+                if (b) b.textContent = idx + 1;
+                szamlalo.lastChild.textContent = " / " + n;
+            }
+            card.querySelectorAll("[data-nav]").forEach(b => { b.hidden = n < 2; });
+        };
+
+        // A hibás (már nem elérhető) kép kimarad; ha egy sem maradt, a "nincs fotó" kép
+        strip.querySelectorAll("img").forEach(img => {
+            img.addEventListener("error", () => {
+                img.remove();
+                if (!strip.children.length) {
+                    thumb.classList.add("noPhoto");
+                    strip.remove();
+                    card.querySelectorAll("[data-nav], [data-count]").forEach(el => el.remove());
+                    return;
+                }
+                frissit();
+            });
+        });
+
+        let idozito = null;
+        strip.addEventListener("scroll", () => {
+            clearTimeout(idozito);
+            idozito = setTimeout(frissit, 60);
+        }, { passive: true });
+
+        card.querySelectorAll("[data-nav]").forEach(b => {
+            b.addEventListener("click", e => {
+                e.stopPropagation();
+                e.preventDefault();
+                const n = strip.children.length;
+                let idx = aktualis() + Number(b.dataset.nav);
+                if (idx < 0) idx = n - 1;
+                if (idx >= n) idx = 0;
+                betolt(idx);
+                strip.scrollTo({ left: idx * strip.clientWidth, behavior: "smooth" });
+            });
+        });
+
+        // Egérrel előre betöltjük a 2. képet, hogy a lapozás ne villanjon
+        thumb.addEventListener("mouseenter", () => betolt(aktualis()), { once: true });
+
+    }
+
+    // "Megnyitás térképen": a térkép oldal, a hirdetés jelölője kinyitva
+    static showOnMap(id) {
+
+        const i = CardsView.objektumok.get(id) || DataManager.ingatlanok.find(x => x.id === id);
+        if (!i) return;
+
+        // A közelítő helyű hirdetés jelölője csak bekapcsolt közelítő helyekkel látszik
+        if (i.hely_pontossag === "kozelito" && !MapManager.opts.kozelito) {
+            MapManager.opts.kozelito = true;
+            MapManager.saveOpts();
+            MapManager.dirty = true;
+        }
+
+        PageManager.show("map");
+
+        setTimeout(() => {
+            if (MapManager.dirty) MapManager.load(DataManager.szurtIngatlanok);
+            // A térkép a szűrt hirdetéseket mutatja – ha ez nincs köztük, betesszük
+            if (!MapManager.markerMap.has(i.id)) {
+                MapManager.load([...DataManager.szurtIngatlanok, i]);
+            }
+            AppController.select(i);
+        }, 350);
 
     }
 
@@ -152,17 +349,7 @@ class CardsView {
             ? kartyak.join("")
             : `<div class="col-12"><div class="emptyState"><i class="fa-solid fa-magnifying-glass"></i><h5>${I18n.t("currentNoResults")}</h5></div></div>`;
 
-        grid.querySelectorAll(".listingCard").forEach(card => {
-            card.addEventListener("click", e => {
-                const favBtn = e.target.closest("[data-fav]");
-                if (favBtn) {
-                    e.stopPropagation();
-                    DataManager.toggleFavorite(Number(favBtn.dataset.fav));
-                    return;
-                }
-                ListingPage.open(Number(card.dataset.id));
-            });
-        });
+        CardsView.bindCards(grid);
 
         CardsView.renderPager(oldalak);
 
@@ -208,7 +395,7 @@ class CardsView {
     }
 
     static refreshFavorites() {
-        document.querySelectorAll("#cardsGrid [data-fav]").forEach(b => {
+        document.querySelectorAll(".listingCard [data-fav]").forEach(b => {
             const fav = DataManager.isFavorite(Number(b.dataset.fav));
             b.classList.toggle("active", fav);
             b.textContent = fav ? "★" : "☆";

@@ -50,6 +50,7 @@
     <link rel="stylesheet" href="css/v15.css">
     <link rel="stylesheet" href="css/v16.css">
     <link rel="stylesheet" href="css/v17.css">
+    <link rel="stylesheet" href="css/v18.css">
 </head>
 
 <body>
@@ -625,6 +626,17 @@
                             <select id="bulkAllapot" class="form-select form-select-sm" style="max-width:180px;" aria-label="Állapot"></select>
 
                             <button id="btnBulkAllapot" class="btn btn-primary btn-sm" type="button" data-i18n="bulkAllapotBtn">Állapot alkalmazása</button>
+
+                            <span class="ms-3 me-1" data-i18n="bulkOpenLabel">Kattintásra:</span>
+
+                            <select id="bulkMegnyitas" class="form-select form-select-sm" style="max-width:200px;" aria-label="Kattintásra">
+                                <option value="" data-i18n="bulkOpenChoose">— válassz —</option>
+                                <option value="forras" data-i18n="openMode_forras">Egyből a forrásoldal</option>
+                                <option value="lap" data-i18n="openMode_lap">Saját adatlap az oldalon</option>
+                                <option value="auto" data-i18n="openMode_auto">Automatikus</option>
+                            </select>
+
+                            <button id="btnBulkMegnyitas" class="btn btn-primary btn-sm" type="button" data-i18n="bulkOpenBtn">Alkalmazás</button>
 
                             <button id="btnBulkCancel" class="btn btn-outline-secondary btn-sm ms-auto" data-i18n="bulkCancelBtn">Kijelölés törlése</button>
 
@@ -1408,6 +1420,7 @@
 <script src="js/core/i18n-v16.js"></script>
 <script src="js/core/i18n-v17.js"></script>
 <script src="js/core/i18n-v18.js"></script>
+<script src="js/core/i18n-v19.js"></script>
 <script src="js/core/dokumentum.js"></script>
 <script src="js/core/gridLocale.js"></script>
 <script src="js/core/telepulesek.js"></script>

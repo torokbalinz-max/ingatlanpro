@@ -147,7 +147,7 @@ class FavoritesManager {
 
                 if (event.column.getColId() === "remove") return;
 
-                ListingPage.open(event.data.id);
+                ListingPage.open(event.data.id, event.data);
 
             }
 

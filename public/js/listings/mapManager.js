@@ -190,7 +190,9 @@ class MapManager {
                 <div>${i.szobak ? I18n.f("roomsLabel", { n: i.szobak }) + " · " : ""}${i.allapot ? Utils.allapotLabel(i.allapot) : ""}</div>
                 ${i.iroda_nev ? `<div class="small text-body-secondary"><i class="fa-solid fa-briefcase"></i> ${Utils.escape(i.iroda_nev)}</div>` : ""}
                 <div class="mt-1">${(i.forrasok || [i.forras]).map(Sources.badge).join(" ")} ${Utils.helyBadge(i)}</div>
-                <button class="btn btn-primary btn-sm w-100 mt-2" onclick="ListingPage.open(${Number(i.id)})">${I18n.t("detailOpenListing")}</button>
+                <button class="btn btn-primary btn-sm w-100 mt-2" onclick="ListingPage.open(${Number(i.id)})">${ListingPage.forrasra(i)
+                    ? `${Utils.escape(I18n.f("openOnSource", { s: Sources.label(Sources.fromLink(i.link)) }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>`
+                    : I18n.t("detailOpenListing")}</button>
             </div>`;
 
     }
@@ -210,7 +212,7 @@ class MapManager {
                         <button type="button" class="mapGroupItem ${i.id === kiemelt ? "active" : ""}" onclick="ListingPage.open(${Number(i.id)})">
                             <i class="dot" style="background:${MapManager.color(i.allapot)}"></i>
                             <span class="t">${Utils.escape(i.cim || Types.label(i.tipus))}<small>${[i.nm ? Utils.nm(i.nm) : "", i.szobak ? I18n.f("roomsLabel", { n: i.szobak }) : ""].filter(Boolean).join(" · ")}</small></span>
-                            <b>${Utils.price(i)}</b>
+                            <b>${Utils.price(i)}${ListingPage.forrasra(i) ? ` <i class="fa-solid fa-arrow-up-right-from-square small text-body-secondary" title="${Utils.escape(Sources.label(Sources.fromLink(i.link)))}" aria-hidden="true"></i>` : ""}</b>
                         </button>`).join("")}
                 </div>
             </div>`;

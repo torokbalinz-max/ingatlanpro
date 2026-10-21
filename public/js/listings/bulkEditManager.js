@@ -70,6 +70,10 @@ class BulkEditManager {
         const btnAllapot = document.getElementById("btnBulkAllapot");
         if (btnAllapot) btnAllapot.onclick = () => BulkEditManager.applyAllapot();
 
+        // Kattintásra mi nyíljon meg (forrásoldal / saját adatlap / automatikus)
+        const btnMegnyitas = document.getElementById("btnBulkMegnyitas");
+        if (btnMegnyitas) btnMegnyitas.onclick = () => BulkEditManager.applyMegnyitas();
+
     }
 
     static renderAllapotOptions() {
@@ -109,6 +113,36 @@ class BulkEditManager {
                 if (TableManager.grid) TableManager.grid.deselectAll();
                 BulkEditManager.updateBar([]);
                 AdminManager.refreshPendingCount();
+            })
+            .catch(err => {
+                console.error(err);
+                alert(I18n.t("bulkAlertError"));
+            });
+
+    }
+
+    static applyMegnyitas() {
+
+        const m = document.getElementById("bulkMegnyitas").value;
+
+        if (!m) {
+            alert(I18n.t("bulkOpenNoChoice"));
+            return;
+        }
+
+        if (!BulkEditManager.selectedRows.length) return;
+
+        const ids = BulkEditManager.selectedRows.map(r => r.id);
+
+        if (!confirm(I18n.f("bulkOpenConfirm", { n: ids.length, m: I18n.t("openMode_" + m) }))) return;
+
+        ListingPage.setMegnyitas(ids, m)
+            .then(() => {
+                FilterManager.apply();
+                if (TableManager.grid) TableManager.grid.deselectAll();
+                BulkEditManager.updateBar([]);
+                document.getElementById("bulkMegnyitas").value = "";
+                alert(I18n.t("bulkAlertSuccess"));
             })
             .catch(err => {
                 console.error(err);

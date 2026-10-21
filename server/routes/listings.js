@@ -554,6 +554,31 @@ router.patch("/api/ingatlanok/bulk-kerulet", csapat.csakResz("ellenorzes"), csap
 
 });
 
+// Mi nyíljon meg kattintásra (egy vagy több hirdetésnél):
+//  auto = automatikus (átvett → forrásoldal, a többi → saját adatlap), lap, forras
+router.patch("/api/ingatlanok/bulk-megnyitas", csapat.csakResz("ellenorzes"), csapat.csakHirdetesen("ellenorzes", { lista: "ids" }), async (req, res) => {
+
+    try {
+
+        const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(n => n > 0) : [];
+        const m = String(req.body.megnyitas || "");
+
+        if (!ids.length) return res.status(400).json({ error: "Hiányzó ingatlan azonosítók" });
+        if (!["auto", "lap", "forras"].includes(m)) return res.status(400).json({ error: "Hibás érték" });
+
+        const r = await db.query(
+            "UPDATE ingatlanok SET megnyitas = $1, updated_at = NOW() WHERE id = ANY($2::int[])",
+            [m === "auto" ? null : m, ids]
+        );
+
+        res.json({ siker: true, updated: r.rowCount });
+
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
 // Kerület-javaslat egy térképi pontra (az űrlapok hívják, amikor a jelölőt mozgatják)
 router.get("/api/kerulet-helybol", async (req, res) => {
     try {

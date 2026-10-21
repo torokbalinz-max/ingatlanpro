@@ -1,0 +1,111 @@
+/* ============================================================
+   v18: lapozható képek a hirdetéskártyán, "Megnyitás térképen"
+   gomb, forrásoldalra vivő hirdetés jelölése
+   ============================================================ */
+
+/* ---------- Képsáv (ujjal húzható, egérrel nyilakkal) ---------- */
+.listingThumb .thumbStrip {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+.listingThumb .thumbStrip::-webkit-scrollbar { display: none; }
+
+.listingThumb .thumbStrip img {
+    position: relative;
+    inset: auto;
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    background: var(--bs-tertiary-bg);
+}
+
+/* A még be nem töltött kép helye ne legyen üres fehér */
+.listingThumb .thumbStrip img[data-src] { visibility: hidden; }
+
+.thumbNav {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    width: 32px;
+    height: 32px;
+    margin-top: -16px;
+    border: 0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.92);
+    color: #1f2937;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    opacity: 0;
+    transition: opacity .15s, transform .15s;
+}
+.thumbNav.prev { left: 8px; }
+.thumbNav.next { right: 8px; }
+.thumbNav:hover { transform: scale(1.08); }
+.thumbNav[hidden] { display: none; }
+
+.listingCard:hover .thumbNav,
+.thumbNav:focus-visible { opacity: 1; }
+
+/* Érintőképernyőn húzással lapoz – a nyilak ott nem kellenek */
+@media (hover: none) {
+    .thumbNav { display: none; }
+}
+
+.listingThumb .photoCount b { font-weight: 600; }
+.listingThumb .photoCount[hidden] { display: none; }
+
+/* A kártya-nagyításos hover a sávban ne csússzon el */
+body:not([data-page="admin"]) .listingCard:hover .thumbStrip img { transform: none; }
+
+/* ---------- Műveletek a kártya alján ---------- */
+.listingActions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.6rem;
+}
+.listingActions .listingMapBtn {
+    border-radius: 999px;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.75rem;
+}
+.listingExt {
+    margin-left: auto;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ip-muted, #6b7280);
+    white-space: nowrap;
+}
+.listingExt i { font-size: 0.7rem; }
+.listingActions .listingAdminPage {
+    padding: 0.15rem 0.35rem;
+    color: var(--ip-muted, #6b7280);
+}
+.listingActions .listingExt + .listingAdminPage { margin-left: 0; }
+.listingActions .listingMapBtn:only-child { margin-right: auto; }
+
+@media (max-width: 575.98px) {
+    .listingActions { padding-top: 0.35rem; gap: 0.35rem; }
+    .listingActions .listingMapBtn { font-size: 0.72rem; padding: 0.15rem 0.55rem; }
+}
+
+/* ---------- Forrásoldalra vivő hirdetés rövid lapja ---------- */
+.extCardWrap .listingCard { cursor: pointer; }
+.extInfo h5 i { color: var(--ip-accent, #1f6f5c); }
+
+/* ---------- Admin: kattintás beállítása az adatlapon ---------- */
+.lpOpenModeBox .form-text { font-size: 0.75rem; }

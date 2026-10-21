@@ -73,6 +73,9 @@ async function createSchema(db) {
         "varos_kezi BOOLEAN DEFAULT false",      // az admin kézzel döntött a városról – az automatika nem mozgatja
         "varos_ok TEXT",                         // miért került a környékre: telepules | szoveg | hely | kezi
         "varos_eredeti TEXT",                    // az automatikus áthelyezés előtti város
+        // Mi nyíljon meg, ha a látogató a hirdetésre kattint (NULL = automatikus:
+        // a más oldalról átvett hirdetés a forrásoldalra visz, a többi saját adatlapot kap)
+        "megnyitas TEXT",                        // NULL | lap | forras
         "updated_at TIMESTAMP DEFAULT NOW()"
     ];
 
