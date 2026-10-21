@@ -570,3 +570,7 @@ html body .ipCard .ipCount {
 
 [data-bs-theme="dark"] .ipPin { background: #1b2120; color: #eef2f0; }
 [data-bs-theme="dark"] .ipDistrictLabel { text-shadow: 0 0 3px #111, 0 0 3px #111; }
+
+/* Alaptérkép (OpenStreetMap) halványítva, sötét módban sötétre fordítva */
+.leaflet-container .ipTiles { filter: saturate(.45) brightness(1.03) contrast(.92); }
+[data-bs-theme="dark"] .leaflet-container .ipTiles { filter: invert(1) hue-rotate(180deg) brightness(.85) saturate(.35) contrast(.9); }

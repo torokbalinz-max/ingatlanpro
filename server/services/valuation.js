@@ -1,6 +1,17 @@
 // ============================================================
 //  Ingatlan értékbecslő
 //
+//  LAKÁS: 6. változat (2026. október 21.) = az 5. változat, de a hasonlók súlya:
+//   - a sokat átszámolt hirdetés kevésbé hasonló (minden 10 % átszámítás – állapot,
+//     méret, emelet együtt – távolabbra teszi): a hozzá nagyon hasonló, alig
+//     átszámolt lakások döntenek, egy jóval rosszabb / jobb lakás nem húzza el
+//   - a saját kerület elöl: ha ott van elég hasonló, a többi kerület csak 30 %-os
+//     súllyal számít; más kerületből csak a hasonló árszintű (a modell szerinti
+//     kerület-arány, azaz a statisztika), 20 %-nál nagyobb különbségnél semmi
+//   - újépítésű lakásnál a hasonlósági (4.) módszer (ott a projekt a lényeg)
+//  Pontosság az élő adatokon (Sepsiszentgyörgy, 228 eladó lakás, mindegyiket a
+//  többiből becsülve): medián hiba 7,5 % (5. változat: 8,5 %), újépítésű 3,9 % (9,2 %).
+//
 //  LAKÁS: 5. változat (2026. október 18.) = az alábbi két lépés
 //  (árarány-modell + átszámolt hasonlók), de a méretet a szobaszámhoz
 //  képest számolja: egy 2 szobás tipikusan ~50 m²; a nagyobb 2 szobás
@@ -751,7 +762,16 @@ const T = {
     monotonModell: true,
     // Lakásnál a méret-különbség súlya a hasonlóságban (a méretet a modell már
     // átszámolja, így a hasonlók összetétele ne ugráljon a mérettel)
-    meretTav: 1
+    meretTav: 1,
+    // 6. változat (meglévő lakás): a sokat átszámolt hirdetés kevésbé hasonló,
+    // a saját kerület elöl, a nagyon más árszintű kerület kimarad
+    v6: true,
+    atszamTav: 0.25,     // minden 10 % átszámítás ennyivel "távolabbi"
+    kerAlap: 0.3,        // másik kerület: ennyivel távolabbi...
+    kerSzint: 0.3,       // ...plusz árszint-különbségének minden 10 %-áért ennyivel
+    kerMax: Math.log(1.2),  // ennél nagyobb árszint-különbségű kerület nem számít
+    sajatEleg: 3,        // ha a saját kerületben ennyi (súlyú) hasonló van...
+    masikSzorzo: 0.3     // ...a többi kerület hirdetései ennyi súllyal számítanak
 };
 
 if (process.env.T_TEST) Object.assign(T, JSON.parse(process.env.T_TEST));
@@ -854,20 +874,48 @@ function becslesLog(cel, pool, elo, m, ctx, opts = {}) {
     const csoportNevek = gCel ? Object.keys(gCel) : [];
 
     // ---- 1) Összehasonlító: minden hirdetés ára a keresett ingatlanra átszámítva
+    //  (6. változat, meglévő lakásnál):
+    //   - minél többet kell átszámolni egy hirdetésen (állapot, méret, emelet... együtt),
+    //     annál kevésbé hasonló: a 3 %-kal átszámolt többet számít, mint a 20 %-kal
+    //     átszámolt (így egy jóval jobb / rosszabb lakás nem húzza el a becslést)
+    //   - először a saját kerület: ha ott van elég hasonló, a többi kerület alig számít;
+    //     ha nincs, a hasonló árszintű kerületek jönnek, a nagyon más árszintűek
+    //     (a statisztika szerint) egyáltalán nem
+    const v6 = !!(m && T.v6 && !cel._uj && !ctx.telepulesSzerint);
     const jeloltek = pool.map((i, n) => {
-        const d = tavolsag(cel, i, ctx);
+        let d = tavolsag(cel, i, ctx);
         const lnr = Math.log(nm / i.nm);
         let adj = Math.log(i.arNm) + kitevo * lnr;
+        let brutto = 0, kerKul = 0;
         if (m) {
             const gi = elo[n];
             for (const cs of csoportNevek) {
                 const kul = gCel[cs] - (gi[cs] || 0);
                 const phi = T.atszamitasCsoport[cs] !== undefined ? T.atszamitasCsoport[cs] : T.atszamitas;
-                adj += cs === "meret" ? phi * (kul - kitevo * lnr) : phi * kul;
+                const a = cs === "meret" ? phi * (kul - kitevo * lnr) : phi * kul;
+                adj += a;
+                if (cs === "kerulet") kerKul = kul;
+                else if (cs === "meret") brutto += Math.abs(a + kitevo * lnr);
+                else brutto += Math.abs(a);
             }
         }
-        return { i, d, w: suly(d), adj };
+        let tilt = false;
+        if (v6) {
+            d += T.atszamTav * brutto / Math.log(1.1);
+            if (cel._hely && i._hely !== cel._hely) {
+                const ker = Math.abs(kerKul);
+                if (ker > T.kerMax) tilt = true;
+                else d += T.kerAlap + T.kerSzint * ker / Math.log(1.1);
+            }
+        }
+        return { i, d, w: tilt ? 0 : suly(d), adj, brutto, sajat: !!(cel._hely && i._hely === cel._hely) };
     });
+
+    // Elég hasonló a saját kerületben: a többi kerület csak kis súllyal
+    if (v6 && cel._hely) {
+        const sajatSuly = jeloltek.reduce((t, x) => t + (x.sajat ? x.w : 0), 0);
+        if (sajatSuly >= T.sajatEleg) jeloltek.forEach(x => { if (!x.sajat) x.w *= T.masikSzorzo; });
+    }
 
     const sulyozott = lista => {
         const s = lista.reduce((t, x) => t + x.w, 0);
@@ -1525,6 +1573,9 @@ function szamolRegi(pool, params) {
 const V5_TIPUSOK = ["lakas"];
 const otodik = ctx => V5_TIPUSOK.includes(ctx.tipus) && !ctx.regiMeret;
 
+// A keresett ingatlan új építésű-e (a becslés módszerének választásához)
+const ujCel = (params, ctx) => !!celAdat(params, ctx)._uj;
+
 async function becsles(params) {
 
     await allapotok.kesz();
@@ -1557,7 +1608,13 @@ async function becsles(params) {
 
     // Lakás: az 5. változat (árarány-modell + átszámolt hasonlók, a méret a szobaszámhoz
     // képest); a többi típus: a 4. változat (változatlan)
-    const e = (otodik(ctx) ? szamol : szamol4)(pool, { ...params, nm }, ctx);
+    // Újépítésű lakásnál a hasonlósági (4.) módszer a pontosabb: ott a konkrét projekt
+    // a lényeg, a régi lakásokból tanult arányok kevésbé számítanak (a valós adatokon
+    // mérve: 3,9 % medián hiba a 9,2 % helyett)
+    const ujLakas = otodik(ctx) && ujCel(params, ctx);
+    const e = ujLakas
+        ? szamol4(pool, { ...params, nm }, { ...ctx, regiMeret: true })
+        : (otodik(ctx) ? szamol : szamol4)(pool, { ...params, nm }, ctx);
     if (e.error) return e;
 
     return { ...e, excluded: kihagy ? { id: kihagy, sajat: kihagyva.sajat > 0, ikrek: kihagyva.ikrek } : null, cleaned: kihagyva };
@@ -1613,7 +1670,8 @@ async function teszt(varos, tipus = "lakas", ugylet = "elado") {
             const m4 = modellIllesztes(pool, ctx4), elo4 = modellTenyezok(pool, m4);
             const m5 = modellIllesztes(pool, ctx), elo5 = modellTenyezok(pool, m5);
             elozoFn = p => szamol4(pool, p, ctx4, { ...o, modell: m4, elo: elo4 });
-            ujFn = p => szamol(pool, p, ctx, { ...o, modell: m5, elo: elo5 });
+            // a mostani: meglévőnél a 6. változat, újépítésűnél a hasonlósági módszer
+            ujFn = p => i._uj ? elozoFn(p) : szamol(pool, p, ctx, { ...o, modell: m5, elo: elo5 });
         } else {
             const m3 = modellIllesztes(pool, ctx), elo3 = modellTenyezok(pool, m3);
             elozoFn = p => szamol(pool, p, ctx, { ...o, modell: m3, elo: elo3 });

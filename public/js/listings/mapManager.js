@@ -50,12 +50,15 @@ class MapManager {
         return document.documentElement.getAttribute("data-bs-theme") === "dark";
     }
 
-    // Modern, halvány alaptérkép (CARTO – OpenStreetMap adatokkal); sötét módban sötét változat
+    // Alaptérkép: OpenStreetMap (kulcs nélkül, megbízható), CSS-szűrővel halványítva –
+    // így modern, nyugodt hátteret ad a jelölőknek; sötét módban sötétre fordítva.
+    // (A CARTO alaptérkép már API-kulcsot kér, ezért nem azt használjuk.)
     static tileLayer() {
-        return L.tileLayer(`https://{s}.basemaps.cartocdn.com/${MapManager.sotet() ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`, {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
-            subdomains: "abcd",
-            maxZoom: 19
+        return L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+            subdomains: "abc",
+            maxZoom: 19,
+            className: "ipTiles"
         });
     }
 
@@ -90,13 +93,6 @@ class MapManager {
         MapManager.layer.addTo(MapManager.map);
 
         MapManager.map.on("popupclose", () => MapManager.jelol(null));
-
-        // Témaváltáskor az alaptérkép is váltson
-        new MutationObserver(() => {
-            if (!MapManager.map) return;
-            MapManager.tiles.remove();
-            MapManager.tiles = MapManager.tileLayer().addTo(MapManager.map);
-        }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-bs-theme"] });
 
         MapManager.bindToggles();
 
