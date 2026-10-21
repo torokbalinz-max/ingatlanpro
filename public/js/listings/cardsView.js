@@ -21,6 +21,14 @@ class CardsView {
             r.addEventListener("change", () => CardsView.setMode(r.value));
         });
 
+        // Elrendezés (hány kártya egy sorban) – a böngésző megjegyzi
+        try { CardsView.cols = Number(localStorage.getItem("cardCols")) || 3; } catch (e) { /* nem kritikus */ }
+        if (!CardsView.COLS[CardsView.cols]) CardsView.cols = 3;
+        document.querySelectorAll("[data-cols]").forEach(b => {
+            b.addEventListener("click", () => CardsView.setCols(Number(b.dataset.cols)));
+        });
+        CardsView.markCols();
+
         let mode = "cards";
         try { mode = localStorage.getItem("viewMode") || "cards"; } catch (e) { /* nem kritikus */ }
 
@@ -29,11 +37,29 @@ class CardsView {
 
     }
 
+    static setCols(n) {
+        if (!CardsView.COLS[n]) return;
+        CardsView.cols = n;
+        try { localStorage.setItem("cardCols", String(n)); } catch (e) { /* nem kritikus */ }
+        CardsView.markCols();
+        CardsView.render(CardsView.lista);
+    }
+
+    static markCols() {
+        document.querySelectorAll("[data-cols]").forEach(b => {
+            const on = Number(b.dataset.cols) === CardsView.cols;
+            b.classList.toggle("active", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+    }
+
     static setMode(mode) {
 
         document.getElementById("cardsView").style.display = mode === "cards" ? "" : "none";
         document.getElementById("tableView").style.display = mode === "table" ? "" : "none";
         document.getElementById("cardSortBox").style.visibility = mode === "cards" ? "visible" : "hidden";
+        const cb = document.getElementById("cardColsBox");
+        if (cb) cb.style.visibility = mode === "cards" ? "visible" : "hidden";
 
         try { localStorage.setItem("viewMode", mode); } catch (e) { /* nem kritikus */ }
 
@@ -65,29 +91,39 @@ class CardsView {
         return i && i.kiemelt_ig && new Date(i.kiemelt_ig) > new Date() ? 1 : 0;
     }
 
-    static facts(i) {
+    // A fő adatok címkével (a kártya adatrácsa)
+    static adatok(i) {
 
         const f = Types.get(i.tipus).fields;
         const out = [];
+        const add = (icon, label, value) => out.push({ icon, label, value });
 
-        if (i.nm) out.push(`<span><i class="fa-solid fa-ruler-combined"></i> ${Utils.nm(i.nm)}</span>`);
-        if (f.szobak && i.szobak) out.push(`<span><i class="fa-solid fa-bed"></i> ${I18n.f("roomsLabel", { n: i.szobak })}</span>`);
-        if (f.emelet && i.emelet) out.push(`<span><i class="fa-solid fa-stairs"></i> ${Utils.escape(CardsView.emelet(i.emelet))}</span>`);
-        if (f.allapot && i.allapot) out.push(`<span><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> ${Utils.escape(Utils.allapotLabel(i.allapot))}</span>`);
-        if (f.telek && i.telek_nm) out.push(`<span><i class="fa-solid fa-tree"></i> ${Utils.nm(i.telek_nm)}</span>`);
-        if (i.tipus === "telek" && i.telek_jelleg) out.push(`<span><i class="fa-solid fa-signs-post" aria-hidden="true"></i> ${I18n.t("jelleg_" + i.telek_jelleg)}</span>`);
-        if (i.evszam) out.push(`<span><i class="fa-regular fa-calendar" aria-hidden="true"></i> ${Number(i.evszam)}</span>`);
+        if (i.nm) add("fa-solid fa-ruler-combined", I18n.t(i.tipus === "telek" ? "cfLand" : "cfArea"), Utils.nm(i.nm));
+        if (f.szobak && i.szobak) add("fa-solid fa-bed", I18n.t("cfRooms"), String(i.szobak));
+        if (f.emelet && i.emelet) add("fa-solid fa-stairs", I18n.t("cfFloor"), CardsView.emelet(i.emelet));
+        if (f.allapot && i.allapot) add("fa-solid fa-screwdriver-wrench", I18n.t("cfCond"), Utils.allapotLabel(i.allapot));
+        if (f.telek && i.telek_nm) add("fa-solid fa-tree", I18n.t("cfPlot"), Utils.nm(i.telek_nm));
+        if (i.tipus === "telek" && i.telek_jelleg) add("fa-solid fa-signs-post", I18n.t("cfKind"), I18n.t("jelleg_" + i.telek_jelleg));
+        if (i.evszam) add("fa-regular fa-calendar", I18n.t("cfYear"), String(Number(i.evszam)));
 
-        return out.join("");
+        return out;
 
+    }
+
+    // (régi hívóknak) a fő adatok rövid, ikonos formában
+    static facts(i) {
+        return CardsView.adatok(i).map(a => `<span><i class="${a.icon}"></i> ${Utils.escape(a.value)}</span>`).join("");
     }
 
     // Emelet a kártyán: a pontos szám, és ha ismert, az épület szintjei (pl. "2. emelet / 4")
     static emelet(e) {
+        const str = String(e).trim();
+        const m = str.match(/\/\s*(\d+)/);
+        // Földszint (P, parter, fsz) – a szám helyett szöveg
+        if (/^(p|parter|fsz|f\.?sz)\b/i.test(str)) return I18n.t("groundFloorLabel") + (m ? ` / ${m[1]}` : "");
         const n = Utils.emeletSzam(e);
-        if (n === null) return String(e);
-        const alap = n <= 0 ? I18n.t("groundFloorLabel") : `${n}. ${I18n.t("floorWord")}`;
-        const m = String(e).match(/\/\s*(\d+)/);
+        if (n === null) return str;
+        const alap = n <= 0 ? I18n.t("groundFloorLabel") : String(n);
         return m ? `${alap} / ${m[1]}` : alap;
     }
 
@@ -119,50 +155,117 @@ class CardsView {
 
     }
 
-    static cardHtml(i) {
+    // Elrendezés: hány kártya legyen egy sorban (1 = nagy, fekvő kártyák)
+    static COLS = {
+        1: "col-12",
+        2: "col-sm-6",
+        3: "col-sm-6 col-lg-4",
+        4: "col-sm-6 col-lg-4 col-xxl-3"
+    };
+    static cols = 3;
+
+    static cardHtml(i, opts = {}) {
 
         CardsView.objektumok.set(i.id, i);
 
+        const t = Types.get(i.tipus);
         const kepek = CardsView.kepek(i);
-        const cim = i.cim || `${Types.label(i.tipus)} · ${CityManager.displayName(i.varos)}`;
+        const reszNev = CityManager.helyReszLabel(i);
+        const cim = i.cim || `${Types.label(i.tipus)} · ${reszNev || CityManager.displayName(i.varos)}`;
         const hely = CityManager.helyLabel(i);
         const fav = DataManager.isFavorite(i.id);
-
-        const badges = (i.forrasok || [i.forras]).map(k => Sources.badge(k)).join(" ");
-
+        const kiemelt = CardsView.kiemelt(i);
         const hianyos = Array.isArray(i.hianyzo) && i.hianyzo.length;
+        const admin = AuthManager.resz("ellenorzes");
 
-        // Kattintásra a forrásoldal nyílik meg (az admin a belső adatlapot is elérheti)
         const kulso = ListingPage.forrasra(i);
-        const forrasNev = kulso ? Sources.label(Sources.fromLink(i.link)) : "";
         const terkep = Number(i.x) && Number(i.y);
+        const szeles = !!opts.wide;
+        const oszlop = opts.col || "col-sm-6 col-xl-4 col-4k-3";
 
-        const muveletek = terkep || kulso ? `
-            <div class="listingActions">
-                ${terkep ? `<button type="button" class="btn btn-sm btn-outline-secondary listingMapBtn" data-map="${i.id}"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> ${I18n.t("cardShowOnMap")}</button>` : ""}
-                ${kulso ? `<span class="listingExt" title="${Utils.escape(I18n.f("cardExtTitle", { s: forrasNev }))}">${Utils.escape(forrasNev)} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span>` : ""}
-                ${kulso && AuthManager.resz("ellenorzes") ? `<button type="button" class="btn btn-sm btn-link listingAdminPage" data-lap="${i.id}" title="${Utils.escape(I18n.t("cardAdminPage"))}"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></button>` : ""}
-            </div>` : "";
+        // A forrás(ok) – mindegyik egyszer; ha kattintásra oda visz, nyíl jelzi
+        const fo = Sources.fromLink(i.link);
+        const forrasok = [...new Set(i.forrasok || [i.forras || fo])];
+        const forrasChip = k => {
+            const ki = kulso && k === fo;
+            return `<span class="ipSrc${k === "local" ? " isLocal" : ""}${ki ? " isExt" : ""}"${ki ? ` title="${Utils.escape(I18n.f("cardExtTitle", { s: Sources.label(k) }))}"` : ""}>
+                <i class="${k === "local" ? "fa-solid fa-house-flag" : "fa-solid fa-globe"}" aria-hidden="true"></i>${Utils.escape(k === "local" ? "IngatlanPro" : Sources.label(k))}${ki ? ` <i class="fa-solid fa-arrow-up-right-from-square ipSrcGo" aria-hidden="true"></i>` : ""}
+            </span>`;
+        };
+
+        const adatok = CardsView.adatok(i);
+
+        // Admin: kattintásra mi nyíljon meg (közvetlenül a kártyán)
+        const linkOk = fo !== "local" && fo !== "other";
+        const nyitasValaszto = admin && linkOk ? `
+            <label class="ipOpenSel" title="${Utils.escape(I18n.t("openModeLabel"))}">
+                <i class="fa-solid fa-arrow-pointer" aria-hidden="true"></i> <span>${I18n.t("cardOpenLabel")}</span>
+                <select data-openmode="${i.id}" aria-label="${Utils.escape(I18n.t("openModeLabel"))}">
+                    <option value="auto" ${!i.megnyitas ? "selected" : ""}>${Utils.escape(I18n.f("cardOpenAuto", { m: I18n.t(ListingPage.autoMod(i) === "forras" ? "cardOpenSrcShort" : "cardOpenPageShort") }))}</option>
+                    <option value="forras" ${i.megnyitas === "forras" ? "selected" : ""}>${Utils.escape(I18n.t("cardOpenSrcShort"))}</option>
+                    <option value="lap" ${i.megnyitas === "lap" ? "selected" : ""}>${Utils.escape(I18n.t("cardOpenPageShort"))}</option>
+                </select>
+            </label>` : "";
+
+        const jelzesek = [
+            i.ellenorzott === false ? `<span class="ipFlag" title="${Utils.escape(I18n.t("unverifiedHint"))}"><i class="fa-solid fa-hourglass-half"></i> ${I18n.t("unverified")}</span>` : "",
+            hianyos && AuthManager.isAdmin() ? `<span class="ipFlag isWarn" title="${Utils.escape(I18n.t("incompleteHint"))}"><i class="fa-solid fa-triangle-exclamation"></i> ${I18n.t("incomplete")}</span>` : ""
+        ].join("");
 
         return `
-            <div class="col-sm-6 col-xl-4 col-4k-3">
-                <article class="listingCard${CardsView.kiemelt(i) ? " isFeatured" : ""}${kulso ? " isExternal" : ""}" data-id="${i.id}"${kulso ? ` title="${Utils.escape(I18n.f("cardExtTitle", { s: forrasNev }))}"` : ""}>
-                    <div class="listingThumb${kepek.length ? "" : " noPhoto"}" data-tipus="${Utils.escape(i.tipus || "")}">
+            <div class="${oszlop}">
+                <article class="listingCard ipCard${szeles ? " ipWide" : ""}${kiemelt ? " isFeatured" : ""}${kulso ? " isExternal" : ""}" data-id="${i.id}"${kulso ? ` title="${Utils.escape(I18n.f("cardExtTitle", { s: Sources.label(fo) }))}"` : ""}>
+
+                    <div class="listingThumb ipMedia${kepek.length ? "" : " noPhoto"}" data-tipus="${Utils.escape(i.tipus || "")}">
                         ${CardsView.kepSav(i)}
-                        <span class="listingThumbEmpty"><i class="${Types.get(i.tipus).icon}"></i><small>${Utils.escape(CityManager.helyReszLabel(i) || Types.label(i.tipus))}</small></span>
-                        <button class="favBtn ${fav ? "active" : ""}" data-fav="${i.id}" title="${I18n.t("favAdd")}">${fav ? "★" : "☆"}</button>
-                        ${CardsView.kiemelt(i) ? `<span class="featuredBadge"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("featured")}</span>` : ""}
-                        ${kepek.length > 1 ? `<span class="photoCount" data-count><i class="fa-solid fa-camera"></i> <b>1</b> / ${kepek.length}</span>` : ""}
+                        <span class="listingThumbEmpty"><i class="${t.icon}"></i><small>${Utils.escape(reszNev || Types.label(i.tipus))}</small></span>
+                        <div class="ipChips">
+                            <span class="ipChip"><i class="${t.icon}" aria-hidden="true"></i> ${Utils.escape(Types.label(i.tipus))}</span>
+                            <span class="ipChip isDeal">${Utils.escape(Types.ugyletLabel(i.ugylet))}</span>
+                            ${kiemelt ? `<span class="ipChip isFeat"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("featured")}</span>` : ""}
+                            ${i.eladva ? `<span class="ipChip isSold">${I18n.t("dbEladva")}</span>` : ""}
+                        </div>
+                        <button class="favBtn ipFav ${fav ? "active" : ""}" data-fav="${i.id}" title="${I18n.t("favAdd")}" aria-label="${Utils.escape(I18n.t("favAdd"))}">${fav ? "★" : "☆"}</button>
+                        ${kepek.length > 1 ? `<span class="photoCount ipCount" data-count><i class="fa-solid fa-camera"></i> <b>1</b> / ${kepek.length}</span>` : ""}
                     </div>
-                    <div class="listingBody">
-                        <div class="listingPrice">${Utils.price(i)}</div>
-                        <div class="listingNm">${Utils.arNm(i) ? Utils.eurNm(Utils.arNm(i)) : ""}</div>
-                        <h6 class="listingTitle">${Utils.escape(cim)}</h6>
-                        <div class="listingFacts">${CardsView.facts(i)}</div>
-                        <div class="listingPlace"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> <span>${Utils.escape(hely)}</span> ${Utils.helyBadge(i)}</div>
-                        ${i.iroda_nev ? `<div class="listingAgency"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> <span>${Utils.escape(i.iroda_nev)}</span></div>` : ""}
-                        <div class="listingBadges">${badges}${i.ellenorzott === false ? ` <span class="badge text-bg-light" title="${I18n.t("unverifiedHint")}"><i class="fa-solid fa-hourglass-half"></i> ${I18n.t("unverified")}</span>` : ""}${hianyos && AuthManager.isAdmin() ? ` <span class="badge text-bg-warning" title="${I18n.t("incompleteHint")}"><i class="fa-solid fa-triangle-exclamation"></i> ${I18n.t("incomplete")}</span>` : ""}</div>
-                        ${muveletek}
+
+                    <div class="ipBody">
+
+                        <div class="ipPriceRow">
+                            <span class="ipPrice">${Utils.price(i)}</span>
+                            ${Utils.arNm(i) ? `<span class="ipPpm">${Utils.eurNm(Utils.arNm(i))}</span>` : ""}
+                        </div>
+
+                        <h3 class="ipTitle">${Utils.escape(cim)}</h3>
+
+                        <div class="ipPlace"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> <span>${Utils.escape(hely)}</span> ${Utils.helyBadge(i)}</div>
+
+                        ${adatok.length ? `
+                        <dl class="ipSpecs">
+                            ${adatok.map(a => `
+                                <div class="ipSpec">
+                                    <dt><i class="${a.icon}" aria-hidden="true"></i> ${Utils.escape(a.label)}</dt>
+                                    <dd>${Utils.escape(a.value)}</dd>
+                                </div>`).join("")}
+                        </dl>` : ""}
+
+                        ${i.iroda_nev ? `<div class="ipAgency"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> <span>${Utils.escape(i.iroda_nev)}</span></div>` : ""}
+
+                        ${jelzesek ? `<div class="ipFlags">${jelzesek}</div>` : ""}
+
+                        ${nyitasValaszto || (kulso && admin) ? `
+                        <div class="ipAdmin">
+                            ${nyitasValaszto}
+                            ${kulso && admin ? `<button type="button" class="ipIconBtn" data-lap="${i.id}" title="${Utils.escape(I18n.t("cardAdminPage"))}" aria-label="${Utils.escape(I18n.t("cardAdminPage"))}"><i class="fa-solid fa-file-lines"></i></button>` : ""}
+                        </div>` : ""}
+
+                        <div class="ipFoot">
+                            <div class="ipSrcs">${forrasok.map(forrasChip).join("")}</div>
+                            <div class="ipActions">
+                                ${terkep ? `<button type="button" class="ipMapBtn" data-map="${i.id}" title="${Utils.escape(I18n.t("cardShowOnMap"))}"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> <span>${I18n.t("cardShowOnMapShort")}</span></button>` : ""}
+                            </div>
+                        </div>
+
                     </div>
                 </article>
             </div>`;
@@ -183,6 +286,18 @@ class CardsView {
 
             CardsView.bindStrip(card);
 
+            const sel = card.querySelector("[data-openmode]");
+            if (sel) sel.addEventListener("change", () => {
+                sel.disabled = true;
+                ListingPage.setMegnyitas([id], sel.value)
+                    .then(() => {
+                        if (typeof Utils.toast === "function") Utils.toast(I18n.t("openModeSaved"));
+                        if (document.getElementById("cardsGrid") && CardsView.lista.length) CardsView.render(CardsView.lista);
+                        if (PageManager.current === "home" && typeof HomePage !== "undefined") HomePage.render();
+                    })
+                    .catch(() => { alert(I18n.t("bulkAlertError")); sel.disabled = false; });
+            });
+
             card.addEventListener("click", e => {
 
                 const favBtn = e.target.closest("[data-fav]");
@@ -192,7 +307,7 @@ class CardsView {
                     return;
                 }
 
-                if (e.target.closest("[data-nav]")) return;
+                if (e.target.closest("[data-nav]") || e.target.closest(".ipOpenSel")) return;
 
                 if (e.target.closest("[data-map]")) {
                     e.stopPropagation();
@@ -341,9 +456,11 @@ class CardsView {
 
         const resz = rendezett.slice(CardsView.page * meret, (CardsView.page + 1) * meret);
 
-        const kartyak = resz.map(CardsView.cardHtml);
+        const kartyak = resz.map(i => CardsView.cardHtml(i, { col: CardsView.COLS[CardsView.cols], wide: CardsView.cols === 1 }));
         if (feed && resz.length >= AdSlots.FEED_MIN) kartyak.splice(AdSlots.FEED_UTAN, 0, feed);
         if (szeles && kartyak.length > AdSlots.FEED_SZELES_UTAN) kartyak.splice(AdSlots.FEED_SZELES_UTAN, 0, szeles);
+
+        grid.dataset.cols = CardsView.cols;
 
         grid.innerHTML = resz.length
             ? kartyak.join("")

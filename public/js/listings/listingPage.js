@@ -106,7 +106,7 @@ class ListingPage {
             </div>
             <div class="row justify-content-center">
                 <div class="col-md-8 col-lg-6">
-                    <div class="extCardWrap row g-0">${CardsView.cardHtml(i).replace('class="col-sm-6 col-xl-4 col-4k-3"', 'class="col-12"')}</div>
+                    <div class="extCardWrap row g-0">${CardsView.cardHtml(i, { col: "col-12" })}</div>
                     <div class="card mt-3 extInfo">
                         <div class="card-body">
                             <h5 class="mb-1"><i class="fa-solid fa-globe" aria-hidden="true"></i> ${Utils.escape(I18n.f("extTitle", { s: forrasNev }))}</h5>

@@ -8,6 +8,17 @@
 
     const V19 = {
         hu: {
+            cardOpenLabel: "Kattintásra:",
+            cfArea: "Méret", cfLand: "Terület", cfRooms: "Szobák", cfFloor: "Emelet", cfCond: "Állapot", cfPlot: "Telek", cfKind: "Jelleg", cfYear: "Építve",
+            cardShowOnMapShort: "Térképen",
+            cardOpenAuto: "Auto: {m}",
+            cardOpenSrcShort: "Forrásoldal",
+            cardOpenPageShort: "Saját adatlap",
+            cardColsLabel: "Elrendezés",
+            cardCols1: "Egy nagy kártya soronként",
+            cardCols2: "2 kártya soronként",
+            cardCols3: "3 kártya soronként",
+            cardCols4: "4 kártya soronként",
             cardShowOnMap: "Megnyitás térképen",
             cardExtTitle: "Az eredeti hirdetés nyílik meg új lapon ({s})",
             cardAdminPage: "Belső adatlap (csak admin)",
@@ -36,6 +47,17 @@
             extOpen: "Eredeti hirdetés megnyitása ({s})"
         },
         ro: {
+            cardOpenLabel: "La clic:",
+            cfArea: "Suprafață", cfLand: "Suprafață", cfRooms: "Camere", cfFloor: "Etaj", cfCond: "Stare", cfPlot: "Teren", cfKind: "Tip", cfYear: "Construit",
+            cardShowOnMapShort: "Pe hartă",
+            cardOpenAuto: "Auto: {m}",
+            cardOpenSrcShort: "Site-ul sursă",
+            cardOpenPageShort: "Fișa proprie",
+            cardColsLabel: "Aranjare",
+            cardCols1: "Un card mare pe rând",
+            cardCols2: "2 carduri pe rând",
+            cardCols3: "3 carduri pe rând",
+            cardCols4: "4 carduri pe rând",
             cardShowOnMap: "Vezi pe hartă",
             cardExtTitle: "Anunțul original se deschide într-o filă nouă ({s})",
             cardAdminPage: "Fișa internă (doar admin)",
@@ -64,6 +86,17 @@
             extOpen: "Deschide anunțul original ({s})"
         },
         en: {
+            cardOpenLabel: "On click:",
+            cfArea: "Size", cfLand: "Area", cfRooms: "Rooms", cfFloor: "Floor", cfCond: "Condition", cfPlot: "Plot", cfKind: "Type", cfYear: "Built",
+            cardShowOnMapShort: "On map",
+            cardOpenAuto: "Auto: {m}",
+            cardOpenSrcShort: "Source site",
+            cardOpenPageShort: "Own page",
+            cardColsLabel: "Layout",
+            cardCols1: "One large card per row",
+            cardCols2: "2 cards per row",
+            cardCols3: "3 cards per row",
+            cardCols4: "4 cards per row",
             cardShowOnMap: "Show on map",
             cardExtTitle: "Opens the original listing in a new tab ({s})",
             cardAdminPage: "Internal page (admin only)",
