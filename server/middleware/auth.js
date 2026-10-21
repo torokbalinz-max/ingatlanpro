@@ -31,7 +31,9 @@ const MINDIG_NYITOTT = [/^\/api\/me$/, /^\/api\/config$/, /^\/api\/auth\//,
     // Látogatottsági statisztika (sütik nélkül)
     /^\/api\/stat\/pv$/,
     // Reklámfelületek: a megjelenések számolása (sütik és személyes adat nélkül)
-    /^\/api\/reklam\/megjelenes$/];
+    /^\/api\/reklam\/megjelenes$/,
+    // Reklámfelület-bérlési kérés (az "Érdeklődöm" űrlap) – IP-nként korlátozva
+    /^\/api\/reklam\/keres$/];
 
 function nyilvanosMod() {
     return !/^(0|false|nem|no|privat|privát)$/i.test(String(process.env.NYILVANOS || "").trim());

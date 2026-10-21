@@ -1304,6 +1304,33 @@ async function createSchema(db) {
     }
     await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_reklam_token ON reklamok (szerzodes_token) WHERE szerzodes_token IS NOT NULL`);
     await db.query(`ALTER TABLE penzugy_elofizetesek ADD COLUMN IF NOT EXISTS reklam_id INTEGER REFERENCES reklamok(id) ON DELETE SET NULL`);
+    // Reklámfelület-bérlési kérések a weboldalról (services/reklamKeres.js)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS reklam_keresek (
+            id SERIAL PRIMARY KEY,
+            nev TEXT NOT NULL,
+            ceg TEXT,
+            cui TEXT,
+            email TEXT NOT NULL,
+            telefon TEXT,
+            cim TEXT,
+            varos TEXT,
+            helyek JSONB DEFAULT '[]'::jsonb,
+            kezdet TEXT,
+            honap INTEGER DEFAULT 1,
+            weboldal TEXT,
+            uzenet TEXT,
+            nyelv TEXT,
+            statusz TEXT DEFAULT 'uj',
+            admin_megjegyzes TEXT,
+            reklam_id INTEGER REFERENCES reklamok(id) ON DELETE SET NULL,
+            ugyfel_id INTEGER REFERENCES penzugy_ugyfelek(id) ON DELETE SET NULL,
+            ip TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_reklam_keres_statusz ON reklam_keresek (statusz, created_at DESC)`);
     // Kiadás, amit a beérkezett e-Factura számlából az app vett fel (ellenőrizendő)
     await db.query(`ALTER TABLE penzugy_kiadasok ADD COLUMN IF NOT EXISTS auto BOOLEAN DEFAULT false`);
     // Szinkron a gépre (Irattár → a helyi mappa): a letöltött iratok

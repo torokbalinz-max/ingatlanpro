@@ -444,6 +444,15 @@ async function futtat(job, urls, alap, opts = {}) {
         // A falvakban lévő (új) hirdetések a "<város> és környéke" városba
         if (job.uj || job.frissitett) await kornyek.rendez().catch(e => console.error("Környék rendezés:", e.message));
 
+        // Az új hirdetések fotóinak ujjlenyomata, utána a biztos duplikátumok összevonása
+        // (a háttérben – a beolvasás eredménye addig is látszik)
+        if (job.uj) {
+            Promise.resolve()
+                .then(() => { const j = require("./imagehash").indit(400); return j && j.promise; })
+                .then(() => require("./duplicates").autoOsszevon())
+                .catch(e => console.error("Duplikátumok a beolvasás után:", e.message));
+        }
+
         job.allapot = "kesz";
 
     } catch (e) {

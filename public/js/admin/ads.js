@@ -42,9 +42,12 @@ AdminManager.renderAds = function () {
 };
 
 AdminManager.adsLoad = function () {
-    return fetch("/api/admin/reklamok?napok=" + AdminManager.ads.napok, { cache: "no-store" })
-        .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-        .then(v => { AdminManager.ads.adat = v; return v; });
+    const keresek = fetch("/api/admin/reklam-keresek", { cache: "no-store" }).then(r => r.ok ? r.json() : { keresek: [] }).catch(() => ({ keresek: [] }));
+    return Promise.all([
+        fetch("/api/admin/reklamok?napok=" + AdminManager.ads.napok, { cache: "no-store" })
+            .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }),
+        keresek
+    ]).then(([v, k]) => { v.keresek = k.keresek || []; AdminManager.ads.adat = v; return v; });
 };
 
 // A weboldal reklámhelyei azonnal kövessék a változást (a /api/config szerint)
@@ -102,6 +105,8 @@ AdminManager.adsDraw = function () {
         </div>
 
         ${!b.mutat ? `<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i><span class="flex-fill">${I18n.t("adsAllOff")}</span><button type="button" class="btn btn-sm btn-warning" id="adsTurnOn">${I18n.t("adsTurnOn")}</button></div>` : ""}
+
+        ${AdminManager.adsReqCard(v.keresek || [])}
 
         <!-- Hirdetések -->
         <div class="card mb-4">
@@ -326,6 +331,7 @@ AdminManager.adsBind = function () {
     const keres = id => lista.find(h => h.id === Number(id));
 
     box.querySelectorAll("#adsNew, [data-ads-new]").forEach(b => { b.onclick = () => AdminManager.adsEditor(null); });
+    AdminManager.adsReqBind(box, keres);
 
     document.getElementById("adsNapok").onchange = e => {
         AdminManager.ads.napok = Number(e.target.value) || 30;
@@ -605,6 +611,7 @@ AdminManager.adsEditor = function (h) {
                             <label class="form-label" for="adsEdUgyfel">${I18n.t("adsBillClient")}</label>
                             <div class="input-group">
                                 <select class="form-select" id="adsEdUgyfel"><option value="">${I18n.t("adsBillNoClient")}</option></select>
+                                <button type="button" class="btn btn-outline-secondary" id="adsEdSzerkUgyfel" title="${esc(I18n.t("finEditCustomer"))}" aria-label="${esc(I18n.t("finEditCustomer"))}"><i class="fa-solid fa-user-pen" aria-hidden="true"></i></button>
                                 <button type="button" class="btn btn-outline-secondary" id="adsEdUjUgyfel" title="${esc(I18n.t("finNewCustomer"))}"><i class="fa-solid fa-user-plus" aria-hidden="true"></i></button>
                             </div>
                             <div class="form-text">${I18n.t("adsBillClientHelp")}</div>
@@ -780,6 +787,15 @@ AdminManager.adsEditor = function (h) {
     }).catch(() => { });
     ugyfelTolt();
     $("adsEdUjUgyfel").onclick = () => AdminManager.finCfg().then(() => AdminManager.finUgyfelSzerk(null, ujId => ugyfelTolt(ujId)));
+    // A kiválasztott ügyfél adatai (a számlához kell a cím, település, megye)
+    $("adsEdSzerkUgyfel").onclick = () => {
+        const id = Number($("adsEdUgyfel").value);
+        if (!id) return alert(I18n.t("adsBillPickClient"));
+        AdminManager.finCfg().then(() => AdminManager.finUgyfelLista(true)).then(lista => {
+            const u = lista.find(x => x.id === id);
+            if (u) AdminManager.finUgyfelSzerk(u, () => { ugyfelTolt(id); szamlaAllapot(); });
+        });
+    };
 
     const szamlaAllapot = () => {
         const box = $("adsEdSzamlaAllapot");
@@ -790,7 +806,8 @@ AdminManager.adsEditor = function (h) {
             const biz = a.bizonylatok.map(b => {
                 const jel = `<span class="badge text-bg-${b.statusz === "fizetve" ? "success" : b.statusz === "sztorno" ? "secondary" : "warning"}">${esc(b.sorszam)} · ${esc(I18n.t("finSt_" + b.statusz))}</span>`;
                 return b.tipus === "szamla" && b.statusz !== "sztorno"
-                    ? `<a href="/api/admin/penzugy/szamlak/${b.id}/nyomtat" target="_blank" rel="noopener" class="text-decoration-none" title="${esc(I18n.t("adsInvoiceOpen"))}">${jel} <i class="fa-solid fa-arrow-up-right-from-square small" aria-hidden="true"></i></a>`
+                    ? `<a href="/api/admin/penzugy/szamlak/${b.id}/nyomtat" target="_blank" rel="noopener" class="text-decoration-none" title="${esc(I18n.t("adsInvoiceOpen"))}">${jel} <i class="fa-solid fa-arrow-up-right-from-square small" aria-hidden="true"></i></a>
+                       <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-szamla-mail="${b.id}" title="${esc(I18n.t("adsInvoiceMail"))}" aria-label="${esc(I18n.t("adsInvoiceMail"))}"><i class="fa-regular fa-envelope" aria-hidden="true"></i></button>`
                     : jel;
             }).join(" ");
             const nyitott = a.bizonylatok.find(b => b.tipus === "dijbekero" && (b.statusz === "kiallitva" || b.statusz === "piszkozat"));
@@ -819,6 +836,17 @@ AdminManager.adsEditor = function (h) {
                     </div>
                     <div class="small mt-2" id="adsEdKuldMsg"></div>
                 </div>`;
+            box.querySelectorAll("[data-szamla-mail]").forEach(mb => {
+                mb.onclick = () => {
+                    const cim = prompt(I18n.t("adsInvoiceMailTo"), (a.ugyfel && a.ugyfel.email) || "");
+                    if (cim === null) return;
+                    mb.disabled = true;
+                    Svc.api(`/api/admin/penzugy/szamlak/${mb.dataset.szamlaMail}/email`, { method: "POST", body: { email: cim.trim() } })
+                        .then(v => { const m = $("adsEdKuldMsg"); if (m) m.innerHTML = `<i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${esc(I18n.f("adsInvoiceMailed", { to: v.to }))}`; })
+                        .catch(e => alert(e.kod === "mail_not_configured" ? I18n.t("adsInvoiceMailOff") : e.kod === "bad_email" ? I18n.t("adAskErr_bad_email") : Svc.hiba(e)))
+                        .finally(() => { mb.disabled = false; });
+                };
+            });
             const lk = $("adsEdLink");
             if (lk) lk.onclick = () => navigator.clipboard && navigator.clipboard.writeText(location.origin + a.link).then(() => Utils.toast && Utils.toast(I18n.t("prCopied")));
             const fb = $("adsEdFizetve");
@@ -1057,5 +1085,126 @@ AdminManager.adsStats = function (h) {
             const body = document.getElementById("adsStatsBody");
             if (body) body.innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`;
         });
+
+};
+
+
+// ---------- Bérlési kérések (a weboldal "Érdeklődöm" űrlapjáról) ----------
+//  Új → (Hirdetés létrehozása: ügyfél + kikapcsolt hirdetés) Folyamatban →
+//  (Szerződés + díjbekérő elküldve) Ajánlat → (kifizetve) Elfogadva; vagy Elutasítva
+
+AdminManager.ADS_REQ_SZIN = { uj: "primary", folyamatban: "info", ajanlat: "warning", elfogadva: "success", elutasitva: "secondary" };
+
+AdminManager.adsReqCard = function (lista) {
+
+    const esc = Utils.escape;
+    const szuro = AdminManager.ads.reqSzuro || "nyitott";
+    const nyitott = lista.filter(k => !["elfogadva", "elutasitva"].includes(k.statusz));
+    const szurt = szuro === "nyitott" ? nyitott : lista;
+    const ujDb = lista.filter(k => k.statusz === "uj").length;
+    const datum = d => { try { return new Date(d).toLocaleString(I18n.current === "en" ? "en-GB" : I18n.current === "ro" ? "ro-RO" : "hu-HU", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { return d; } };
+    const honapNev = k => { if (!k) return ""; const [y, m] = k.split("-").map(Number); try { return new Date(y, m - 1, 1).toLocaleDateString(I18n.current === "en" ? "en-GB" : I18n.current === "ro" ? "ro-RO" : "hu-HU", { year: "numeric", month: "long" }); } catch (e) { return k; } };
+
+    const sor = k => {
+        const helyek = Array.isArray(k.helyek) ? k.helyek : [];
+        const targy = encodeURIComponent(I18n.f("adsReqMailSubject", { nev: k.ceg || k.nev }));
+        return `
+        <article class="adsReq ${k.statusz === "uj" ? "isNew" : ""}" data-req="${k.id}">
+            <div>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <b>${esc(k.ceg || k.nev)}</b>
+                    ${k.ceg ? `<span class="small text-body-secondary">${esc(k.nev)}</span>` : ""}
+                    <span class="badge text-bg-${AdminManager.ADS_REQ_SZIN[k.statusz] || "secondary"}">${I18n.t("adsReqSt_" + k.statusz)}</span>
+                    ${k.fizetve ? `<span class="badge text-bg-success"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.t("finSt_fizetve")}</span>` : ""}
+                    <span class="small text-body-secondary ms-auto">${esc(datum(k.created_at))}</span>
+                </div>
+                <div class="small mt-1">
+                    <a href="mailto:${esc(k.email)}?subject=${targy}"><i class="fa-regular fa-envelope" aria-hidden="true"></i> ${esc(k.email)}</a>
+                    ${k.telefon ? ` · <a href="tel:${esc(k.telefon)}"><i class="fa-solid fa-phone" aria-hidden="true"></i> ${esc(k.telefon)}</a>` : ""}
+                    ${k.cui ? ` · CUI ${esc(k.cui)}` : ""}
+                    ${k.cim || k.varos ? ` · <i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${esc([k.cim, k.varos].filter(Boolean).join(", "))}` : ""}
+                    ${k.weboldal ? ` · <a href="${esc(k.weboldal)}" target="_blank" rel="noopener nofollow">${esc(AdminManager.adsDomain(k.weboldal))}</a>` : ""}
+                </div>
+                <div class="small text-body-secondary mt-1">
+                    <i class="fa-regular fa-calendar" aria-hidden="true"></i> ${k.kezdet ? esc(I18n.f("adsReqFrom", { tol: honapNev(k.kezdet), n: k.honap || 1 })) : esc(I18n.f("adsReqMonths", { n: k.honap || 1 }))}
+                    ${k.reklam_id ? ` · <i class="fa-solid fa-rectangle-ad" aria-hidden="true"></i> ${esc(k.reklam_nev || "#" + k.reklam_id)}` : ""}
+                </div>
+                <div class="adsSlotChips">${helyek.length ? helyek.map(h => `<span class="adsChip">${esc(I18n.t("adPlace_" + h))}</span>`).join("") : `<span class="small text-body-secondary">${I18n.t("adsReqNoPlaces")}</span>`}</div>
+            </div>
+            <div class="adsReqActions">
+                ${k.reklam_id
+                    ? `<button type="button" class="btn btn-sm btn-primary" data-req-open="${k.reklam_id}"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("adsReqOpenAd")}</button>`
+                    : `<button type="button" class="btn btn-sm btn-primary" data-req-make="${k.id}"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ${I18n.t("adsReqMake")}</button>`}
+                <select class="form-select form-select-sm w-auto" data-req-st="${k.id}" aria-label="${esc(I18n.t("adsReqStatus"))}">
+                    ${["uj", "folyamatban", "ajanlat", "elfogadva", "elutasitva"].map(s => `<option value="${s}" ${s === k.statusz ? "selected" : ""}>${esc(I18n.t("adsReqSt_" + s))}</option>`).join("")}
+                </select>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-req-del="${k.id}" title="${esc(I18n.t("adsDelete"))}" aria-label="${esc(I18n.t("adsDelete"))}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+            </div>
+            ${k.uzenet ? `<div class="adsReqMsg">${esc(k.uzenet)}</div>` : ""}
+            <div class="adsReqNote"><input class="form-control form-control-sm" data-req-note="${k.id}" maxlength="2000" value="${esc(k.admin_megjegyzes || "")}" placeholder="${esc(I18n.t("adsReqNotePh"))}" aria-label="${esc(I18n.t("adsReqNotePh"))}"></div>
+        </article>`;
+    };
+
+    return `
+        <div class="card mb-4" id="adsReqCard">
+            <div class="card-header d-flex flex-wrap align-items-center gap-2">
+                <h5 class="mb-0 flex-fill"><i class="fa-solid fa-inbox" aria-hidden="true"></i> ${I18n.t("adsReqTitle")}
+                    ${ujDb ? `<span class="badge text-bg-primary ms-1">${I18n.f("adsReqNewN", { n: ujDb })}</span>` : ""}</h5>
+                ${lista.length ? `
+                <div class="typeTabs" role="tablist">
+                    <button type="button" class="typeTab ${szuro === "nyitott" ? "active" : ""}" data-req-filter="nyitott">${I18n.t("adsReqOpen")} <span class="typeTabCount">${nyitott.length}</span></button>
+                    <button type="button" class="typeTab ${szuro === "mind" ? "active" : ""}" data-req-filter="mind">${I18n.t("adsFilterAll")} <span class="typeTabCount">${lista.length}</span></button>
+                </div>` : ""}
+            </div>
+            <div class="card-body">
+                <p class="sectionNote">${I18n.t("adsReqNote")}</p>
+                ${szurt.length ? `<div class="adsReqList">${szurt.map(sor).join("")}</div>`
+                    : `<p class="text-body-secondary mb-0">${I18n.t(lista.length ? "adsReqNoneOpen" : "adsReqEmpty")}</p>`}
+            </div>
+        </div>`;
+
+};
+
+AdminManager.adsReqBind = function (box, keres) {
+
+    const api = (ut, method, body) => fetch(ut, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined })
+        .then(r => r.json().catch(() => ({})).then(v => { if (!r.ok) { const e = new Error(v.error || "HTTP " + r.status); e.kod = v.error; throw e; } return v; }));
+    const ujra = () => AdminManager.adsLoad().then(() => AdminManager.adsDraw()).then(() => AdminManager.refreshPendingCount && AdminManager.refreshPendingCount());
+
+    box.querySelectorAll("[data-req-filter]").forEach(b => { b.onclick = () => { AdminManager.ads.reqSzuro = b.dataset.reqFilter; AdminManager.adsDraw(); }; });
+
+    box.querySelectorAll("[data-req-st]").forEach(s => {
+        s.onchange = () => { s.disabled = true; api("/api/admin/reklam-keresek/" + s.dataset.reqSt, "PATCH", { statusz: s.value }).then(ujra).catch(e => { s.disabled = false; alert(AdminManager.adsHiba(e)); }); };
+    });
+
+    box.querySelectorAll("[data-req-note]").forEach(i => {
+        i.onchange = () => api("/api/admin/reklam-keresek/" + i.dataset.reqNote, "PATCH", { admin_megjegyzes: i.value })
+            .then(() => { i.classList.add("is-valid"); setTimeout(() => i.classList.remove("is-valid"), 1200); })
+            .catch(e => alert(AdminManager.adsHiba(e)));
+    });
+
+    box.querySelectorAll("[data-req-del]").forEach(b => {
+        b.onclick = () => { if (!confirm(I18n.t("adsReqDelConfirm"))) return; b.disabled = true; api("/api/admin/reklam-keresek/" + b.dataset.reqDel, "DELETE").then(ujra).catch(e => { b.disabled = false; alert(AdminManager.adsHiba(e)); }); };
+    });
+
+    // Ügyfél + hirdetés a kérésből → a szerkesztő: kép, ár, majd "Szerződés + díjbekérő"
+    box.querySelectorAll("[data-req-make]").forEach(b => {
+        b.onclick = () => {
+            if (!confirm(I18n.t("adsReqMakeConfirm"))) return;
+            b.disabled = true;
+            api(`/api/admin/reklam-keresek/${b.dataset.reqMake}/hirdetes`, "POST")
+                .then(v => AdminManager.adsLoad().then(() => { AdminManager.adsDraw(); return v; }))
+                .then(v => { const h = keres(v.reklam_id) || (AdminManager.ads.adat.hirdetesek || []).find(x => x.id === v.reklam_id); if (h) AdminManager.adsEditor(h); })
+                .catch(e => { b.disabled = false; alert(AdminManager.adsHiba(e)); });
+        };
+    });
+
+    box.querySelectorAll("[data-req-open]").forEach(b => {
+        b.onclick = () => {
+            const id = Number(b.dataset.reqOpen);
+            const h = (AdminManager.ads.adat.hirdetesek || []).find(x => x.id === id);
+            if (h) AdminManager.adsEditor(h); else alert(I18n.t("adsReqAdGone"));
+        };
+    });
 
 };

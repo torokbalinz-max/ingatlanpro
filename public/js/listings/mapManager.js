@@ -26,6 +26,9 @@ class MapManager {
 
     static opts = { hatarok: true };
 
+    // Ettől a nagyítástól ártábla, alatta kis pötty
+    static ARTABLA_ZOOM = 16;
+
     // A régi beállítás ("közelítő helyek" kapcsoló) – már nincs hatása
     static setApprox() { /* a közelítő helyek nem pontként jelennek meg */ }
 
@@ -79,17 +82,13 @@ class MapManager {
         MapManager.map.getPane("districtLabelPane").style.zIndex = 380;
         MapManager.map.getPane("districtLabelPane").style.pointerEvents = "none";
 
-        MapManager.layer = typeof L.markerClusterGroup === "function"
-            ? L.markerClusterGroup({
-                showCoverageOnHover: false,
-                spiderfyOnMaxZoom: true,
-                maxClusterRadius: 48,
-                disableClusteringAtZoom: 18,
-                iconCreateFunction: MapManager.clusterIcon
-            })
-            : L.featureGroup();
+        // Nincs csoportosítás ("100 hirdetés egy pontban"): távolról minden hirdetés egy
+        // kis pötty a saját helyén, közelebbről (16-os nagyítástól) ártábla
+        MapManager.layer = L.featureGroup().addTo(MapManager.map);
 
-        MapManager.layer.addTo(MapManager.map);
+        const tavol = () => MapManager.map.getContainer().classList.toggle("ipMapFar", MapManager.map.getZoom() < MapManager.ARTABLA_ZOOM);
+        MapManager.map.on("zoomend", tavol);
+        tavol();
 
         MapManager.map.on("popupclose", () => MapManager.jelol(null));
 
@@ -236,11 +235,33 @@ class MapManager {
 
         const markerek = [];
 
+        // Ugyanarra a pontra eső hirdetések (pl. egy utca közepe, egy tömbház) kis körben
+        // szétnyitva, hogy mind külön látsszon és kattintható legyen
+        const azonos = new Map();
+        lista.forEach(i => {
+            if (!MapManager.pontos(i)) return;
+            const k = Number(i.x).toFixed(5) + "," + Number(i.y).toFixed(5);
+            if (!azonos.has(k)) azonos.set(k, []);
+            azonos.get(k).push(i.id);
+        });
+        const eltolas = i => {
+            const k = Number(i.x).toFixed(5) + "," + Number(i.y).toFixed(5);
+            const csop = azonos.get(k) || [];
+            if (csop.length < 2) return [0, 0];
+            const n = csop.indexOf(i.id);
+            const sugarM = 10 + csop.length * 2;
+            const szog = 2 * Math.PI * n / csop.length;
+            const dy = sugarM * Math.sin(szog) / 111320;
+            const dx = sugarM * Math.cos(szog) / (111320 * Math.cos(Number(i.y) * Math.PI / 180));
+            return [dy, dx];
+        };
+
         lista.forEach(i => {
 
             if (!MapManager.pontos(i)) { nemPontos++; return; }
 
-            const y = Number(i.y), x = Number(i.x);
+            const [ey, ex] = eltolas(i);
+            const y = Number(i.y) + ey, x = Number(i.x) + ex;
 
             const m = L.marker([y, x], { icon: MapManager.priceIcon(i), keyboard: true, title: `${Utils.price(i)} · ${CityManager.helyLabel(i)}`, riseOnHover: true })
                 .bindPopup(() => MapManager.popupHtml(i), { maxWidth: 280, minWidth: 240, className: "ipPopupWrap", closeButton: true });
@@ -254,8 +275,7 @@ class MapManager {
 
         });
 
-        if (typeof MapManager.layer.addLayers === "function") MapManager.layer.addLayers(markerek);
-        else markerek.forEach(m => m.addTo(MapManager.layer));
+        markerek.forEach(m => m.addTo(MapManager.layer));
 
         if (pontok.length > 0) {
             MapManager.map.fitBounds(L.latLngBounds(pontok), { padding: [40, 40], maxZoom: 15 });
@@ -316,8 +336,7 @@ class MapManager {
             setTimeout(() => marker.openPopup(), 850);
         };
 
-        if (typeof MapManager.layer.zoomToShowLayer === "function") MapManager.layer.zoomToShowLayer(marker, nyit);
-        else nyit();
+        nyit();
 
     }
 

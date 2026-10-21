@@ -26,7 +26,8 @@ router.post("/api/cron/run", async (req, res) => {
     // 4) e-mail értesítők (mentett keresések, vevői igények) – naponta egyszer
     importer.figyeltFuttat()
         .then(() => importer.figyelesIndit({ limit: 150 }).promise)
-        .then(() => { const j = imagehash.indit(300); return j && j.promise; })
+        .then(() => { const j = imagehash.indit(400); return j && j.promise; })
+        .then(() => require("../services/duplicates").autoOsszevon().catch(e => console.error("Duplikátumok:", e.message)))
         .then(() => napiErtesito(req))
         .then(() => require("./statistics").havontaMent())
         .then(() => require("../services/megbizasAuto").futtat())

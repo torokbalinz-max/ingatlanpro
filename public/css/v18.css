@@ -577,3 +577,35 @@ html body .ipCard .ipCount {
 
 .ipPopupWrap .btn.ipPopupVal { color: var(--ip-ink, #14201b) !important; }
 .ipValBtn i { color: var(--ip-accent, #1f6f5c); }
+
+/* Távolról (16-os nagyítás alatt) az ártábla kis pötty – a kiemelt és a kijelölt kicsit nagyobb */
+.ipMapFar .ipPin {
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    font-size: 0;
+    border-width: 2px;
+    border-style: solid;
+    border-color: #fff;
+    background: var(--ip-accent, #1f6f5c);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+}
+.ipMapFar .ipPin::after { display: none; }
+.ipMapFar .ipPin:hover { transform: translate(-50%, -50%) scale(1.4); }
+.ipMapFar .ipPin.isStreet { background: color-mix(in srgb, var(--ip-accent, #1f6f5c) 60%, #fff); }
+.ipMapFar .ipPin.isFeat { background: var(--ip-gold, #c9a227); width: 14px; height: 14px; }
+.ipMapFar .ipPin.isActive { width: 16px; height: 16px; background: #111; }
+
+/* ---------- Reklámfelület bérlési kérés (core/ads.js, admin/ads.js) ---------- */
+.adAskPlaces { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .5rem .9rem; }
+.adAskGroup { border: 1px solid var(--bs-border-color); border-radius: .6rem; padding: .45rem .7rem .55rem; margin: 0; }
+.adAskGroup legend { float: none; width: auto; font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); padding: 0 .3rem; margin: 0; }
+.adAskHp { position: absolute !important; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.adsReqList { display: flex; flex-direction: column; gap: .6rem; }
+.adsReq { border: 1px solid var(--bs-border-color); border-radius: .8rem; padding: .75rem .9rem; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem; }
+.adsReq.isNew { border-color: var(--bs-primary); box-shadow: 0 0 0 1px var(--bs-primary) inset; }
+.adsReq .adsReqMsg { grid-column: 1 / -1; white-space: pre-line; font-size: .88rem; background: var(--bs-tertiary-bg); border-radius: .5rem; padding: .45rem .6rem; }
+.adsReq .adsReqNote { grid-column: 1 / -1; }
+.adsReqActions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: flex-start; justify-content: flex-end; }
+@media (max-width: 767.98px) { .adsReq { grid-template-columns: 1fr; } .adsReqActions { justify-content: flex-start; } }

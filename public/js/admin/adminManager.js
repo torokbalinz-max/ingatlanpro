@@ -275,7 +275,7 @@ class AdminManager {
         AdminManager.setCount("kornyekCount", c.kornyek_javaslat);
         AdminManager.setCount("reportCount", c.bejelentes_uj);
         AdminManager.setCount("helyCount", c.hely_teendo);
-        AdminManager.setCount("reklamCount", c.reklam_fut);
+        AdminManager.setCount("reklamCount", c.reklam_keres_uj || c.reklam_fut);
         AdminManager.setCount("finLateCount", c.penzugy_lejart);
         AdminManager.setCount("finDueCount", c.penzugy_esedekes);
         AdminManager.setCount("navAdminCount", (c.review || 0) + (c.iroda_fuggo || 0) + (c.bejelentes_uj || 0));

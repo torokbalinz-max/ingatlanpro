@@ -10,6 +10,7 @@ const reklam = require("../services/reklam");
 const acc = require("../services/accounts");
 const { hiba, csakAdmin } = require("../lib/http");
 const csapat = require("../services/csapat");
+const mail = require("../services/mail");
 
 const router = express.Router();
 
@@ -75,11 +76,47 @@ router.delete("/api/admin/reklamok/:id", csapat.csakResz("reklam"), async (req, 
     }
 });
 
+// ---------- Bérlési kérések (services/reklamKeres.js) ----------
+
+const rk = require("../services/reklamKeres");
+
+// A weboldalról: belépés nélkül, IP-nként korlátozva; a "web2" mező csapda (ember nem tölti ki)
+router.post("/api/reklam/keres", async (req, res) => {
+    try {
+        const b = req.body || {};
+        if (b.web2) return res.json({ siker: true });
+        const ip = req.ip || (req.socket && req.socket.remoteAddress) || "?";
+        if (acc.korlat("reklamker:" + ip, 5, 60 * 60 * 1000)) return res.status(429).json({ error: "too_many" });
+        const v = await rk.uj(b, { ip, alapCim: mail.oldalCim(req) });
+        res.json({ siker: true, id: v.id });
+    } catch (err) { hibaKod(res, err); }
+});
+
+router.get("/api/admin/reklam-keresek", csapat.csakResz("reklam"), async (req, res) => {
+    try { res.json({ keresek: await rk.lista(), allapotok: rk.ALLAPOTOK }); } catch (err) { hiba(res, err); }
+});
+
+router.patch("/api/admin/reklam-keresek/:id", csapat.csakResz("reklam"), async (req, res) => {
+    try {
+        const v = await rk.modosit(Number(req.params.id), req.body || {});
+        if (!v) return res.status(404).json({ error: "not_found" });
+        res.json({ siker: true });
+    } catch (err) { hibaKod(res, err); }
+});
+
+router.delete("/api/admin/reklam-keresek/:id", csapat.csakResz("reklam"), async (req, res) => {
+    try { await rk.torol(Number(req.params.id)); res.json({ siker: true }); } catch (err) { hiba(res, err); }
+});
+
+// Ügyfél + hirdetés a kérésből (a hirdetés a befizetésig nem látszik)
+router.post("/api/admin/reklam-keresek/:id/hirdetes", csapat.csakResz("reklam"), async (req, res) => {
+    try { res.json({ siker: true, ...(await rk.hirdetesbol(Number(req.params.id))) }); } catch (err) { hibaKod(res, err); }
+});
+
 // ---------- Számlázás, szerződés (services/reklamSzamla.js) ----------
 
 const rsz = require("../services/reklamSzamla");
 const dok = require("../services/dokumentum");
-const mail = require("../services/mail");
 
 router.get("/api/admin/reklamok/:id/szamlazas", csapat.csakResz("reklam"), async (req, res) => {
     try { res.json(await rsz.allapot(Number(req.params.id))); } catch (err) { hibaKod(res, err); }

@@ -8,6 +8,8 @@
 
     const V19 = {
         hu: {
+            dupAuto: "Magától összevonódik",
+            dupAutoHint: "Legalább 3 fotó egyezik – a következő beolvasás / napi frissítés után magától összevonjuk. Ha nem ugyanaz, jelöld „Nem ugyanaz”-nak.",
             cardValuate: "Értékbecslés erre a lakásra",
             valMethod2: "A {n} leghasonlóbb hirdetés árát átszámoljuk a te ingatlanodra (méret, állapot, emelet). Elsőként a saját kerületed hirdetései számítanak; más kerületből csak a hasonló árszintűek (a nagyon más árú kerület kimarad), és csak kisebb súllyal. Minél kevesebbet kell egy hirdetésen átszámolni, annál többet számít – a nagyon más állapotú vagy méretű lakás alig. Ezt összekeverjük a város összes hirdetéséből tanult modellel; újépítésű lakásnál a hasonló projektek döntenek.",
             cardShowAreaShort: "Körzet",
@@ -61,6 +63,8 @@
             extOpen: "Eredeti hirdetés megnyitása ({s})"
         },
         ro: {
+            dupAuto: "Se unește automat",
+            dupAutoHint: "Cel puțin 3 poze identice – se unește automat după următorul import / actualizare zilnică.",
             cardValuate: "Evaluare pentru această proprietate",
             valMethod2: "Prețurile celor mai asemănătoare {n} anunțuri sunt recalculate pentru proprietatea ta (suprafață, stare, etaj). Contează mai întâi anunțurile din cartierul tău; din alte cartiere doar cele cu nivel de preț similar și cu pondere mai mică. Cu cât un anunț trebuie ajustat mai puțin, cu atât contează mai mult. Rezultatul se combină cu modelul învățat din toate anunțurile orașului; la construcțiile noi decid proiectele similare.",
             cardShowAreaShort: "Zonă",
@@ -114,6 +118,8 @@
             extOpen: "Deschide anunțul original ({s})"
         },
         en: {
+            dupAuto: "Merged automatically",
+            dupAutoHint: "At least 3 photos match – merged automatically after the next import / daily update.",
             cardValuate: "Valuate this property",
             valMethod2: "The prices of the {n} most similar listings are converted to your property (size, condition, floor). Listings in your own district come first; other districts count only if their price level is similar, and with less weight. The less a listing needs to be adjusted, the more it counts. This is blended with the model learned from all listings in the city; for new builds similar projects decide.",
             cardShowAreaShort: "Area",

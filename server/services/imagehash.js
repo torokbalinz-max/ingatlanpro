@@ -17,8 +17,11 @@ const { biztonsagosFetch } = require("../lib/biztonsagosFetch");
 let sharp = null;
 try { sharp = require("sharp"); } catch (e) { console.warn("A 'sharp' csomag hiányzik – a képes duplikátum-keresés ki van kapcsolva (npm install)."); }
 
-const KEP_V = 1;               // ha a módszer változik, emeljük -> újraszámol
-const KEP_DB = 5;              // hirdetésenként ennyi kép
+// 2: hirdetésenként 12 kép, és minden képnek a közepe is (a szélén lévő vízjel,
+//    keret, eltérő vágás ne rontsa el az egyezést)
+const KEP_V = 2;               // ha a módszer változik, emeljük -> újraszámol
+const KEP_DB = 12;             // hirdetésenként ennyi kép
+const KOZEP = "#k";            // a kép közepének ujjlenyomata ezzel a jelöléssel
 const EGYEZES_BIT = 8;         // ennyi eltérő bitig ugyanaz a kép
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -27,9 +30,18 @@ function elerheto() {
     return !!sharp;
 }
 
-async function dhash(buf) {
-    const { data } = await sharp(buf, { failOn: "none" })
-        .rotate()
+async function dhash(buf, kozep) {
+    let kep = sharp(buf, { failOn: "none" }).rotate();
+    if (kozep) {
+        // a kép közepe (minden oldalon 12 % le): vízjel, keret, eltérő vágás nélkül
+        const { data: forgatott, info } = await kep.toBuffer({ resolveWithObject: true });
+        const w = info.width, h = info.height;
+        kep = sharp(forgatott, { failOn: "none" });
+        if (w > 40 && h > 40) {
+            kep = kep.extract({ left: Math.round(w * 0.12), top: Math.round(h * 0.12), width: Math.round(w * 0.76), height: Math.round(h * 0.76) });
+        }
+    }
+    const { data } = await kep
         .resize(9, 8, { fit: "fill" })
         .grayscale()
         .raw()
@@ -106,12 +118,16 @@ async function hirdetes(i) {
             if (!buf) continue;
 
             const h = await dhash(buf);
+            const hk = await dhash(buf, true).catch(() => null);
 
-            await db.query(
-                `INSERT INTO kep_hashek (ingatlan_id, forras, hash) VALUES ($1, $2, $3)
-                 ON CONFLICT (ingatlan_id, forras) DO UPDATE SET hash = EXCLUDED.hash, created_at = NOW()`,
-                [i.id, k.forras.slice(0, 1000), h]
-            );
+            for (const [forras, hash] of [[k.forras.slice(0, 990), h], [k.forras.slice(0, 990) + KOZEP, hk]]) {
+                if (!hash) continue;
+                await db.query(
+                    `INSERT INTO kep_hashek (ingatlan_id, forras, hash) VALUES ($1, $2, $3)
+                     ON CONFLICT (ingatlan_id, forras) DO UPDATE SET hash = EXCLUDED.hash, created_at = NOW()`,
+                    [i.id, forras, hash]
+                );
+            }
 
             kesz++;
 
@@ -195,4 +211,7 @@ function indit(limit = 400) {
 
 }
 
-module.exports = { elerheto, dhash, tavolsag, hasznalhato, hirdetes, indit, allapot, hianyzoSzam, EGYEZES_BIT, KEP_V };
+// A kép azonosítója (a közép-ujjlenyomat ugyanannak a képnek számít)
+const kepForras = f => String(f || "").endsWith(KOZEP) ? String(f).slice(0, -KOZEP.length) : String(f || "");
+
+module.exports = { elerheto, dhash, tavolsag, hasznalhato, hirdetes, indit, allapot, hianyzoSzam, kepForras, EGYEZES_BIT, KEP_V, KOZEP };

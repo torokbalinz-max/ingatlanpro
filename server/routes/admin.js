@@ -121,6 +121,7 @@ router.get("/api/admin/counts", csapat.csakPanel, async (req, res) => {
         const reklam = require("../services/reklam");
         const reklamFut = (await reklam.aktivak().catch(() => [])).length;
         const reklamLejaro = (await reklam.lejarok(7).catch(() => [])).length;
+        const reklamKeres = await require("../services/reklamKeres").ujDb().catch(() => 0);
 
         // Pénzügyek: lejárt díjbekérők, esedékes előfizetések
         const penzugy = await require("../services/penzugy").szamlalok();
@@ -136,7 +137,7 @@ router.get("/api/admin/counts", csapat.csakPanel, async (req, res) => {
 
         res.json({
             ...r.rows[0], ...w.rows[0], ...ir.rows[0], ...egyeb.rows[0], ...penzugy,
-            kornyek_javaslat: kornyek, megbizas_uj: megbizasUj, naptar_teendo: naptarDb, reklam_fut: reklamFut, reklam_lejaro: reklamLejaro, ai: ai.elerheto(),
+            kornyek_javaslat: kornyek, megbizas_uj: megbizasUj, naptar_teendo: naptarDb, reklam_fut: reklamFut, reklam_lejaro: reklamLejaro, reklam_keres_uj: reklamKeres, ai: ai.elerheto(),
             szerzodes_lejaro: irat.lejaro, szerzodes_lejart: irat.lejart, szerzodes_teendo: (irat.lejaro || 0) + (irat.lejart || 0),
             efactura_kuldendo: ef.kuldendo || 0, efactura_surgos: ef.surgos || 0, efactura_elutasitva: ef.elutasitva || 0,
             efactura_teendo: (ef.surgos || 0) + (ef.elutasitva || 0)

@@ -180,7 +180,7 @@ AdminManager.dupRajzol = function () {
                 <div class="card mb-3 dupGroup ${gi === AdminManager.dupIdx ? "current" : ""}" data-g="${gi}">
                     <div class="card-body">
                         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                            <span class="badge ${g.eros ? "text-bg-success" : "text-bg-warning"}">${I18n.t(g.eros ? "dupStrong" : "dupPossible")}</span>
+                            <span class="badge ${g.eros ? "text-bg-success" : "text-bg-warning"}">${I18n.t(g.eros ? "dupStrong" : "dupPossible")}</span>${g.automatikus ? ` <span class="badge text-bg-light" title="${Utils.escape(I18n.t("dupAutoHint"))}"><i class="fa-solid fa-wand-magic-sparkles"></i> ${I18n.t("dupAuto")}</span>` : ""}
                             <span class="dupScore" title="${I18n.t("dupScore")}">${g.pont}%</span>
                             <div class="dupWhyList">${AdminManager.dupOkok(g.okok)}</div>
                         </div>
