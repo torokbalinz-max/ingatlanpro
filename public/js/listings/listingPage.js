@@ -117,6 +117,7 @@ class ListingPage {
                             <a class="btn btn-primary w-100" href="${Utils.escape(i.link)}" target="_blank" rel="noopener noreferrer nofollow">
                                 ${Utils.escape(I18n.f("extOpen", { s: forrasNev }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                             </a>
+                            ${Types.becsulheto(i.tipus) ? `<button type="button" class="btn btn-outline-primary w-100 mt-2" id="lpExtVal"><i class="fa-solid fa-calculator" aria-hidden="true"></i> ${I18n.t("detailValuate")}</button>` : ""}
                         </div>
                     </div>
                 </div>
@@ -125,6 +126,8 @@ class ListingPage {
         CardsView.bindCards(box);
 
         document.getElementById("lpBack").onclick = () => PageManager.show(PageManager.lastListPage || "properties");
+        const ev = document.getElementById("lpExtVal");
+        if (ev) ev.onclick = () => { PageManager.show("valuation"); ValuationManager.prefill(i).then(() => ValuationManager.run()); };
 
     }
 

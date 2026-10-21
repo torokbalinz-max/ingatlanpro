@@ -264,6 +264,7 @@ class CardsView {
                         <div class="ipFoot">
                             <div class="ipSrcs">${forrasok.map(forrasChip).join("")}</div>
                             <div class="ipActions">
+                                ${Types.becsulheto(i.tipus) ? `<button type="button" class="ipIconBtn ipValBtn" data-val="${i.id}" title="${Utils.escape(I18n.t("cardValuate"))}" aria-label="${Utils.escape(I18n.t("cardValuate"))}"><i class="fa-solid fa-calculator" aria-hidden="true"></i></button>` : ""}
                                 ${terkep ? `<button type="button" class="ipMapBtn${korzet ? " isArea" : ""}" data-map="${i.id}" title="${Utils.escape(I18n.t(korzet ? "cardShowAreaHint" : "cardShowOnMap"))}"><i class="fa-solid ${korzet ? "fa-draw-polygon" : "fa-map-location-dot"}" aria-hidden="true"></i> <span>${I18n.t(korzet ? "cardShowAreaShort" : "cardShowOnMapShort")}</span></button>` : ""}
                             </div>
                         </div>
@@ -314,6 +315,12 @@ class CardsView {
                 if (e.target.closest("[data-map]")) {
                     e.stopPropagation();
                     CardsView.showOnMap(id);
+                    return;
+                }
+
+                if (e.target.closest("[data-val]")) {
+                    e.stopPropagation();
+                    CardsView.valuate(id);
                     return;
                 }
 
@@ -401,6 +408,14 @@ class CardsView {
         // Egérrel előre betöltjük a 2. képet, hogy a lapozás ne villanjon
         thumb.addEventListener("mouseenter", () => betolt(aktualis()), { once: true });
 
+    }
+
+    // Értékbecslés erre a hirdetésre (akkor is, ha kattintásra a forrásoldal nyílik meg)
+    static valuate(id) {
+        const i = CardsView.objektumok.get(id) || DataManager.ingatlanok.find(x => x.id === id);
+        if (!i) return;
+        PageManager.show("valuation");
+        ValuationManager.prefill(i).then(() => ValuationManager.run());
     }
 
     // "Térképen": pontos helynél a térkép oldal (a jelölő kinyitva), csak kerület /

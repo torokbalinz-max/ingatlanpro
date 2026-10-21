@@ -54,9 +54,8 @@ class MapManager {
     // így modern, nyugodt hátteret ad a jelölőknek; sötét módban sötétre fordítva.
     // (A CARTO alaptérkép már API-kulcsot kér, ezért nem azt használjuk.)
     static tileLayer() {
-        return L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
             attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
-            subdomains: "abc",
             maxZoom: 19,
             className: "ipTiles"
         });
@@ -214,6 +213,7 @@ class MapManager {
                     <button type="button" class="btn btn-primary btn-sm w-100 mt-2" onclick="ListingPage.open(${Number(i.id)})">${kulso
                         ? `${Utils.escape(I18n.f("openOnSource", { s: Sources.label(Sources.fromLink(i.link)) }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>`
                         : I18n.t("detailOpenListing")}</button>
+                    ${Types.becsulheto(i.tipus) ? `<button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-1 ipPopupVal" onclick="CardsView.objektumok.set(${Number(i.id)}, DataManager.ingatlanok.find(x => x.id === ${Number(i.id)})); CardsView.valuate(${Number(i.id)})"><i class="fa-solid fa-calculator" aria-hidden="true"></i> ${I18n.t("detailValuate")}</button>` : ""}
                 </div>
             </div>`;
 

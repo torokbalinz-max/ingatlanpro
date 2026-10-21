@@ -574,3 +574,6 @@ html body .ipCard .ipCount {
 /* Alaptérkép (OpenStreetMap) halványítva, sötét módban sötétre fordítva */
 .leaflet-container .ipTiles { filter: saturate(.45) brightness(1.03) contrast(.92); }
 [data-bs-theme="dark"] .leaflet-container .ipTiles { filter: invert(1) hue-rotate(180deg) brightness(.85) saturate(.35) contrast(.9); }
+
+.ipPopupWrap .btn.ipPopupVal { color: var(--ip-ink, #14201b) !important; }
+.ipValBtn i { color: var(--ip-accent, #1f6f5c); }
