@@ -37,29 +37,43 @@ function teljesseg(i) {
         (i.kedvenc_db > 0 ? 50 : 0) + (i.owner_id ? 30 : 0) + (i.jovahagyva ? 5 : 0);
 }
 
+// ---------- gyors fotó-összehasonlítás ----------
+//  A 64 bites ujjlenyomatot két 32 bites számként tároljuk (a BigInt nagyon lassú volt:
+//  több ezer hirdetésnél percekre megfogta az egész szervert).
+
+function bitDb(x) {
+    x = x - ((x >>> 1) & 0x55555555);
+    x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
+    return Math.imul((x + (x >>> 4)) & 0x0F0F0F0F, 0x01010101) >>> 24;
+}
+
+const hashTav = (a, b) => bitDb((a.hi ^ b.hi) >>> 0) + bitDb((a.lo ^ b.lo) >>> 0);
+
+// A háttérmunka közben a szerver más kéréseket is kiszolgál (ne fagyjon le az admin)
+const levegot = () => new Promise(r => setImmediate(r));
+
 // Két hirdetés összevetése -> null (nem ugyanaz) vagy { pont, eros, okok, kepPar, kepDb }
 //  A fotók döntenek: ha legalább 2 különböző fotó egyezik, az adatok eltérése (a
 //  forrásoldalon rosszul megadott szobaszám, emelet, terület, más típus) nem zárja ki
 //  – ugyanazt a lakást gyakran más adatokkal hirdetik.
-function osszevet(a, b, hashA, hashB, gyakori) {
+//  hashA / hashB: [{ f: kép azonosító, hi, lo }] – a gyakori képek már kiszűrve
+function osszevet(a, b, hashA, hashB) {
 
     // Fotók (a kép közepének ujjlenyomata is ugyanannak a képnek számít)
     const kepPar = [];
-    const hasznaltA = new Set(), hasznaltB = new Set();
 
-    for (const ha of hashA) {
-        if (gyakori.has(ha.hash)) continue;
-        const fa = imagehash.kepForras(ha.forras);
-        if (hasznaltA.has(fa)) continue;
-        for (const hb of hashB) {
-            if (gyakori.has(hb.hash)) continue;
-            const fb = imagehash.kepForras(hb.forras);
-            if (hasznaltB.has(fb)) continue;
-            if (imagehash.tavolsag(ha.hash, hb.hash) <= imagehash.EGYEZES_BIT) {
-                kepPar.push([fa, fb]);
-                hasznaltA.add(fa);
-                hasznaltB.add(fb);
-                break;
+    if (hashA.length && hashB.length) {
+        const hasznaltA = new Set(), hasznaltB = new Set();
+        for (const ha of hashA) {
+            if (hasznaltA.has(ha.f)) continue;
+            for (const hb of hashB) {
+                if (hasznaltB.has(hb.f)) continue;
+                if (hashTav(ha, hb) <= imagehash.EGYEZES_BIT) {
+                    kepPar.push([ha.f, hb.f]);
+                    hasznaltA.add(ha.f);
+                    hasznaltB.add(hb.f);
+                    break;
+                }
             }
         }
     }
@@ -73,9 +87,9 @@ function osszevet(a, b, hashA, hashB, gyakori) {
     if ((a.ugylet || "elado") !== (b.ugylet || "elado")) return null;
 
     // Ellentmondások (egyező fotók nélkül): ha ezek eltérnek, nem ugyanaz
-    const ea = emeletSzam(a.emelet), eb = emeletSzam(b.emelet);
+    const ea = a._em, eb = b._em;
     const emeletEgyezik = ea !== null && eb !== null && ea === eb;
-    const oa = osszSzint(a.emelet), ob = osszSzint(b.emelet);
+    const oa = a._ossz, ob = b._ossz;
     const nmK = kulonbseg(a.nm, b.nm);
     const arK = kulonbseg(a.ar, b.ar);
 
@@ -142,23 +156,37 @@ function osszevet(a, b, hashA, hashB, gyakori) {
 
 }
 
-async function keres() {
+// Pár kulcsa számként (a kisebb azonosító elöl)
+const parKulcs = (a, b) => a < b ? a * 1e7 + b : b * 1e7 + a;
+
+async function szamol() {
+
+    const kezdes = Date.now();
 
     const r = await db.query(`
         SELECT i.id, i.link, i.ar, i.nm, i.szobak, i.emelet, i.allapot, i.varos, i.kerulet, i.telepules,
                i.tipus, i.ugylet, i.cim, i.created_at, i.tovabbi_linkek, i.kulso_kepek, i.x, i.y, i.hely_pontossag,
                i.statusz, i.owner_id, i.jovahagyva, i.leiras IS NOT NULL AS leiras, i.evszam, i.telek_nm, i.forras_tipus,
-               (SELECT COALESCE(u.nev, u.felhasznalonev, u.email) FROM users u WHERE u.id = i.owner_id) AS hirdeto_nev,
-               (SELECT u.szerep FROM users u WHERE u.id = i.owner_id) AS hirdeto_szerep,
-               (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db,
-               (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id,
-               (SELECT COUNT(*) FROM favorites f WHERE f.property_id = i.id)::int AS kedvenc_db
+               u.hirdeto_nev, u.hirdeto_szerep,
+               COALESCE(k.kep_db, 0)::int AS kep_db, k.kep_id,
+               COALESCE(f.kedvenc_db, 0)::int AS kedvenc_db
         FROM ingatlanok i
+        LEFT JOIN (SELECT id, COALESCE(nev, felhasznalonev, email) AS hirdeto_nev, szerep AS hirdeto_szerep FROM users) u ON u.id = i.owner_id
+        LEFT JOIN (SELECT ingatlan_id, COUNT(*) AS kep_db,
+                          (ARRAY_AGG(id ORDER BY sorrend, id))[1] AS kep_id
+                   FROM ingatlan_kepek GROUP BY ingatlan_id) k ON k.ingatlan_id = i.id
+        LEFT JOIN (SELECT property_id, COUNT(*) AS kedvenc_db FROM favorites GROUP BY property_id) f ON f.property_id = i.id
         ORDER BY i.id
     `);
 
     const rows = r.rows;
-    rows.forEach(i => { i.kedvenc = i.kedvenc_db > 0; });
+    rows.forEach(i => {
+        i.kedvenc = i.kedvenc_db > 0;
+        i.ar = i.ar === null ? null : Number(i.ar);
+        i.nm = i.nm === null ? null : Number(i.nm);
+        i._em = emeletSzam(i.emelet);
+        i._ossz = osszSzint(i.emelet);
+    });
 
     // 1) Biztos duplikátum: ugyanaz a link
     const linkCsoport = new Map();
@@ -177,89 +205,138 @@ async function keres() {
 
     // 2) Ugyanaz az ingatlan más linkkel
     const hashR = await db.query("SELECT ingatlan_id, forras, hash FROM kep_hashek WHERE hash IS NOT NULL");
-    const hashek = new Map();
     const hashHirdetes = new Map();       // hash -> hány különböző hirdetésben
+    const nyers = [];
 
-    hashR.rows.forEach(h => {
-        if (!imagehash.hasznalhato(h.hash)) return;
-        if (!hashek.has(h.ingatlan_id)) hashek.set(h.ingatlan_id, []);
-        hashek.get(h.ingatlan_id).push(h);
-        if (!hashHirdetes.has(h.hash)) hashHirdetes.set(h.hash, new Set());
-        hashHirdetes.get(h.hash).add(h.ingatlan_id);
-    });
-
-    // Ami 8-nál több hirdetésben is szerepel (logó, "nincs kép", iroda fotója) – nem számít.
-    // (4-nél még kiesett, ha ugyanazt a lakást 5 iroda hirdette ugyanazokkal a fotókkal.)
-    const gyakori = new Set([...hashHirdetes.entries()].filter(([, s]) => s.size > 8).map(([h]) => h));
-
-    const kizartR = await db.query("SELECT a, b FROM dup_kizart");
-    const kizart = new Set(kizartR.rows.map(k => `${k.a}-${k.b}`));
-
-    const jeloltek = rows.filter(i => !biztosFelesleges.has(i.id) && ["aktiv", "fuggo"].includes(i.statusz));
-
-    // Jelölt párok: ugyanabban a városban, típusban, ügyletben (az adatok alapján), és
-    // minden pár, amelyiknek legalább egy fotója egyezik (bármilyen típussal / várossal –
-    // gyors kereséssel: a 64 bites ujjlenyomatot 9 darabra vágjuk; 8 eltérő bitnél
-    // legalább egy darab biztosan pontosan egyezik)
-    const parKulcsok = new Set();
-    const parLista = [];
-    const parAdd = (a, b) => {
-        if (a.id === b.id) return;
-        const k = a.id < b.id ? `${a.id}-${b.id}` : `${b.id}-${a.id}`;
-        if (parKulcsok.has(k)) return;
-        parKulcsok.add(k);
-        parLista.push(a.id < b.id ? [a, b] : [b, a]);
-    };
-
-    const csoport = new Map();
-    jeloltek.forEach(i => {
-        const k = `${i.varos}|${i.tipus || "lakas"}|${i.ugylet || "elado"}`;
-        if (!csoport.has(k)) csoport.set(k, []);
-        csoport.get(k).push(i);
-    });
-    for (const lista of csoport.values()) {
-        for (let x = 0; x < lista.length; x++) for (let y = x + 1; y < lista.length; y++) parAdd(lista[x], lista[y]);
+    for (const h of hashR.rows) {
+        const s = String(h.hash || "").padStart(16, "0");
+        if (!/^[0-9a-f]{16}$/i.test(s)) continue;
+        const hi = parseInt(s.slice(0, 8), 16) >>> 0, lo = parseInt(s.slice(8), 16) >>> 0;
+        // Egyszínű / üres kép (pl. "nincs kép" helyettesítő) – nem használható
+        const n = bitDb(hi) + bitDb(lo);
+        if (n < 6 || n > 58) continue;
+        nyers.push({ id: h.ingatlan_id, f: imagehash.kepForras(h.forras), hash: s, hi, lo });
+        if (!hashHirdetes.has(s)) hashHirdetes.set(s, new Set());
+        hashHirdetes.get(s).add(h.ingatlan_id);
     }
 
+    // Ami 8-nál több hirdetésben is szerepel (logó, "nincs kép", iroda fotója) – nem számít.
+    const gyakori = new Set([...hashHirdetes.entries()].filter(([, s]) => s.size > 8).map(([h]) => h));
+
+    const hashek = new Map();             // hirdetés -> [{ f, hi, lo }]
+    for (const h of nyers) {
+        if (gyakori.has(h.hash)) continue;
+        if (!hashek.has(h.id)) hashek.set(h.id, []);
+        hashek.get(h.id).push({ f: h.f, hi: h.hi, lo: h.lo });
+    }
+
+    const kizartR = await db.query("SELECT a, b FROM dup_kizart");
+    const kizart = new Set(kizartR.rows.map(k => parKulcs(Number(k.a), Number(k.b))));
+
+    const jeloltek = rows.filter(i => !biztosFelesleges.has(i.id) && ["aktiv", "fuggo"].includes(i.statusz));
+    const jeloltId = new Map(jeloltek.map(i => [i.id, i]));
+
+    // A hirdetések saját linkjei (az "már össze vannak kötve" vizsgálathoz)
+    const linkHalmaz = i => {
+        if (!i._linkek) i._linkek = new Set([i.link, ...(Array.isArray(i.tovabbi_linkek) ? i.tovabbi_linkek : [])].map(normLink).filter(Boolean));
+        return i._linkek;
+    };
+
+    const parok = [];
+    let lepes = 0;
+
+    const vizsgal = async (a, b) => {
+        if (++lepes % 500 === 0) await levegot();
+        if (kizart.has(parKulcs(a.id, b.id))) return;
+        const v = osszevet(a, b, hashek.get(a.id) || [], hashek.get(b.id) || []);
+        if (!v) return;
+        // Közös fotó nélkül csak ugyanabban a városban lehet ugyanaz
+        if (v.kepDb === 0 && (a.varos || "") !== (b.varos || "")) return;
+        // Már össze vannak kötve (az egyik linkje a másik "további linkje")
+        const la = linkHalmaz(a);
+        for (const l of linkHalmaz(b)) if (la.has(l)) return;
+        const [x, y] = a.id < b.id ? [a, b] : [b, a];
+        parok.push({ a: x.id, b: y.id, ...v });
+    };
+
+    // a) Fotó alapján: minden pár, amelyiknek legalább egy fotója (szinte) egyezik –
+    //    bármilyen típussal / várossal. Gyors keresés: az ujjlenyomat 16 bites
+    //    szeleteit (8 db, átfedéssel) "vödrökbe" tesszük; ugyanaz a fotó szinte
+    //    mindig legalább egy szeletben pontosan egyezik.
+    const fotoParok = new Set();
     {
-        const jeloltId = new Map(jeloltek.map(i => [i.id, i]));
         const vodor = new Map();
+        let n = 0;
         for (const [id, lista] of hashek) {
             if (!jeloltId.has(id)) continue;
+            if (++n % 500 === 0) await levegot();
             for (const h of lista) {
-                if (gyakori.has(h.hash)) continue;
-                const bitek = BigInt("0x" + h.hash).toString(2).padStart(64, "0");
-                for (let d = 0; d < 9; d++) {
-                    const k = d + ":" + bitek.slice(d * 7, d * 7 + 7 + (d === 8 ? 1 : 0));
-                    if (!vodor.has(k)) vodor.set(k, new Set());
-                    vodor.get(k).add(id);
+                const { hi, lo } = h;
+                const szeletek = [
+                    hi >>> 16, hi & 0xffff, lo >>> 16, lo & 0xffff,
+                    (hi >>> 8) & 0xffff, ((hi & 0xff) << 8) | (lo >>> 24), (lo >>> 8) & 0xffff, ((lo & 0xff) << 8) | (hi >>> 24)
+                ];
+                for (let d = 0; d < 8; d++) {
+                    const k = d * 65536 + szeletek[d];
+                    let s = vodor.get(k);
+                    if (!s) vodor.set(k, s = new Set());
+                    s.add(id);
                 }
             }
         }
         for (const ids of vodor.values()) {
-            if (ids.size < 2 || ids.size > 60) continue;
+            if (++n % 5000 === 0) await levegot();
+            if (ids.size < 2 || ids.size > 40) continue;
             const l = [...ids];
-            for (let x = 0; x < l.length; x++) for (let y = x + 1; y < l.length; y++) parAdd(jeloltId.get(l[x]), jeloltId.get(l[y]));
+            for (let x = 0; x < l.length; x++) for (let y = x + 1; y < l.length; y++) fotoParok.add(parKulcs(l[x], l[y]));
         }
     }
 
-    const parok = [];
+    await levegot();
 
-    {
-        for (const [a, b] of parLista) {
+    for (const k of fotoParok) {
+        const a = jeloltId.get(Math.floor(k / 1e7)), b = jeloltId.get(k % 1e7);
+        if (a && b) await vizsgal(a, b);
+    }
 
-                if (kizart.has(`${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`)) continue;
+    // b) Adatok alapján: ugyanabban a városban, típusban, ügyletben, és a terület
+    //    legfeljebb 12 %-kal tér el (fotó nélkül ennél nagyobb eltérés úgysem lehet
+    //    ugyanaz). A terület szerint rendezve csak a közeli szomszédokat nézzük –
+    //    nem minden párt (az volt a lefagyás oka).
+    const csoport = new Map();
+    jeloltek.forEach(i => {
+        if (!(i.nm > 0)) return;
+        const k = `${i.varos}|${i.tipus || "lakas"}|${i.ugylet || "elado"}`;
+        if (!csoport.has(k)) csoport.set(k, []);
+        csoport.get(k).push(i);
+    });
 
-                // Már össze vannak kötve (az egyik linkje a másik "további linkje")
-                const la = new Set([a.link, ...(a.tovabbi_linkek || [])].map(normLink).filter(Boolean));
-                if ([b.link, ...(b.tovabbi_linkek || [])].map(normLink).some(l => l && la.has(l))) continue;
-
-                const v = osszevet(a, b, hashek.get(a.id) || [], hashek.get(b.id) || [], gyakori);
-
-                if (v) parok.push({ a: a.id, b: b.id, ...v });
-
+    let kor = 0;
+    for (const lista of csoport.values()) {
+        lista.sort((a, b) => a.nm - b.nm);
+        for (let x = 0; x < lista.length; x++) {
+            const a = lista[x];
+            const felso = a.nm / 0.88;
+            const aKep = hashek.has(a.id);
+            for (let y = x + 1; y < lista.length; y++) {
+                const b = lista[y];
+                if (b.nm > felso) break;
+                if (++kor % 20000 === 0) await levegot();
+                // gyors előszűrés (ugyanazok a feltételek, mint az összevetésben fotók nélkül)
+                if (a.szobak > 0 && b.szobak > 0 && a.szobak !== b.szobak) continue;
+                if (a._em !== null && b._em !== null && a._em !== b._em) continue;
+                if (a._ossz !== null && b._ossz !== null && a._ossz !== b._ossz) continue;
+                const arK = kulonbseg(a.ar, b.ar);
+                if (arK !== null && arK > 0.25) continue;
+                if (fotoParok.has(parKulcs(a.id, b.id))) continue;     // már megnéztük
+                // fotók nélkül csak a szinte azonos ár és terület jöhet szóba
+                if (!aKep || !hashek.has(b.id)) {
+                    const nmK = kulonbseg(a.nm, b.nm);
+                    if (!(arK !== null && arK <= 0.04 && nmK !== null && nmK <= 0.03)) continue;
+                }
+                await vizsgal(a, b);
+            }
         }
-
     }
 
     // Csoportok: csak az erős párok láncolódnak (ha A=B és B=C, akkor egy csoport);
@@ -333,7 +410,7 @@ async function keres() {
                 hirdeto_nev: t.owner_id ? t.hirdeto_nev : null, hirdeto_admin: t.hirdeto_szerep === "admin",
                 kepek: [
                     ...(t.kep_id ? ["db:" + t.kep_id] : []),
-                    ...(t.kulso_kepek || []).slice(0, 5)
+                    ...(Array.isArray(t.kulso_kepek) ? t.kulso_kepek : []).slice(0, 5)
                 ].slice(0, 5),
                 egyezoKepek: [...(egyezo[t.id] || [])]
             }))
@@ -348,13 +425,54 @@ async function keres() {
         (i.link && !normLink(i.link))
     ).map(i => ({ id: i.id, ar: i.ar, nm: i.nm, link: i.link }));
 
-    const kepHianyzik = await imagehash.hianyzoSzam();
+    console.log(`Duplikátum-keresés: ${rows.length} hirdetés, ${lepes} pár megnézve, ${valoszinu.length} csoport – ${((Date.now() - kezdes) / 1000).toFixed(1)} mp`);
 
     return {
         hibas,
         biztos: biztos.map(g => ({ megtart: g[0].id, tagok: g.map(i => ({ id: i.id, link: i.link })) })),
         biztosFelesleges: biztosFelesleges.size,
-        valoszinu,
+        valoszinu
+    };
+
+}
+
+// ---------- gyorsítótár ----------
+//  Egyszerre csak egy keresés fut (ha többször kattintasz a fülre, ugyanazt várja meg),
+//  és az eredményt pár percig megtartjuk. Összevonás / "nem ugyanaz" / új fotók után újraszámol.
+
+const CACHE_MS = 3 * 60 * 1000;
+const ADMIN_MAX = 400;          // ennyi csoportot küldünk egyszerre a böngészőnek
+let cache = null;               // { ido, kepVege, adat }
+let futo = null;
+
+function elavult() {
+    cache = null;
+}
+
+async function keres(opts = {}) {
+
+    const kepVege = (imagehash.allapot() || {}).vege || null;
+    const limit = opts.limit === undefined ? ADMIN_MAX : opts.limit;
+
+    let adat;
+
+    if (!opts.friss && cache && Date.now() - cache.ido < CACHE_MS && cache.kepVege === kepVege) {
+        adat = cache.adat;
+    } else {
+        if (!futo) {
+            futo = szamol()
+                .then(a => { cache = { ido: Date.now(), kepVege, adat: a }; return a; })
+                .finally(() => { futo = null; });
+        }
+        adat = await futo;
+    }
+
+    const kepHianyzik = await imagehash.hianyzoSzam();
+
+    return {
+        ...adat,
+        valoszinu: Number.isFinite(limit) ? adat.valoszinu.slice(0, limit) : adat.valoszinu,
+        valoszinuOsszes: adat.valoszinu.length,
         kepek: { elerheto: imagehash.elerheto(), hianyzik: kepHianyzik, fut: imagehash.allapot() }
     };
 
@@ -388,7 +506,7 @@ async function athelyezEsTorol(client, megtart, torlendo) {
 // Minden biztos duplikátum törlése (a legrégebbi marad meg)
 async function biztosTorlese() {
 
-    const { biztos } = await keres();
+    const { biztos } = await keres({ friss: true, limit: Infinity });
 
     const client = await db.connect();
     let torolt = 0;
@@ -413,6 +531,7 @@ async function biztosTorlese() {
     } finally {
 
         client.release();
+        elavult();
 
     }
 
@@ -520,6 +639,7 @@ async function osszevon(megtartId, torlendoIds) {
         throw e;
     } finally {
         client.release();
+        elavult();
     }
 
 }
@@ -548,6 +668,7 @@ async function tomegesOsszevon(csoportok) {
 async function kizar(ids) {
 
     ids = [...new Set(ids.map(Number).filter(Boolean))];
+    elavult();
 
     for (let x = 0; x < ids.length; x++) {
         for (let y = x + 1; y < ids.length; y++) {
@@ -561,6 +682,7 @@ async function kizar(ids) {
 
 // Egy hirdetés kivétele egy csoportból (a többivel nem ugyanaz)
 async function kivesz(id, tobbi) {
+    elavult();
     for (const t of tobbi.map(Number).filter(n => n && n !== Number(id))) {
         await db.query("INSERT INTO dup_kizart (a, b) VALUES ($1, $2) ON CONFLICT DO NOTHING", [Math.min(id, t), Math.max(id, t)]);
     }
@@ -570,7 +692,7 @@ async function kivesz(id, tobbi) {
 // A biztos (legalább 3 egyező fotós) duplikátumok magától összevonva – a beolvasás és
 // a napi frissítés után fut, hogy ugyanaz a lakás ne maradjon bent többször
 async function autoOsszevon() {
-    const { valoszinu } = await keres();
+    const { valoszinu } = await keres({ friss: true, limit: Infinity });
     const lista = valoszinu.filter(g => g.automatikus).map(g => ({
         megtart: g.javasolt,
         torlendo: g.tagok.map(t => t.id).filter(id => id !== g.javasolt)
@@ -581,4 +703,4 @@ async function autoOsszevon() {
     return v;
 }
 
-module.exports = { keres, autoOsszevon, biztosTorlese, osszevon, tomegesOsszevon, kizar, kivesz, _teszt: { osszevet } };
+module.exports = { keres, autoOsszevon, biztosTorlese, osszevon, tomegesOsszevon, kizar, kivesz, _teszt: { osszevet, hashTav, bitDb } };
