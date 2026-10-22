@@ -177,10 +177,12 @@ async function forrasHelyAdat(varos) {
 function kulsoAzon(d, regi) {
     const k = new Set(Array.isArray(regi) ? regi : []);
     if (d.imoId) k.add("imo:" + d.imoId);
-    // Az OLX hirdetés számazonosítója: ha az OLX oldala letiltja a szervert, az OLX
-    // API-jából ezzel még kiderül, fent van-e (forrasHely.olxAllapot)
-    (d.forrasLista || []).forEach(f => { if (f && f.forras === "olx" && f.id && /^\d{5,}$/.test(String(f.id))) k.add("olxid:" + f.id); });
-    if (d.olxId && /^\d{5,}$/.test(String(d.olxId))) k.add("olxid:" + d.olxId);
+    // Az OLX hirdetés számazonosítója (csak az OLX saját adatából – az Imoradar24
+    // "source_listing_id"-je NEM az OLX azonosítója!): ha az OLX oldala letiltja a
+    // szervert, az OLX API-jából ezzel még kiderül, fent van-e (forrasHely.olxAllapot)
+    if (forrasHely.olxIdJo(d.olxId)) k.add("olxid:" + d.olxId);
+    // a régi, hibásan (az Imoradar24 azonosítójával) mentett kulcsok ki
+    [...k].forEach(x => { const m = /^olxid:(\d+)$/.exec(String(x)); if (m && !forrasHely.olxIdJo(m[1])) k.delete(x); });
     [d.kozvetitoLink, forrasHely.kozvetitoOldal(d.link) ? d.link : null, ...(d.forrasLista || []).map(f => f.kozvetito)].filter(Boolean)
         .forEach(l => linkKulcsok(l).forEach(x => k.add(x)));
     return [...k];
@@ -539,7 +541,7 @@ async function frissitForrasbol(i, job) {
         }
         // Az OLX oldala letiltja a szervert: az OLX API-ja a hirdetés számazonosítójával
         if (tiltasHiba(e) && /olx\.ro/i.test(i.link)) {
-            const id = (Array.isArray(i.kulso_azon) ? i.kulso_azon : []).map(k => (/^olxid:(\d+)$/.exec(String(k)) || [])[1]).find(Boolean);
+            const id = (Array.isArray(i.kulso_azon) ? i.kulso_azon : []).map(k => (/^olxid:(\d+)$/.exec(String(k)) || [])[1]).find(forrasHely.olxIdJo);
             const a = id ? await forrasHely.olxAllapot(id) : null;
             if (a && a.aktiv === false) { await nemElerhetoJelol(i.id, job, i.link, "forras_szerint"); return; }
             if (a && a.aktiv) {

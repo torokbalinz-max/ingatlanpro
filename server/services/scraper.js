@@ -539,7 +539,9 @@ function forrasElem(s) {
     const kulcs = String(forras || "").toLowerCase().replace(/\.ro$/, "").replace(/[^a-z0-9]/g, "") || null;
     id = id || s.sourceListingId || s.listingId || s.externalId || null;
     if (!url && !kozvetito) return null;
-    return { forras: kulcs, forrasNev: forras || null, id: id ? String(id) : null, url, kozvetito };
+    // a forrás saját ára (az Imoradar24 forrásonként mutatja – pl. az OLX lejben adott árát átváltva)
+    const ar = numberFrom(s.price) || null;
+    return { forras: kulcs, forrasNev: forras || null, id: id ? String(id) : null, url, kozvetito, ar };
 }
 
 // Imoradar24 / Imobiliare találati lista: a beágyazott adatcsomagban

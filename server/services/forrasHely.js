@@ -427,6 +427,183 @@ function kozvetlenHirdetes(link) {
     return require("./scraper").isListingUrl(l) || /lajumate\.ro\/ad\/|romimo\.ro\/.+\d{5,}/i.test(l);
 }
 
+// Valódi OLX hirdetésszám-e (az OLX hirdetései 9 jegyűek, pl. 307289072)
+function olxIdJo(id) {
+    return /^\d{9,}$/.test(String(id || "")) && Number(id) >= 100000000;
+}
+
+// ---------- Pontos hirdetés a forrásoldal saját (szűrt) találati listájából ----------
+//  Az Imoradar24 a forrás nevét megadja (olx.ro, storia.ro, publi24.ro), a linket nem
+//  (az csak belépve látszik). A forrásoldal nyilvános találati listájában – a városban,
+//  ár szerint szűkítve – megkeressük ugyanazt a hirdetést: ár (±2,5 %), alapterület
+//  (±1,5 m²), és ha kell, a cím szavai / emelet / szobák döntenek. Csak egyértelmű
+//  egyezést fogadunk el.
+
+const OLX_SZOBA = { one: 1, two: 2, three: 3, four: 4, five: 5, more: 5 };
+const listaCache = new Map();      // url -> { ido, adat } – a FELDOLGOZOTT lista (az OLX oldala ~4 MB, azt nem tartjuk meg)
+
+async function gyorsLista(url, feldolgoz) {
+    const c = listaCache.get(url);
+    if (c && Date.now() - c.ido < CACHE_IDO) return c.adat;
+    const adat = feldolgoz(await getHtml(url));
+    if (listaCache.size > 200) listaCache.clear();
+    listaCache.set(url, { ido: Date.now(), adat });
+    return adat;
+}
+
+// OLX találati lista: window.__PRERENDERED_STATE__ -> listing.listing.ads
+function olxListabol(html) {
+    const m = String(html || "").match(/window\.__PRERENDERED_STATE__\s*=\s*("(?:[^"\\]|\\.)*")/);
+    if (!m) return { ads: [], oldalak: 0 };
+    let st;
+    try { st = JSON.parse(JSON.parse(m[1])); } catch (e) { return { ads: [], oldalak: 0 }; }
+    const L = st && st.listing && st.listing.listing;
+    if (!L || !Array.isArray(L.ads)) return { ads: [], oldalak: 0 };
+    const ads = L.ads.filter(a => a && a.url && a.isActive !== false).map(a => {
+        const p = k => ((a.params || []).find(x => x.key === k) || {}).normalizedValue;
+        const rp = (a.price && a.price.regularPrice) || {};
+        let ar = Number(rp.value) || null;
+        if (ar && /ron|lei/i.test(rp.currencyCode || "")) ar = Math.round(ar / 5);
+        const em = String(p("floor") || "");
+        const map = a.map || {};
+        const sugarM = map.show_detailed ? 0 : (Number(map.radius) >= 0 ? Number(map.radius) * 1000 : null);
+        const szint = map.lat && map.lon ? helySzint(sugarM) : null;
+        return {
+            olxId: a.id ? String(a.id) : null,
+            link: tisztaLink(a.url),
+            cim: a.title || null,
+            ar,
+            nm: Number(String(p("m") || "").replace(",", ".")) || null,
+            szobak: OLX_SZOBA[String(p("rooms") || "").toLowerCase()] || null,
+            emelet: /parter/i.test(em) ? "0" : /demisol|subsol/i.test(em) ? "-1" : ((em.match(/(\d{1,2})/) || [])[1] || null),
+            leiras: a.description ? String(a.description).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 3000) : null,
+            x: szint ? Number(map.lon) : null,
+            y: szint ? Number(map.lat) : null,
+            hely: szint,
+            kulso_kepek: (a.photos || []).map(f => String((f && f.link) || f || "").replace("{width}", "1200").replace("{height}", "900")).filter(u => /^https?:\/\//.test(u)).slice(0, 20)
+        };
+    });
+    return { ads, oldalak: Number(L.totalPages) || 1 };
+}
+
+// Publi24 találati lista: a JSON-LD ItemList (név, ár, leírás, link)
+function publi24Listabol(html) {
+    const ki = [];
+    for (const m of String(html || "").matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+        if (!/ItemList/.test(m[1])) continue;
+        let j;
+        try { j = JSON.parse(m[1].replace(/[\u0000-\u001f]+/g, " ")); } catch (e) { continue; }
+        (j.itemListElement || []).forEach(e => {
+            if (!e || !e.url) return;
+            const o = e.offers || {};
+            let ar = Number(o.price) || null;
+            if (ar && /ron|lei/i.test(o.priceCurrency || "")) ar = Math.round(ar / 5);
+            const szoveg = `${e.name || ""} ${(o.itemOffered && o.itemOffered.description) || e.description || ""}`;
+            const nm = (szoveg.match(/(?:suprafa[tț][aă]\s*util[aă][^0-9]{0,25})?(\d{2,4}(?:[.,]\d{1,2})?)\s*(?:mp|m2|m²|metri)/i) || [])[1];
+            ki.push({
+                link: new URL(String(e.url), "https://www.publi24.ro/").toString().split("?")[0],
+                cim: e.name || null,
+                ar,
+                nm: nm ? Number(nm.replace(",", ".")) : null,
+                szobak: Number((szoveg.match(/(\d)\s*camere/i) || [])[1]) || (/garsonier/i.test(szoveg) ? 1 : null),
+                elerheto: !o.availability || /InStock/i.test(o.availability)
+            });
+        });
+    }
+    return ki;
+}
+
+const szavak = s => new Set(slug(s).split("-").filter(w => w.length > 2 && !/^(de|cu|in|la|si|pe|din|vanzare|vand|apartament|camere|camera|zona)$/.test(w)));
+
+function cimHasonlo(a, b) {
+    const x = szavak(a), y = szavak(b);
+    if (!x.size || !y.size) return 0;
+    let k = 0;
+    x.forEach(w => { if (y.has(w)) k++; });
+    return k / Math.min(x.size, y.size);
+}
+
+// A jelöltek közül az egyetlen egyező hirdetés (vagy null)
+function legjobbJelolt(d, lista) {
+    const ar = Number(d.ar) || 0;
+    if (!(ar > 0)) return null;
+    const nm = Number(d.nm) || 0;
+    const jo = lista.filter(o => {
+        if (!(o.ar > 0) || Math.abs(o.ar - ar) > ar * 0.025) return false;
+        if (nm > 0 && o.nm > 0 && Math.abs(o.nm - nm) > 1.5) return false;
+        if (d.szobak > 0 && o.szobak > 0 && Math.abs(o.szobak - d.szobak) > 1) return false;
+        return true;
+    });
+    if (jo.length <= 1) return jo[0] && ((nm > 0 && jo[0].nm > 0) || cimHasonlo(d.cim, jo[0].cim) >= 0.5 || Math.abs(jo[0].ar - ar) <= ar * 0.006) ? jo[0] : null;
+    // Több jelölt: pontszám (alapterület, emelet, ár, a cím szavai) – csak ha egy egyértelműen kiemelkedik
+    const pont = o => (nm > 0 && o.nm > 0 ? (Math.abs(o.nm - nm) <= 0.5 ? 3 : 1) : 0)
+        + (d.emelet && o.emelet !== null && o.emelet !== undefined && String(d.emelet).split("/")[0] === String(o.emelet) ? 2 : 0)
+        + (Math.abs(o.ar - ar) <= ar * 0.006 ? 2 : 0)
+        + cimHasonlo(d.cim, o.cim) * 3;
+    const r = jo.map(o => ({ o, p: pont(o) })).sort((a, b) => b.p - a.p);
+    return r[0].p >= 3 && r[0].p - r[1].p >= 1.5 ? r[0].o : null;
+}
+
+const PUBLI24_TIPUS = { lakas: "apartamente", haz: "case", telek: "terenuri", kereskedelmi: "spatii-comerciale", iroda: "birouri" };
+
+async function olxKeresesbol(d, hely) {
+    if (!(d.ar > 0) || !hely || !hely.varosRo) return null;
+    const q = new URLSearchParams();
+    q.set("search[filter_float_price:from]", String(Math.floor(d.ar * 0.975)));
+    q.set("search[filter_float_price:to]", String(Math.ceil(d.ar * 1.025)));
+    q.set("currency", "EUR");
+    const alap = `https://www.olx.ro/imobiliare/${slug(hely.varosRo)}/?${q}`;
+    const ads = [];
+    let oldalak = 1;
+    for (let p = 1; p <= Math.min(oldalak, 4); p++) {
+        const l = await gyorsLista(p === 1 ? alap : `${alap}&page=${p}`, olxListabol);
+        ads.push(...l.ads);
+        oldalak = l.oldalak || 1;
+        if (p < Math.min(oldalak, 4)) await sleep(500);
+    }
+    const t = legjobbJelolt(d, ads);
+    return t ? { link: t.link, forras: "olx", adat: t } : null;
+}
+
+async function publi24Keresesbol(d, hely) {
+    if (!(d.ar > 0) || !hely || !hely.varosRo || !hely.megye) return null;
+    const kat = PUBLI24_TIPUS[d.tipus || hely.tipus || "lakas"] || "apartamente";
+    const alap = `https://www.publi24.ro/anunturi/imobiliare/${(d.ugylet || hely.ugylet) === "kiado" ? "de-inchiriat" : "de-vanzare"}/${kat}/${slug(hely.megye)}/${slug(hely.varosRo)}/`;
+    const lista = [];
+    for (let p = 1; p <= 15; p++) {
+        let elemek;
+        try { elemek = await gyorsLista(p === 1 ? alap : `${alap}?pag=${p}`, publi24Listabol); } catch (e) { break; }
+        if (!elemek.length) break;
+        const uj = elemek.filter(e => !lista.some(x => x.link === e.link));
+        if (!uj.length) break;
+        lista.push(...uj);
+        // az ár szerint rendezett lista nem garantált – végigmegyünk (kicsi lista)
+        await sleep(400);
+    }
+    const t = legjobbJelolt(d, lista.filter(e => e.elerheto !== false));
+    return t ? { link: t.link, forras: "publi24", adat: t } : null;
+}
+
+//  forrasok: a hirdetés forrásai az Imoradar24 szerint [{ forras: "olx"|"storia"|"publi24"..., ar }]
+//  (forrásonként a saját árával) – ha nem ismert, mindhárom oldalon keresünk
+//  -> [{ link, forras, adat }] (a megtaláltak)
+async function keresesbolPontos(d, hely, forrasok) {
+    const lista = (forrasok && forrasok.length ? forrasok : [{ forras: "olx" }, { forras: "storia" }, { forras: "publi24" }])
+        .filter((f, n, a) => f && f.forras && a.findIndex(x => x.forras === f.forras) === n);
+    const ki = [];
+    for (const f of lista) {
+        const dd = { ...d, ar: Number(f.ar) > 0 ? Number(f.ar) : d.ar };
+        let t = null;
+        try {
+            if (f.forras === "olx") t = await olxKeresesbol(dd, hely);
+            else if (f.forras === "publi24") t = await publi24Keresesbol(dd, hely);
+            else if (f.forras === "storia") { const st = await storiaKeres(dd, { ...hely, tipus: dd.tipus || hely.tipus, ugylet: dd.ugylet || hely.ugylet }); t = st ? { link: st.link, forras: "storia", adat: st } : null; }
+        } catch (e) { t = null; }
+        if (t && !ki.some(x => x.link === t.link)) ki.push(t);
+    }
+    return ki;
+}
+
 // ---------- Imoradar24 adatlap (a teljes leírás a közvetített hirdetéseknél) ----------
 
 async function imoradarLeiras(url) {
@@ -462,26 +639,11 @@ async function azonositoSzerint(f, hely) {
 }
 
 async function azonositoSzerint0(f, hely) {
+    // FONTOS: az Imoradar24 "source_listing_id"-je az Imoradar24 SAJÁT azonosítója
+    // (pl. 6394942), nem az OLX / Storia hirdetésszáma – ezzel az OLX API-ban vagy a
+    // Storia-listában keresni rossz (más, régi hirdetést is találhatna). Csak a
+    // közvetlen linket fogadjuk el; a többit az adatok alapján keressük (keresesbolPontos).
     if (f.url) return { link: tisztaLink(f.url), forras: f.forras || forrasKulcs(null, f.url), adat: null };
-    if (!f.id) return null;
-    if (f.forras === "olx") {
-        try {
-            const j = await getJson(`https://www.olx.ro/api/v1/offers/${encodeURIComponent(f.id)}/`);
-            const o = j && j.data;
-            if (o && o.url) { diag.olxApi++; return { link: tisztaLink(o.url), forras: "olx", adat: olxAdat(o) }; }
-        } catch (e) { /* tovább a város listájára */ }
-        const cityId = hely && hely.varosRo ? await olxVarosId(hely.varosRo) : null;
-        if (cityId) {
-            const o = (await olxVarosAjanlatai(cityId)).find(x => String(x.id) === String(f.id));
-            if (o) { diag.olxLista++; return { link: tisztaLink(o.url), forras: "olx", adat: olxAdat(o) }; }
-        }
-        return null;
-    }
-    if (f.forras === "storia" && hely && hely.megye) {
-        const o = (await storiaVarosAjanlatai(hely)).find(x => x.id && String(x.id) === String(f.id));
-        if (o) return { link: o.link, forras: "storia", adat: o };
-        return null;
-    }
     return null;
 }
 
@@ -498,14 +660,12 @@ async function forrasokFeloldasa(lista, hely) {
 // A valódi forrás keresése a hirdetés adataiból (OLX vagy Storia; ha a forrás
 // nem ismert, mindkettő) -> { link, forras, adat } | null
 async function valodiForrasKeres(d, hely, forras) {
-    if (forras !== "storia" && hely && hely.varosRo) {
+    // a forrásoldal nyilvános (ár szerint szűrt) találati listája – ez a megbízhatóbb
+    const t = await keresesbolPontos(d, hely, forras ? [{ forras }] : null).catch(() => []);
+    if (t.length) return t[0];
+    if (forras !== "storia" && forras !== "publi24" && hely && hely.varosRo) {
         const o = await olxKeres(d, hely.varosRo).catch(() => null);
         if (o) return { link: o.link, forras: "olx", adat: o };
-        if (forras === "olx") return null;
-    }
-    if (forras !== "olx" && hely && hely.megye) {
-        const st = await storiaKeres(d, { ...hely, tipus: d.tipus || hely.tipus, ugylet: d.ugylet || hely.ugylet }).catch(() => null);
-        if (st) return { link: st.link, forras: "storia", adat: st };
     }
     return null;
 }
@@ -527,8 +687,16 @@ async function gazdagit(d, hely) {
         const pontos = await forrasokFeloldasa(d.forrasLista, h2);
         let t = pontos[0] || null;
         if (pontos.length > 1) d.tovabbi_linkek = [...new Set([...(d.tovabbi_linkek || []).filter(l => !kozvetitoOldal(l)), ...pontos.slice(1).map(x => x.link)])];
-        // 1/b) ha nincs azonosító: az adatok (ár, alapterület, szobák, emelet) alapján
-        if (!t && (forras === "olx" || forras === "storia")) t = await valodiForrasKeres(d, h2, forras);
+        // 1/b) a forrásoldal nyilvános találati listájából, az adatok (ár, alapterület,
+        //      szobák, emelet, cím) alapján – forrásonként a saját árával
+        if (!t) {
+            const fl = (d.forrasLista || []).filter(f => f && f.forras && !f.url).map(f => ({ forras: f.forras, ar: f.ar }));
+            const talaltak = await keresesbolPontos(d, h2, fl.length ? fl : (forras ? [{ forras }] : null)).catch(() => []);
+            if (talaltak.length) {
+                t = talaltak[0];
+                d.tovabbi_linkek = [...new Set([...(d.tovabbi_linkek || []).filter(l => !kozvetitoOldal(l)), ...pontos.map(x => x.link), ...talaltak.slice(1).map(x => x.link)])];
+            }
+        }
         const talalt = t ? (t.adat || {}) : null;
 
         if (talalt) {
@@ -538,6 +706,7 @@ async function gazdagit(d, hely) {
             if (talalt.hely) { d.x = talalt.x; d.y = talalt.y; d.forrasHely = talalt.hely; }
             if (!d.kulso_kepek || !d.kulso_kepek.length) d.kulso_kepek = talalt.kulso_kepek;
             if (!d.emelet && talalt.emelet) d.emelet = talalt.emelet;
+            if (talalt.olxId) d.olxId = talalt.olxId;
             d.valodiForras = t.forras || forras;
             d.forrasKulcs = t.forras || forras;
             // Storia: a pontos hely a hirdetés oldaláról (lent, a 2. lépésben)
@@ -709,5 +878,5 @@ module.exports = {
     gazdagit, kozvetitoLink, kozvetitoOldal, helySzint,
     olxOldalbol, storiaOldalbol, storiaListabol, olxKeres, olxVarosId, olxVarosAjanlatai, olxAdat, slug,
     storiaKeres, storiaListaUrl, forrasKereso, forrasKulcs, valodiForrasKeres, javitMind, azonositoSzerint, forrasokFeloldasa,
-    olxAllapot, kozvetlenHirdetes, ismertLinkElore
+    olxAllapot, kozvetlenHirdetes, ismertLinkElore, olxIdJo, olxListabol, publi24Listabol, legjobbJelolt, keresesbolPontos
 };
