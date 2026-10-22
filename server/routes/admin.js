@@ -332,6 +332,11 @@ router.post("/api/admin/unmatched-areas/assign", csapat.csakResz("helyek"), asyn
 
 });
 
+// Az Imoradar24-re mutató hirdetések: az eredeti link megkeresése most (és mi lett az eredmény)
+router.post("/api/admin/forraslinkek", csapat.csakGlobalis("ellenorzes"), async (req, res) => {
+    try { res.json(await require("../services/forrasHely").javitMind({ limit: 1000 })); } catch (err) { hiba(res, err); }
+});
+
 // Duplikátumok
 router.get("/api/admin/duplicates", csapat.csakGlobalis("ellenorzes"), async (req, res) => {
 

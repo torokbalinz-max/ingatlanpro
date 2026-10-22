@@ -413,20 +413,30 @@ async function imoradarLeiras(url) {
 
 const tisztaLink = u => String(u || "").split("#")[0].split("?")[0];
 
+const diag = { probalt: 0, olxApi: 0, olxLista: 0, storia: 0, sikertelen: [] };
+
 async function azonositoSzerint(f, hely) {
     if (!f) return null;
+    diag.probalt++;
+    const r = await azonositoSzerint0(f, hely);
+    if (r) { if (f.forras === "storia") diag.storia++; }
+    else if (f.id && diag.sikertelen.length < 15) diag.sikertelen.push(`${f.forras}:${f.id}`);
+    return r;
+}
+
+async function azonositoSzerint0(f, hely) {
     if (f.url) return { link: tisztaLink(f.url), forras: f.forras || forrasKulcs(null, f.url), adat: null };
     if (!f.id) return null;
     if (f.forras === "olx") {
         try {
             const j = await getJson(`https://www.olx.ro/api/v1/offers/${encodeURIComponent(f.id)}/`);
             const o = j && j.data;
-            if (o && o.url) return { link: tisztaLink(o.url), forras: "olx", adat: olxAdat(o) };
+            if (o && o.url) { diag.olxApi++; return { link: tisztaLink(o.url), forras: "olx", adat: olxAdat(o) }; }
         } catch (e) { /* tovább a város listájára */ }
         const cityId = hely && hely.varosRo ? await olxVarosId(hely.varosRo) : null;
         if (cityId) {
             const o = (await olxVarosAjanlatai(cityId)).find(x => String(x.id) === String(f.id));
-            if (o) return { link: tisztaLink(o.url), forras: "olx", adat: olxAdat(o) };
+            if (o) { diag.olxLista++; return { link: tisztaLink(o.url), forras: "olx", adat: olxAdat(o) }; }
         }
         return null;
     }
@@ -547,7 +557,8 @@ async function javitMind({ limit = 80 } = {}) {
                    v.nev_ro, v.megye
             FROM ingatlanok i LEFT JOIN varosok v ON v.nev = i.varos
             WHERE i.link ~* 'imoradar24\\.ro/' AND i.statusz IN ('aktiv', 'fuggo')
-              AND (i.forras_javitva IS NULL OR i.forras_javitva < NOW() - INTERVAL '3 days')
+              -- ami még nincs meg: óránként újra (az első, ár szerinti változat 3 napra félretette)
+              AND (i.forras_javitva IS NULL OR i.forras_javitva < NOW() - INTERVAL '1 hour')
             ORDER BY i.forras_javitva NULLS FIRST, i.id DESC LIMIT $1`, [limit])).rows;
 
         let lista = await valaszt();
@@ -602,6 +613,8 @@ async function javitMind({ limit = 80 } = {}) {
             await sleep(300);
         }
         console.log(`Forráslinkek: ${e.nezett} közvetített hirdetés, ${e.javitott} az eredeti linkre cserélve, ${e.kereso} a forrás keresésére.`);
+        console.log(`Forráslinkek – azonosító szerint: ${diag.probalt} próba, OLX API ${diag.olxApi}, OLX lista ${diag.olxLista}, Storia ${diag.storia}; nem sikerült pl.: ${diag.sikertelen.join(", ") || "–"}`);
+        e.diag = { ...diag, sikertelen: [...diag.sikertelen] };
         return e;
     })().finally(() => { javitFut = null; });
     return javitFut;
