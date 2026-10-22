@@ -10,6 +10,7 @@
     const V22 = {
         hu: {
             cardValuateShort: "Értékbecslés",
+            finCustomerSearchPh: "Ügyfél keresése (név vagy adószám)…",
             mtCityLabel: "Város",
             mtCityAll: "Minden város",
             mtCityNote: "Az alábbi eszközök csak a kiválasztott város (és a hozzá tartozó „és környéke”) hirdetéseire futnak – így gyorsabb, és nem kell mindig mindent lefuttatni. „Minden város”: az összesre.",
@@ -21,6 +22,7 @@
         },
         ro: {
             cardValuateShort: "Evaluare",
+            finCustomerSearchPh: "Caută client (nume sau CUI)…",
             mtCityLabel: "Oraș",
             mtCityAll: "Toate orașele",
             mtCityNote: "Instrumentele de mai jos rulează doar pentru anunțurile orașului ales (și ale zonei „și împrejurimi”) – mai rapid, nu trebuie rulat totul de fiecare dată. „Toate orașele”: pentru toate.",
@@ -32,6 +34,7 @@
         },
         en: {
             cardValuateShort: "Valuation",
+            finCustomerSearchPh: "Search customer (name or tax ID)…",
             mtCityLabel: "City",
             mtCityAll: "All cities",
             mtCityNote: "The tools below run only on the chosen city's listings (and its \"and surroundings\" area) – faster, and you don't have to run everything every time. \"All cities\": all of them.",

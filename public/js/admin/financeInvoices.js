@@ -596,6 +596,8 @@ AdminManager.finSzamlaUrlap = function (s, o) {
         if ($("#fszKiallitva").value) $("#fszEsedekes").value = plusNap($("#fszKiallitva").value, b.fizetesi_hatarido || 14);
     };
 
+    AdminManager.ugyfelKereso($("#fszUgyfel"));
+
     // Új ügyfél: az eddig beírtak megmaradnak, utána az új ügyfél lesz kiválasztva
     $("#fszUjUgyfel").onclick = () => {
         const most = adat();
@@ -878,6 +880,8 @@ AdminManager.finElofizetesSzerk = function (e, kesz) {
         };
     }
 
+    AdminManager.ugyfelKereso($("#feUgyfel"));
+
     $("#feUjUgyfel").onclick = () => {
         modal.hide();
         AdminManager.finUgyfelSzerk(null, ujId => {
@@ -904,5 +908,56 @@ AdminManager.finElofizetesSzerk = function (e, kesz) {
     };
 
     modal.show();
+
+};
+
+
+// ============================================================
+//  Ügyfél kiválasztása kereséssel (sok ügyfélnél a legördülő lista
+//  használhatatlan): a <select> rejtve marad (abból olvassa a mentés), elé
+//  egy keresőmező kerül – név vagy adószám beírására felajánlja az egyezőket.
+// ============================================================
+AdminManager.ugyfelKereso = function (sel) {
+
+    if (!sel || sel.dataset.kereso) return;
+    sel.dataset.kereso = "1";
+
+    const opts = [...sel.options].filter(o => o.value);
+    const listId = sel.id + "Lista";
+    const cimke = o => o.textContent.trim();
+
+    const inp = document.createElement("input");
+    inp.type = "search";
+    inp.className = "form-control";
+    inp.id = sel.id + "Kereso";
+    inp.setAttribute("list", listId);
+    inp.autocomplete = "off";
+    inp.placeholder = I18n.t("finCustomerSearchPh");
+    inp.setAttribute("aria-label", I18n.t("finCustomerSearchPh"));
+    const valasztott = sel.selectedOptions[0];
+    if (valasztott && valasztott.value) inp.value = cimke(valasztott);
+
+    const dl = document.createElement("datalist");
+    dl.id = listId;
+    dl.innerHTML = opts.map(o => `<option value="${Utils.escape(cimke(o))}"></option>`).join("");
+
+    sel.classList.add("d-none");
+    sel.parentNode.insertBefore(inp, sel);
+    sel.parentNode.insertBefore(dl, sel);
+
+    const egyeztet = () => {
+        const v = inp.value.trim().toLowerCase();
+        const o = opts.find(x => cimke(x).toLowerCase() === v);
+        sel.value = o ? o.value : "";
+        inp.classList.toggle("is-valid", !!o);
+        if (o) { inp.classList.remove("is-invalid"); sel.classList.remove("is-invalid"); }
+    };
+    inp.addEventListener("input", egyeztet);
+    inp.addEventListener("change", egyeztet);
+
+    // A mentés hibajelzése (is-invalid + focus a rejtett <select>-re) a keresőmezőn látsszon
+    new MutationObserver(() => { if (sel.classList.contains("is-invalid")) inp.classList.add("is-invalid"); })
+        .observe(sel, { attributes: true, attributeFilter: ["class"] });
+    sel.focus = () => inp.focus();
 
 };
