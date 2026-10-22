@@ -57,6 +57,8 @@ class CompareStatistics {
                     ${kartya(I18n.t("compareAvgPriceNm"), a.avg_price_nm, b.avg_price_nm, Utils.eurNm)}
                 </div>`;
 
+            html += `<div class="statGrid">`;
+
             [
                 ["allapot", "compareByAllapot"],
                 ["szobak", "compareByRooms"],
@@ -72,7 +74,7 @@ class CompareStatistics {
                 if (!kulcsok.length) return;
 
                 html += `
-                    <div class="card mb-4">
+                    <div class="card categoryCard">
                         <div class="card-header"><h5 class="mb-0">${I18n.t(title)}</h5></div>
                         <div class="card-body">
                             <table class="table table-sm statTable mb-0">
@@ -102,6 +104,8 @@ class CompareStatistics {
                     </div>`;
 
             });
+
+            html += `</div>`;
 
             // A régebbi legyen elöl
             if (a && b && new Date(a.created_at) > new Date(b.created_at)) {

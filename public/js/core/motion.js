@@ -92,6 +92,38 @@
         }
     }
 
+    // ---------- Kezdőlap: görgetésre finoman beúsznak a részek (egyszer) ----------
+    //  Csak ha a mozgás be van kapcsolva; a html.ipMotion osztály nélkül minden
+    //  azonnal látszik (ha a szkript valamiért nem fut, semmi sem marad rejtve).
+    if (!csendes) document.documentElement.classList.add("ipMotion");
+
+    const figyelo = !csendes && "IntersectionObserver" in window ? new IntersectionObserver(es => {
+        es.forEach(e => {
+            if (!e.isIntersecting) return;
+            const el = e.target;
+            el.classList.add("isIn");
+            figyelo.unobserve(el);
+            // A funkció-sáv számai (pl. 56 aktív hirdetés) felszámolnak
+            if (el.classList.contains("dockItem")) {
+                const sz = el.querySelector(".dockText small");
+                if (sz && /\d{2}/.test(sz.textContent)) setTimeout(() => felszamol(sz, 1100), 150);
+            }
+        });
+    }, { threshold: 0.18, rootMargin: "0px 0px -6% 0px" }) : null;
+
+    function felfed() {
+        document.querySelectorAll("#page-home [data-reveal]:not(.isIn):not([data-figyelt]), #page-home .featCell:not(.isIn):not([data-figyelt])").forEach((el, n) => {
+            el.setAttribute("data-figyelt", "");
+            if (!figyelo) { el.classList.add("isIn"); return; }
+            // a kiemelt hirdetések és a csempék sorban jönnek
+            if (!el.style.getPropertyValue("--i")) {
+                const testverek = [...el.parentElement.children].filter(x => x.hasAttribute("data-reveal") || x.classList.contains("featCell"));
+                el.style.setProperty("--i", String(Math.min(6, testverek.indexOf(el))));
+            }
+            figyelo.observe(el);
+        });
+    }
+
     // ---------- Fejléc: görgetéskor finom árnyék (egy figyelő az oldal tetején) ----------
     const jel = document.createElement("div");
     jel.setAttribute("aria-hidden", "true");
@@ -118,12 +150,13 @@
         el.addEventListener("animationend", vege);
     }
 
-    new MutationObserver(() => { oldalValtas(); hos(); })
+    new MutationObserver(() => { oldalValtas(); hos(); felfed(); })
         .observe(document.body, { attributes: true, attributeFilter: ["data-page"] });
 
     // A kezdőlap tartalma később rajzolódik ki: figyeljük, amíg megjelenik
     const home = document.getElementById("page-home");
-    if (home) new MutationObserver(hos).observe(home, { childList: true, subtree: true });
+    if (home) new MutationObserver(() => { hos(); felfed(); }).observe(home, { childList: true, subtree: true });
     hos();
+    felfed();
 
 })();

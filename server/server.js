@@ -200,7 +200,7 @@ app.listen(PORT, () => {
             .then(() => autofix.keruletIgazitas())
             .then(() => require("./services/kornyek").indulaskor());
     }, 5000);
-    // Havi automatikus piaci mentés (ha ebben a hónapban még nem volt) – induláskor és naponta
+    // Automatikus piaci mentés havonta kétszer (1-jén és 16-án; ha a félhónapban még nem volt) – induláskor és 12 óránként
     const havonta = () => require("./routes/statistics").havontaMent().catch(() => { });
     setTimeout(havonta, 60 * 1000);
     setInterval(havonta, 12 * 3600 * 1000).unref();

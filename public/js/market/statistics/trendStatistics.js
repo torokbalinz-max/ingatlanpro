@@ -338,6 +338,8 @@ class TrendStatistics {
         // Táblázat (az összes hirdetésre)
         let elozo = null;
         tabla.innerHTML = `
+            <details class="statMore">
+            <summary><i class="fa-solid fa-table" aria-hidden="true"></i> ${I18n.t("statsShowTable")}</summary>
             <div class="table-responsive">
                 <table class="table table-sm statTable align-middle mb-0">
                     <thead>
@@ -369,7 +371,8 @@ class TrendStatistics {
                         }).join("")}
                     </tbody>
                 </table>
-            </div>`;
+            </div>
+            </details>`;
 
     }
 
@@ -444,6 +447,8 @@ class TrendStatistics {
             html += `<div class="alert alert-warning">${I18n.t("trFewWarning")}</div>`;
         }
 
+        html += `<details class="statMore"><summary><i class="fa-solid fa-table" aria-hidden="true"></i> ${I18n.t("trBreakdowns")}</summary>`;
+
         Object.entries(d.bontasok).forEach(([cat, sorok]) => {
 
             if (!sorok.length) return;
@@ -481,6 +486,8 @@ class TrendStatistics {
                 </div>`;
 
         });
+
+        html += `</details>`;
 
         return html;
 

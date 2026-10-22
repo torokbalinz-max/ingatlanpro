@@ -18,6 +18,8 @@ class AccountPage {
     static TABS = [
         { key: "profil", icon: "fa-solid fa-id-card", label: "accTabProfil" },
         { key: "hirdetesek", icon: "fa-solid fa-house-user", label: "accTabListings" },
+        // A Hirdetéseim alatti második fül (nem külön menüpont): látogatottság
+        { key: "statisztika", icon: "fa-solid fa-chart-simple", label: "lsTab", al: "hirdetesek" },
         { key: "keresesek", icon: "fa-solid fa-bookmark", label: "accTabSearches" },
         { key: "igenyek", icon: "fa-solid fa-bullhorn", label: "accTabRequests" },
         { key: "uzenetek", icon: "fa-solid fa-envelope", label: "accTabMessages" },
@@ -49,8 +51,8 @@ class AccountPage {
             </div>
 
             <div class="typeTabs mb-4" role="tablist">
-                ${AccountPage.TABS.map(t => `
-                    <a class="typeTab ${t.key === AccountPage.tab ? "active" : ""}" href="#fiok/${t.key}" role="tab" aria-selected="${t.key === AccountPage.tab}">
+                ${AccountPage.TABS.filter(t => !t.al).map(t => `
+                    <a class="typeTab ${t.key === AccountPage.tab || (AccountPage.TABS.find(x => x.key === AccountPage.tab) || {}).al === t.key ? "active" : ""}" href="#fiok/${t.key}" role="tab" aria-selected="${t.key === AccountPage.tab}">
                         <i class="${t.icon}" aria-hidden="true"></i> ${I18n.t(t.label)}
                         ${t.key === "uzenetek" ? `<span class="badge rounded-pill text-bg-danger accMsgCount" ${AuthManager.olvasatlan ? "" : "hidden"}>${AuthManager.olvasatlan}</span>` : ""}
                         ${t.key === "ertesitesek" ? `<span class="badge rounded-pill text-bg-danger accNotifCount" ${AuthManager.ertesites ? "" : "hidden"}>${AuthManager.ertesites > 9 ? "9+" : AuthManager.ertesites}</span>` : ""}
@@ -68,6 +70,7 @@ class AccountPage {
         ({
             profil: () => AccountPage.profil(body),
             hirdetesek: () => AccountPage.hirdetesek(body),
+            statisztika: () => ListingStats.render(body),
             keresesek: () => AccountPage.keresesek(body),
             igenyek: () => AccountPage.igenyek(body),
             uzenetek: () => {
@@ -226,7 +229,7 @@ class AccountPage {
             .then(r => r.json())
             .then(lista => {
 
-                el.innerHTML = `
+                el.innerHTML = ListingStats.valto("hirdetesek") + `
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <p class="sectionNote mb-0">${I18n.t("accListingsNote")}</p>
                         <a class="btn btn-primary btn-sm" href="#new"><i class="fa-solid fa-plus"></i> ${I18n.t("navPost")}</a>
@@ -241,6 +244,14 @@ class AccountPage {
                 el.querySelectorAll("[data-edit]").forEach(b => {
                     b.onclick = () => NewPropertyManager.startEdit({ id: Number(b.dataset.edit) });
                 });
+
+                // Megtekintések a kártyákon (az utolsó 30 napban) – a részletek a Látogatottság fülön
+                if (lista.length) ListingStats.betolt(30).then(st => {
+                    st.hirdetesek.forEach(h => {
+                        const hely = el.querySelector(`[data-views="${h.id}"]`);
+                        if (hely) hely.innerHTML = `<i class="fa-solid fa-eye" aria-hidden="true"></i> ${I18n.f("lsCardViews", { n: Utils.num(h.megtekintes) })}${h.kedvenc ? ` · <i class="fa-solid fa-star" aria-hidden="true"></i> ${Utils.num(h.kedvenc)}` : ""}`;
+                    });
+                }).catch(() => { });
 
                 el.querySelectorAll("[data-kiemel]").forEach(b => {
                     b.onclick = () => FeatureModal.nyit(Number(b.dataset.kiemel), () => AccountPage.hirdetesek(el));
@@ -280,6 +291,7 @@ class AccountPage {
                     <div class="small text-body-secondary">${Utils.escape(CityManager.helyLabel(i))} · #${i.id} · ${Utils.ago(i.created_at)}</div>
                     ${i.iroda_nev ? `<div class="small"><i class="fa-solid fa-briefcase"></i> <a href="#iroda/${i.iroda_id}">${Utils.escape(i.iroda_nev)}</a></div>` : ""}
                     <div class="fw-bold mt-1">${Utils.price(i)} <span class="small fw-normal text-body-secondary">${i.nm ? Utils.nm(i.nm) : ""}</span></div>
+                    <a class="accViews small" href="#fiok/statisztika" data-views="${i.id}"></a>
                     <div class="d-flex gap-2 mt-2">
                         <button class="btn btn-sm btn-outline-secondary" data-edit="${i.id}"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
                         ${["aktiv", "fuggo"].includes(i.statusz) ? (CardsView.kiemelt(i)

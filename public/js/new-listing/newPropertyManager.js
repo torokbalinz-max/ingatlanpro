@@ -156,6 +156,9 @@ class NewPropertyManager {
         document.getElementById("photoHelp").innerText =
             I18n.t(NewPropertyManager.isLocal() ? "newPhotosHelp" : "newPhotosHelpLink");
 
+        // 360°-os körképek: csak az itt (link nélkül) feladott hirdetésnél
+        if (typeof NewPanorama !== "undefined") NewPanorama.frissitLathato();
+
     }
 
     static setLocationInfo(pontossag) {
@@ -386,7 +389,8 @@ class NewPropertyManager {
             kepek: NewPropertyManager.photos.filter(p => p.kind === "new").map(p => p.data),
             torlendoKepek: NewPropertyManager.removedPhotoIds,
             forras_szoveg: NewPropertyManager.forrasSzoveg || null,
-            ...NewPropertyManager.irodaAdat()
+            ...NewPropertyManager.irodaAdat(),
+            ...(typeof NewPanorama !== "undefined" ? NewPanorama.adat() : {})
         };
 
     }
@@ -642,6 +646,7 @@ class NewPropertyManager {
                 ];
 
                 NewPropertyManager.renderPhotos();
+                if (typeof NewPanorama !== "undefined") NewPanorama.betolt(i.panoramak || []);
 
                 const ujVaros = document.getElementById("ujVaros");
                 CityManager.fillCitySelect(ujVaros, i.varos || DataManager.currentCity);
@@ -681,6 +686,7 @@ class NewPropertyManager {
         NewPropertyManager.photos = [];
         NewPropertyManager.removedPhotoIds = [];
         NewPropertyManager.renderPhotos();
+        if (typeof NewPanorama !== "undefined") NewPanorama.reset();
 
         // Alapból a keresésben kiválasztott típus
         NewPropertyManager.tipus = FilterManager.tipus || "lakas";

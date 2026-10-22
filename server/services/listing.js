@@ -191,6 +191,40 @@ function parseKepek(lista) {
 
 }
 
+// 360°-os panorámák (data URL + név). A böngésző előtte legfeljebb 4096 px
+// szélesre kicsinyíti (ennél nagyobbat sok telefon nem tud megjeleníteni).
+// Csak JPEG / WEBP, legfeljebb 8 MB, és legalább 1,9 : 1 arányú (körkép).
+const PANORAMA_MAX = 4;
+
+function parsePanoramak(lista) {
+
+    if (!Array.isArray(lista)) return [];
+
+    return lista.slice(0, PANORAMA_MAX).map(p => {
+
+        const m = /^data:(image\/(?:jpeg|webp));base64,(.+)$/.exec(String((p && p.data) || ""));
+        if (!m) return null;
+
+        const buf = Buffer.from(m[2], "base64");
+        if (buf.length === 0 || buf.length > 8 * 1024 * 1024) return null;
+
+        const jo = (m[1] === "image/jpeg" && buf[0] === 0xff && buf[1] === 0xd8)
+            || (m[1] === "image/webp" && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP");
+        if (!jo) return null;
+
+        const w = Math.round(Number(p.w)) || null;
+        const h = Math.round(Number(p.h)) || null;
+        if (w && h && w / h < 1.9) return null;
+
+        return {
+            mime: m[1], adat: buf, w, h,
+            cim: String(p.cim || "").trim().slice(0, 60) || null
+        };
+
+    }).filter(Boolean);
+
+}
+
 // Link egységesítése a duplikátum-kereséshez
 function normLink(l) {
 
@@ -208,4 +242,5 @@ function normLink(l) {
 
 }
 
-module.exports = { TIPUSOK, UGYLETEK, TIPUS_MEZOK, HELY_SZINTEK, normalize, hianyzoMezok, parseKepek, normLink, szam, szoveg };
+module.exports = {
+    parsePanoramak, PANORAMA_MAX, TIPUSOK, UGYLETEK, TIPUS_MEZOK, HELY_SZINTEK, normalize, hianyzoMezok, parseKepek, normLink, szam, szoveg };

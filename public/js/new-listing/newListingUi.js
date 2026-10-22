@@ -39,7 +39,7 @@ class NewListingUi {
 
         // Képek, hely, beolvasás: a NewPropertyManager a lapot frissíti – azt figyeljük
         const figyelo = new MutationObserver(kesobb);
-        ["photoGrid", "newLocationInfo", "scrapeResult", "ujKerulet", "newPageTitle"].forEach(id => {
+        ["photoGrid", "panoGrid", "newLocationInfo", "scrapeResult", "ujKerulet", "newPageTitle"].forEach(id => {
             const el = document.getElementById(id);
             if (el) figyelo.observe(el, { childList: true, subtree: true, characterData: true });
         });
@@ -161,6 +161,7 @@ class NewListingUi {
                     <span class="npChips">
                         <span class="ipChip"><i class="${t.icon}" aria-hidden="true"></i> ${esc(Types.label(d.tipus))}</span>
                         <span class="ipChip isDeal">${esc(Types.ugyletLabel(d.ugylet))}</span>
+                        ${typeof NewPanorama !== "undefined" && NewPanorama.lathato() && NewPanorama.lista.length ? `<span class="ipChip isPano"><i class="fa-solid fa-street-view" aria-hidden="true"></i> 360°</span>` : ""}
                     </span>
                     ${kepDb > 1 ? `<span class="npCount"><i class="fa-solid fa-camera" aria-hidden="true"></i> ${kepDb}</span>` : ""}
                 </div>

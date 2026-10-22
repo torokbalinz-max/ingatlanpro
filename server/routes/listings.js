@@ -4,7 +4,7 @@
 
 const express = require("express");
 const db = require("../db/database");
-const { normalize, hianyzoMezok, parseKepek, TIPUS_MEZOK } = require("../services/listing");
+const { normalize, hianyzoMezok, parseKepek, parsePanoramak, PANORAMA_MAX, TIPUS_MEZOK } = require("../services/listing");
 const { scrape } = require("../services/scraper");
 const autofix = require("../services/autofix");
 const quality = require("../services/quality");
@@ -118,7 +118,13 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
             if (i.forras_tipus === "import") { i.leiras = null; i.cim = null; i.leiras_rejtve = true; }
         }
 
-        res.json({ ...i, ...belso, iroda, ugynok, kepek: kepek.rows.map(k => k.id) });
+        // 360°-os panorámák (csak az itt feladott hirdetéseknél vannak)
+        const pano = await db.query(
+            "SELECT id, cim, szelesseg AS w, magassag AS h FROM ingatlan_panorama WHERE ingatlan_id = $1 ORDER BY sorrend, id",
+            [req.params.id]
+        );
+
+        res.json({ ...i, ...belso, iroda, ugynok, kepek: kepek.rows.map(k => k.id), panoramak: pano.rows });
 
     } catch (err) {
         hiba(res, err);
@@ -223,6 +229,121 @@ router.get("/api/sajat-hirdetesek", csakBelepve, async (req, res) => {
     }
 });
 
+// A hirdető statisztikája: hányan nézték meg a hirdetéseit, kedvencek, érdeklődők.
+// A részletes rész (napi bontás, látogatók, honnan jöttek, milyen eszközről, a
+// hirdetésenkénti görbe) a "Részletes statisztika" csomaggal jár – amíg a díjak
+// nincsenek bekapcsolva (Admin → Pénzügyek), mindenkinek.
+// A látogatásokat névtelenül mérjük (sütik nélkül, a látogató azonosítója naponta
+// változik), ezért a "látogató" naponta egyedi látogatót jelent.
+router.get("/api/sajat-hirdetesek/statisztika", csakBelepve, async (req, res) => {
+
+    try {
+
+        const napok = [7, 30, 90].includes(Number(req.query.napok)) ? Number(req.query.napok) : 30;
+        const j = await require("../services/penzugy").jogosultsag(req.user.id).catch(() => null);
+        const pro = req.szerep === "admin" || !!(j && (!j.korlatok_be || j.pro_statisztika));
+
+        const h = await db.query(`
+            SELECT i.id, i.cim, i.tipus, i.ugylet, i.varos, i.kerulet, i.ar, i.nm, i.statusz, i.created_at, i.forras_tipus,
+                   (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id,
+                   i.kulso_kepek->>0 AS kulso_kep
+            FROM ingatlanok i WHERE i.owner_id = $1 ORDER BY i.id DESC`, [req.user.id]);
+
+        const ids = h.rows.map(r => r.id);
+        const ures = { pro, napok, osszesen: { megtekintes: 0, megtekintes_ossz: 0, het: 0, ma: 0, latogato: pro ? 0 : null, kedvenc: 0, erdeklodo: 0 }, napi: pro ? [] : null, hirdetesek: [], forrasok: pro ? [] : null, eszkozok: pro ? [] : null };
+        if (!ids.length) return res.json(ures);
+
+        const idoszak = `NOW() - INTERVAL '${napok} days'`;
+
+        const [lat, kedv, erd] = await Promise.all([
+            db.query(`
+                SELECT ingatlan_id,
+                       COUNT(*)::int AS ossz,
+                       COUNT(*) FILTER (WHERE ido >= ${idoszak})::int AS idoszak,
+                       COUNT(*) FILTER (WHERE ido >= NOW() - INTERVAL '7 days')::int AS het,
+                       COUNT(*) FILTER (WHERE ido >= date_trunc('day', NOW()))::int AS ma,
+                       COUNT(DISTINCT (latogato, (ido AT TIME ZONE 'Europe/Bucharest')::date)) FILTER (WHERE ido >= ${idoszak})::int AS latogato,
+                       MAX(ido) AS utolso
+                FROM latogatasok WHERE ingatlan_id = ANY($1::int[]) AND oldal = 'listing'
+                GROUP BY ingatlan_id`, [ids]),
+            db.query("SELECT property_id AS id, COUNT(*)::int AS n FROM favorites WHERE property_id = ANY($1::int[]) GROUP BY 1", [ids]),
+            db.query("SELECT ingatlan_id AS id, COUNT(DISTINCT felado_id)::int AS n FROM uzenetek WHERE ingatlan_id = ANY($1::int[]) AND cimzett_id = $2 GROUP BY 1", [ids, req.user.id])
+        ]);
+
+        const L = new Map(lat.rows.map(r => [r.ingatlan_id, r]));
+        const K = new Map(kedv.rows.map(r => [r.id, r.n]));
+        const E = new Map(erd.rows.map(r => [r.id, r.n]));
+
+        // Napi bontás (az időszak minden napja, a hiányzó napok 0-val)
+        let napi = null, hNapi = new Map(), forrasok = null, eszkozok = null;
+
+        if (pro) {
+
+            const nr = await db.query(`
+                SELECT ingatlan_id, to_char((ido AT TIME ZONE 'Europe/Bucharest')::date, 'YYYY-MM-DD') AS nap,
+                       COUNT(*)::int AS n, COUNT(DISTINCT latogato)::int AS l
+                FROM latogatasok WHERE ingatlan_id = ANY($1::int[]) AND oldal = 'listing' AND ido >= ${idoszak}
+                GROUP BY 1, 2`, [ids]);
+
+            const napLista = [];
+            const ma = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Bucharest" }));
+            for (let k = napok - 1; k >= 0; k--) {
+                const d = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() - k);
+                napLista.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+            }
+
+            const ossz = new Map(napLista.map(n => [n, { nap: n, n: 0, l: 0 }]));
+            nr.rows.forEach(r => {
+                const o = ossz.get(r.nap);
+                if (o) { o.n += r.n; o.l += r.l; }
+                if (!hNapi.has(r.ingatlan_id)) hNapi.set(r.ingatlan_id, new Map());
+                hNapi.get(r.ingatlan_id).set(r.nap, r.n);
+            });
+            napi = [...ossz.values()];
+            hNapi = new Map([...hNapi.entries()].map(([id, m]) => [id, napLista.map(n => m.get(n) || 0)]));
+
+            const [fr, es] = await Promise.all([
+                db.query(`SELECT COALESCE(forras, '') AS k, COUNT(*)::int AS n FROM latogatasok
+                          WHERE ingatlan_id = ANY($1::int[]) AND oldal = 'listing' AND ido >= ${idoszak} GROUP BY 1 ORDER BY 2 DESC LIMIT 6`, [ids]),
+                db.query(`SELECT COALESCE(eszkoz, 'asztali') AS k, COUNT(*)::int AS n FROM latogatasok
+                          WHERE ingatlan_id = ANY($1::int[]) AND oldal = 'listing' AND ido >= ${idoszak} GROUP BY 1 ORDER BY 2 DESC`, [ids])
+            ]);
+            forrasok = fr.rows;
+            eszkozok = es.rows;
+
+        }
+
+        const hirdetesek = h.rows.map(r => {
+            const l = L.get(r.id) || {};
+            return {
+                id: r.id, cim: r.forras_tipus === "import" ? null : r.cim, tipus: r.tipus, ugylet: r.ugylet, varos: r.varos, kerulet: r.kerulet,
+                ar: r.ar, nm: r.nm, statusz: r.statusz, created_at: r.created_at,
+                kep: r.kep_id ? "/api/kepek/" + r.kep_id
+                    : r.kulso_kep ? (/^https?:\/\//i.test(r.kulso_kep) ? "/api/img?u=" + encodeURIComponent(r.kulso_kep) : r.kulso_kep) : null,
+                megtekintes: l.idoszak || 0, megtekintes_ossz: l.ossz || 0, het: l.het || 0, ma: l.ma || 0,
+                latogato: pro ? (l.latogato || 0) : null, utolso: l.utolso || null,
+                kedvenc: K.get(r.id) || 0, erdeklodo: E.get(r.id) || 0,
+                napi: pro ? (hNapi.get(r.id) || null) : null
+            };
+        });
+
+        const sum = k => hirdetesek.reduce((s, x) => s + (x[k] || 0), 0);
+
+        res.json({
+            pro, napok,
+            osszesen: {
+                megtekintes: sum("megtekintes"), megtekintes_ossz: sum("megtekintes_ossz"), het: sum("het"), ma: sum("ma"),
+                latogato: pro ? sum("latogato") : null, kedvenc: sum("kedvenc"), erdeklodo: sum("erdeklodo")
+            },
+            napi, hirdetesek, forrasok, eszkozok
+        });
+
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
 // Kerület a helyből (csak ahol van kerület):
 //  - pontos helynél a megrajzolt kerülethatár mindig nyer
 //  - különben csak akkor töltjük ki, ha üres
@@ -240,6 +361,16 @@ async function keruletPotlas(d) {
     try {
         d.kerulet = await quality.keruletHelybol(d.varos, d.x, d.y);
     } catch (e) { /* nem kritikus */ }
+}
+
+async function panoramakMent(client, ingatlanId, lista, kezdoSorrend = 0) {
+    let sorrend = kezdoSorrend;
+    for (const p of lista) {
+        await client.query(
+            "INSERT INTO ingatlan_panorama (ingatlan_id, sorrend, cim, mime, adat, szelesseg, magassag) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+            [ingatlanId, sorrend++, p.cim, p.mime, p.adat, p.w, p.h]
+        );
+    }
 }
 
 async function kepeketMent(client, ingatlanId, kepek, kezdoSorrend = 0) {
@@ -325,6 +456,8 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
         const id = r.rows[0].id;
 
         await kepeketMent(client, id, kepek);
+        // 360°-os panorámák: csak az itt (link nélkül) feladott hirdetéshez
+        if (!d.link) await panoramakMent(client, id, parsePanoramak(req.body.panoramak));
         await irodaMent(client, id, iroda);
 
         // Eladjuk helyetted: az admin a megbízás adataiból adta fel → a hirdetés a megbízásé
@@ -497,6 +630,23 @@ router.put("/api/ingatlanok/:id", csakBelepve, async (req, res) => {
         const max = await client.query("SELECT COALESCE(MAX(sorrend), -1) AS m FROM ingatlan_kepek WHERE ingatlan_id = $1", [id]);
 
         await kepeketMent(client, id, ujKepek, max.rows[0].m + 1);
+
+        // 360°-os panorámák: törlés, átnevezés, új feltöltés (a beolvasott hirdetésnél nincs)
+        if (!importalt) {
+            const torlendoP = Array.isArray(req.body.torlendoPanoramak) ? req.body.torlendoPanoramak.map(Number).filter(Boolean) : [];
+            if (torlendoP.length) {
+                await client.query("DELETE FROM ingatlan_panorama WHERE ingatlan_id = $1 AND id = ANY($2::int[])", [id, torlendoP]);
+            }
+            const cimek = req.body.panoramaCimek && typeof req.body.panoramaCimek === "object" ? req.body.panoramaCimek : {};
+            for (const [pid, cim] of Object.entries(cimek)) {
+                if (!/^\d+$/.test(pid)) continue;
+                await client.query("UPDATE ingatlan_panorama SET cim = $1 WHERE id = $2 AND ingatlan_id = $3",
+                    [String(cim || "").trim().slice(0, 60) || null, Number(pid), id]);
+            }
+            const vanP = await client.query("SELECT COUNT(*)::int AS n, COALESCE(MAX(sorrend), -1) AS m FROM ingatlan_panorama WHERE ingatlan_id = $1", [id]);
+            const ujP = parsePanoramak(req.body.panoramak).slice(0, Math.max(0, PANORAMA_MAX - vanP.rows[0].n));
+            await panoramakMent(client, id, ujP, vanP.rows[0].m + 1);
+        }
 
         await irodaMent(client, id, iroda);
 

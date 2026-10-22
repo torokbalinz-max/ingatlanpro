@@ -260,6 +260,7 @@ class CardsView {
                             <span class="ipChip"><i class="${t.icon}" aria-hidden="true"></i> ${Utils.escape(Types.label(i.tipus))}</span>
                             <span class="ipChip isDeal">${Utils.escape(Types.ugyletLabel(i.ugylet))}</span>
                             ${kiemelt ? `<span class="ipChip isFeat"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("featured")}</span>` : ""}
+                            ${i.pano_db > 0 ? `<span class="ipChip isPano" title="${Utils.escape(I18n.t("panoViewTitle"))}"><i class="fa-solid fa-street-view" aria-hidden="true"></i> 360°</span>` : ""}
                             ${i.eladva ? `<span class="ipChip isSold">${I18n.t("dbEladva")}</span>` : ""}
                         </div>
                         <button class="favBtn ipFav ${fav ? "active" : ""}" data-fav="${i.id}" title="${I18n.t("favAdd")}" aria-label="${Utils.escape(I18n.t("favAdd"))}">${fav ? "★" : "☆"}</button>

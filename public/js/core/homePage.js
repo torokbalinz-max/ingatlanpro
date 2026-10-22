@@ -122,6 +122,13 @@ class HomePage {
 
     }
 
+    // A cím utolsó szava (pl. "Erdélyben.") kiemelve – a nyitójelenetben alá egy vonal rajzolódik
+    static cim(szoveg) {
+        const esc = Utils.escape;
+        const m = String(szoveg).match(/^(.*\s)(\S+)$/);
+        return m ? `${esc(m[1])}<span class="h1Accent">${esc(m[2])}</span>` : esc(szoveg);
+    }
+
     static render() {
 
         const box = document.getElementById("homeContent");
@@ -172,7 +179,7 @@ class HomePage {
 
             <section class="homeHero hv3">
                 <div class="homeHeroText">
-                    <h1>${t("homeTitle")}</h1>
+                    <h1>${HomePage.cim(t("homeTitle"))}</h1>
                     <p class="homeLead">${t("homeSub")}</p>
 
                     <form class="heroSearch" id="heroSearch" role="search">
@@ -241,7 +248,7 @@ class HomePage {
 
             <nav class="homeDock" aria-label="${esc(t("homeDockAria"))}">
                 ${dock.map((d, n) => `
-                    <a class="dockItem" href="#${d.hova}" data-dock="${d.hova}" ${d.go ? "data-dock-go" : ""} style="--n:${n}">
+                    <a class="dockItem" href="#${d.hova}" data-dock="${d.hova}" ${d.go ? "data-dock-go" : ""} data-reveal style="--n:${n};--i:${n}">
                         <span class="dockIcon"><i class="${d.icon}" aria-hidden="true"></i></span>
                         <span class="dockText">
                             <b>${t(d.cim)}</b>
@@ -273,7 +280,7 @@ class HomePage {
                 </div>
                 <div class="catGrid">
                     ${kat.map(k => `
-                        <a class="catTile ${k.cls || ""}" href="#properties" data-cat="${k.tipus}">
+                        <a class="catTile ${k.cls || ""}" href="#properties" data-cat="${k.tipus}" data-reveal="tile">
                             <img src="${HomePage.FOTO(HomePage.KEPEK[k.kep])}&w=${k.cls ? 1100 : 700}" alt="" loading="lazy" onerror="this.remove()">
                             <span class="catShade"></span>
                             <span class="catText">
@@ -288,7 +295,7 @@ class HomePage {
                 <h2 class="homeH2">${t("homeFeaturesTitle")}</h2>
                 <div class="pathGrid">
                     ${HomePage.UTAK.map(u => `
-                        <div class="pathCard path-${u.k}">
+                        <div class="pathCard path-${u.k}" data-reveal>
                             <div class="pathHead">
                                 <span class="pathIcon"><i class="${u.icon}" aria-hidden="true"></i></span>
                                 <div>
@@ -308,7 +315,7 @@ class HomePage {
                 </div>
                 <div class="toolGrid">
                     ${HomePage.ESZKOZOK.map(f => `
-                        <a class="toolCard" href="#${f.hova}">
+                        <a class="toolCard" href="#${f.hova}" data-reveal>
                             <span class="featIcon"><i class="${f.icon}" aria-hidden="true"></i></span>
                             <span><b>${t(f.cim)}</b><small>${t(f.szoveg)}</small></span>
                         </a>`).join("")}
@@ -317,7 +324,7 @@ class HomePage {
 
             ${typeof AdSlots !== "undefined" ? AdSlots.slot("home", "homeAd") : ""}
 
-            <section class="homeHelpStrip">
+            <section class="homeHelpStrip" data-reveal>
                 <span class="homeHelpIcon"><i class="fa-solid fa-circle-question" aria-hidden="true"></i></span>
                 <div>
                     <b>${t("homeHelpTitle")}</b>

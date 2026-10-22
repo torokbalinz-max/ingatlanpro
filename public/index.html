@@ -1067,6 +1067,23 @@
 
                     <div class="photoGrid mt-3" id="photoGrid"></div>
 
+                    <!-- 360°-os körkép (csak az itt feladott hirdetésnél; js/new-listing/newPanorama.js) -->
+                    <div class="panoBlock" id="panoBlock">
+                        <div class="panoBlockHead">
+                            <span class="panoMark" aria-hidden="true">360°</span>
+                            <div>
+                                <b data-i18n="panoTitle">360°-os körbenézés</b>
+                                <small data-i18n="panoHelp">Nem kötelező. Tölts fel körképet (legalább 2 : 1 arányú, pl. 360°-os kamerával vagy a telefon panoráma módjával): a hirdetés oldalán körbe lehet nézni a szobákban.</small>
+                            </div>
+                        </div>
+                        <div class="panoGrid" id="panoGrid"></div>
+                        <label class="panoDrop" id="panoDrop">
+                            <input type="file" id="panoInput" accept="image/jpeg,image/webp" multiple hidden>
+                            <i class="fa-solid fa-street-view" aria-hidden="true"></i>
+                            <span data-i18n="panoAdd">360°-os kép hozzáadása</span>
+                        </label>
+                    </div>
+
                 </div>
             </section>
 
@@ -1576,6 +1593,7 @@
 <script src="js/core/locationPicker.js"></script>
 <script src="js/account/savedSearches.js"></script>
 <script src="js/account/messages.js"></script>
+<script src="js/account/listingStats.js"></script>
 <script src="js/account/accountPage.js"></script>
 <script src="js/account/notifications.js"></script>
 <script src="js/requests/requestsPage.js"></script>
@@ -1618,5 +1636,7 @@
 
 <script src="js/core/motion.js" defer></script>
 <script src="js/new-listing/newListingUi.js" defer></script>
+<script src="js/new-listing/newPanorama.js" defer></script>
+<script src="js/listings/panoramaViewer.js" defer></script>
 </body>
 </html>

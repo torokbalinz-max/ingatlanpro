@@ -113,6 +113,23 @@ async function createSchema(db) {
 
     await db.query(`CREATE INDEX IF NOT EXISTS idx_kepek_ingatlan ON ingatlan_kepek (ingatlan_id)`);
 
+    // 360°-os panorámaképek (csak az itt feladott hirdetésekhez) – külön tábla,
+    // hogy a fotók (lista, duplikátum-keresés, borítókép) ne keveredjenek velük
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS ingatlan_panorama (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            sorrend INTEGER DEFAULT 0,
+            cim TEXT,
+            mime TEXT,
+            adat BYTEA,
+            szelesseg INTEGER,
+            magassag INTEGER,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_panorama_ingatlan ON ingatlan_panorama (ingatlan_id)`);
+
     // Figyelt keresések más hirdetési oldalakon (az admin menti el)
     await db.query(`
         CREATE TABLE IF NOT EXISTS figyelt_oldalak (
@@ -481,6 +498,9 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE market_snapshots ADD COLUMN IF NOT EXISTS varos TEXT`);
     await db.query(`ALTER TABLE market_snapshots ADD COLUMN IF NOT EXISTS tipus TEXT`);
     await db.query(`ALTER TABLE market_snapshots ADD COLUMN IF NOT EXISTS ugylet TEXT`);
+    // A mentéskor a statisztikához vett hirdetések adatai (ár, méret, kerület, állapot…),
+    // hogy később is újraszámolható / letölthető legyen
+    await db.query(`ALTER TABLE market_snapshots ADD COLUMN IF NOT EXISTS adatok JSONB`);
 
     await db.query(`
         CREATE TABLE IF NOT EXISTS market_snapshot_groups (
@@ -619,6 +639,8 @@ async function createSchema(db) {
     `);
 
     await db.query(`CREATE INDEX IF NOT EXISTS idx_latogatasok_ido ON latogatasok (ido)`);
+    // A hirdetők statisztikájához (hányan nézték meg a hirdetésemet)
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_latogatasok_ingatlan ON latogatasok (ingatlan_id, ido) WHERE ingatlan_id IS NOT NULL`);
 
     // Süti-hozzájárulások naplója (GDPR 7. cikk (1): igazolni kell tudni a
     // hozzájárulást). IP-címet és fiókot NEM tárolunk, csak egy véletlen azonosítót.
@@ -1505,6 +1527,7 @@ const TABLES = [
     "keruletek",
     "ingatlanok",
     "ingatlan_kepek",
+    "ingatlan_panorama",
     "figyelt_oldalak",
     "favorites",
     "mentett_keresesek",

@@ -307,6 +307,8 @@ body[data-page="home"] .homeHero.hv3 .heroSearch {
     color: var(--ip-text);
     box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.55);
 }
+body[data-page="home"] .homeHero.hv3 .heroSearch { transition: box-shadow .3s; }
+body[data-page="home"] .homeHero.hv3 .heroSearch:focus-within { box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(159, 220, 196, 0.28); }
 body[data-page="home"] .homeHero.hv3 .heroDeal {
     background: var(--ip-surface-2);
     padding: 3px;
@@ -1230,6 +1232,379 @@ body:not([data-page="admin"]) .newStepTitle h3 {
 }
 
 /* ==========================================================================
+   360°-OS KÖRBENÉZÉS (js/listings/panoramaViewer.js, js/new-listing/newPanorama.js)
+   ========================================================================== */
+
+.panoMark {
+    display: inline-grid;
+    place-items: center;
+    padding: .12rem .45rem;
+    border-radius: 7px;
+    background: var(--ev-900);
+    color: var(--mint);
+    font-family: var(--ip-display);
+    font-weight: 700;
+    font-size: .78rem;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+}
+html body .ipChip.isPano { background: var(--ev-900); color: var(--mint); }
+
+/* Hirdetés oldala: gomb a galérián és a körbenézés szakasz */
+.gallery360 {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .5rem .85rem;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(11, 38, 30, 0.86);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    color: #f4faf7;
+    font-weight: 650;
+    font-size: .88rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    transition: background .15s, transform .15s;
+}
+.gallery360 i { color: var(--mint); }
+.gallery360:hover { background: rgba(11, 38, 30, 0.96); transform: translateY(-1px); }
+.gallery360:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+
+.panoSectionHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .35rem 1rem; }
+.panoSectionHead h5 { display: flex; align-items: center; gap: .55rem; }
+.panoSection { overflow: hidden; }
+.panoStage { position: relative; background: var(--ev-900); }
+.panoView { width: 100%; aspect-ratio: 16 / 9; min-height: 260px; max-height: 70vh; }
+.panoLoading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    color: var(--ev-text);
+    pointer-events: none;
+}
+.panoLoading[hidden] { display: none; }
+.panoTabs { display: flex; gap: .4rem; flex-wrap: wrap; padding: .75rem 1rem 1rem; }
+.panoTab {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .38rem .8rem;
+    border: 1px solid var(--ip-border);
+    border-radius: 999px;
+    background: var(--ip-surface);
+    color: var(--ip-text);
+    font-size: .86rem;
+    font-weight: 600;
+    transition: border-color .15s, background .15s, color .15s;
+}
+.panoTab i { color: var(--ip-accent); }
+.panoTab:hover { border-color: var(--ip-accent); }
+.panoTab.active { background: var(--ev-900); border-color: var(--ev-900); color: #f4faf7; }
+.panoTab.active i { color: var(--mint); }
+.panoTab:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+/* a Pannellum saját vezérlői a mi színeinkkel */
+.panoView .pnlm-controls { border-radius: 10px; overflow: hidden; border: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+.panoView .pnlm-load-box { background: rgba(11, 38, 30, .85); border-radius: 12px; }
+
+/* Hirdetésfeladás: körképek */
+.panoBlock { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--ip-border-soft); }
+.panoBlock[hidden] { display: none; }
+.panoBlockHead { display: flex; align-items: flex-start; gap: .75rem; margin-bottom: .85rem; }
+.panoBlockHead .panoMark { flex: 0 0 auto; margin-top: .1rem; }
+.panoBlockHead b { display: block; color: var(--ip-ink); font-weight: 650; }
+.panoBlockHead small { display: block; color: var(--ip-muted); font-size: .84rem; line-height: 1.45; }
+.panoGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; }
+.panoGrid:empty { display: none; }
+.panoGrid:not(:empty) + .panoDrop { margin-top: .75rem; }
+.panoItem { display: flex; flex-direction: column; gap: .4rem; }
+.panoThumb { position: relative; aspect-ratio: 2 / 1; overflow: hidden; border-radius: 12px; background: var(--ev-900); }
+.panoThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.panoThumb .panoMark { position: absolute; left: .45rem; top: .45rem; }
+.panoDel {
+    position: absolute;
+    right: .4rem;
+    top: .4rem;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(10, 16, 13, .7);
+    color: #fff;
+}
+.panoDel:hover { background: #b42318; }
+.panoDel:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.panoDrop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .55rem;
+    padding: .9rem 1rem;
+    border: 1.5px dashed color-mix(in srgb, var(--ip-accent) 35%, var(--ip-border));
+    border-radius: 14px;
+    color: var(--ip-accent);
+    font-weight: 650;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.panoDrop[hidden] { display: none; }
+.panoDrop:hover, .panoDrop.dragging { border-color: var(--ip-accent); background: var(--ip-accent-soft); }
+
+/* ==========================================================================
+   FIÓKOM → HIRDETÉSEIM → LÁTOGATOTTSÁG (js/account/listingStats.js)
+   ========================================================================== */
+
+.accSubTabs { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 1.25rem; border-radius: 14px; background: var(--ip-surface-2); }
+.accSubTab {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .45rem .95rem;
+    border-radius: 10px;
+    color: var(--ip-muted);
+    font-weight: 650;
+    font-size: .9rem;
+    text-decoration: none;
+}
+.accSubTab:hover { color: var(--ip-ink); }
+.accSubTab.active { background: var(--ip-surface); color: var(--ip-ink); box-shadow: 0 1px 3px rgba(11, 38, 30, .14); }
+.accSubTab.active i { color: var(--ip-accent); }
+.accViews { display: inline-block; margin-top: .3rem; color: var(--ip-muted); text-decoration: none; }
+.accViews:empty { display: none; }
+.accViews:hover { color: var(--ip-accent); }
+.accViews i { color: var(--ip-accent); }
+
+.lsHead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+body:not([data-page="admin"]) .lsTitle { font-family: var(--ip-display); font-stretch: 110%; font-weight: 650; font-size: clamp(1.3rem, 1.1rem + .7vw, 1.7rem); letter-spacing: -0.03em; margin: 0 0 .25rem; color: var(--ip-ink); }
+.lsPeriod { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--ip-surface-2); }
+.lsPeriod button { border: 0; background: transparent; padding: .35rem .8rem; border-radius: 9px; color: var(--ip-muted); font-weight: 650; font-size: .86rem; }
+.lsPeriod button.active { background: var(--ip-surface); color: var(--ip-ink); box-shadow: 0 1px 3px rgba(11, 38, 30, .14); }
+.lsPeriod button:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 1px; }
+
+.lsKpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.lsKpi {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    padding: 1.1rem 1.15rem;
+    border: 1px solid var(--ip-border-soft);
+    border-radius: 18px;
+    background: var(--ip-surface);
+    box-shadow: var(--ip-shadow);
+}
+.lsKpiIcon { width: 34px; height: 34px; display: grid; place-items: center; margin-bottom: .45rem; border-radius: 10px; background: var(--ip-accent-soft); color: var(--ip-accent); }
+.lsKpi small { color: var(--ip-muted); font-weight: 600; font-size: .8rem; }
+.lsKpi b { font-family: var(--ip-display); font-stretch: 112%; font-weight: 680; font-size: 1.75rem; letter-spacing: -0.03em; line-height: 1.1; color: var(--ip-ink); font-variant-numeric: tabular-nums; }
+.lsKpi > span:last-child { color: var(--ip-muted); font-size: .78rem; }
+.lsKpi.isLocked b { color: var(--ip-muted); font-size: 1.2rem; }
+
+.lsCard { padding: 1.1rem 1.2rem; margin-bottom: 1rem; border: 1px solid var(--ip-border-soft); border-radius: 18px; background: var(--ip-surface); box-shadow: var(--ip-shadow); }
+.lsCard h6 { display: flex; align-items: center; gap: .5rem; margin: 0 0 .9rem; font-weight: 650; color: var(--ip-ink); }
+.lsCard h6 i { color: var(--ip-accent); }
+.lsChartBox { position: relative; height: 260px; }
+.lsTwo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.lsTwo .lsCard { margin-bottom: 1rem; }
+.lsBars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .55rem; }
+.lsBars li { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 3rem; align-items: center; gap: .65rem; font-size: .86rem; }
+.lsBarName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ip-text); }
+.lsBarTrack { height: 8px; border-radius: 999px; background: var(--ip-surface-2); overflow: hidden; }
+.lsBarTrack > span { display: block; height: 100%; border-radius: inherit; background: var(--ip-accent); }
+.lsBarVal { text-align: right; font-weight: 650; color: var(--ip-ink); font-variant-numeric: tabular-nums; }
+
+.lsUpsell {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1rem;
+    border-radius: 18px;
+    background: radial-gradient(70% 120% at 0% 0%, rgba(159, 220, 196, .12) 0%, transparent 60%), var(--ev-900);
+    color: var(--ev-text);
+}
+.lsUpsellIcon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: rgba(159, 220, 196, .14); color: var(--mint); }
+.lsUpsell > div { flex: 1 1 260px; display: flex; flex-direction: column; }
+.lsUpsell b { color: #f4faf7; }
+.lsUpsell span { color: var(--ev-muted); font-size: .88rem; }
+
+.lsRows { display: flex; flex-direction: column; }
+.lsRow {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) 110px auto;
+    align-items: center;
+    gap: 1rem;
+    padding: .75rem .25rem;
+    border-top: 1px solid var(--ip-border-soft);
+    color: var(--ip-text);
+    text-decoration: none;
+}
+.lsRow:first-child { border-top: 0; }
+.lsRow:hover { background: color-mix(in srgb, var(--ip-accent) 4%, transparent); }
+.lsThumb { width: 64px; height: 48px; border-radius: 10px; overflow: hidden; display: grid; place-items: center; background: var(--ip-surface-2); color: var(--ip-accent); }
+.lsThumb img { width: 100%; height: 100%; object-fit: cover; }
+.lsRowMain { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.lsRowMain b { color: var(--ip-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lsRowMain small { color: var(--ip-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lsRowBar { height: 4px; border-radius: 999px; background: var(--ip-surface-2); overflow: hidden; margin-top: .2rem; }
+.lsRowBar > span { display: block; height: 100%; background: color-mix(in srgb, var(--ip-accent) 70%, transparent); border-radius: inherit; }
+.lsRowSpark { color: var(--ip-accent); }
+.lsRowNums { display: grid; grid-template-columns: repeat(3, auto); gap: .1rem .9rem; justify-items: end; font-size: .86rem; color: var(--ip-muted); font-variant-numeric: tabular-nums; }
+.lsRowNums b { color: var(--ip-ink); }
+.lsRowNums i { color: var(--ip-accent); font-size: .78rem; }
+.lsRowNums small { grid-column: 1 / -1; font-size: .74rem; }
+
+@media (max-width: 991.98px) {
+    .lsKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .lsRow { grid-template-columns: 56px minmax(0, 1fr) auto; }
+    .lsRowSpark { display: none; }
+}
+@media (max-width: 575.98px) {
+    .lsTwo { grid-template-columns: minmax(0, 1fr); }
+    .lsKpi b { font-size: 1.4rem; }
+    .lsRow { grid-template-columns: 48px minmax(0, 1fr); gap: .75rem; }
+    .lsThumb { width: 48px; height: 40px; }
+    .lsRowNums { grid-column: 2; justify-items: start; grid-template-columns: repeat(3, auto); }
+    .lsBars li { grid-template-columns: minmax(0, 7rem) minmax(0, 1fr) 2.6rem; }
+}
+
+/* ==========================================================================
+   PIACI ELEMZÉS: rendezettebb fülek, kártyák, előzmények
+   ========================================================================== */
+
+/* Fülek: szegmentált kapcsoló */
+body:not([data-page="admin"]) .marketTabs { gap: 4px; padding: 4px; border-radius: 14px; background: var(--ip-surface-2); display: inline-flex; flex-wrap: wrap; }
+body:not([data-page="admin"]) .marketTabs .nav-link { border-radius: 10px; color: var(--ip-muted); font-weight: 650; padding: .5rem 1rem; background: transparent; }
+body:not([data-page="admin"]) .marketTabs .nav-link.active { background: var(--ip-surface); color: var(--ip-ink); box-shadow: 0 1px 3px rgba(11, 38, 30, .14); }
+body:not([data-page="admin"]) .marketTabs .nav-link.active i { color: var(--ip-accent); }
+
+/* Számok: külön kártyák, nagy, nyugodt számokkal */
+body:not([data-page="admin"]) .statKpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+}
+body:not([data-page="admin"]) .statKpi {
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--ip-border-soft) !important;
+    border-radius: 18px;
+    background: var(--ip-surface);
+    box-shadow: var(--ip-shadow);
+}
+body:not([data-page="admin"]) .statKpi b {
+    font-family: var(--ip-display);
+    font-stretch: 112%;
+    font-weight: 680;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+@media (max-width: 767.98px) {
+    body:not([data-page="admin"]) .statKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Kategória-kártyák: keskeny kártyán az "Átlagár" oszlop kimarad (eddig kilógott a sor vége) */
+body:not([data-page="admin"]) .statGrid { gap: 1rem; }
+body:not([data-page="admin"]) .categoryCard { container-type: inline-size; border-radius: 18px; }
+@container (max-width: 540px) {
+    .statTable th:nth-child(3), .statTable td:nth-child(3) { display: none; }
+}
+
+/* Hosszú táblázatok összecsukva */
+.statMore { margin-top: 1rem; border: 1px solid var(--ip-border-soft); border-radius: 14px; background: var(--ip-surface); }
+.statMore > summary {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .7rem 1rem;
+    cursor: pointer;
+    font-weight: 650;
+    color: var(--ip-ink);
+    list-style: none;
+}
+.statMore > summary::-webkit-details-marker { display: none; }
+.statMore > summary::after { content: "\f078"; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size: .75rem; margin-left: auto; color: var(--ip-muted); transition: transform .2s; }
+.statMore[open] > summary::after { transform: rotate(180deg); }
+.statMore > summary i { color: var(--ip-accent); }
+.statMore > summary:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: -2px; border-radius: 14px; }
+.statMore > *:not(summary) { padding: 0 1rem 1rem; }
+
+/* Előzmények */
+.histIntro {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: .75rem 1rem;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.25rem;
+    border-radius: 18px;
+    background: radial-gradient(70% 120% at 0% 0%, rgba(159, 220, 196, .12) 0%, transparent 60%), var(--ev-900);
+    color: var(--ev-text);
+}
+.histIntroIcon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: rgba(159, 220, 196, .14); color: var(--mint); }
+.histIntro > div { display: flex; flex-direction: column; min-width: 0; }
+.histDetail .statKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 767.98px) {
+    .histIntro { grid-template-columns: auto minmax(0, 1fr); }
+    .histIntro .filterChip, .histIntro .btn { grid-column: 1 / -1; justify-self: start; }
+}
+.histIntro b { color: #f4faf7; }
+.histIntro span { color: var(--ev-muted); font-size: .88rem; }
+.histIntro .filterChip { background: rgba(255, 255, 255, .08); color: var(--ev-text); border-color: rgba(255, 255, 255, .14); }
+.histIntro .btn-outline-primary { --bs-btn-color: var(--mint); --bs-btn-border-color: rgba(159, 220, 196, .5); --bs-btn-hover-bg: var(--mint); --bs-btn-hover-color: var(--ev-900); --bs-btn-hover-border-color: var(--mint); }
+
+.histLayout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.histListCard { position: sticky; top: calc(var(--ip-nav-h, 68px) + 1rem); border-radius: 18px; overflow: hidden; }
+.histList { display: flex; flex-direction: column; max-height: min(560px, calc(100vh - 12rem)); overflow-y: auto; }
+.histItem {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .1rem .75rem;
+    padding: .7rem 1rem;
+    border: 0;
+    border-top: 1px solid var(--ip-border-soft);
+    background: transparent;
+    text-align: left;
+    color: var(--ip-text);
+    transition: background .15s;
+}
+.histItem:first-child { border-top: 0; }
+.histItem:hover { background: var(--ip-surface-2); }
+.histItem.active { background: var(--ip-accent-soft); box-shadow: inset 3px 0 0 var(--ip-accent); }
+.histItem:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: -2px; }
+.histDate { font-weight: 650; color: var(--ip-ink); }
+.histManual { font-size: .7rem; font-weight: 650; padding: .05rem .4rem; border-radius: 999px; background: var(--ip-surface-2); color: var(--ip-muted); }
+.histVal { font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; color: var(--ip-ink); }
+.histMeta { font-size: .78rem; color: var(--ip-muted); }
+.histChange { text-align: right; font-size: .78rem; }
+.histChange .changeBadge { font-size: .72rem; }
+.histToolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+.histToolbar .form-select { width: auto; min-width: 220px; }
+.histDetailHead { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem 1rem; margin-bottom: 1rem; }
+body:not([data-page="admin"]) .histDetailHead h4 { margin: 0; font-family: var(--ip-display); font-stretch: 110%; font-weight: 650; letter-spacing: -0.03em; color: var(--ip-ink); }
+.histBars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .55rem; }
+.histBars li { display: grid; grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; align-items: center; gap: .65rem; font-size: .86rem; }
+.histBars .hbName small { color: var(--ip-muted); margin-left: .25rem; }
+
+@media (max-width: 991.98px) {
+    .histLayout { grid-template-columns: minmax(0, 1fr); }
+    .histListCard { position: static; }
+    .histList { max-height: 320px; }
+}
+
+/* ==========================================================================
    MOZGÁS (js/core/motion.js) – egyetlen nyitójelenet a kezdőlapon
    ========================================================================== */
 
@@ -1252,6 +1627,58 @@ body:not([data-page="admin"]) .newStepTitle h3 {
 @keyframes ipLift { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 @keyframes ipBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
+/* A cím utolsó szava menta, alatta a nyitójelenetben egy vonal rajzolódik ki */
+body[data-page="home"] .homeHero.hv3 .h1Accent { position: relative; color: var(--mint); white-space: nowrap; }
+body[data-page="home"] .homeHero.hv3 .h1Accent::after {
+    content: "";
+    position: absolute;
+    left: .02em;
+    right: .25em;
+    bottom: -.04em;
+    height: .075em;
+    border-radius: 99px;
+    background: currentColor;
+    opacity: .5;
+    transform-origin: left center;
+}
+.ipIntro .h1Accent::after { animation: ipLine 1.1s cubic-bezier(.65, 0, .35, 1) both 1.05s; }
+@keyframes ipLine { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Görgetésre: a részek egyszer, finoman beúsznak (js/core/motion.js – html.ipMotion
+   nélkül, vagy csökkentett mozgásnál minden azonnal látszik) */
+html.ipMotion #page-home [data-reveal]:not(.isIn),
+html.ipMotion #page-home .featCell:not(.isIn) { opacity: 0; }
+html.ipMotion #page-home [data-reveal].isIn,
+html.ipMotion #page-home .featCell.isIn {
+    animation: ipLift .8s cubic-bezier(.2, .8, .2, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 75ms);
+}
+html.ipMotion #page-home [data-reveal="tile"].isIn { animation-name: ipTile; animation-duration: 1s; }
+html.ipMotion #page-home [data-reveal="tile"].isIn img {
+    animation: ipTileImg 1.6s cubic-bezier(.2, .8, .2, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 75ms);
+}
+@keyframes ipTile { from { opacity: 0; transform: translateY(26px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes ipTileImg { from { transform: scale(1.14); } to { transform: none; } }
+
+/* A fő panel fotója görgetéskor lassabban mozog (mélység) – csak ahol a böngésző tudja */
+@supports (animation-timeline: scroll()) {
+    @media (prefers-reduced-motion: no-preference) and (min-width: 992px) {
+        body[data-page="home"] .homeHero.hv3 .homeHeroMedia img {
+            scale: 1.1;
+            animation: ipParallax linear both;
+            animation-timeline: scroll(root);
+            animation-range: 0 90vh;
+        }
+        body[data-page="home"] .homeHero.hv3.ipIntro .homeHeroMedia img {
+            animation: ipSettle 2.6s cubic-bezier(.2, .8, .2, 1) both .1s, ipParallax linear both;
+            animation-timeline: auto, scroll(root);
+            animation-range: normal, 0 90vh;
+        }
+        @keyframes ipParallax { from { translate: 0 -3%; } to { translate: 0 5%; } }
+    }
+}
+
 /* Oldalváltás: az új oldal finoman beúszik (a térkép csak áttűnik – a Leaflet miatt) */
 .page.ipEnter { animation: ipPage .4s cubic-bezier(.2, .8, .2, 1) both; }
 #page-map.ipEnter { animation-name: ipFade; }
@@ -1266,7 +1693,7 @@ html body .ipCard .ipFav:active { transform: scale(.84); }
 @media (prefers-reduced-motion: reduce) {
     .ipIntro .ipContour path, .ipIntro .homeHeroText h1, .ipIntro .homeLead, .ipIntro .heroSearch,
     .ipIntro .heroLinks, .ipIntro .homeHeroMedia, .ipIntro .homeHeroMedia img, .ipIntro .heroBoard, .ipIntro .hbBar,
-    .page.ipEnter, .mapHiddenNote.isOpen .mapNotePop { animation: none !important; }
+    .page.ipEnter, .mapHiddenNote.isOpen .mapNotePop, .ipIntro .h1Accent::after { animation: none !important; }
     .heroLinkGo, .heroLinks a:hover .heroLinkGo { transition: none; transform: none; }
     html body .ipCard:hover .thumbStrip img { transform: none; }
     .heroBoard, .heroBoard:hover { transition: none; transform: none; }

@@ -46,6 +46,37 @@ router.get("/api/kepek/:id", async (req, res) => {
 
 });
 
+// 360°-os panorámakép (ugyanaz a láthatóság, mint a fotóknál)
+router.get("/api/panorama/:id", async (req, res) => {
+
+    try {
+
+        if (!/^\d+$/.test(req.params.id)) return res.status(404).end();
+
+        const r = await db.query(`
+            SELECT p.mime, p.adat, i.id AS ingatlan_id, i.statusz, i.owner_id, i.megbizas_id
+            FROM ingatlan_panorama p LEFT JOIN ingatlanok i ON i.id = p.ingatlan_id
+            WHERE p.id = $1`, [req.params.id]);
+
+        if (!r.rowCount) return res.status(404).end();
+
+        const k = r.rows[0];
+        if (["tiltott", "elonezet"].includes(k.statusz) && req.szerep !== "admin" && !(req.user && req.user.id === k.owner_id)) {
+            const csapat = require("../services/csapat");
+            if (!(await csapat.hirdetesJog(req, k.ingatlan_id, "kepek"))) return res.status(404).end();
+        }
+
+        res.set("Content-Type", /^image\/(jpeg|webp)$/.test(k.mime) ? k.mime : "application/octet-stream");
+        res.set("X-Content-Type-Options", "nosniff");
+        res.set("Cache-Control", "private, max-age=31536000, immutable");
+        res.send(k.adat);
+
+    } catch (err) {
+        hiba(res, err);
+    }
+
+});
+
 // Más oldalak képeinek továbbítása (így a forrásoldal nem tilthatja le,
 // és nem kell a böngészőnek közvetlenül oda fordulnia). Kis memóriás
 // gyorstárral, hogy ugyanazt a képet ne kérjük le újra és újra.

@@ -21,6 +21,7 @@ const LISTA_MEZOK = `
     (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id,
     (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db,
     (SELECT array_agg(k.id ORDER BY k.sorrend, k.id) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id) AS kep_idk,
+    (SELECT COUNT(*) FROM ingatlan_panorama p WHERE p.ingatlan_id = i.id)::int AS pano_db,
     (SELECT MAX(kk.vege) FROM ingatlan_kiemelesek kk WHERE kk.ingatlan_id = i.id AND kk.statusz = 'aktiv'
         AND kk.kezdet <= NOW() AND kk.vege > NOW()) AS kiemelt_ig
 `;

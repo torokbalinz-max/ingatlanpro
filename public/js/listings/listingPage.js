@@ -209,6 +209,7 @@ class ListingPage {
                 <div class="gallery">
                     <div class="galleryMain">
                         <img id="galleryImg" src="${Utils.escape(ListingPage.kepek[0])}" referrerpolicy="no-referrer" alt="">
+                        ${(i.panoramak || []).length ? `<button type="button" class="gallery360" id="lp360Btn"><i class="fa-solid fa-street-view" aria-hidden="true"></i> ${I18n.t("pano360Btn")}</button>` : ""}
                         ${ListingPage.kepek.length > 1 ? `
                             <button class="galleryNav prev" id="galleryPrev"><i class="fa-solid fa-chevron-left"></i></button>
                             <button class="galleryNav next" id="galleryNext"><i class="fa-solid fa-chevron-right"></i></button>
@@ -409,6 +410,8 @@ class ListingPage {
 
                     ${forrasFo}
 
+                    ${typeof PanoramaViewer !== "undefined" ? PanoramaViewer.html(i) : ""}
+
                     ${atvett ? "" : `
                     <div class="card mt-4">
                         <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-align-left"></i> ${I18n.t("newLeiras")}</h5></div>
@@ -467,6 +470,7 @@ class ListingPage {
             </div>`;
 
         ListingPage.bind(i);
+        if (typeof PanoramaViewer !== "undefined") PanoramaViewer.bind(i);
         ListingPage.oldalRagad();
 
     }
