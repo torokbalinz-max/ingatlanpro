@@ -8,7 +8,7 @@ class FavoritesManager {
         fetch("/api/favorites")
             .then(r => r.json())
             .then(lista => {
-                lista.forEach(i => { i.forras = Sources.fromLink(i.link); });
+                lista.forEach(i => { i.forras = Sources.kulcs(i); });
                 FavoritesManager.render(lista);
             })
             .catch(err => console.error("Kedvencek betöltése sikertelen:", err));

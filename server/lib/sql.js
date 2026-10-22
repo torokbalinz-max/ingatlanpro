@@ -12,7 +12,7 @@ const LISTA_MEZOK = `
     i.problemak, i.ellenorzott, i.jovahagyva, i.forras_kerulet, i.evszam, i.telepules, i.telek_jelleg, i.hely_sugar, i.utolso_ellenorzes,
     i.created_at, i.updated_at, i.owner_id, i.hely_forras, i.hely_kezi, i.hely_eredeti,
     i.varos_ok, i.varos_eredeti, i.varos_kezi,
-    i.iroda_id, i.ugynok_id, i.iroda_ref, i.megnyitas, i.kozvetito,
+    i.iroda_id, i.ugynok_id, i.iroda_ref, i.megnyitas, i.kozvetito, i.forras_nev, i.forras_kereso,
     -- A hirdető itt, fiókkal töltötte fel (iroda, megbízás, nem admin felhasználó):
     -- ennek automatikusan saját adatlapja van, a többi a forrásoldalra visz
     (i.iroda_id IS NOT NULL OR i.megbizas_id IS NOT NULL OR EXISTS (

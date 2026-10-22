@@ -101,7 +101,9 @@
             adAskAnafErr: "Az ANAF most nem érhető el – írd be kézzel.",
             adAskTaken: "foglalt",
             adAskPerMonth: "/hó",
-            adAskTotalN: "Becsült díj: {havi}/hó × {n} hó = {ossz}"
+            adAskTotalN: "Becsült díj: {havi}/hó × {n} hó = {ossz}",
+            extHelpSearch: "Ezt a hirdetést egy gyűjtőoldalról vettük át. A forrásoldal keresőjében nyitjuk meg, ár és alapterület szerint szűrve – rendszerint pontosan ezt a hirdetést találod ott.",
+            srcSearchOnSite: "keresés a forrásoldalon (ár és alapterület szerint)"
         },
         ro: {
             accTabNotifications: "Notificări",
@@ -193,7 +195,9 @@
             adAskAnafErr: "ANAF nu răspunde acum – completează manual.",
             adAskTaken: "ocupat",
             adAskPerMonth: "/lună",
-            adAskTotalN: "Cost estimat: {havi}/lună × {n} luni = {ossz}"
+            adAskTotalN: "Cost estimat: {havi}/lună × {n} luni = {ossz}",
+            extHelpSearch: "Acest anunț provine de la un agregator. Îl deschidem în căutarea site-ului sursă, filtrat după preț și suprafață – de obicei găsiți exact acest anunț acolo.",
+            srcSearchOnSite: "căutare pe site-ul sursă (după preț și suprafață)"
         },
         en: {
             accTabNotifications: "Notifications",
@@ -285,7 +289,9 @@
             adAskAnafErr: "ANAF is not responding – please type it in.",
             adAskTaken: "taken",
             adAskPerMonth: "/mo",
-            adAskTotalN: "Estimated cost: {havi}/mo × {n} mo = {ossz}"
+            adAskTotalN: "Estimated cost: {havi}/mo × {n} mo = {ossz}",
+            extHelpSearch: "This listing comes from an aggregator. We open it in the source site's search, filtered by price and floor area – you'll usually find exactly this listing there.",
+            srcSearchOnSite: "search on the source site (by price and area)"
         }
     };
 

@@ -164,6 +164,12 @@ async function varosRo(varos) {
     return (va && va.nev_ro) || require("./geocode").VAROS_RO[varos] || varos;
 }
 
+// A valódi forrás kereséséhez: a város román neve és a megye (a Storia listához)
+async function forrasHelyAdat(varos) {
+    const va = await location.varosAdat(varos).catch(() => null);
+    return { varosRo: (va && va.nev_ro) || require("./geocode").VAROS_RO[varos] || varos, megye: (va && va.megye) || null };
+}
+
 // A közvetítő azonosítói, amelyek alapján a hirdetést később is felismerjük
 function kulsoAzon(d, regi) {
     const k = new Set(Array.isArray(regi) ? regi : []);
@@ -213,7 +219,7 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
     }
 
     // A valódi forrás (közvetítő helyett) és a forrásoldal pontos helye
-    await forrasHely.gazdagit(d, await varosRo(alap.varos)).catch(e => console.error("Forrás kiegészítés:", e.message));
+    await forrasHely.gazdagit(d, await forrasHelyAdat(alap.varos)).catch(e => console.error("Forrás kiegészítés:", e.message));
 
     // Ha a valódi forrás már nálunk van (pl. közvetlenül beolvasva), az frissül
     if (d.kozvetitoLink) {
@@ -235,10 +241,10 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
          tipus, ugylet, cim, leiras, telek_nm, statusz, forras_tipus, hely_pontossag,
          kulso_kepek, hianyzo, problemak, ellenorzott, forras_szoveg, forras_kerulet, evszam,
          tovabbi_linkek, telepules, telek_jelleg, hely_sugar, utolso_ellenorzes, auto_javitva, auto_javitva_v,
-         hely_forras, hely_eredeti, allapot_forras, varos_ok, varos_eredeti, kulso_azon, kozvetito)
+         hely_forras, hely_eredeti, allapot_forras, varos_ok, varos_eredeti, kulso_azon, kozvetito, forras_nev, forras_kereso)
         VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$12,$13,$14,$15,$16,'aktiv','import',$17,
                 $18::jsonb,$19::jsonb,$20::jsonb,$21,$22,$23,$24,$25::jsonb,$26,$27,$28,NOW(),NOW(),$29,
-                $30,$31::jsonb,$32,$33,$34,$35::jsonb,$36)
+                $30,$31::jsonb,$32,$33,$34,$35::jsonb,$36,$37,$38)
         RETURNING id
     `, [
         d.link, adat.ar, adat.nm, adat.arnm, adat.szobak, adat.emelet, adat.allapot,
@@ -251,7 +257,8 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
         adat.hely_eredeti ? JSON.stringify(adat.hely_eredeti) : null,
         adat.allapot ? (adat.allapot_forras || "szoveg") : null,
         adat.varos_ok || null, adat.varos_eredeti || null,
-        JSON.stringify(kulsoAzon(d)), d.kozvetito || null
+        JSON.stringify(kulsoAzon(d)), d.kozvetito || null,
+        d.forrasKulcs || forrasHely.forrasKulcs(null, d.link) || null, d.kozvetito ? (d.forrasKereso || null) : null
     ]);
 
     const uj = { id: r.rows[0].id, link: d.link, ar: adat.ar };
@@ -546,16 +553,22 @@ async function frissitAdatbol(i, d, job) {
     // A forrás további linkjei (ugyanaz a hirdetés több oldalon)
     // A közvetítő link helyett a valódi forrás (ha eddig nem sikerült, most újra próbáljuk)
     if (forrasHely.kozvetitoOldal(i.link) && forrasHely.kozvetitoLink(d.link)) {
-        await forrasHely.gazdagit(d, await varosRo(i.varos)).catch(() => null);
+        await forrasHely.gazdagit(d, await forrasHelyAdat(i.varos)).catch(() => null);
         if (d.valodiForras && d.link && !forrasHely.kozvetitoOldal(d.link)) {
             potol.link = d.link;
             potol.kozvetito = null;
+            potol.forras_kereso = null;
             valtozas.push("link");
-        } else if (forrasHely.kozvetitoLink(i.link) && d.reszletUrl) {
-            // A régi "link-extern" link (bejelentkezés nélkül nem visz tovább) helyett az adatlap
-            potol.link = d.reszletUrl;
-            potol.kozvetito = "imoradar24";
+        } else {
+            if (forrasHely.kozvetitoLink(i.link) && d.reszletUrl) {
+                // A régi "link-extern" link (bejelentkezés nélkül nem visz tovább) helyett az adatlap
+                potol.link = d.reszletUrl;
+                potol.kozvetito = "imoradar24";
+            }
+            // a látogató a forrásoldal szűrt keresésére megy (nem az Imoradar24-re)
+            if (d.forrasKereso && d.forrasKereso !== i.forras_kereso) potol.forras_kereso = d.forrasKereso;
         }
+        if (d.forrasKulcs && d.forrasKulcs !== i.forras_nev) potol.forras_nev = d.forrasKulcs;
         if (ures(i.leiras) && d.leiras) potol.leiras = d.leiras;
     }
 

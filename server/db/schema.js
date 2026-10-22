@@ -1341,6 +1341,13 @@ async function createSchema(db) {
         )
     `);
 
+    // ---------- Közvetített (Imoradar24) hirdetések: a valódi forrás ----------
+    //  forras_nev: olx | storia | publi24 …; forras_kereso: a forrásoldal szűrt
+    //  keresése, ha az eredeti hirdetést nem találtuk; forras_javitva: utolsó próba
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS forras_nev TEXT`);
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS forras_kereso TEXT`);
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS forras_javitva TIMESTAMP`);
+
     // ---------- Reklám: a hirdető maga tölti fel az anyagot (a fizetési oldalon) ----------
     await db.query(`ALTER TABLE reklamok ADD COLUMN IF NOT EXISTS anyag_feltoltve TIMESTAMP`);
     await db.query(`ALTER TABLE reklamok ADD COLUMN IF NOT EXISTS anyag_kerve TIMESTAMP`);

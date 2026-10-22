@@ -78,7 +78,7 @@ class DataManager {
 
         rows.forEach(i => {
 
-            i.forras = Sources.fromLink(i.link);
+            i.forras = Sources.kulcs(i);
             i.forrasok = Sources.allOf(i);
 
             const k = Utils.normLink(i.link);

@@ -186,7 +186,7 @@ class CardsView {
         const oszlop = opts.col || "col-sm-6 col-xl-4 col-4k-3";
 
         // A forrás(ok) – mindegyik egyszer; ha kattintásra oda visz, nyíl jelzi
-        const fo = Sources.fromLink(i.link);
+        const fo = Sources.kulcs(i);
         const forrasok = [...new Set(i.forrasok || [i.forras || fo])];
         const forrasChip = k => {
             const ki = kulso && k === fo;

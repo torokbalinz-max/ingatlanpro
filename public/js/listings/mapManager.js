@@ -210,7 +210,7 @@ class MapManager {
                     <div class="ipPopupPlace"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${Utils.escape(CityManager.helyLabel(i))}${i.hely_pontossag === "utca" ? ` <span class="ipPopupApprox">${I18n.t("mapStreetLevel")}</span>` : ""}</div>
                     ${tenyek.length ? `<div class="ipPopupFacts">${tenyek.map(t => `<span>${Utils.escape(t)}</span>`).join("")}</div>` : ""}
                     <button type="button" class="btn btn-primary btn-sm w-100 mt-2" onclick="ListingPage.open(${Number(i.id)})">${kulso
-                        ? `${Utils.escape(I18n.f("openOnSource", { s: Sources.label(Sources.fromLink(i.link)) }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>`
+                        ? `${Utils.escape(I18n.f("openOnSource", { s: Sources.label(Sources.kulcs(i)) }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>`
                         : I18n.t("detailOpenListing")}</button>
                     ${Types.becsulheto(i.tipus) ? `<button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-1 ipPopupVal" onclick="CardsView.objektumok.set(${Number(i.id)}, DataManager.ingatlanok.find(x => x.id === ${Number(i.id)})); CardsView.valuate(${Number(i.id)})"><i class="fa-solid fa-calculator" aria-hidden="true"></i> ${I18n.t("detailValuate")}</button>` : ""}
                 </div>

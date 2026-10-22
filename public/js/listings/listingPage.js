@@ -14,10 +14,13 @@ class ListingPage {
     // beállítva (automatikus): minden linkkel rendelkező hirdetés egyből a
     // forrásoldalra visz – kivéve, amit a hirdető itt, fiókkal töltött fel
     // (iroda, megbízás, magánszemély): annak saját adatlapja van.
+    //  Közvetített (Imoradar24) hirdetés: az eredeti hirdetésre, ha nem találtuk,
+    //  a forrásoldal szűrt keresésére – az Imoradar24-re soha (Sources.url).
     static forrasra(i) {
         if (!i) return false;
-        const k = Sources.fromLink(i.link);
+        const k = Sources.kulcs(i);
         if (k === "local" || k === "other") return false;
+        if (!Sources.url(i)) return false;
         if (i.megnyitas === "lap") return false;
         if (i.megnyitas === "forras") return true;
         if ("sajat_feltoltes" in i) return !i.sajat_feltoltes;
@@ -38,7 +41,7 @@ class ListingPage {
     // Az eredeti hirdetés új lapon (link-kattintásként, hogy a böngésző ne tiltsa le)
     static forrastNyit(i) {
         const a = document.createElement("a");
-        a.href = i.link;
+        a.href = Sources.url(i) || i.link;
         a.target = "_blank";
         a.rel = "noopener noreferrer nofollow";
         document.body.appendChild(a);
@@ -99,7 +102,7 @@ class ListingPage {
     static renderKulso(i) {
 
         const box = document.getElementById("listingContent");
-        const forrasNev = Sources.label(Sources.fromLink(i.link));
+        const forrasNev = Sources.label(Sources.kulcs(i));
 
         if (ListingPage.map) { ListingPage.map.remove(); ListingPage.map = null; }
 
@@ -113,8 +116,8 @@ class ListingPage {
                     <div class="card mt-3 extInfo">
                         <div class="card-body">
                             <h5 class="mb-1"><i class="fa-solid fa-globe" aria-hidden="true"></i> ${Utils.escape(I18n.f("extTitle", { s: forrasNev }))}</h5>
-                            <p class="text-body-secondary small mb-3">${I18n.t("extHelp")}</p>
-                            <a class="btn btn-primary w-100" href="${Utils.escape(i.link)}" target="_blank" rel="noopener noreferrer nofollow">
+                            <p class="text-body-secondary small mb-3">${I18n.t(Sources.keresesre(i) ? "extHelpSearch" : "extHelp")}</p>
+                            <a class="btn btn-primary w-100" href="${Utils.escape(Sources.url(i) || "")}" target="_blank" rel="noopener noreferrer nofollow">
                                 ${Utils.escape(I18n.f("extOpen", { s: forrasNev }))} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                             </a>
                             ${Types.becsulheto(i.tipus) ? `<button type="button" class="btn btn-outline-primary w-100 mt-2" id="lpExtVal"><i class="fa-solid fa-calculator" aria-hidden="true"></i> ${I18n.t("detailValuate")}</button>` : ""}
@@ -134,7 +137,7 @@ class ListingPage {
     // Admin: mi nyíljon meg kattintásra ennél a hirdetésnél
     static megnyitasBox(i) {
 
-        const k = Sources.fromLink(i.link);
+        const k = Sources.kulcs(i);
         if (k === "local" || k === "other") return "";
 
         const most = i.megnyitas || "auto";
@@ -222,7 +225,8 @@ class ListingPage {
                </div>`;
 
         // Hol van meghirdetve
-        const linkek = [...new Set([i.link, ...(i.tovabbi_linkek || [])].filter(l => l && Sources.fromLink(l) !== "other"))];
+        // (a közvetítő – Imoradar24 – helyett a valódi forrás, vagy annak szűrt keresése)
+        const linkek = [...new Set([Sources.url(i), ...(i.tovabbi_linkek || [])].filter(l => l && !Sources.kozvetito(l) && Sources.fromLink(l) !== "other"))];
 
         // A hirdető itt (fiókkal) töltötte fel, és más oldalakon is fent van:
         // itt közvetlenül neki lehet írni
@@ -248,7 +252,7 @@ class ListingPage {
                             <span class="srcRowIcon"><i class="fa-solid fa-globe" aria-hidden="true"></i></span>
                             <span class="srcRowText">
                                 <b>${Utils.escape(Sources.label(k))}</b>
-                                <small>${Utils.escape(k)}</small>
+                                <small>${Utils.escape(l === i.forras_kereso ? I18n.t("srcSearchOnSite") : k)}</small>
                             </span>
                             <span class="srcRowGo">${I18n.t("srcOpen")} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span>
                         </a>`;
