@@ -28,7 +28,7 @@ router.post("/api/cron/run", async (req, res) => {
         .then(() => importer.figyelesIndit({ limit: 150 }).promise)
         .then(() => { const j = imagehash.indit(400); return j && j.promise; })
         .then(() => require("../services/duplicates").autoOsszevon().catch(e => console.error("Duplikátumok:", e.message)))
-        .then(() => require("../services/forrasHely").javitMind({ limit: 120 }).catch(e => console.error("Forráslinkek:", e.message)))
+        .then(() => require("../services/forrasHely").javitMind({ limit: 1000 }).catch(e => console.error("Forráslinkek:", e.message)))
         .then(() => require("../services/ertesitesek").futtat({ req }))
         .then(() => require("./statistics").havontaMent())
         .then(() => require("../services/megbizasAuto").futtat())

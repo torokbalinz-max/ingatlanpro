@@ -294,6 +294,7 @@ function storiaListabol(html) {
         const ar = it.totalPrice ? (/ron|lei/i.test(it.totalPrice.currency || "") ? Math.round(it.totalPrice.value / 5) : it.totalPrice.value) : null;
         const em = String(it.floorNumber || "").match(/(\d+)|ground|parter/i);
         return {
+            id: it.id !== undefined && it.id !== null ? String(it.id) : null,
             link: `https://www.storia.ro/ro/oferta/${it.slug}`,
             cim: it.title || null,
             ar: Number(ar) || null,
@@ -405,6 +406,48 @@ async function imoradarLeiras(url) {
 
 // ---------- A beolvasott adat kiegészítése ----------
 
+// ---------- Pontos egyezés a forrás azonosítója alapján ----------
+//  Az Imoradar24 link-extern címében: source=OLX.ro&source_listing_id=287654321
+//  -> az eredeti hirdetés linkje (OLX: az OLX nyilvános API-ja az azonosítóval,
+//  vagy a város listájában ugyanaz az azonosító; Storia: a város listájában)
+
+const tisztaLink = u => String(u || "").split("#")[0].split("?")[0];
+
+async function azonositoSzerint(f, hely) {
+    if (!f) return null;
+    if (f.url) return { link: tisztaLink(f.url), forras: f.forras || forrasKulcs(null, f.url), adat: null };
+    if (!f.id) return null;
+    if (f.forras === "olx") {
+        try {
+            const j = await getJson(`https://www.olx.ro/api/v1/offers/${encodeURIComponent(f.id)}/`);
+            const o = j && j.data;
+            if (o && o.url) return { link: tisztaLink(o.url), forras: "olx", adat: olxAdat(o) };
+        } catch (e) { /* tovább a város listájára */ }
+        const cityId = hely && hely.varosRo ? await olxVarosId(hely.varosRo) : null;
+        if (cityId) {
+            const o = (await olxVarosAjanlatai(cityId)).find(x => String(x.id) === String(f.id));
+            if (o) return { link: tisztaLink(o.url), forras: "olx", adat: olxAdat(o) };
+        }
+        return null;
+    }
+    if (f.forras === "storia" && hely && hely.megye) {
+        const o = (await storiaVarosAjanlatai(hely)).find(x => x.id && String(x.id) === String(f.id));
+        if (o) return { link: o.link, forras: "storia", adat: o };
+        return null;
+    }
+    return null;
+}
+
+// Egy hirdetés összes forrása pontos linkkel: [{ link, forras, adat }] (a sorrend a forráslistáé)
+async function forrasokFeloldasa(lista, hely) {
+    const ki = [];
+    for (const f of (Array.isArray(lista) ? lista : []).slice(0, 5)) {
+        const t = await azonositoSzerint(f, hely).catch(() => null);
+        if (t && t.link && !ki.some(x => x.link === t.link)) ki.push(t);
+    }
+    return ki;
+}
+
 // A valódi forrás keresése a hirdetés adataiból (OLX vagy Storia; ha a forrás
 // nem ismert, mindkettő) -> { link, forras, adat } | null
 async function valodiForrasKeres(d, hely, forras) {
@@ -430,10 +473,16 @@ async function gazdagit(d, hely) {
     // 1) Közvetítő link (Imoradar24 link-extern): a valódi forrás keresése
     if (kozvetitoLink(d.link)) {
 
-        const forras = forrasKulcs(d.forrasNev);
+        const forras = forrasKulcs(d.forrasNev) || (d.forrasLista && d.forrasLista[0] && d.forrasLista[0].forras) || null;
         d.forrasKulcs = forras;
-        const t = (forras === "olx" || forras === "storia") ? await valodiForrasKeres(d, { ...hely, tipus: d.tipus, ugylet: d.ugylet }, forras) : null;
-        const talalt = t ? t.adat : null;
+        const h2 = { ...hely, tipus: d.tipus, ugylet: d.ugylet };
+        // 1/a) pontosan: a forrás azonosítója alapján (minden forrás – ha több oldalon is fent van)
+        const pontos = await forrasokFeloldasa(d.forrasLista, h2);
+        let t = pontos[0] || null;
+        if (pontos.length > 1) d.tovabbi_linkek = [...new Set([...(d.tovabbi_linkek || []).filter(l => !kozvetitoOldal(l)), ...pontos.slice(1).map(x => x.link)])];
+        // 1/b) ha nincs azonosító: az adatok (ár, alapterület, szobák, emelet) alapján
+        if (!t && (forras === "olx" || forras === "storia")) t = await valodiForrasKeres(d, h2, forras);
+        const talalt = t ? (t.adat || {}) : null;
 
         if (talalt) {
             d.kozvetitoLink = d.link;
@@ -442,10 +491,10 @@ async function gazdagit(d, hely) {
             if (talalt.hely) { d.x = talalt.x; d.y = talalt.y; d.forrasHely = talalt.hely; }
             if (!d.kulso_kepek || !d.kulso_kepek.length) d.kulso_kepek = talalt.kulso_kepek;
             if (!d.emelet && talalt.emelet) d.emelet = talalt.emelet;
-            d.valodiForras = t.forras;
-            d.forrasKulcs = t.forras;
+            d.valodiForras = t.forras || forras;
+            d.forrasKulcs = t.forras || forras;
             // Storia: a pontos hely a hirdetés oldaláról (lent, a 2. lépésben)
-            if (t.forras === "storia") d.storiaReszlet = true;
+            if (t.forras === "storia" && !(talalt.x && talalt.y)) d.storiaReszlet = true;
         } else {
             // Nem találtuk meg: a link az Imoradar24 adatlapja marad (a leírásért),
             // de a látogató a forrásoldal szűrt keresésére megy (forras_kereso)
@@ -492,16 +541,36 @@ async function javitMind({ limit = 80 } = {}) {
     javitFut = (async () => {
         const db = require("../db/database");
         const e = { nezett: 0, javitott: 0, kereso: 0 };
-        const r = await db.query(`
+        const valaszt = async () => (await db.query(`
             SELECT i.id, i.link, i.ar, i.nm, i.szobak, i.emelet, i.cim, i.varos, i.tipus, i.ugylet, i.forras_nev,
-                   i.kulso_azon, i.leiras, i.x, i.y, i.hely_kezi, i.hely_forras, i.kulso_kepek,
+                   i.kulso_azon, i.leiras, i.x, i.y, i.hely_kezi, i.hely_forras, i.kulso_kepek, i.forras_kereso,
                    v.nev_ro, v.megye
             FROM ingatlanok i LEFT JOIN varosok v ON v.nev = i.varos
-            WHERE i.link ~* 'imoradar24\.ro/' AND i.statusz IN ('aktiv', 'fuggo')
+            WHERE i.link ~* 'imoradar24\\.ro/' AND i.statusz IN ('aktiv', 'fuggo')
               AND (i.forras_javitva IS NULL OR i.forras_javitva < NOW() - INTERVAL '3 days')
-            ORDER BY i.forras_javitva NULLS FIRST, i.id DESC LIMIT $1`, [limit]);
-        for (const i of r.rows) {
-            e.nezett++;
+            ORDER BY i.forras_javitva NULLS FIRST, i.id DESC LIMIT $1`, [limit])).rows;
+
+        let lista = await valaszt();
+        if (!lista.length) return e;
+        e.nezett = lista.length;
+
+        // 1) Pontosan: a város Imoradar24 listájának újraolvasása – benne minden
+        //    hirdetés forrása és azonosítója (source / source_listing_id), ebből az
+        //    eredeti link (importer.figyelesIndit -> frissitAdatbol -> gazdagit)
+        const elotte = new Map(lista.map(i => [i.id, i.link]));
+        try {
+            const job = require("./importer").figyelesIndit({ ids: lista.map(i => i.id), limit: lista.length });
+            await job.promise;
+        } catch (x) { console.error("Forráslinkek (lista):", x.message); }
+
+        const most = (await db.query("SELECT id, link FROM ingatlanok WHERE id = ANY($1::int[])", [lista.map(i => i.id)])).rows;
+        const megvan = new Set(most.filter(i => !kozvetitoOldal(i.link) && i.link !== elotte.get(i.id)).map(i => i.id));
+        e.javitott += megvan.size;
+        if (megvan.size) await db.query("UPDATE ingatlanok SET forras_javitva = NOW(), forras_kereso = NULL WHERE id = ANY($1::int[])", [[...megvan]]);
+        lista = lista.filter(i => !megvan.has(i.id));
+
+        // 2) Ami így sem lett meg: az adatok (ár, alapterület, szobák, emelet) alapján
+        for (const i of lista) {
             const hely = { varosRo: i.nev_ro || require("./geocode").VAROS_RO[i.varos] || i.varos, megye: i.megye, tipus: i.tipus, ugylet: i.ugylet };
             const forras = i.forras_nev || null;
             const d = { ar: Number(i.ar), nm: Number(i.nm), szobak: i.szobak, emelet: i.emelet, cim: i.cim, tipus: i.tipus, ugylet: i.ugylet };
@@ -525,14 +594,14 @@ async function javitMind({ limit = 80 } = {}) {
                 await db.query(`UPDATE ingatlanok SET ${sets.join(", ")} WHERE id = $1`, ert).catch(err => console.error("Forrás javítás:", err.message));
                 e.javitott++;
             } else {
-                // a forrás nem ismert (régi hirdetés): OLX-szel próbálkozunk, ott a cím alapján is lehet keresni
-                const kereso = forrasKereso(forras || "olx", d, hely);
+                // legalább a forrásoldal szűrt keresése (a forrás nem ismert: OLX – ott a cím szavai is számítanak)
+                const kereso = i.forras_kereso || forrasKereso(forras || "olx", d, hely);
                 await db.query("UPDATE ingatlanok SET forras_kereso = $2, forras_javitva = NOW() WHERE id = $1", [i.id, kereso]);
                 if (kereso) e.kereso++;
             }
             await sleep(300);
         }
-        if (e.nezett) console.log(`Forráslinkek: ${e.nezett} közvetített hirdetés, ${e.javitott} az eredeti linkre cserélve, ${e.kereso} a forrás keresésére.`);
+        console.log(`Forráslinkek: ${e.nezett} közvetített hirdetés, ${e.javitott} az eredeti linkre cserélve, ${e.kereso} a forrás keresésére.`);
         return e;
     })().finally(() => { javitFut = null; });
     return javitFut;
@@ -541,5 +610,5 @@ async function javitMind({ limit = 80 } = {}) {
 module.exports = {
     gazdagit, kozvetitoLink, kozvetitoOldal, helySzint,
     olxOldalbol, storiaOldalbol, storiaListabol, olxKeres, olxVarosId, olxVarosAjanlatai, olxAdat, slug,
-    storiaKeres, storiaListaUrl, forrasKereso, forrasKulcs, valodiForrasKeres, javitMind
+    storiaKeres, storiaListaUrl, forrasKereso, forrasKulcs, valodiForrasKeres, javitMind, azonositoSzerint, forrasokFeloldasa
 };

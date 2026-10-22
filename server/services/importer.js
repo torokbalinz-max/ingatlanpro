@@ -92,6 +92,9 @@ function linkKulcsok(link) {
 function elemKulcsok(d) {
     const k = [];
     [d.link, ...(d.tovabbi_linkek || [])].forEach(l => k.push(...linkKulcsok(l)));
+    // az Imoradar24 link-extern címei is (a régi hirdetéseinknél ez van a kulso_azon-ban)
+    (d.forrasLista || []).forEach(f => { if (f.kozvetito) k.push(...linkKulcsok(f.kozvetito)); if (f.url) k.push(...linkKulcsok(f.url)); });
+    if (d.reszletUrl) k.push(...linkKulcsok(d.reszletUrl));
     if (d.imoId) k.push("imo:" + d.imoId);
     return [...new Set(k)];
 }
@@ -174,7 +177,7 @@ async function forrasHelyAdat(varos) {
 function kulsoAzon(d, regi) {
     const k = new Set(Array.isArray(regi) ? regi : []);
     if (d.imoId) k.add("imo:" + d.imoId);
-    [d.kozvetitoLink, forrasHely.kozvetitoOldal(d.link) ? d.link : null].filter(Boolean)
+    [d.kozvetitoLink, forrasHely.kozvetitoOldal(d.link) ? d.link : null, ...(d.forrasLista || []).map(f => f.kozvetito)].filter(Boolean)
         .forEach(l => linkKulcsok(l).forEach(x => k.add(x)));
     return [...k];
 }
@@ -552,7 +555,15 @@ async function frissitAdatbol(i, d, job) {
 
     // A forrás további linkjei (ugyanaz a hirdetés több oldalon)
     // A közvetítő link helyett a valódi forrás (ha eddig nem sikerült, most újra próbáljuk)
-    if (forrasHely.kozvetitoOldal(i.link) && forrasHely.kozvetitoLink(d.link)) {
+    // A forrás most közvetlen linket ad (az Imoradar24 helyett): azonnal arra cseréljük
+    if (forrasHely.kozvetitoOldal(i.link) && d.link && !forrasHely.kozvetitoOldal(d.link)) {
+        potol.link = d.link;
+        potol.kozvetito = null;
+        potol.forras_kereso = null;
+        const fk = forrasHely.forrasKulcs(null, d.link);
+        if (fk) potol.forras_nev = fk;
+        valtozas.push("link");
+    } else if (forrasHely.kozvetitoOldal(i.link) && forrasHely.kozvetitoLink(d.link)) {
         await forrasHely.gazdagit(d, await forrasHelyAdat(i.varos)).catch(() => null);
         if (d.valodiForras && d.link && !forrasHely.kozvetitoOldal(d.link)) {
             potol.link = d.link;
@@ -719,12 +730,14 @@ async function figyelesFuttat(job, opts) {
         `, params);
 
         // Csak értelmes linkek (a hibás adatsorokat kihagyjuk)
-        let lista = r.rows.filter(i => /^https?:\/\//.test(i.link) && isListingUrl(i.link));
+        let lista = r.rows.filter(i => /^https?:\/\//.test(i.link) && (isListingUrl(i.link) || /imoradar24\.ro\//i.test(i.link)));
 
         // Az imobiliare.ro letiltja a szervert: az ilyen hirdetéseket a város
         // Imoradar24-es listájából frissítjük (ár, képek, adatok), és ami
         // már nincs a listában, azt "nem elérhető"-nek jelöljük
-        const imo = lista.filter(i => /imobiliare\.ro/i.test(i.link));
+        // (ugyanígy az Imoradar24-re mutató régi hirdetések: a lista forrás-azonosítóiból
+        // így megkapják az eredeti OLX / Storia / … linket – services/forrasHely.js)
+        const imo = lista.filter(i => /imobiliare\.ro|imoradar24\.ro/i.test(i.link));
 
         if (imo.length) {
 
@@ -745,7 +758,7 @@ async function figyelesFuttat(job, opts) {
             // Az ellenőrzés idejét a frissítés / a "nem elérhető" jelölés állítja be.
             await varosSzinkron([...csoportok.values()], job, { csakMeglevo: true });
 
-            lista = lista.filter(i => !/imobiliare\.ro/i.test(i.link));
+            lista = lista.filter(i => !/imobiliare\.ro|imoradar24\.ro/i.test(i.link));
 
         }
 

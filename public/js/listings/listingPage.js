@@ -262,7 +262,16 @@ class ListingPage {
             </div>` : "";
 
         // Csak itt van fent: a jobb oldali sávban marad a kis jelzés
-        const forrasOldal = linkek.length ? "" : `
+        //  (átvett hirdetésnél soha nem „csak itt”: ha az eredeti linket még nem
+        //   találtuk meg, a forrás neve látszik, és hogy a link hamarosan meglesz)
+        const forrasOldal = linkek.length ? "" : i.link ? `
+                        <div class="card mt-4">
+                            <div class="card-body">
+                                <h6 class="mb-3">${I18n.t("listedOn")}</h6>
+                                <div class="sourceLink"><i class="fa-solid fa-globe"></i> ${Utils.escape(Sources.label(Sources.kulcs(i)))}</div>
+                                <div class="small text-body-secondary mt-2">${I18n.t("srcLinkPending")}</div>
+                            </div>
+                        </div>` : `
                         <div class="card mt-4">
                             <div class="card-body">
                                 <h6 class="mb-3">${I18n.t("listedOn")}</h6>

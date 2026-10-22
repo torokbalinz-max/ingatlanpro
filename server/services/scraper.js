@@ -505,6 +505,35 @@ function emeletCimkebol(label) {
 
 const nemAlkalmazhato = v => (v === undefined || v === null || v === "" || /not applicable/i.test(String(v))) ? null : v;
 
+// Egy Imoradar24 "sellerSources" elem -> { forras, id, url (közvetlen, ha van), kozvetito }
+const FORRAS_DOMAIN = /https?:\/\/(?:www\.|m\.)?(olx\.ro|storia\.ro|imobiliare\.ro|publi24\.ro|homezz\.ro|anuntul\.ro|lajumate\.ro|romimo\.ro)\/[^\s"'<>]+/i;
+
+function forrasElem(s) {
+    const nyers = String(s.viewAdUrl || "");
+    let url = null, kozvetito = null, forras = null, id = null;
+    try {
+        const u = new URL(nyers, "https://www.imoradar24.ro");
+        if (/imoradar24\.ro$/i.test(u.hostname)) {
+            kozvetito = u.origin + u.pathname;
+            forras = u.searchParams.get("source");
+            id = u.searchParams.get("source_listing_id");
+        } else {
+            url = u.origin + u.pathname;
+            // az imobiliare.ro a ?utm_... nélkül is ugyanaz
+        }
+    } catch (e) { return null; }
+    // ha az elemben máshol van közvetlen link (pl. url / adUrl mező), az a legjobb
+    if (!url) {
+        const m = JSON.stringify(s).replace(/\\\//g, "/").match(FORRAS_DOMAIN);
+        if (m) url = m[0].split("#")[0].split("?")[0];
+    }
+    forras = forras || s.sourceName || s.source || (url ? (url.match(FORRAS_DOMAIN) || [])[1] : null);
+    const kulcs = String(forras || "").toLowerCase().replace(/\.ro$/, "").replace(/[^a-z0-9]/g, "") || null;
+    id = id || s.sourceListingId || s.listingId || s.externalId || null;
+    if (!url && !kozvetito) return null;
+    return { forras: kulcs, forrasNev: forras || null, id: id ? String(id) : null, url, kozvetito };
+}
+
 // Imoradar24 / Imobiliare találati lista: a beágyazott adatcsomagban
 // minden hirdetés összes fontos adata benne van (ár, m², szobák,
 // emelet, környék, képek, elérhetőség, eredeti link) – így az egyes
@@ -545,7 +574,26 @@ function keresesiElem(o) {
 
     const ga = (o.tracking && o.tracking.ga4Item) || {};
     const forrasok = (o.sellerSources || []).filter(s => s && s.viewAdUrl);
-    const linkek = forrasok.map(s => String(s.viewAdUrl).split("#")[0].split("?")[0]);
+
+    // Minden forrás: a valódi oldal neve és a hirdetés azonosítója ott. Az Imoradar24
+    // "link-extern" címe (bejelentkezés nélkül nem visz tovább) így néz ki:
+    //   /link-extern/2368728?source=OLX.ro&source_listing_id=287654321
+    // – a forrás és az azonosító alapján az eredeti hirdetés pontos linkje
+    // megkereshető (services/forrasHely.js). Ha a forrás közvetlen linket ad, azt vesszük.
+    const forrasLista = forrasok.map(s => forrasElem(s)).filter(Boolean);
+    // Imobiliare.ro: a hirdetés azonosítója (cubeid) + az adatlap címének szavai
+    // (az Imoradar24 és az Imobiliare ugyanazt a formát használja):
+    //   /oferta/apartament-de-vanzare-sfantu-gheorghe-central-3-camere-<azonosító>
+    {
+        const cube = nemAlkalmazhato(ga.cubeid);
+        const m = String(o.url || "").match(/\/oferta\/([a-z0-9-]+?)-\d{5,}(?:[/?#]|$)/i);
+        forrasLista.forEach(f => {
+            if (f.forras === "imobiliare" && !f.url && cube && /^\d{6,}$/.test(String(cube)) && m) {
+                f.url = `https://www.imobiliare.ro/oferta/${m[1]}-${cube}`;
+            }
+        });
+    }
+    const linkek = forrasLista.map(f => f.url || f.kozvetito);
 
     const link = linkek[0] || (o.url ? absUrl(String(o.url), "https://www.imoradar24.ro") : null);
     if (!link) return null;
@@ -566,6 +614,7 @@ function keresesiElem(o) {
     const d = {
         link,
         tovabbi_linkek: linkek.slice(1),
+        forrasLista,
         imoId: nemAlkalmazhato(ga.cubeid) || nemAlkalmazhato(o.phoneApiEntityId),
         forrasNev: o.sourceName || (forrasok[0] && forrasok[0].sourceName) || null,
         reszletUrl,

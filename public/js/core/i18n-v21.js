@@ -103,7 +103,8 @@
             adAskPerMonth: "/hó",
             adAskTotalN: "Becsült díj: {havi}/hó × {n} hó = {ossz}",
             extHelpSearch: "Ezt a hirdetést egy gyűjtőoldalról vettük át. A forrásoldal keresőjében nyitjuk meg, ár és alapterület szerint szűrve – rendszerint pontosan ezt a hirdetést találod ott.",
-            srcSearchOnSite: "keresés a forrásoldalon (ár és alapterület szerint)"
+            srcSearchOnSite: "keresés a forrásoldalon (ár és alapterület szerint)",
+            srcLinkPending: "Az eredeti hirdetés linkjét a következő frissítéskor megkeressük."
         },
         ro: {
             accTabNotifications: "Notificări",
@@ -197,7 +198,8 @@
             adAskPerMonth: "/lună",
             adAskTotalN: "Cost estimat: {havi}/lună × {n} luni = {ossz}",
             extHelpSearch: "Acest anunț provine de la un agregator. Îl deschidem în căutarea site-ului sursă, filtrat după preț și suprafață – de obicei găsiți exact acest anunț acolo.",
-            srcSearchOnSite: "căutare pe site-ul sursă (după preț și suprafață)"
+            srcSearchOnSite: "căutare pe site-ul sursă (după preț și suprafață)",
+            srcLinkPending: "Linkul anunțului original îl căutăm la următoarea actualizare."
         },
         en: {
             accTabNotifications: "Notifications",
@@ -291,7 +293,8 @@
             adAskPerMonth: "/mo",
             adAskTotalN: "Estimated cost: {havi}/mo × {n} mo = {ossz}",
             extHelpSearch: "This listing comes from an aggregator. We open it in the source site's search, filtered by price and floor area – you'll usually find exactly this listing there.",
-            srcSearchOnSite: "search on the source site (by price and area)"
+            srcSearchOnSite: "search on the source site (by price and area)",
+            srcLinkPending: "We'll look up the original listing's link at the next refresh."
         }
     };
 
