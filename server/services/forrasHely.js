@@ -588,8 +588,12 @@ async function publi24Keresesbol(d, hely) {
 //  (forrásonként a saját árával) – ha nem ismert, mindhárom oldalon keresünk
 //  -> [{ link, forras, adat }] (a megtaláltak)
 async function keresesbolPontos(d, hely, forrasok) {
-    const lista = (forrasok && forrasok.length ? forrasok : [{ forras: "olx" }, { forras: "storia" }, { forras: "publi24" }])
-        .filter((f, n, a) => f && f.forras && a.findIndex(x => x.forras === f.forras) === n);
+    // Sorrend: Storia, Publi24, OLX – az OLX letiltja a szervert, a Storia (ugyanaz a cég)
+    // és a Publi24 nem; ha a hirdetés a Storián is fent van, oda visz
+    const SOR = { storia: 0, publi24: 1, olx: 2 };
+    const lista = (forrasok && forrasok.length ? forrasok : [{ forras: "storia" }, { forras: "publi24" }, { forras: "olx" }])
+        .filter((f, n, a) => f && f.forras && a.findIndex(x => x.forras === f.forras) === n)
+        .sort((a, b) => (SOR[a.forras] ?? 9) - (SOR[b.forras] ?? 9));
     const ki = [];
     for (const f of lista) {
         const dd = { ...d, ar: Number(f.ar) > 0 ? Number(f.ar) : d.ar };
@@ -661,7 +665,7 @@ async function forrasokFeloldasa(lista, hely) {
 // nem ismert, mindkettő) -> { link, forras, adat } | null
 async function valodiForrasKeres(d, hely, forras) {
     // a forrásoldal nyilvános (ár szerint szűrt) találati listája – ez a megbízhatóbb
-    const t = await keresesbolPontos(d, hely, forras ? [{ forras }] : null).catch(() => []);
+    const t = await keresesbolPontos(d, hely, null).catch(() => []);
     if (t.length) return t[0];
     if (forras !== "storia" && forras !== "publi24" && hely && hely.varosRo) {
         const o = await olxKeres(d, hely.varosRo).catch(() => null);
@@ -787,7 +791,7 @@ async function ismertLinkElore(varosok) {
 //  opts.limit:    legfeljebb ennyi hirdetés
 //  opts.varosok:  csak ezekben a városokban (a környék-várossal együtt) – null = mind
 //  opts.csakAdat: a város listájának újraolvasása kimarad (a hívó már megcsinálta)
-async function javitMind({ limit = 80, varosok = null, csakAdat = false } = {}) {
+async function javitMind({ limit = 80, varosok = null, csakAdat = false, mind = false } = {}) {
     if (javitFut) return javitFut;
     javitFut = (async () => {
         const db = require("../db/database");
@@ -806,7 +810,7 @@ async function javitMind({ limit = 80, varosok = null, csakAdat = false } = {}) 
             FROM ingatlanok i LEFT JOIN varosok v ON v.nev = i.varos
             WHERE i.link ~* 'imoradar24\\.ro/' AND i.statusz IN ('aktiv', 'fuggo') ${szuro}
               -- ami még nincs meg: fél naponta újra (városra indítva mindig)
-              ${varosok && varosok.length ? "" : "AND (i.forras_javitva IS NULL OR i.forras_javitva < NOW() - INTERVAL '12 hours')"}
+              ${(varosok && varosok.length) || mind ? "" : "AND (i.forras_javitva IS NULL OR i.forras_javitva < NOW() - INTERVAL '12 hours')"}
             ORDER BY i.forras_javitva NULLS FIRST, i.id DESC LIMIT $1`, params)).rows;
 
         let lista = await valaszt();
