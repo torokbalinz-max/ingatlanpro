@@ -13,6 +13,7 @@ class NewPropertyManager {
 
     static editId = null;
     static editStatusz = null;
+    static editForras = null;         // a szerkesztett hirdetés forrása ("import" = beolvasott)
     static tipus = "lakas";
     static ugylet = "elado";
     static helyPontossag = null;
@@ -133,6 +134,12 @@ class NewPropertyManager {
 
     static isLocal() {
         return !document.getElementById("ujLink").value.trim();
+    }
+
+    // Itt feladott hirdetésnél csak pontos hely adható meg (a közelítő helyet nem
+    // lehet választani); az admin a beolvasott hirdetéseknél továbbra is adhat közelítőt
+    static csakPontos() {
+        return NewPropertyManager.editForras !== "import";
     }
 
     static updatePreview() {
@@ -511,7 +518,8 @@ class NewPropertyManager {
         if (Types.kotelezo(d.tipus, "kerulet", d.varos) && !d.kerulet && keruletSelect.options.length > 1) h.push("kerulet");
 
         if (local && (!d.leiras || d.leiras.length < 20)) h.push("leiras");
-        if (local && d.tipus !== "telek" && !(d.x && d.y)) h.push("hely");
+        // A hely: pontos hely kell (a közelítő hely, pl. a forrásoldalról, nem elég)
+        if (local && d.tipus !== "telek" && !(d.x && d.y && d.hely_pontossag !== "kozelito")) h.push("hely");
 
         const kepDb = NewPropertyManager.photos.filter(p => p.kind !== "ext").length;
         if (local && kepDb === 0) h.push("kepek");
@@ -598,6 +606,7 @@ class NewPropertyManager {
 
                 NewPropertyManager.editId = i.id;
                 NewPropertyManager.editStatusz = i.statusz;
+                NewPropertyManager.editForras = i.forras_tipus || null;
                 NewPropertyManager.tipus = i.tipus || "lakas";
                 NewPropertyManager.ugylet = i.ugylet || "elado";
 
@@ -667,6 +676,7 @@ class NewPropertyManager {
         document.getElementById("newMissingAlert").style.display = "none";
 
         NewPropertyManager.editStatusz = null;
+        NewPropertyManager.editForras = null;
         NewPropertyManager.forrasSzoveg = null;
         NewPropertyManager.photos = [];
         NewPropertyManager.removedPhotoIds = [];

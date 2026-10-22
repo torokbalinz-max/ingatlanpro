@@ -168,10 +168,12 @@ class AdSlots {
 
     }
 
-    // A kártyák közé: a rácsba illő cella / egy teljes széles sor
-    static feedCol() {
+    // A kártyák közé: a rácsba illő cella – ugyanakkora, mint egy kártya az éppen
+    // választott elrendezésben (1, 2, 3 vagy 4 egy sorban); az egy oszlopos (fekvő
+    // kártyás) elrendezésben egy fekvő sor. Illetve egy teljes széles sor.
+    static feedCol(col = "col-sm-6 col-lg-4", sor = false) {
         const h = AdSlots.html("feed");
-        return h ? `<div class="col-sm-6 col-xl-4 col-4k-3 adFeedCol">${h}</div>` : "";
+        return h ? `<div class="${col} adFeedCol${sor ? " adFeedRow" : ""}">${h}</div>` : "";
     }
 
     static feedWideCol() {

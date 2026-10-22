@@ -286,6 +286,10 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
             vannakKeruletek: await vannakKeruletek(d.varos)
         });
 
+        // Itt feladott hirdetésnél pontos hely kell: a közelítő helyet (kör) már nem
+        // lehet választani (a régi, közelítő helyű hirdetések maradnak, ahogy vannak)
+        if (!d.link && d.tipus !== "telek" && d.hely_pontossag === "kozelito" && !hianyzo.includes("hely")) hianyzo.push("hely");
+
         if (hianyzo.length) {
             return res.status(400).json({ error: "missing_fields", hianyzo });
         }

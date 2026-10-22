@@ -21,6 +21,10 @@
 //
 //  opts.varos:    () => a kiválasztott város (a mi nevünk)
 //  opts.szoveg:   () => { cim, leiras, tipus, telepules, kerulet }
+//  opts.csakPontos: true = csak pontos hely adható meg (hirdetésfeladás): nincs
+//                 "közelítő hely" mód; a keresés / a leírás csak odavisz, a pontos
+//                 helyre kattintani kell. Ha a meglévő hely csak közelítő (pl. a
+//                 forrásoldalról), a kör látszik, amíg a pontos helyre nem kattintasz.
 // ============================================================
 
 class LocationPicker {
@@ -43,6 +47,7 @@ class LocationPicker {
         this.x = opts.x || null;
         this.y = opts.y || null;
         this.mod = opts.pontossag === "kozelito" ? "kozelito" : "pontos";
+        this.csakPontos = !!opts.csakPontos;
         this.sugar = opts.sugar || 500;
         this.mozgatva = false;
         this.id = containerId;
@@ -60,13 +65,13 @@ class LocationPicker {
                 <button type="button" class="btn btn-primary btn-sm locFullDone"><i class="fa-solid fa-check" aria-hidden="true"></i> ${esc(I18n.t("locFullDone"))}</button>
             </div>
             <div class="locBar">
-                <div class="btn-group btn-group-sm" role="group" aria-label="${esc(I18n.t("locModeLabel"))}">
+                <div class="btn-group btn-group-sm" role="group" aria-label="${esc(I18n.t("locModeLabel"))}" ${this.csakPontos ? "hidden" : ""}>
                     <input type="radio" class="btn-check" name="${this.id}_mod" id="${this.id}_pontos" value="pontos" ${this.mod === "pontos" ? "checked" : ""}>
                     <label class="btn btn-outline-secondary" for="${this.id}_pontos"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${I18n.t("hely_pontos")}</label>
                     <input type="radio" class="btn-check" name="${this.id}_mod" id="${this.id}_kozelito" value="kozelito" ${this.mod === "kozelito" ? "checked" : ""}>
                     <label class="btn btn-outline-secondary" for="${this.id}_kozelito"><i class="fa-regular fa-circle" aria-hidden="true"></i> ${I18n.t("hely_kozelito")}</label>
                 </div>
-                <label class="locRadius" ${this.mod === "kozelito" ? "" : "hidden"}>
+                <label class="locRadius" ${this.mod === "kozelito" && !this.csakPontos ? "" : "hidden"}>
                     <span>${I18n.t("locRadius")}</span>
                     <input type="range" min="150" max="3000" step="50" value="${this.sugar}" aria-label="${esc(I18n.t("locRadius"))}">
                     <b class="locRadiusVal">${LocationPicker.meter(this.sugar)}</b>
@@ -90,6 +95,7 @@ class LocationPicker {
                 <div class="locZoomTip" hidden>${esc(I18n.t("locWheelTip"))}</div>
             </div>
             <div class="locDistrict small" hidden></div>
+            <div class="locNote small" hidden></div>
             <div class="locWarn alert alert-warning small py-2 mb-0" hidden></div>`;
 
         this.mapEl = this.box.querySelector(".locMap");
@@ -160,6 +166,8 @@ class LocationPicker {
         this.draw();
         if (this.x && this.y) this.ellenoriz();
         this.kerulteKiir();
+        // Csak pontos hely, de a meglévő hely csak közelítő: kérjük a pontosat
+        if (this.csakPontos && this.mod === "kozelito" && this.x && this.y) this.jegyzet(I18n.t("approxLocationEdit"));
 
         setTimeout(() => this.map.invalidateSize(), 120);
 
@@ -407,6 +415,15 @@ class LocationPicker {
 
         const pontos = t.szint === "haz" || t.szint === "utca";
 
+        // Csak pontos hely: kerület / falu / város találat csak odavisz a térképen
+        if (this.csakPontos && !pontos) {
+            this.utcaKiemel(t.vonalak);
+            const r = Math.max(150, Math.min(3000, t.sugar || 600));
+            this.map.fitBounds(L.latLng(t.y, t.x).toBounds(r * 2), { maxZoom: 16, padding: [16, 16] });
+            this.jegyzet(I18n.t("locPickExact"));
+            return;
+        }
+
         this.mod = pontos ? "pontos" : "kozelito";
         if (!pontos) this.sugar = Math.max(150, Math.min(3000, Math.round((t.sugar || 600) / 50) * 50));
         this.syncMod();
@@ -456,6 +473,15 @@ class LocationPicker {
                     box.innerHTML = `<span class="small text-body-secondary">${I18n.t("locFromTextNone")}</span>`;
                     return;
                 }
+                if (this.csakPontos && h.szint === "kozelito") {
+                    this.utcaKiemel(null);
+                    const r = Math.max(150, Math.min(3000, h.sugar || 600));
+                    this.map.fitBounds(L.latLng(h.y, h.x).toBounds(r * 2), { maxZoom: 16, padding: [16, 16] });
+                    const nev0 = h.nev ? (h.forras === "kerulet" ? CityManager.keruletLabel(h.nev, this.varos()) : h.nev) : "";
+                    box.innerHTML = `<span class="small text-success"><i class="fa-solid fa-check" aria-hidden="true"></i> ${I18n.f("locFromTextFound", { nev: Utils.escape(nev0 || I18n.t("locLevel_hely")) })}</span>`;
+                    this.jegyzet(I18n.t("locPickExact"));
+                    return;
+                }
                 this.mod = h.szint === "kozelito" ? "kozelito" : "pontos";
                 if (h.sugar) this.sugar = Math.max(150, Math.min(3000, Math.round(h.sugar / 50) * 50));
                 this.syncMod();
@@ -474,12 +500,20 @@ class LocationPicker {
 
     }
 
+    // Rövid útmutatás a térkép alatt (pl. "most kattints a pontos helyre")
+    jegyzet(szoveg) {
+        const el = this.box.querySelector(".locNote");
+        if (!el) return;
+        el.hidden = !szoveg;
+        el.innerHTML = szoveg ? `<i class="fa-solid fa-hand-pointer" aria-hidden="true"></i> ${Utils.escape(szoveg)}` : "";
+    }
+
     // A módválasztó és a sugár csúszka a belső állapothoz igazítva
     syncMod() {
         const r = this.box.querySelector(`#${this.id}_${this.mod}`);
         if (r) r.checked = true;
         const rad = this.box.querySelector(".locRadius");
-        rad.hidden = this.mod !== "kozelito";
+        rad.hidden = this.csakPontos || this.mod !== "kozelito";
         rad.querySelector("input").value = this.sugar;
         rad.querySelector(".locRadiusVal").innerText = LocationPicker.meter(this.sugar);
     }
@@ -517,6 +551,12 @@ class LocationPicker {
         this.x = x;
         this.y = y;
         if (felhasznalo) this.mozgatva = true;
+        // Csak pontos hely: a kattintás / húzás mindig a pontos hely
+        if (this.csakPontos && felhasznalo && this.mod !== "pontos") {
+            this.mod = "pontos";
+            this.syncMod();
+        }
+        if (this.csakPontos && felhasznalo) this.jegyzet("");
         const hint = this.box.querySelector(".locHint");
         if (hint) hint.remove();
         this.draw();
@@ -561,7 +601,7 @@ class LocationPicker {
         const ll = [this.y, this.x];
 
         if (this.mod === "kozelito") {
-            this.kor = L.circle(ll, { radius: this.sugar, color: Utils.accent(), weight: 2, fillOpacity: 0.14 }).addTo(this.map);
+            this.kor = L.circle(ll, { radius: this.sugar, color: Utils.accent(), weight: 2, fillOpacity: 0.14, dashArray: this.csakPontos ? "6 6" : null }).addTo(this.map);
         }
 
         this.marker = L.marker(ll, { draggable: true, opacity: this.mod === "kozelito" ? 0.75 : 1 }).addTo(this.map);

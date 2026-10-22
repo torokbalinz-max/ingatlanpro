@@ -94,7 +94,7 @@ class HomePage {
     }
 
     // A kezdőlap "piaci tábla": a város eladó lakásainak átlagos €/m²-e, és kerületenként
-    // (a legtöbb hirdetéssel rendelkező kerületek, legalább 2 lakással) – valós adat
+    // (a 3 legtöbb hirdetéssel rendelkező kerület, legalább 2 lakással) – valós adat
     static piac() {
 
         const lista = (DataManager.ingatlanok || []).filter(i =>
@@ -114,7 +114,7 @@ class HomePage {
         const keruletek = [...csop.values()]
             .filter(c => c.db >= 2)
             .sort((a, b) => b.db - a.db)
-            .slice(0, 5)
+            .slice(0, 3)
             .map(c => ({ ...c, atlag: c.osszeg / c.db }))
             .sort((a, b) => b.atlag - a.atlag);
 
@@ -170,7 +170,7 @@ class HomePage {
 
         box.innerHTML = `
 
-            <section class="homeHero hv2">
+            <section class="homeHero hv3">
                 <div class="homeHeroText">
                     <h1>${t("homeTitle")}</h1>
                     <p class="homeLead">${t("homeSub")}</p>
@@ -196,14 +196,13 @@ class HomePage {
                     </form>
 
                     <div class="heroLinks">
-                        <a href="#map" id="heroMap"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> ${t("homeOnMap")}</a>
-                        <a href="#new"><i class="fa-solid fa-circle-plus" aria-hidden="true"></i> ${t("homeCtaPost")}</a>
+                        <a href="#map" id="heroMap"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> ${t("homeOnMap")} <i class="fa-solid fa-arrow-right heroLinkGo" aria-hidden="true"></i></a>
                     </div>
                 </div>
 
                 <div class="homeHeroVisual">
                     <div class="homeHeroMedia">
-                        <img src="${HomePage.FOTO(HomePage.KEPEK.hero)}&w=1400" alt="" fetchpriority="high" width="1400" height="1000" onerror="this.parentElement.classList.add('noImg');this.remove();">
+                        <img src="${HomePage.FOTO(HomePage.KEPEK.hero)}&w=1600" srcset="${[800, 1200, 1600, 2200].map(w => `${HomePage.FOTO(HomePage.KEPEK.hero)}&w=${w} ${w}w`).join(", ")}" sizes="(min-width: 992px) 48vw, 100vw" alt="" fetchpriority="high" width="1600" height="1200" onerror="this.parentElement.classList.add('noImg');this.remove();">
                     </div>
 
                     <a class="heroBoard" href="#market" aria-label="${esc(t("homeBoardLink"))}">
@@ -237,6 +236,8 @@ class HomePage {
                     </a>
                 </div>
             </section>
+
+            <div class="homeWrap">
 
             <nav class="homeDock" aria-label="${esc(t("homeDockAria"))}">
                 ${dock.map((d, n) => `
@@ -323,7 +324,9 @@ class HomePage {
                     <span>${t("homeHelpText")}</span>
                 </div>
                 <a class="btn btn-outline-primary btn-sm" href="#sugo">${t("homeHelpBtn")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
-            </section>`;
+            </section>
+
+            </div>`;
 
         const ertek = () => ({
             ugylet: (box.querySelector('input[name="heroUgylet"]:checked') || {}).value || "elado",

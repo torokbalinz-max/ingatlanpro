@@ -1,9 +1,9 @@
 // ============================================================
 //  Mozgás (csak kinézet – a működéshez nem nyúl)
-//   1. Kezdőlap, első megnyitás: egyetlen nyitójelenet – az örökzöld panel
-//      kinyílik, a szintvonalak megrajzolódnak, a cím felgördül, a kereső,
-//      a fotó és a város árképe sorban érkezik, a kerületi sávok kinőnek,
-//      az átlagár felszámol, végül a funkció-sáv elemei
+//   1. Kezdőlap, első megnyitás: egyetlen nyitójelenet – a szintvonalak
+//      megrajzolódnak, a cím felgördül, a fotó a szöveg felől a képernyő
+//      széléig kinyílik, a kereső és a város árképe sorban érkezik, a
+//      kerületi sávok kinőnek, az átlagár felszámol
 //   2. Görgetéskor a fejléc kap egy finom árnyékot
 //   3. Oldalváltáskor az új oldal finoman beúszik
 //  Aki a csökkentett mozgást kérte (rendszerbeállítás), annál semmi sem mozog.
@@ -70,15 +70,13 @@
     //  a nyitójelenet csak az elsőnél fut, az átlagár akkor számol fel, amikor megvan.
     let nyitvaVolt = false, szamolva = false;
     function hos() {
-        const h = document.querySelector("#page-home .homeHero.hv2");
+        const h = document.querySelector("#page-home .homeHero.hv3");
         if (!h) return;
         if (!h.querySelector(".ipContour")) h.prepend(szintvonalak());
         if (csendes || document.body.dataset.page !== "home" || !h.offsetParent) return;
         if (!nyitvaVolt) {
             nyitvaVolt = true;
             h.classList.add("ipIntro");
-            const dock = document.querySelector("#page-home .homeDock");
-            if (dock) dock.classList.add("ipIntroDock");
         }
         if (!szamolva) {
             const el = h.querySelector(".heroBoard [data-count]");

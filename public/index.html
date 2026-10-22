@@ -840,28 +840,43 @@
 
 <section id="page-new" class="page" style="display:none;">
 
-    <div class="pageHeader">
-        <div class="pageHeaderRow">
-            <div>
+    <!-- Fejléc: cím, súgó és a négy lépés (kattintva odagörget; az állapotuk élőben
+         frissül – js/new-listing/newListingUi.js) -->
+    <div class="newHead">
+        <div class="newHeadTop">
+            <div class="newHeadText">
                 <h2 id="newPageTitle" data-i18n="newTitle">Új hirdetés feladása</h2>
-                <p class="text-body-secondary mb-0" data-i18n="newSubtitle">Minden csillaggal jelölt mezőt ki kell tölteni.</p>
+                <p class="mb-0" data-i18n="newSubtitle">Minden csillaggal jelölt mezőt ki kell tölteni.</p>
             </div>
             <button class="helpBtn" type="button" data-help="new"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span data-i18n="helpBtn">Hogyan működik?</span></button>
         </div>
-        <div class="pageHelp" id="help-new" hidden></div>
+        <ol class="newSteps" id="newSteps">
+            <li class="newStepLink" data-step-link="1"><button type="button" class="nsBtn" data-step-go="1" aria-controls="newStep1"><span class="nsNo">1</span><span class="nsText"><b data-i18n="newStepBasics">Mit hirdetsz?</b><small data-step-state="1"></small></span></button></li>
+            <li class="newStepLink" data-step-link="2"><button type="button" class="nsBtn" data-step-go="2" aria-controls="newStep2"><span class="nsNo">2</span><span class="nsText"><b data-i18n="newStepDetails">Adatok</b><small data-step-state="2"></small></span></button></li>
+            <li class="newStepLink" data-step-link="3"><button type="button" class="nsBtn" data-step-go="3" aria-controls="newStep3"><span class="nsNo">3</span><span class="nsText"><b data-i18n="newStepPhotos">Fényképek</b><small data-step-state="3"></small></span></button></li>
+            <li class="newStepLink" data-step-link="4"><button type="button" class="nsBtn" data-step-go="4" aria-controls="newStep4"><span class="nsNo">4</span><span class="nsText"><b data-i18n="newHely">Elhelyezkedés</b><small data-step-state="4"></small></span></button></li>
+        </ol>
     </div>
+    <div class="pageHelp" id="help-new" hidden></div>
 
     <div id="newMissingAlert" class="alert alert-danger" style="display:none;"></div>
     <div id="newPendingInfo" class="alert alert-warning" style="display:none;"></div>
 
-    <div class="row g-4">
+    <div class="newLayout">
 
-        <div class="col-xl-7">
+        <div class="newMain">
 
             <!-- 1. Alapok -->
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0"><span class="stepNo">1</span> <span data-i18n="newStepBasics">Mit hirdetsz?</span></h5></div>
-                <div class="card-body">
+            <section class="newStep" id="newStep1" data-step="1" aria-labelledby="newStep1Title">
+                <header class="newStepHead">
+                    <span class="newStepNo" aria-hidden="true">1</span>
+                    <div class="newStepTitle">
+                        <h3 id="newStep1Title" data-i18n="newStepBasics">Mit hirdetsz?</h3>
+                        <p data-i18n="newStep1Hint">Típus, eladó vagy kiadó, és egy rövid cím.</p>
+                    </div>
+                    <span class="newStepBadge" data-step-badge="1"></span>
+                </header>
+                <div class="newStepBody">
 
                     <div class="btn-group w-100 mb-3 ugyletSwitch" role="group">
                         <input type="radio" class="btn-check" name="ujUgylet" id="ujUgyletElado" value="elado" checked>
@@ -899,54 +914,68 @@
                         </div>
                     </div>
 
-                    <label class="form-label" for="ujLink" data-i18n="newLink">Link egy másik hirdetési oldalról (nem kötelező)</label>
-                    <div class="input-group">
-                        <input id="ujLink" type="url" class="form-control" placeholder="https://www.imobiliare.ro/oferta/...">
-                        <button class="btn btn-outline-primary" type="button" id="btnScrape">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="newScrapeBtn">Adatok betöltése</span>
-                        </button>
-                    </div>
-                    <div class="form-text mb-3">
-                        <span data-i18n="newLinkHelp">Ha megadod, megpróbáljuk kitölteni az adatokat a linkről. Ellenőrizd őket!</span>
-                        <span id="ujSourcePreview" class="ms-1"></span>
-                    </div>
-                    <div id="scrapeResult"></div>
-
                     <label class="form-label req" for="ujCim" data-i18n="newCim">Hirdetés címe</label>
-                    <input id="ujCim" type="text" maxlength="200" class="form-control mb-3" data-i18n-placeholder="newCimPh" placeholder="pl. Felújított 3 szobás lakás a központban">
+                    <input id="ujCim" type="text" maxlength="200" class="form-control" data-i18n-placeholder="newCimPh" placeholder="pl. Felújított 3 szobás lakás a központban">
+
+                    <!-- Rövidítés: link egy másik oldalról – az adatokat kitöltjük belőle -->
+                    <div class="newImport">
+                        <span class="newImportIcon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                        <div class="newImportBody">
+                            <b data-i18n="newImportTitle">Van már hirdetésed máshol?</b>
+                            <label class="form-label" for="ujLink" data-i18n="newLink">Link egy másik hirdetési oldalról (nem kötelező)</label>
+                            <div class="input-group">
+                                <input id="ujLink" type="url" class="form-control" placeholder="https://www.imobiliare.ro/oferta/...">
+                                <button class="btn btn-outline-primary" type="button" id="btnScrape">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="newScrapeBtn">Adatok betöltése</span>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                <span data-i18n="newLinkHelp">Ha megadod, megpróbáljuk kitölteni az adatokat a linkről. Ellenőrizd őket!</span>
+                                <span id="ujSourcePreview" class="ms-1"></span>
+                            </div>
+                            <div id="scrapeResult"></div>
+                        </div>
+                    </div>
 
                 </div>
-            </div>
+            </section>
 
             <!-- 2. Adatok -->
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0"><span class="stepNo">2</span> <span data-i18n="newStepDetails">Adatok</span></h5></div>
-                <div class="card-body">
+            <section class="newStep" id="newStep2" data-step="2" aria-labelledby="newStep2Title">
+                <header class="newStepHead">
+                    <span class="newStepNo" aria-hidden="true">2</span>
+                    <div class="newStepTitle">
+                        <h3 id="newStep2Title" data-i18n="newStepDetails">Adatok</h3>
+                        <p data-i18n="newStep2Hint">Ár, méret, állapot, hely a városban és a leírás.</p>
+                    </div>
+                    <span class="newStepBadge" data-step-badge="2"></span>
+                </header>
+                <div class="newStepBody">
 
                     <div class="row g-3">
 
                         <div class="col-6">
                             <label class="form-label req" for="ujAr" id="ujArLabel" data-i18n="newAr">Ár (€)</label>
-                            <input id="ujAr" type="number" min="0" class="form-control">
+                            <input id="ujAr" type="number" min="0" class="form-control" inputmode="numeric">
                         </div>
 
                         <div class="col-6">
                             <label class="form-label req" for="ujNm" id="ujNmLabel" data-i18n="newNm">Alapterület (m²)</label>
-                            <input id="ujNm" type="number" min="0" step="any" class="form-control">
+                            <input id="ujNm" type="number" min="0" step="any" class="form-control" inputmode="decimal">
                         </div>
 
-                        <div class="col-12">
+                        <div class="col-12 newArNm">
                             <div class="form-text" id="ujArNmPreview"></div>
                         </div>
 
                         <div class="col-6" data-field="telek">
                             <label class="form-label req" for="ujTelekNm" data-i18n="newTelekNm">Telek mérete (m²)</label>
-                            <input id="ujTelekNm" type="number" min="0" step="any" class="form-control">
+                            <input id="ujTelekNm" type="number" min="0" step="any" class="form-control" inputmode="decimal">
                         </div>
 
                         <div class="col-4" data-field="szobak">
                             <label class="form-label req" for="ujSzobak" data-i18n="newSzobak">Szobák</label>
-                            <input id="ujSzobak" type="number" min="0" class="form-control">
+                            <input id="ujSzobak" type="number" min="0" class="form-control" inputmode="numeric">
                         </div>
 
                         <div class="col-4" data-field="emelet">
@@ -956,7 +985,7 @@
 
                         <div class="col-4" data-field="emelet">
                             <label class="form-label" for="ujOsszEmelet" data-i18n="newOsszEmelet">Összes emelet</label>
-                            <input id="ujOsszEmelet" type="number" min="0" class="form-control">
+                            <input id="ujOsszEmelet" type="number" min="0" class="form-control" inputmode="numeric">
                         </div>
 
                         <div class="col-md-6" data-field="jelleg">
@@ -974,6 +1003,8 @@
                                 <option value="" data-i18n="chooseOne">— válassz —</option>
                             </select>
                         </div>
+
+                        <div class="col-12 newSub"><span data-i18n="newSubWhere">Város és kerület</span></div>
 
                         <div class="col-md-6">
                             <label class="form-label req" for="ujVaros" data-i18n="newVaros">Város</label>
@@ -1006,49 +1037,79 @@
 
                         <div class="col-12">
                             <label class="form-label req" for="ujLeiras" data-i18n="newLeiras">Leírás</label>
-                            <textarea id="ujLeiras" class="form-control" rows="6" maxlength="5000" data-i18n-placeholder="newLeirasPh" placeholder="Írd le az ingatlant: elrendezés, fűtés, parkolás, környék..."></textarea>
-                            <div class="form-text"><span id="ujLeirasCount">0</span> / 5000</div>
+                            <textarea id="ujLeiras" class="form-control" rows="7" maxlength="5000" data-i18n-placeholder="newLeirasPh" placeholder="Írd le az ingatlant: elrendezés, fűtés, parkolás, környék..."></textarea>
+                            <div class="form-text text-end"><span id="ujLeirasCount">0</span> / 5000</div>
                         </div>
 
                     </div>
 
                 </div>
-            </div>
+            </section>
 
             <!-- 3. Fényképek -->
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0"><span class="stepNo">3</span> <span data-i18n="newStepPhotos">Fényképek</span></h5></div>
-                <div class="card-body">
-
-                    <p class="small text-body-secondary" id="photoHelp" data-i18n="newPhotosHelp">Legalább 1 fénykép kötelező, ha a hirdetés csak itt jelenik meg. Legfeljebb 15 kép.</p>
+            <section class="newStep" id="newStep3" data-step="3" aria-labelledby="newStep3Title">
+                <header class="newStepHead">
+                    <span class="newStepNo" aria-hidden="true">3</span>
+                    <div class="newStepTitle">
+                        <h3 id="newStep3Title" data-i18n="newStepPhotos">Fényképek</h3>
+                        <p id="photoHelp" data-i18n="newPhotosHelp">Legalább 1 fénykép kötelező, ha a hirdetés csak itt jelenik meg. Legfeljebb 15 kép.</p>
+                    </div>
+                    <span class="newStepBadge" data-step-badge="3"></span>
+                </header>
+                <div class="newStepBody">
 
                     <label class="photoDrop" id="photoDrop">
                         <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span data-i18n="newPhotosDrop">Kattints vagy húzd ide a képeket</span>
+                        <span class="photoDropIcon" aria-hidden="true"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+                        <b data-i18n="newPhotosDrop">Kattints vagy húzd ide a képeket</b>
+                        <small data-i18n="newPhotosDropSub">JPG, PNG vagy WEBP, legfeljebb 15 kép</small>
                     </label>
 
                     <div class="photoGrid mt-3" id="photoGrid"></div>
 
                 </div>
-            </div>
+            </section>
 
-        </div>
-
-        <!-- 4. Hely -->
-        <div class="col-xl-5">
-            <div class="card newMapCard">
-                <div class="card-header"><h5 class="mb-0"><span class="stepNo">4</span> <span data-i18n="newHely">Elhelyezkedés</span> <span class="text-danger" id="newHelyReq">*</span></h5></div>
-                <div class="card-body p-2">
-                    <p class="small text-body-secondary px-2 mb-2" data-i18n="newHelyHelp2">Kattints a térképre az ingatlan helyén. Ha csak a környéket tudod, válaszd a közelítő helyet.</p>
+            <!-- 4. Hely: csak pontos hely (a közelítő helyet itt már nem lehet választani) -->
+            <section class="newStep" id="newStep4" data-step="4" aria-labelledby="newStep4Title">
+                <header class="newStepHead">
+                    <span class="newStepNo" aria-hidden="true">4</span>
+                    <div class="newStepTitle">
+                        <h3 id="newStep4Title"><span data-i18n="newHely">Elhelyezkedés</span> <span class="text-danger" id="newHelyReq">*</span></h3>
+                        <p data-i18n="newHelyHelp3">Kattints a térképen pontosan az ingatlan helyére, vagy keresd meg az utcát. A jelölőt húzással is igazíthatod.</p>
+                    </div>
+                    <span class="newStepBadge" data-step-badge="4"></span>
+                </header>
+                <div class="newStepBody newMapBody">
                     <div id="newMap" class="locPicker"></div>
-                    <div class="small px-2 mt-2" id="newLocationInfo"></div>
+                    <div class="newLocInfo small" id="newLocationInfo"></div>
                 </div>
-            </div>
+            </section>
 
             <input id="ujX" type="hidden">
             <input id="ujY" type="hidden">
+
         </div>
+
+        <!-- Élő előnézet és a kötelező adatok listája (js/new-listing/newListingUi.js) -->
+        <aside class="newAside" aria-label="Előnézet" data-i18n-aria-label="newPreviewTitle">
+            <div class="newAsideInner">
+                <div class="newPreviewBox">
+                    <div class="newAsideHead">
+                        <b data-i18n="newPreviewTitle">Előnézet</b>
+                        <small data-i18n="newPreviewNote">Így jelenik meg a hirdetésed a listában.</small>
+                    </div>
+                    <div id="newPreview"></div>
+                </div>
+                <div class="newCheckBox">
+                    <div class="newAsideHead">
+                        <b data-i18n="newChecklistTitle">Kötelező adatok</b>
+                        <small id="newCheckCount"></small>
+                    </div>
+                    <ul class="newCheck" id="newCheck"></ul>
+                </div>
+            </div>
+        </aside>
 
     </div>
 
@@ -1556,5 +1617,6 @@
 <script src="js/core/app.js"></script>
 
 <script src="js/core/motion.js" defer></script>
+<script src="js/new-listing/newListingUi.js" defer></script>
 </body>
 </html>

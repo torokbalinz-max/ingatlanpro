@@ -29,6 +29,17 @@ class CardsView {
         });
         CardsView.markCols();
 
+        // Ablakméret-váltáskor (pl. az iPad elforgatásakor) a választó és a rács is igazodik
+        CardsView.BLOKK.forEach(([w]) => {
+            const mq = window.matchMedia(`(min-width: ${w}px)`);
+            const valt = () => {
+                CardsView.markCols();
+                if (CardsView.lista && CardsView.hatasos() !== CardsView.rajzoltCols) CardsView.render(CardsView.lista);
+            };
+            if (mq.addEventListener) mq.addEventListener("change", valt);
+            else if (mq.addListener) mq.addListener(valt);
+        });
+
         let mode = "cards";
         try { mode = localStorage.getItem("viewMode") || "cards"; } catch (e) { /* nem kritikus */ }
 
@@ -45,9 +56,30 @@ class CardsView {
         CardsView.render(CardsView.lista);
     }
 
+    // Hány kártya fér egy sorba ezen a képernyőn (a rács töréspontjai szerint):
+    // 4 csak 1400 px-től, 3 csak 992 px-től, 2 csak 576 px-től. A választó csak
+    // ezeket mutatja (iPaden pl. nincs "4 egy sorban", mert ott úgyis csak 3 fér),
+    // és a megjegyzett választásból legfeljebb ennyi lesz.
+    static BLOKK = [[1400, 4], [992, 3], [576, 2]];
+
+    static maxCols() {
+        for (const [w, n] of CardsView.BLOKK) {
+            if (window.matchMedia(`(min-width: ${w}px)`).matches) return n;
+        }
+        return 1;
+    }
+
+    static hatasos() {
+        return Math.min(CardsView.cols, CardsView.maxCols());
+    }
+
     static markCols() {
+        const max = CardsView.maxCols();
+        const n = CardsView.hatasos();
         document.querySelectorAll("[data-cols]").forEach(b => {
-            const on = Number(b.dataset.cols) === CardsView.cols;
+            const k = Number(b.dataset.cols);
+            b.hidden = k > max && k > 1;
+            const on = k === n;
             b.classList.toggle("active", on);
             b.setAttribute("aria-pressed", on ? "true" : "false");
         });
@@ -462,8 +494,13 @@ class CardsView {
         // egy kártya méretű az 5. kártya után, és egy teljes széles a 12. cella
         // után (2, 3 és 4 oszlopnál is egy sor vége) – a hirdetések sorrendjét
         // nem változtatják
+        // Ennyi kártya lesz egy sorban (a választott elrendezés, de legfeljebb amennyi kifér);
+        // a reklám cella ugyanakkora, mint egy kártya ebben az elrendezésben
+        const n = CardsView.hatasos();
+        CardsView.rajzoltCols = n;
+
         const reklam = typeof AdSlots !== "undefined" && rendezett.length >= AdSlots.FEED_MIN;
-        const feed = reklam ? AdSlots.feedCol() : "";
+        const feed = reklam ? AdSlots.feedCol(CardsView.COLS[n], n === 1) : "";
         const szeles = reklam ? AdSlots.feedWideCol() : "";
 
         // Ha a kártyák között reklám cella is van, egy hirdetéssel kevesebb fér
@@ -475,11 +512,11 @@ class CardsView {
 
         const resz = rendezett.slice(CardsView.page * meret, (CardsView.page + 1) * meret);
 
-        const kartyak = resz.map(i => CardsView.cardHtml(i, { col: CardsView.COLS[CardsView.cols], wide: CardsView.cols === 1 }));
+        const kartyak = resz.map(i => CardsView.cardHtml(i, { col: CardsView.COLS[n], wide: n === 1 }));
         if (feed && resz.length >= AdSlots.FEED_MIN) kartyak.splice(AdSlots.FEED_UTAN, 0, feed);
         if (szeles && kartyak.length > AdSlots.FEED_SZELES_UTAN) kartyak.splice(AdSlots.FEED_SZELES_UTAN, 0, szeles);
 
-        grid.dataset.cols = CardsView.cols;
+        grid.dataset.cols = n;
 
         grid.innerHTML = resz.length
             ? kartyak.join("")

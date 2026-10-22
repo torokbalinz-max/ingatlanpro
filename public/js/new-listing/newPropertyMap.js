@@ -1,6 +1,7 @@
 // ============================================================
 //  Hirdetésfeladás – hely a térképen
-//  Pontos hely (jelölő) vagy közelítő hely (kör, állítható sugárral).
+//  Itt feladott hirdetésnél csak pontos hely (jelölő) adható meg; közelítő
+//  helyet (kört) csak az admin ad a beolvasott hirdetéseknél.
 //  A pont mozgatásakor a kerületet is kitöltjük, ha még üres.
 // ============================================================
 
@@ -22,6 +23,7 @@ class NewPropertyMap {
 
         NewPropertyMap.picker = new LocationPicker("newMap", {
             x, y, pontossag, sugar,
+            csakPontos: NewPropertyManager.csakPontos(),
             varos: () => (document.getElementById("ujVaros") || {}).value || DataManager.currentCity,
             szoveg: () => ({
                 cim: document.getElementById("ujCim").value,
