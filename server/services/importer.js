@@ -339,8 +339,8 @@ function tiltasUzenet(url, status) {
     if (status === 403 && /imobiliare\.ro/i.test(url)) {
         return "HTTP 403 – az imobiliare.ro letiltja a szervert. Használd ugyanennek a keresésnek az Imoradar24-es linkjét (ott minden imobiliare hirdetés benne van).";
     }
-    if ((status === 403 || status === 429) && /(olx|storia)\.ro/i.test(url)) {
-        return `HTTP ${status} – az OLX / Storia bot-védelme most letiltja a szervert. A hirdetés változatlan marad, a következő ellenőrzés újra próbálja.`;
+    if ((status === 403 || status === 429) && /(olx|storia|imobiliare|publi24)\.ro/i.test(url)) {
+        return `HTTP ${status} – a forrásoldal bot-védelme letiltja a szervert. A hirdetés változatlan marad. Futtasd a gépedről (Git Bash): npm run ellenorzes -- --varos <város>  (beolvasáshoz: npm run beolvasas -- <link> --varos <város>)`;
     }
     return `HTTP ${status}`;
 }
@@ -821,7 +821,10 @@ async function figyelesFuttat(job, opts) {
         // már nincs a listában, azt "nem elérhető"-nek jelöljük
         // (ugyanígy az Imoradar24-re mutató régi hirdetések: a lista forrás-azonosítóiból
         // így megkapják az eredeti OLX / Storia / … linket – services/forrasHely.js)
-        const listasLink = i => /imobiliare\.ro|imoradar24\.ro/i.test(i.link);
+        // A gépről futtatva (scripts/helyi-ellenorzes.js) az imobiliare.ro sem tilt le:
+        // ott az imobiliare-s hirdetéseket is közvetlenül nézzük meg, csak az
+        // Imoradar24-re mutatókat a listából
+        const listasLink = i => opts.helyi ? /imoradar24\.ro/i.test(i.link) : /imobiliare\.ro|imoradar24\.ro/i.test(i.link);
         const imoradarbol = i => (Array.isArray(i.kulso_azon) ? i.kulso_azon : []).some(k => /imoradar24\.ro\//i.test(String(k)));
 
         // A város listáját akkor is végigolvassuk, ha a hirdetés már az eredeti oldalra mutat,
