@@ -108,7 +108,9 @@ class Sources {
     // (közvetített hirdetésnél, amíg az eredeti linkje nincs meg)
     static url(i) {
         if (!i || !i.link) return null;
-        if (Sources.kozvetito(i.link)) return Sources.eredeti(i);
+        // Az eredeti hirdetés; amíg az nincs meg: a forrásoldal (szűrt keresése) –
+        // átvett hirdetésnél a kattintás SOSEM a saját adatlapra visz
+        if (Sources.kozvetito(i.link)) return Sources.eredeti(i) || i.forras_kereso || null;
         return i.link;
     }
 
@@ -118,8 +120,8 @@ class Sources {
     }
 
     // Régi hívóknak: a kattintás már sosem a keresésre visz
-    static keresesre() {
-        return false;
+    static keresesre(i) {
+        return !!i && Sources.kozvetito(i.link) && !Sources.eredeti(i) && !!i.forras_kereso;
     }
 
     // Egy ingatlan összes forrása (fő link + ugyanez más oldalakon) – közvetítő nélkül
