@@ -398,7 +398,7 @@ class ListingPage {
                         </div>
                     </div>
 
-                    <div class="row g-3 mt-3">
+                    <div class="row g-3 mt-3 factRow">
                         ${ListingPage.fact("fa-solid fa-ruler-combined", I18n.t(i.tipus === "telek" ? "searchTelekNm" : "detailNm"), i.nm ? Utils.nm(i.nm) : "")}
                         ${t.fields.telek ? ListingPage.fact("fa-solid fa-tree", I18n.t("newTelekNm"), i.telek_nm ? Utils.nm(i.telek_nm) : "") : ""}
                         ${t.fields.szobak && (i.szobak || Types.kotelezo(i.tipus, "szobak", i.varos)) ? ListingPage.fact("fa-solid fa-bed", I18n.t("detailSzoba"), i.szobak || "") : ""}

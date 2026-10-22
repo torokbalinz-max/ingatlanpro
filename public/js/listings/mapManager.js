@@ -118,6 +118,18 @@ class MapManager {
 
         MapManager.map.on("popupclose", () => MapManager.jelol(null));
 
+        // A rétegkapcsolók (kerülethatárok, közelítő helyek) a térkép jobb felső sarkába,
+        // lebegő kártyára kerülnek (mint egy térkép-alkalmazásban)
+        const kapcsolok = document.querySelector("#page-map .mapToggles");
+        const keret = document.querySelector("#page-map .mapPageBox");
+        if (kapcsolok && keret && kapcsolok.parentElement !== keret) {
+            kapcsolok.classList.add("isFloating");
+            keret.appendChild(kapcsolok);
+            // a térkép ne kapja meg a kapcsolókra adott kattintást / görgetést
+            L.DomEvent.disableClickPropagation(kapcsolok);
+            L.DomEvent.disableScrollPropagation(kapcsolok);
+        }
+
         MapManager.bindToggles();
 
     }
@@ -317,22 +329,60 @@ class MapManager {
 
     }
 
-    //  A térkép fölötti megjegyzés: a szűrés hirdetései közül ennyi nincs pontosan
-    //  a térképen (csak a kerületük ismert, vagy semmi) – a listában megnézhetők
+    //  A térképen lebegő, visszafogott jelzés: a szűrés hirdetései közül ennyi nincs
+    //  pontosan a térképen (csak a kerületük ismert, vagy semmi). A "Miért?" kinyitja
+    //  a magyarázatot, onnan a listába lehet menni. (A régi széles sáv helyett.)
     static renderNotes(nemPontos) {
 
         const box = document.getElementById("mapHiddenNote");
         if (!box) return;
 
+        // a térkép keretébe kerül (a bal felső sarokba, a térkép fölé)
+        const keret = document.querySelector("#page-map .mapPageBox");
+        if (keret && box.parentElement !== keret) keret.appendChild(box);
+
+        const nyitva = box.classList.contains("isOpen");
+
         box.innerHTML = nemPontos ? `
-            <div class="mapNoteRow">
-                <span><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${I18n.f("mapNotExactNote", { n: nemPontos })}</span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-map-note="list">${I18n.t("mapNoLocList")}</button>
+            <button type="button" class="mapNoteChip" data-map-note="toggle" aria-expanded="${nyitva}" aria-controls="mapNotePop">
+                <i class="fa-regular fa-eye-slash" aria-hidden="true"></i>
+                <span>${Utils.escape(I18n.f("mapNoteChip", { n: Utils.num(nemPontos) }))}</span>
+                <span class="mapNoteWhy">${Utils.escape(I18n.t("mapNoteWhy"))}</span>
+            </button>
+            <div class="mapNotePop" id="mapNotePop" role="dialog" aria-label="${Utils.escape(I18n.f("mapNoteChip", { n: Utils.num(nemPontos) }))}">
+                <p>${Utils.escape(I18n.f("mapNotExactNote", { n: Utils.num(nemPontos) }))}</p>
+                <div class="mapNoteActions">
+                    <button type="button" class="btn btn-sm btn-primary" data-map-note="list"><i class="fa-solid fa-grip" aria-hidden="true"></i> ${I18n.t("mapNoLocList")}</button>
+                    <button type="button" class="btn btn-sm btn-link" data-map-note="close">${I18n.t("mapNoteClose")}</button>
+                </div>
             </div>` : "";
         box.hidden = !nemPontos;
 
+        const nyit = v => {
+            box.classList.toggle("isOpen", v);
+            const t = box.querySelector('[data-map-note="toggle"]');
+            if (t) t.setAttribute("aria-expanded", String(v));
+        };
+
+        const t = box.querySelector('[data-map-note="toggle"]');
+        if (t) t.onclick = () => nyit(!box.classList.contains("isOpen"));
+        const c = box.querySelector('[data-map-note="close"]');
+        if (c) c.onclick = () => { nyit(false); if (t) t.focus(); };
         const l = box.querySelector('[data-map-note="list"]');
         if (l) l.onclick = () => PageManager.show("properties");
+
+        // Esc vagy egy kattintás máshova (pl. a térképre) bezárja a magyarázatot – egyszer kötjük be
+        if (!box.dataset.kotve) {
+            box.dataset.kotve = "1";
+            const zar = fokusz => {
+                if (!box.classList.contains("isOpen")) return;
+                box.classList.remove("isOpen");
+                const g = box.querySelector('[data-map-note="toggle"]');
+                if (g) { g.setAttribute("aria-expanded", "false"); if (fokusz) g.focus(); }
+            };
+            box.addEventListener("keydown", e => { if (e.key === "Escape") zar(true); });
+            document.addEventListener("click", e => { if (!box.contains(e.target)) zar(false); });
+        }
 
     }
 

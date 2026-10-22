@@ -21,6 +21,7 @@
 
     <!-- Betűtípus: saját szerverről (a Google Fonts az IP-címet a Google-nak küldené – GDPR) -->
     <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="fonts/MonaSans-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="css/fonts.css">
 
     <!-- Bootstrap -->
@@ -52,8 +53,9 @@
     <link rel="stylesheet" href="css/v17.css">
     <link rel="stylesheet" href="css/v18.css">
     <link rel="stylesheet" href="css/v19.css">
-<link rel="stylesheet" href="css/v20.css">
-<link rel="stylesheet" href="css/v21.css">
+    <link rel="stylesheet" href="css/v20.css">
+    <link rel="stylesheet" href="css/v21.css">
+    <link rel="stylesheet" href="css/v22.css">
 </head>
 
 <body>
@@ -109,6 +111,8 @@
                         <h6 class="navMenuHead" data-i18n="navHeadPros">Hirdetőknek</h6>
                         <div class="navPanelList">
                             <a class="navPanelItem" role="menuitem" href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
+                            <!-- keskeny laptopon / iPaden fekve (992–1099 px) a Csomagok is ide kerül (v22.css) -->
+                            <a class="navPanelItem nvCsomag" role="menuitem" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
                         </div>
                     </div>
                     <a class="navTobbSugo" role="menuitem" href="#sugo"><i class="fa-solid fa-circle-question" aria-hidden="true"></i> <span data-i18n="menuSugo">Súgó</span></a>

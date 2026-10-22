@@ -1,9 +1,11 @@
 // ============================================================
 //  Mozgás (csak kinézet – a működéshez nem nyúl)
-//   1. Kezdőlap, első megnyitás: egyetlen nyitójelenet – a szintvonalak
-//      megrajzolódnak, a cím felgördül, a kereső és a fotó sorban érkezik,
-//      a számok felszámolnak a valódi értékig
-//   2. Oldalváltáskor az új oldal finoman beúszik
+//   1. Kezdőlap, első megnyitás: egyetlen nyitójelenet – az örökzöld panel
+//      kinyílik, a szintvonalak megrajzolódnak, a cím felgördül, a kereső,
+//      a fotó és a város árképe sorban érkezik, a kerületi sávok kinőnek,
+//      az átlagár felszámol, végül a funkció-sáv elemei
+//   2. Görgetéskor a fejléc kap egy finom árnyékot
+//   3. Oldalváltáskor az új oldal finoman beúszik
 //  Aki a csökkentett mozgást kérte (rendszerbeállítás), annál semmi sem mozog.
 // ============================================================
 
@@ -11,21 +13,21 @@
 
     const csendes = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // ---------- Szintvonalak (domborzati vonalak) ----------
-    //  Néhány hullámzó, egymás alatti vonal – mint egy hegyvidéki térkép szintvonalai
+    // ---------- Szintvonalak (domborzati vonalak – a Kárpátok térképére utal) ----------
     function szintvonalak() {
-        const W = 1200, H = 700, N = 11;
+        const W = 1200, H = 700, N = 13;
         let utak = "";
         for (let k = 0; k < N; k++) {
-            const alap = 70 + k * 52;
-            const a1 = 26 + (k % 3) * 9, a2 = 14 + (k % 4) * 6;
-            const f1 = 0.0042 + k * 0.00012, f2 = 0.011 - k * 0.0003;
+            const alap = 40 + k * 52;
+            const a1 = 24 + (k % 3) * 9, a2 = 12 + (k % 4) * 6;
+            const f1 = 0.0040 + k * 0.00011, f2 = 0.0105 - k * 0.00028;
             const ph = k * 0.7;
             let d = "";
             for (let x = -20; x <= W + 20; x += 24) {
                 const y = alap + Math.sin(x * f1 + ph) * a1 + Math.sin(x * f2 + ph * 1.7) * a2
-                    // a jobb felső sarok felé "hegy": a vonalak ott összesűrűsödnek
-                    - Math.exp(-Math.pow((x - 860) / 260, 2)) * (60 - k * 3.5);
+                    // két "hegy": a vonalak ott összesűrűsödnek
+                    - Math.exp(-Math.pow((x - 300) / 220, 2)) * (52 - k * 3)
+                    - Math.exp(-Math.pow((x - 980) / 260, 2)) * (64 - k * 3.5);
                 d += (d ? " L" : "M") + x.toFixed(0) + " " + y.toFixed(1);
             }
             utak += `<path d="${d}" pathLength="1" style="--i:${k}"/>`;
@@ -40,8 +42,8 @@
         return svg;
     }
 
-    // ---------- Számok felszámolása (pl. 387 hirdetés, 1 436 €/m²) ----------
-    function felszamol(el, ido = 1400) {
+    // ---------- Szám felszámolása (pl. 1 417 €/m²) ----------
+    function felszamol(el, ido = 1500) {
         const szoveg = el.textContent;
         const m = szoveg.match(/\d[\d.,   ]*\d|\d/);
         if (!m) return;
@@ -63,26 +65,43 @@
         requestAnimationFrame(lep);
     }
 
-    // ---------- Kezdőlap nyitójelenet (oldalbetöltésenként egyszer) ----------
+    // ---------- Kezdőlap: nyitójelenet (oldalbetöltésenként egyszer) ----------
     //  A kezdőlap kétszer is kirajzolódhat (előbb adatok nélkül, utána az adatokkal):
-    //  a nyitójelenet csak az elsőnél fut, a számok akkor számolnak fel, amikor megvannak.
+    //  a nyitójelenet csak az elsőnél fut, az átlagár akkor számol fel, amikor megvan.
     let nyitvaVolt = false, szamolva = false;
     function hos() {
-        const h = document.querySelector("#page-home .homeHero");
+        const h = document.querySelector("#page-home .homeHero.hv2");
         if (!h) return;
         if (!h.querySelector(".ipContour")) h.prepend(szintvonalak());
         if (csendes || document.body.dataset.page !== "home" || !h.offsetParent) return;
         if (!nyitvaVolt) {
             nyitvaVolt = true;
             h.classList.add("ipIntro");
+            const dock = document.querySelector("#page-home .homeDock");
+            if (dock) dock.classList.add("ipIntroDock");
         }
         if (!szamolva) {
-            const els = [...document.querySelectorAll("#page-home .homeStats b, #page-home .homeStats strong, #page-home .heroBadge b")];
-            if (els.some(e => /\d{2}/.test(e.textContent))) {
+            const el = h.querySelector(".heroBoard [data-count]");
+            if (el && /\d{2}/.test(el.textContent)) {
                 szamolva = true;
-                setTimeout(() => els.forEach(e => felszamol(e)), h.classList.contains("ipIntro") ? 600 : 0);
+                if (h.classList.contains("ipIntro")) {
+                    el.style.visibility = "hidden";
+                    setTimeout(() => { el.style.visibility = ""; felszamol(el); }, 1050);
+                } else {
+                    felszamol(el);
+                }
             }
         }
+    }
+
+    // ---------- Fejléc: görgetéskor finom árnyék (egy figyelő az oldal tetején) ----------
+    const jel = document.createElement("div");
+    jel.setAttribute("aria-hidden", "true");
+    jel.style.cssText = "position:absolute;top:0;left:0;width:1px;height:8px;pointer-events:none;";
+    document.body.prepend(jel);
+    if ("IntersectionObserver" in window) {
+        new IntersectionObserver(([e]) => document.body.classList.toggle("ipScrolled", !e.isIntersecting))
+            .observe(jel);
     }
 
     // ---------- Oldalváltás ----------
