@@ -1,0 +1,74 @@
+/* ============================================================
+   v20: letisztultabb hirdetéskártya
+   - kattintható forrásoldal-jelvények (mindegyik a saját oldalán lévő hirdetésre visz)
+   - "Térképen" és "Értékbecslés" felirattal, egyforma gombok a kártya alján
+   - finomabb árnyék, kisebb emelkedés, nyugodtabb adatrács
+   ============================================================ */
+
+html body .listingCard.ipCard {
+    container-type: inline-size;
+    border-radius: 16px;
+    border-color: var(--ip-border-soft, #eceee9);
+    box-shadow: 0 1px 2px rgba(20, 32, 27, .04), 0 4px 14px rgba(20, 32, 27, .05);
+}
+html body .listingCard.ipCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(20, 32, 27, .05), 0 14px 32px rgba(20, 32, 27, .10);
+}
+
+.ipBody { gap: .45rem; padding: .95rem 1rem 1rem; }
+
+.ipPrice { font-size: 1.35rem; font-weight: 760; }
+.ipPpm { font-size: .76rem; padding: 2px 8px; }
+
+.ipTitle { font-size: .95rem; font-weight: 620; }
+
+/* Adatok: egyszerű, levegős sor (címke fölül, érték alatta) – keret és csempék nélkül */
+.ipSpecs { display: flex; flex-wrap: wrap; gap: .45rem 1.25rem; margin: .25rem 0 .1rem; }
+.ipSpec { padding: 0; border-radius: 0; background: transparent; min-width: 0; }
+.ipSpec dd { font-size: .92rem; }
+
+/* Alsó rész: forrásoldalak egy sorban, alattuk a két gomb egyforma szélesen */
+.ipFoot { flex-direction: column; align-items: stretch; gap: .55rem; padding-top: .65rem; }
+.ipSrcs { gap: 6px; }
+a.ipSrc { text-decoration: none; cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; }
+a.ipSrc:hover {
+    color: var(--ip-accent, #1f6f5c);
+    background: color-mix(in srgb, var(--ip-accent, #1f6f5c) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ip-accent, #1f6f5c) 35%, transparent);
+}
+a.ipSrc:focus-visible { outline: 2px solid var(--ip-accent, #1f6f5c); outline-offset: 2px; }
+
+.ipActions { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; width: 100%; }
+.ipActBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    min-width: 0;
+    padding: 0 10px;
+    border: 1px solid var(--ip-border, #e3e6e1);
+    border-radius: 10px;
+    background: var(--ip-surface, #fff);
+    color: var(--ip-ink, #14201b);
+    font-size: .8rem;
+    font-weight: 650;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.ipActBtn i { color: var(--ip-accent, #1f6f5c); font-size: .85rem; }
+.ipActBtn span { overflow: hidden; text-overflow: ellipsis; }
+.ipActBtn:hover {
+    border-color: var(--ip-accent, #1f6f5c);
+    background: color-mix(in srgb, var(--ip-accent, #1f6f5c) 8%, var(--ip-surface, #fff));
+}
+.ipActBtn:focus-visible { outline: 2px solid var(--ip-accent, #1f6f5c); outline-offset: 2px; }
+
+/* Keskeny kártya (pl. 4 egy sorban): az értékbecslés gomb kimarad, a térkép marad */
+@container (max-width: 250px) {
+    .ipValBtn { display: none; }
+}
+
+/* Sötét mód */
+[data-bs-theme="dark"] .listingCard.ipCard { box-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 18px rgba(0, 0, 0, .25); }

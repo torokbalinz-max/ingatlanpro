@@ -188,11 +188,14 @@ class CardsView {
         // A forrás(ok) – mindegyik egyszer; ha kattintásra oda visz, nyíl jelzi
         const fo = Sources.kulcs(i);
         const forrasok = [...new Set(i.forrasok || [i.forras || fo])];
+        // Minden forrás kattintható: az adott oldalon lévő hirdetésre visz
+        const forrasLinkek = Sources.linkek(i);
         const forrasChip = k => {
-            const ki = kulso && k === fo;
-            return `<span class="ipSrc${k === "local" ? " isLocal" : ""}${ki ? " isExt" : ""}"${ki ? ` title="${Utils.escape(I18n.f("cardExtTitle", { s: Sources.label(k) }))}"` : ""}>
-                <i class="${k === "local" ? "fa-solid fa-house-flag" : "fa-solid fa-globe"}" aria-hidden="true"></i>${Utils.escape(k === "local" ? "IngatlanPro" : Sources.label(k))}${ki ? ` <i class="fa-solid fa-arrow-up-right-from-square ipSrcGo" aria-hidden="true"></i>` : ""}
-            </span>`;
+            const url = k !== "local" ? forrasLinkek[k] : null;
+            const nev = Utils.escape(k === "local" ? "IngatlanPro" : Sources.label(k));
+            const ikon = `<i class="${k === "local" ? "fa-solid fa-house-flag" : "fa-solid fa-globe"}" aria-hidden="true"></i>`;
+            if (!url) return `<span class="ipSrc${k === "local" ? " isLocal" : ""}">${ikon}${nev}</span>`;
+            return `<a class="ipSrc isExt" data-nav href="${Utils.escape(url)}" target="_blank" rel="noopener noreferrer nofollow" title="${Utils.escape(I18n.f("cardExtTitle", { s: Sources.label(k) }))}">${ikon}${nev} <i class="fa-solid fa-arrow-up-right-from-square ipSrcGo" aria-hidden="true"></i></a>`;
         };
 
         const adatok = CardsView.adatok(i);
@@ -263,10 +266,11 @@ class CardsView {
 
                         <div class="ipFoot">
                             <div class="ipSrcs">${forrasok.map(forrasChip).join("")}</div>
+                            ${Types.becsulheto(i.tipus) || terkep ? `
                             <div class="ipActions">
-                                ${Types.becsulheto(i.tipus) ? `<button type="button" class="ipIconBtn ipValBtn" data-val="${i.id}" title="${Utils.escape(I18n.t("cardValuate"))}" aria-label="${Utils.escape(I18n.t("cardValuate"))}"><i class="fa-solid fa-calculator" aria-hidden="true"></i></button>` : ""}
-                                ${terkep ? `<button type="button" class="ipMapBtn${korzet ? " isArea" : ""}" data-map="${i.id}" title="${Utils.escape(I18n.t(korzet ? "cardShowAreaHint" : "cardShowOnMap"))}"><i class="fa-solid ${korzet ? "fa-draw-polygon" : "fa-map-location-dot"}" aria-hidden="true"></i> <span>${I18n.t(korzet ? "cardShowAreaShort" : "cardShowOnMapShort")}</span></button>` : ""}
-                            </div>
+                                ${terkep ? `<button type="button" class="ipActBtn${korzet ? " isArea" : ""}" data-map="${i.id}" title="${Utils.escape(I18n.t(korzet ? "cardShowAreaHint" : "cardShowOnMap"))}"><i class="fa-solid ${korzet ? "fa-draw-polygon" : "fa-map-location-dot"}" aria-hidden="true"></i> <span>${I18n.t(korzet ? "cardShowAreaShort" : "cardShowOnMapShort")}</span></button>` : ""}
+                                ${Types.becsulheto(i.tipus) ? `<button type="button" class="ipActBtn ipValBtn" data-val="${i.id}" title="${Utils.escape(I18n.t("cardValuate"))}"><i class="fa-solid fa-calculator" aria-hidden="true"></i> <span>${I18n.t("cardValuateShort")}</span></button>` : ""}
+                            </div>` : ""}
                         </div>
 
                     </div>

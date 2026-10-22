@@ -35,7 +35,33 @@ class MapManager {
     // Térképre kerül-e pontként
     static pontos(i) {
         const x = Number(i.x), y = Number(i.y);
-        return !!(x && y) && ["pontos", "utca"].includes(i.hely_pontossag || "pontos");
+        if (!(x && y) || !["pontos", "utca"].includes(i.hely_pontossag || "pontos")) return false;
+        // Ha sok hirdetés (6+) pontosan ugyanazon a ponton van, az nem valódi cím, hanem
+        // egy kitalált középpont (pl. a város vagy a kerület közepe, ahova a helymeghatározás
+        // tette őket) – ezeket nem rakjuk ki pontként (korábban egy nagy körben álltak)
+        return !MapManager.halmozott().has(MapManager.pontKulcs(i));
+    }
+
+    static pontKulcs(i) {
+        return Number(i.x).toFixed(5) + "," + Number(i.y).toFixed(5);
+    }
+
+    static HALMOZOTT_HATAR = 6;
+
+    // A kitalált, sok hirdetésnek közös pontok (az összes betöltött hirdetésből számolva)
+    static halmozott() {
+        const osszes = (typeof DataManager !== "undefined" && DataManager.ingatlanok) || [];
+        if (MapManager._halmozott && MapManager._halmozottN === osszes.length && MapManager._halmozottRef === osszes) return MapManager._halmozott;
+        const db = new Map();
+        osszes.forEach(i => {
+            if (!(Number(i.x) && Number(i.y))) return;
+            const k = MapManager.pontKulcs(i);
+            db.set(k, (db.get(k) || 0) + 1);
+        });
+        MapManager._halmozott = new Set([...db].filter(([, n]) => n >= MapManager.HALMOZOTT_HATAR).map(([k]) => k));
+        MapManager._halmozottN = osszes.length;
+        MapManager._halmozottRef = osszes;
+        return MapManager._halmozott;
     }
 
     static loadOpts() {

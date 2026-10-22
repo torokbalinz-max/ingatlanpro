@@ -124,6 +124,20 @@ class Sources {
         return !!i && Sources.kozvetito(i.link) && !Sources.eredeti(i) && !!i.forras_kereso;
     }
 
+    // Forrásoldalanként a hirdetés linkje: { "olx.ro": url, "storia.ro": url, ... }
+    // (a fő link + a további linkek; a közvetítő nélkül)
+    static linkek(i) {
+        const m = {};
+        if (!i) return m;
+        const fo = Sources.url(i);
+        if (fo) m[Sources.kulcs(i)] = fo;
+        (i.tovabbi_linkek || []).filter(l => l && !Sources.kozvetito(l)).forEach(l => {
+            const k = Sources.fromLink(l);
+            if (k !== "other" && k !== "local" && !m[k]) m[k] = l;
+        });
+        return m;
+    }
+
     // Egy ingatlan összes forrása (fő link + ugyanez más oldalakon) – közvetítő nélkül
     static allOf(i) {
         const lista = [Sources.kulcs(i)];
