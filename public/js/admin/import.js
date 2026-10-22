@@ -153,7 +153,8 @@ AdminManager.pollJob = function (jobId, boxId) {
             rendben: I18n.t("importResOk"),
             frissitve: I18n.t("importResUpdated"),
             ujra_elerheto: I18n.t("importResBack"),
-            lista_szinkron: I18n.t("importResSync")
+            lista_szinkron: I18n.t("importResSync"),
+            forraslinkek: I18n.t("importResSrcLinks")
         };
 
         box.innerHTML = `
@@ -172,6 +173,8 @@ AdminManager.pollJob = function (jobId, boxId) {
                         ${job.letiltva ? `<span class="badge text-bg-warning" title="${Utils.escape(I18n.t("importResBlockedHelp"))}">${job.letiltva} ${I18n.t("importResBlocked")}</span>` : ""}
                         <span class="badge text-bg-danger">${job.hibak} ${I18n.t("importResError")}</span>
                     </div>
+                    ${job.varosok && job.varosok.length ? `<p class="small mb-2"><i class="fa-solid fa-city" aria-hidden="true"></i> ${job.varosok.map(v => Utils.escape(CityManager.displayName(v))).join(", ")}</p>` : ""}
+                    ${job.forraslinkek && !job.forraslinkek.hiba ? `<p class="small mb-2"><i class="fa-solid fa-link" aria-hidden="true"></i> ${I18n.f("mtSrcLinksDone", { javitott: job.forraslinkek.javitott || 0, maradt: job.forrasNelkul === null || job.forrasNelkul === undefined ? "?" : job.forrasNelkul })}</p>` : ""}
                     <div class="importLog">
                         ${job.naplo.slice().reverse().map(n => `
                             <div class="small">

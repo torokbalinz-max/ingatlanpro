@@ -28,6 +28,7 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const CACHE_IDO = 30 * 60 * 1000;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const tisztaLink = u => String(u || "").split("#")[0].split("?")[0];
 
 async function getJson(url) {
     const res = await biztonsagosFetch(url, {
@@ -241,6 +242,11 @@ function olxOldalbol(html) {
             category: ad.category
         };
         const a = olxAdat(o);
+        // Aktív-e még: az OLX a lejárt / törölt hirdetést "removed_by_user", "outdated",
+        // "disabled"... állapottal adja (vagy isActive: false)
+        const allapot = typeof ad.status === "string" ? ad.status.toLowerCase() : "";
+        if (ad.isActive === false || ad.active === false || (allapot && allapot !== "active")) a.aktiv = false;
+        if (ad.id) a.olxId = String(ad.id);
         // Ár: a kiírt euró érték (a "regularPrice" lejben is jöhet, pl. 43 500 € = 232 245 lei)
         if (ad.price) {
             const kiirt = String(ad.price.displayValue || "");
@@ -272,13 +278,16 @@ function storiaOldalbol(html) {
     const sugar = loc.mapDetails && loc.mapDetails.radius !== undefined ? Number(loc.mapDetails.radius) : null;
     const szint = c.latitude && c.longitude ? helySzint(sugar === null ? 0 : sugar) : null;
     const a = loc.address || {};
+    const allapot = typeof ad.status === "string" ? ad.status.toLowerCase() : "";
     const utca = a.street && a.street.name ? [a.street.name, a.street.number].filter(Boolean).join(" ") : null;
     return {
         x: szint ? Number(c.longitude) : null,
         y: szint ? Number(c.latitude) : null,
         hely: szint,
         utca,
-        kerulet: (a.district && a.district.name) || (a.subdistrict && a.subdistrict.name) || null
+        kerulet: (a.district && a.district.name) || (a.subdistrict && a.subdistrict.name) || null,
+        // A Storia a lejárt hirdetést "inactive" / "removed" / "expired" állapottal adja
+        aktiv: allapot && allapot !== "active" ? false : undefined
     };
 }
 
@@ -388,6 +397,36 @@ function forrasKereso(forras, d, hely) {
     return null;
 }
 
+// ---------- OLX: egy hirdetés állapota az azonosítója alapján (az OLX nyilvános API-ja) ----------
+//  Ha az OLX oldala letiltja a szervert (403), az API-ból még kiderülhet, hogy fent van-e.
+//  -> { aktiv: true, adat } | { aktiv: false } | null (nem tudjuk)
+async function olxAllapot(id) {
+    if (!id) return null;
+    try {
+        const res = await biztonsagosFetch(`https://www.olx.ro/api/v1/offers/${encodeURIComponent(id)}/`, {
+            headers: { "User-Agent": UA, "Accept": "application/json", "Accept-Language": "ro-RO,ro;q=0.9" },
+            signal: AbortSignal.timeout(20000)
+        });
+        if (res.status === 404 || res.status === 410) return { aktiv: false };
+        if (res.status >= 400) return null;
+        const j = await res.json();
+        const o = j && j.data;
+        if (!o) return { aktiv: false };
+        const st = String(o.status || "").toLowerCase();
+        if (st && st !== "active") return { aktiv: false };
+        return { aktiv: true, adat: olxAdat(o), link: tisztaLink(o.url) };
+    } catch (e) {
+        return null;
+    }
+}
+
+// Egy hirdetés közvetlen linkje-e (OLX / Storia / Publi24 / Imobiliare... – nem közvetítő, nem keresés)
+function kozvetlenHirdetes(link) {
+    const l = String(link || "");
+    if (!l || kozvetitoOldal(l)) return false;
+    return require("./scraper").isListingUrl(l) || /lajumate\.ro\/ad\/|romimo\.ro\/.+\d{5,}/i.test(l);
+}
+
 // ---------- Imoradar24 adatlap (a teljes leírás a közvetített hirdetéseknél) ----------
 
 async function imoradarLeiras(url) {
@@ -410,8 +449,6 @@ async function imoradarLeiras(url) {
 //  Az Imoradar24 link-extern címében: source=OLX.ro&source_listing_id=287654321
 //  -> az eredeti hirdetés linkje (OLX: az OLX nyilvános API-ja az azonosítóval,
 //  vagy a város listájában ugyanaz az azonosító; Storia: a város listájában)
-
-const tisztaLink = u => String(u || "").split("#")[0].split("?")[0];
 
 const diag = { probalt: 0, olxApi: 0, olxLista: 0, storia: 0, sikertelen: [] };
 
@@ -546,39 +583,86 @@ async function gazdagit(d, hely) {
 
 let javitFut = null;
 
-async function javitMind({ limit = 80 } = {}) {
+// A már ismert közvetlen link előre: ha egy Imoradar24-re mutató hirdetés további linkjei
+// között ott van az eredeti hirdetés (OLX / Storia / Publi24 / Imobiliare...), az lesz a fő
+// link – a látogató így egyből a hirdetésre megy (nem a forrásoldal keresésére).
+//  varosok: csak ezekben a városokban (null = mind)  -> az átírt hirdetések száma
+async function ismertLinkElore(varosok) {
+    const db = require("../db/database");
+    const params = [];
+    let szuro = "";
+    if (varosok && varosok.length) { params.push(varosok); szuro = `AND (varos = ANY($1::text[]) OR varos_eredeti = ANY($1::text[]))`; }
+    const r = await db.query(`
+        SELECT id, link, tovabbi_linkek, kulso_azon FROM ingatlanok
+        WHERE link ~* 'imoradar24\\.ro/' AND jsonb_typeof(tovabbi_linkek) = 'array' AND jsonb_array_length(tovabbi_linkek) > 0 ${szuro}`, params);
+    const { linkKulcsok } = require("./importer")._teszt;
+    let n = 0;
+    for (const i of r.rows) {
+        const tov = (i.tovabbi_linkek || []).filter(Boolean);
+        const uj = tov.find(kozvetlenHirdetes);
+        if (!uj) continue;
+        const azon = new Set(Array.isArray(i.kulso_azon) ? i.kulso_azon : []);
+        linkKulcsok(i.link).forEach(k => azon.add(k));
+        const maradek = tov.filter(l => l !== uj && !kozvetitoOldal(l));
+        await db.query(
+            `UPDATE ingatlanok SET link = $2, tovabbi_linkek = $3::jsonb, kulso_azon = $4::jsonb, forras_nev = COALESCE($5, forras_nev),
+                    kozvetito = NULL, forras_kereso = NULL, forras_javitva = NOW(), updated_at = NOW() WHERE id = $1`,
+            [i.id, uj, JSON.stringify(maradek), JSON.stringify([...azon]), forrasKulcs(null, uj)]
+        ).catch(err => console.error("Ismert link előre:", err.message));
+        n++;
+    }
+    if (n) console.log(`Forráslinkek: ${n} hirdetésnél az ismert eredeti link lett a fő link.`);
+    return n;
+}
+
+//  opts.limit:    legfeljebb ennyi hirdetés
+//  opts.varosok:  csak ezekben a városokban (a környék-várossal együtt) – null = mind
+//  opts.csakAdat: a város listájának újraolvasása kimarad (a hívó már megcsinálta)
+async function javitMind({ limit = 80, varosok = null, csakAdat = false } = {}) {
     if (javitFut) return javitFut;
     javitFut = (async () => {
         const db = require("../db/database");
         const e = { nezett: 0, javitott: 0, kereso: 0 };
+
+        // 0) amit már tudunk (a további linkek között ott az eredeti hirdetés)
+        e.javitott += await ismertLinkElore(varosok).catch(x => { console.error("Forráslinkek (ismert):", x.message); return 0; });
+
+        const params = [limit];
+        let szuro = "";
+        if (varosok && varosok.length) { params.push(varosok); szuro = "AND (i.varos = ANY($2::text[]) OR i.varos_eredeti = ANY($2::text[]))"; }
         const valaszt = async () => (await db.query(`
             SELECT i.id, i.link, i.ar, i.nm, i.szobak, i.emelet, i.cim, i.varos, i.tipus, i.ugylet, i.forras_nev,
                    i.kulso_azon, i.leiras, i.x, i.y, i.hely_kezi, i.hely_forras, i.kulso_kepek, i.forras_kereso,
                    v.nev_ro, v.megye
             FROM ingatlanok i LEFT JOIN varosok v ON v.nev = i.varos
-            WHERE i.link ~* 'imoradar24\\.ro/' AND i.statusz IN ('aktiv', 'fuggo')
-              -- ami még nincs meg: óránként újra (az első, ár szerinti változat 3 napra félretette)
-              AND (i.forras_javitva IS NULL OR i.forras_javitva < NOW() - INTERVAL '1 hour')
-            ORDER BY i.forras_javitva NULLS FIRST, i.id DESC LIMIT $1`, [limit])).rows;
+            WHERE i.link ~* 'imoradar24\\.ro/' AND i.statusz IN ('aktiv', 'fuggo') ${szuro}
+              -- ami még nincs meg: fél naponta újra (városra indítva mindig)
+              ${varosok && varosok.length ? "" : "AND (i.forras_javitva IS NULL OR i.forras_javitva < NOW() - INTERVAL '12 hours')"}
+            ORDER BY i.forras_javitva NULLS FIRST, i.id DESC LIMIT $1`, params)).rows;
 
         let lista = await valaszt();
         if (!lista.length) return e;
         e.nezett = lista.length;
 
-        // 1) Pontosan: a város Imoradar24 listájának újraolvasása – benne minden
+        // 1) Pontosan: a város Imoradar24 listájának újraolvasása (a végéig) – benne minden
         //    hirdetés forrása és azonosítója (source / source_listing_id), ebből az
         //    eredeti link (importer.figyelesIndit -> frissitAdatbol -> gazdagit)
-        const elotte = new Map(lista.map(i => [i.id, i.link]));
-        try {
-            const job = require("./importer").figyelesIndit({ ids: lista.map(i => i.id), limit: lista.length });
-            await job.promise;
-        } catch (x) { console.error("Forráslinkek (lista):", x.message); }
+        if (!csakAdat) {
+            const elotte = new Map(lista.map(i => [i.id, i.link]));
+            try {
+                const job = require("./importer").figyelesIndit({ ids: lista.map(i => i.id), limit: lista.length, forraslinkNelkul: true });
+                await job.promise;
+            } catch (x) { console.error("Forráslinkek (lista):", x.message); }
 
-        const most = (await db.query("SELECT id, link FROM ingatlanok WHERE id = ANY($1::int[])", [lista.map(i => i.id)])).rows;
-        const megvan = new Set(most.filter(i => !kozvetitoOldal(i.link) && i.link !== elotte.get(i.id)).map(i => i.id));
-        e.javitott += megvan.size;
-        if (megvan.size) await db.query("UPDATE ingatlanok SET forras_javitva = NOW(), forras_kereso = NULL WHERE id = ANY($1::int[])", [[...megvan]]);
-        lista = lista.filter(i => !megvan.has(i.id));
+            const most = (await db.query("SELECT id, link FROM ingatlanok WHERE id = ANY($1::int[])", [lista.map(i => i.id)])).rows;
+            const megvan = new Set(most.filter(i => !kozvetitoOldal(i.link) && i.link !== elotte.get(i.id)).map(i => i.id));
+            e.javitott += megvan.size;
+            if (megvan.size) await db.query("UPDATE ingatlanok SET forras_javitva = NOW(), forras_kereso = NULL WHERE id = ANY($1::int[])", [[...megvan]]);
+            lista = lista.filter(i => !megvan.has(i.id));
+            // ami közben "nem elérhető" lett, azzal már nincs dolgunk
+            const aktiv = new Set((await db.query("SELECT id FROM ingatlanok WHERE id = ANY($1::int[]) AND statusz IN ('aktiv','fuggo') AND link ~* 'imoradar24\\.ro/'", [lista.map(i => i.id)])).rows.map(x => x.id));
+            lista = lista.filter(i => aktiv.has(i.id));
+        }
 
         // 2) Ami így sem lett meg: az adatok (ár, alapterület, szobák, emelet) alapján
         for (const i of lista) {
@@ -605,14 +689,15 @@ async function javitMind({ limit = 80 } = {}) {
                 await db.query(`UPDATE ingatlanok SET ${sets.join(", ")} WHERE id = $1`, ert).catch(err => console.error("Forrás javítás:", err.message));
                 e.javitott++;
             } else {
-                // legalább a forrásoldal szűrt keresése (a forrás nem ismert: OLX – ott a cím szavai is számítanak)
+                // A forrásoldal szűrt keresése csak tartalék (a hirdetés oldalán "keresés a
+                // forrásoldalon" linkként) – a kattintás a hirdetés saját adatlapjára visz
                 const kereso = i.forras_kereso || forrasKereso(forras || "olx", d, hely);
                 await db.query("UPDATE ingatlanok SET forras_kereso = $2, forras_javitva = NOW() WHERE id = $1", [i.id, kereso]);
                 if (kereso) e.kereso++;
             }
             await sleep(300);
         }
-        console.log(`Forráslinkek: ${e.nezett} közvetített hirdetés, ${e.javitott} az eredeti linkre cserélve, ${e.kereso} a forrás keresésére.`);
+        console.log(`Forráslinkek: ${e.nezett} közvetített hirdetés, ${e.javitott} az eredeti linkre cserélve, ${e.kereso} még nincs meg (a saját adatlapra visz).`);
         console.log(`Forráslinkek – azonosító szerint: ${diag.probalt} próba, OLX API ${diag.olxApi}, OLX lista ${diag.olxLista}, Storia ${diag.storia}; nem sikerült pl.: ${diag.sikertelen.join(", ") || "–"}`);
         e.diag = { ...diag, sikertelen: [...diag.sikertelen] };
         return e;
@@ -623,5 +708,6 @@ async function javitMind({ limit = 80 } = {}) {
 module.exports = {
     gazdagit, kozvetitoLink, kozvetitoOldal, helySzint,
     olxOldalbol, storiaOldalbol, storiaListabol, olxKeres, olxVarosId, olxVarosAjanlatai, olxAdat, slug,
-    storiaKeres, storiaListaUrl, forrasKereso, forrasKulcs, valodiForrasKeres, javitMind, azonositoSzerint, forrasokFeloldasa
+    storiaKeres, storiaListaUrl, forrasKereso, forrasKulcs, valodiForrasKeres, javitMind, azonositoSzerint, forrasokFeloldasa,
+    olxAllapot, kozvetlenHirdetes, ismertLinkElore
 };

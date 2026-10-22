@@ -33,7 +33,25 @@ AdminManager.renderMaintenance = function () {
                 </div>
             </div>`;
 
+        // Melyik városra fussanak az eszközök (megjegyezzük; üres = minden város)
+        let valasztott = null;
+        try { valasztott = localStorage.getItem("ip_mt_varos"); } catch (e) { valasztott = null; }
+        if (valasztott === null) valasztott = DataManager.currentCity || "";
+
         AdminManager.box().innerHTML = `
+            <div class="card mb-4 toolCard">
+                <div class="card-body d-flex flex-wrap align-items-end gap-3">
+                    <div style="min-width:220px">
+                        <label class="form-label small fw-semibold mb-1" for="mtCity"><i class="fa-solid fa-city" aria-hidden="true"></i> ${I18n.t("mtCityLabel")}</label>
+                        <select class="form-select" id="mtCity">
+                            <option value="">${I18n.t("mtCityAll")}</option>
+                            ${AdminManager.cityOptions(valasztott)}
+                        </select>
+                    </div>
+                    <p class="sectionNote mb-0 flex-fill" style="min-width:220px">${I18n.t("mtCityNote")}</p>
+                </div>
+            </div>
+
             ${eszkoz("mtAutofix", "fa-solid fa-wand-magic-sparkles", I18n.t("autofixTitle"), I18n.t("autofixDesc") + " " + I18n.t("mtAutofixPlaces"),
                 `<button class="btn btn-primary text-nowrap" id="mtAutofix"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ${I18n.t("autofixBtn")}</button>`,
                 `<p class="small mt-2 mb-0"><a href="#admin/helyek" data-go-tab="helyek"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> ${I18n.t("mtSeeMoved")}</a></p>`)}
@@ -46,6 +64,10 @@ AdminManager.renderMaintenance = function () {
                 `<button class="btn btn-outline-primary text-nowrap" id="mtValTest"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> ${I18n.t("valTestBtn")}</button>`)}`;
 
         const box = AdminManager.box();
+        const varos = () => document.getElementById("mtCity").value || null;
+        document.getElementById("mtCity").onchange = () => {
+            try { localStorage.setItem("ip_mt_varos", document.getElementById("mtCity").value); } catch (e) { /* nem baj */ }
+        };
         box.querySelectorAll("[data-go-tab]").forEach(a => a.onclick = e => { e.preventDefault(); AdminManager.open(a.dataset.goTab); });
 
         document.getElementById("mtAutofix").onclick = () => {
@@ -53,7 +75,7 @@ AdminManager.renderMaintenance = function () {
             fetch("/api/admin/autofix", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ mind: true })
+                body: JSON.stringify({ mind: true, varos: varos() })
             }).then(() => AdminManager.pollAutofix("mtAutofixStatus", "mtAutofix"));
         };
 
@@ -63,10 +85,14 @@ AdminManager.renderMaintenance = function () {
         }).catch(() => { });
 
         document.getElementById("mtRecheck").onclick = () => {
+            const b = document.getElementById("mtRecheck");
+            b.disabled = true;
+            setTimeout(() => { b.disabled = false; }, 5000);
             fetch("/api/admin/recheck", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ limit: 500 })
+                // Egy városra: annak minden hirdetése; minden városra: a legrégebben nézett 1000
+                body: JSON.stringify(varos() ? { varos: varos() } : { limit: 1000 })
             })
                 .then(r => r.json())
                 .then(v => AdminManager.pollJob(v.jobId, "mtRecheckStatus"));

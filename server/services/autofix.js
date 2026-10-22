@@ -239,10 +239,17 @@ async function futtat(job, opts) {
 
         const felt = ["statusz IN ('aktiv', 'fuggo', 'nem_elerheto')"];
         if (!opts.mind) felt.push(`COALESCE(auto_javitva_v, 0) < ${VERZIO}`);
+        const params = [];
+        // Csak egy város (és a "<város> és környéke" város) hirdetései
+        if (opts.varosok && opts.varosok.length) {
+            params.push(opts.varosok);
+            felt.push("(varos = ANY($1::text[]) OR varos_eredeti = ANY($1::text[]))");
+            job.varosok = opts.varosok;
+        }
 
         const r = await db.query(`
             SELECT i.*, (SELECT COUNT(*) FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id)::int AS kep_db
-            FROM ingatlanok i WHERE ${felt.join(" AND ")} ORDER BY i.id`);
+            FROM ingatlanok i WHERE ${felt.join(" AND ")} ORDER BY i.id`, params);
 
         job.osszes = r.rows.length;
         job.allapot = "fut";
@@ -308,7 +315,7 @@ async function futtat(job, opts) {
         job.utana = await reviewSzam();
         job.allapot = "kesz";
 
-        await beallitas("autofix_v" + VERZIO, new Date().toISOString());
+        if (!(opts.varosok && opts.varosok.length)) await beallitas("autofix_v" + VERZIO, new Date().toISOString());
 
     } catch (e) {
 

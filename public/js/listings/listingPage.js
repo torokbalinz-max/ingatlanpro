@@ -226,7 +226,8 @@ class ListingPage {
 
         // Hol van meghirdetve
         // (a közvetítő – Imoradar24 – helyett a valódi forrás, vagy annak szűrt keresése)
-        const linkek = [...new Set([Sources.url(i), ...(i.tovabbi_linkek || [])].filter(l => l && !Sources.kozvetito(l) && Sources.fromLink(l) !== "other"))];
+        //  Ha az eredeti hirdetés linkje még nincs meg: a forrásoldal szűrt keresése (tartalék)
+        const linkek = [...new Set([Sources.url(i), ...(i.tovabbi_linkek || []), Sources.kereso(i)].filter(l => l && !Sources.kozvetito(l) && Sources.fromLink(l) !== "other"))];
 
         // A hirdető itt (fiókkal) töltötte fel, és más oldalakon is fent van:
         // itt közvetlenül neki lehet írni

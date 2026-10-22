@@ -157,8 +157,12 @@ function guessAllapot(text) {
     return r ? r.ertek : null;
 }
 
-// "Nem elérhető" jelzések a szövegben
-const INAKTIV_RE = /anun[tț]ul (?:nu mai este|a fost) (?:disponibil|dezactivat|șters|sters)|anun[tț] inactiv|acest anun[tț] nu mai este|proprietate v[aâ]ndut[aă]|\bV[AÂ]NDUT\b|oferta a expirat|anun[tț] expirat|nu se primesc cereri pentru aceast[aă] proprietate/i;
+// "Nem elérhető" jelzések a szövegben (OLX, Storia, Publi24, Imobiliare, Lajumate...)
+//  pl. OLX: "Acest anunț nu mai este disponibil", Publi24: "Anunțul nu mai este activ",
+//  Storia: "Anunțul nu mai este valabil" / "Oferta a expirat"
+const INAKTIV_RE = /anun[tț]ul (?:nu mai este|a fost) (?:disponibil|activ|valabil|dezactivat|[șs]ters|eliminat|v[aâ]ndut|arhivat)|anun[tț](?:ul)? (?:inactiv|dezactivat|expirat|arhivat)|acest anun[tț] (?:nu mai este (?:disponibil|activ|valabil)|a expirat|a fost (?:dezactivat|[șs]ters|eliminat|arhivat|v[aâ]ndut))|oferta (?:a expirat|nu mai este (?:disponibil|valabil|activ))|nu se primesc cereri pentru aceast[aă] proprietate|this (?:ad|listing|offer) is no longer (?:available|active)|ez a hirdet[eé]s m[aá]r nem el[eé]rhet[oő]/i;
+// Gyengébb jelek ("VÂNDUT") – csak az oldal elején (egy leírásban is előfordulhatnak)
+const INAKTIV_ELEJEN_RE = /proprietate v[aâ]ndut[aă]|\bV[AÂ]NDUT\b/i;
 
 // ---------- fő kinyerő ----------
 
@@ -277,6 +281,8 @@ function extract(html, url, finalUrl) {
         const host = (() => { try { return new URL(finalUrl || url).hostname; } catch (e) { return ""; } })();
         const s = /olx\.ro$/i.test(host) ? forrasHely.olxOldalbol(html)
             : /storia\.ro$/i.test(host) ? forrasHely.storiaOldalbol(html) : null;
+        // A forrás saját adatcsomagja szerint inaktív (OLX: status / isActive, Storia: status)
+        if (s && s.aktiv === false) d.elerheto = false;
         if (s) {
             if (s.hely && s.x && s.y) { d.x = s.x; d.y = s.y; d.forrasHely = s.hely; d.forrasok.x = "oldal"; }
             else if (s.hely === null && (d.forrasok.x === "jsonld" || d.forrasok.x === "meta")) {
@@ -332,7 +338,9 @@ function extract(html, url, finalUrl) {
     const text = decodeEntities($("body").text()).replace(/\s+/g, " ");
     const cimEsLink = `${d.cim || ""} ${url} ${finalUrl || ""}`;
 
-    if (INAKTIV_RE.test(text.slice(0, 6000))) d.elerheto = false;
+    // Az egész oldal szövegében (az OLX a "nem elérhető" üzenetet a hosszú fejléc /
+    // menü után írja ki – korábban csak az első 6000 karaktert néztük, ezért nem vette észre)
+    if (INAKTIV_RE.test(text) || INAKTIV_ELEJEN_RE.test(text.slice(0, 6000))) d.elerheto = false;
 
     // Leírás (Imobiliare/Imoradar: "Descriere apartament ... Citește mai mult")
     {

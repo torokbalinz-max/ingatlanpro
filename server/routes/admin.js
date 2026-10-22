@@ -213,14 +213,23 @@ router.post("/api/admin/listing/:id/refresh", csapat.csakResz("ellenorzes", "beo
 });
 
 // Meglévő hirdetések ellenőrzése a forrásoldalon (háttérben)
-router.post("/api/admin/recheck", csapat.csakGlobalis("ellenorzes", "beolvasas"), (req, res) => {
+//  varos: csak ennek a városnak (és a "<város> és környéke" városnak) a hirdetései – mind,
+//  a város Imoradar24-listája a végéig, utána a még hiányzó eredeti linkek keresése
+router.post("/api/admin/recheck", csapat.csakGlobalis("ellenorzes", "beolvasas"), async (req, res) => {
 
-    const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : null;
-    const limit = Math.min(Number(req.body.limit) || 100, 500);
+    try {
 
-    const job = importer.figyelesIndit({ ids, limit });
+        const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : null;
+        const varosok = req.body.varos ? await importer.varosCsoport(req.body.varos) : null;
+        const limit = varosok ? null : Math.min(Number(req.body.limit) || 100, 2000);
 
-    res.json({ jobId: job.id });
+        const job = importer.figyelesIndit({ ids, limit, varosok });
+
+        res.json({ jobId: job.id, varosok });
+
+    } catch (err) {
+        hiba(res, err);
+    }
 
 });
 
@@ -248,9 +257,14 @@ router.post("/api/admin/ai-check/:id", csapat.csakResz("ellenorzes"), csapat.csa
 // kerület, település, közelítő hely...), és újraértékeli, mit kell még
 // kézzel ellenőrizni.
 
-router.post("/api/admin/autofix", csapat.csakResz("beolvasas"), (req, res) => {
-    const j = autofix.indit({ mind: req.body.mind !== false });
-    res.json(autofix.allapot() || { allapot: j.allapot });
+router.post("/api/admin/autofix", csapat.csakResz("beolvasas"), async (req, res) => {
+    try {
+        const varosok = req.body.varos ? await importer.varosCsoport(req.body.varos) : null;
+        const j = autofix.indit({ mind: req.body.mind !== false, varosok });
+        res.json(autofix.allapot() || { allapot: j.allapot });
+    } catch (err) {
+        hiba(res, err);
+    }
 });
 
 router.get("/api/admin/autofix", csapat.csakResz("beolvasas"), async (req, res) => {
@@ -334,7 +348,10 @@ router.post("/api/admin/unmatched-areas/assign", csapat.csakResz("helyek"), asyn
 
 // Az Imoradar24-re mutató hirdetések: az eredeti link megkeresése most (és mi lett az eredmény)
 router.post("/api/admin/forraslinkek", csapat.csakGlobalis("ellenorzes"), async (req, res) => {
-    try { res.json(await require("../services/forrasHely").javitMind({ limit: 1000 })); } catch (err) { hiba(res, err); }
+    try {
+        const varosok = req.body && req.body.varos ? await importer.varosCsoport(req.body.varos) : null;
+        res.json(await require("../services/forrasHely").javitMind({ limit: varosok ? 5000 : 1000, varosok }));
+    } catch (err) { hiba(res, err); }
 });
 
 // Duplikátumok

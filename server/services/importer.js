@@ -177,6 +177,10 @@ async function forrasHelyAdat(varos) {
 function kulsoAzon(d, regi) {
     const k = new Set(Array.isArray(regi) ? regi : []);
     if (d.imoId) k.add("imo:" + d.imoId);
+    // Az OLX hirdetés számazonosítója: ha az OLX oldala letiltja a szervert, az OLX
+    // API-jából ezzel még kiderül, fent van-e (forrasHely.olxAllapot)
+    (d.forrasLista || []).forEach(f => { if (f && f.forras === "olx" && f.id && /^\d{5,}$/.test(String(f.id))) k.add("olxid:" + f.id); });
+    if (d.olxId && /^\d{5,}$/.test(String(d.olxId))) k.add("olxid:" + d.olxId);
     [d.kozvetitoLink, forrasHely.kozvetitoOldal(d.link) ? d.link : null, ...(d.forrasLista || []).map(f => f.kozvetito)].filter(Boolean)
         .forEach(l => linkKulcsok(l).forEach(x => k.add(x)));
     return [...k];
@@ -276,7 +280,7 @@ async function egyHirdetes(url, alap, job, meglevo, kesz) {
 // Imoradar24-en a listában minden adat benne van ("elemek"),
 // máshol csak a hirdetések linkjeit gyűjtjük ("linkek").
 // "teljes": a lista végéig eljutottunk (nem a korlát állított meg).
-async function listaOldalak(url, job, maxOldal = MAX_OLDAL) {
+async function listaOldalak(url, job, maxOldal = MAX_OLDAL, maxHirdetes = MAX_HIRDETES) {
 
     const elemek = new Map();
     const linkek = new Set();
@@ -319,7 +323,7 @@ async function listaOldalak(url, job, maxOldal = MAX_OLDAL) {
         // Nincs új hirdetés ezen az oldalon: vége a listának
         if (ujDb === 0) { teljes = true; break; }
 
-        if (elemek.size + linkek.size >= MAX_HIRDETES) break;
+        if (elemek.size + linkek.size >= maxHirdetes) break;
 
         await sleep(KESLELTETES);
 
@@ -344,27 +348,45 @@ const oldalNev = url => { try { return new URL(url).hostname.replace(/^www\./, "
 
 // Egy teljesen végigolvasott találati listából hiányzó imobiliare-hirdetések:
 // ezeket eladták / levették → "nem elérhető" (az admin visszaállíthatja)
-async function hianyzokJelol(latottKulcsok, alap, job, elemDb) {
+//  Melyik hirdetésekről dönthet a lista:
+//   - imobiliare.ro-s és Imoradar24-re mutató hirdetések (ezeket a szerver közvetlenül nem tudja megnézni)
+//   - városra indított teljes ellenőrzésnél (opts.teljesVaros) az Imoradar24-ről átvett, de már
+//     az eredeti oldalra (OLX / Storia / Publi24...) mutató hirdetések is – kivéve, amelyiket ugyanebben
+//     a futásban a saját oldalán fent láttunk (job.kozvetlenOk)
+async function hianyzokJelol(latottKulcsok, alap, job, elemek, opts = {}) {
 
+    const elemDb = elemek.length;
     if (!alap.varos || !alap.tipus || !alap.ugylet || elemDb < 10) return;
 
     // A városból a "<város> és környéke" városba áthelyezett hirdetések is ennek
     // a városnak a listájában vannak a forrásoldalon
     const r = await db.query(`
-        SELECT id, link, tovabbi_linkek FROM ingatlanok
+        SELECT id, link, tovabbi_linkek, kulso_azon, ar, nm FROM ingatlanok
         WHERE statusz = 'aktiv' AND (varos = $1 OR varos_eredeti = $1)
           AND COALESCE(tipus, 'lakas') = $2 AND COALESCE(ugylet, 'elado') = $3
-          AND link ILIKE '%imobiliare.ro/%oferta/%'
+          AND (link ILIKE '%imobiliare.ro/%oferta/%' OR link ~* 'imoradar24\\.ro/'
+               ${opts.teljesVaros ? "OR (forras_tipus = 'import' AND kulso_azon::text ILIKE '%imoradar24.ro/%')" : ""})
     `, [alap.varos, alap.tipus, alap.ugylet]);
 
+    const ok = job.kozvetlenOk || new Set();
+
+    // Óvatosság: ha a listában van ugyanilyen árú és alapterületű hirdetés, nem vesszük
+    // levettnek (a közvetítő néha más formájú linket ad ugyanarra a hirdetésre)
+    const hasonlo = i => Number(i.ar) > 0 && Number(i.nm) > 0 && elemek.some(d =>
+        d.ar > 0 && Math.abs(d.ar - Number(i.ar)) <= Number(i.ar) * 0.005 && d.nm > 0 && Math.abs(d.nm - Number(i.nm)) <= 1);
+
     const hianyzik = r.rows.filter(i =>
-        ![i.link, ...(i.tovabbi_linkek || [])].some(l => linkKulcsok(l).some(k => latottKulcsok.has(k)))
+        !ok.has(i.id) &&
+        !hasonlo(i) &&
+        ![i.link, ...(i.tovabbi_linkek || [])].some(l => linkKulcsok(l).some(k => latottKulcsok.has(k))) &&
+        !(Array.isArray(i.kulso_azon) ? i.kulso_azon : []).some(k => latottKulcsok.has(k))
     );
 
     if (!hianyzik.length) return;
 
-    // Biztonsági fék: ha szinte minden eltűnne, valószínűleg a lista hibás
-    if (r.rows.length >= 10 && hianyzik.length > r.rows.length * 0.9) {
+    // Biztonsági fék: ha egyszerre túl sok tűnne el, valószínűleg a lista hibás (pl. a
+    // forrásoldal félúton letiltott, vagy más szűrésű lista) – ilyenkor nem jelölünk
+    if (hianyzik.length > Math.max(10, r.rows.length * 0.35)) {
         naplo(job, { eredmeny: "hiba", uzenet: `Túl sok hiányzó hirdetés (${hianyzik.length}/${r.rows.length}) – nem jelöltem őket, ellenőrizd a keresési linket.` });
         return;
     }
@@ -400,7 +422,7 @@ async function futtat(job, urls, alap, opts = {}) {
             }
 
             const la = listaAlap(u, alap);
-            const l = await listaOldalak(u, job, opts.maxOldal);
+            const l = await listaOldalak(u, job, opts.maxOldal, opts.maxHirdetes);
 
             l.elemek.forEach(d => feladatok.push({ url: d.link, alap: la, kesz: d }));
             l.linkek.forEach(x => feladatok.push({ url: x, alap: la }));
@@ -424,7 +446,7 @@ async function futtat(job, urls, alap, opts = {}) {
             egyedi = egyedi.filter(f => keresMeglevo(meglevo, f.kesz ? elemKulcsok(f.kesz) : linkKulcsok(f.url)));
         }
 
-        egyedi = egyedi.slice(0, MAX_HIRDETES);
+        egyedi = egyedi.slice(0, opts.maxHirdetes || MAX_HIRDETES);
 
         job.osszes += egyedi.length;
         job.allapot = "fut";
@@ -448,7 +470,7 @@ async function futtat(job, urls, alap, opts = {}) {
         for (const l of listak) {
             const kulcsok = new Set();
             l.elemek.forEach(d => elemKulcsok(d).forEach(k => kulcsok.add(k)));
-            await hianyzokJelol(kulcsok, l.alap, job, l.elemek.length);
+            await hianyzokJelol(kulcsok, l.alap, job, l.elemek, opts);
         }
 
         // A falvakban lévő (új) hirdetések a "<város> és környéke" városba
@@ -515,8 +537,22 @@ async function frissitForrasbol(i, job) {
             if (job.frissitett + job.kihagyott + job.nemElerheto === volt) throw new Error(tiltasUzenet(i.link, 403));
             return;
         }
+        // Az OLX oldala letiltja a szervert: az OLX API-ja a hirdetés számazonosítójával
+        if (tiltasHiba(e) && /olx\.ro/i.test(i.link)) {
+            const id = (Array.isArray(i.kulso_azon) ? i.kulso_azon : []).map(k => (/^olxid:(\d+)$/.exec(String(k)) || [])[1]).find(Boolean);
+            const a = id ? await forrasHely.olxAllapot(id) : null;
+            if (a && a.aktiv === false) { await nemElerhetoJelol(i.id, job, i.link, "forras_szerint"); return; }
+            if (a && a.aktiv) {
+                if (job.kozvetlenOk) job.kozvetlenOk.add(i.id);
+                await frissitAdatbol(i, { ...a.adat, link: i.link, elerheto: true, forrasok: {} }, job);
+                return;
+            }
+        }
         throw e;
     }
+
+    // A saját oldalán fent van: a közvetítő listájából hiányzása ezt nem írja felül
+    if (d.elerheto !== false && job.kozvetlenOk) job.kozvetlenOk.add(i.id);
 
     await frissitAdatbol(i, d, job);
 
@@ -583,6 +619,20 @@ async function frissitAdatbol(i, d, job) {
         if (ures(i.leiras) && d.leiras) potol.leiras = d.leiras;
     }
 
+    // Még mindig a közvetítőre (Imoradar24) mutat, de a további linkek között ott az eredeti
+    // hirdetés: az lesz a fő link (a látogató egyből a hirdetésre megy)
+    if (forrasHely.kozvetitoOldal(potol.link || i.link)) {
+        const jelolt = [...(d.tovabbi_linkek || []), ...(i.tovabbi_linkek || [])].find(forrasHely.kozvetlenHirdetes);
+        if (jelolt) {
+            potol.link = jelolt;
+            potol.kozvetito = null;
+            potol.forras_kereso = null;
+            const fk = forrasHely.forrasKulcs(null, jelolt);
+            if (fk) potol.forras_nev = fk;
+            if (!valtozas.includes("link")) valtozas.push("link");
+        }
+    }
+
     const aktLink = potol.link || i.link;
     const tovabbi = [...new Set([...(i.tovabbi_linkek || []), ...(d.tovabbi_linkek || []), d.link]
         .filter(l => l && !forrasHely.kozvetitoOldal(l) && normLink(l) !== normLink(aktLink)))];
@@ -592,6 +642,7 @@ async function frissitAdatbol(i, d, job) {
     // A közvetítő azonosítói (a következő beolvasás így is felismeri)
     {
         const azon = kulsoAzon(d, i.kulso_azon);
+        if (potol.link && forrasHely.kozvetitoOldal(i.link)) linkKulcsok(i.link).forEach(k => { if (!azon.includes(k)) azon.push(k); });
         if (azon.length !== (i.kulso_azon || []).length) potol.kulso_azon = JSON.stringify(azon);
     }
 
@@ -699,7 +750,10 @@ async function varosSzinkron(csoportok, job, opts = {}) {
 
         naplo(job, { url, eredmeny: "lista_szinkron" });
 
-        await futtat(job, [url], { varos: c.varos, tipus: c.tipus, ugylet: c.ugylet }, { maxOldal: 20, ...opts });
+        // A lista végéig olvasunk (egy nagyvárosban – pl. Marosvásárhely – több ezer hirdetés
+        // van; korábban az első 20 oldal / 400 hirdetés után megállt, így a régebbi
+        // hirdetéseinket meg sem találta, és a linkjük sem javult)
+        await futtat(job, [url], { varos: c.varos, tipus: c.tipus, ugylet: c.ugylet }, { maxOldal: 300, maxHirdetes: 9000, ...opts });
 
         job.allapot = "fut";
         job.vege = null;
@@ -708,6 +762,19 @@ async function varosSzinkron(csoportok, job, opts = {}) {
 
 }
 
+// Egy város és a hozzá tartozó "<város> és környéke" város(ok) neve
+async function varosCsoport(varos) {
+    const nevek = new Set([].concat(varos || []).map(v => String(v).trim()).filter(Boolean));
+    if (!nevek.size) return null;
+    const r = await db.query("SELECT nev FROM varosok WHERE anyavaros = ANY($1::text[])", [[...nevek]]).catch(() => ({ rows: [] }));
+    r.rows.forEach(x => nevek.add(x.nev));
+    return [...nevek];
+}
+
+//  opts.ids:      csak ezek a hirdetések
+//  opts.varosok:  csak ezekben a városokban (teljes ellenőrzés: minden hirdetésük, a város
+//                 Imoradar24-listája a végéig, utána a még hiányzó eredeti linkek keresése)
+//  opts.limit:    legfeljebb ennyi hirdetés (városra indítva alapból mind)
 async function figyelesFuttat(job, opts) {
 
     try {
@@ -720,7 +787,18 @@ async function figyelesFuttat(job, opts) {
             felt.push(`id = ANY($${params.length}::int[])`);
         }
 
-        params.push(opts.limit || 100);
+        const teljesVaros = !!(opts.varosok && opts.varosok.length);
+        if (teljesVaros) {
+            params.push(opts.varosok);
+            felt.push(`(varos = ANY($${params.length}::text[]) OR varos_eredeti = ANY($${params.length}::text[]))`);
+            job.varosok = opts.varosok;
+        }
+
+        params.push(opts.limit || (teljesVaros ? 20000 : 100));
+
+        // Amit már tudunk: az Imoradar24-re mutató hirdetés további linkjei között ott az
+        // eredeti hirdetés -> az lesz a fő link (így ebben a futásban már azt nézzük meg)
+        if (teljesVaros) await forrasHely.ismertLinkElore(opts.varosok).catch(e => console.error("Ismert link előre:", e.message));
 
         const r = await db.query(`
             SELECT * FROM ingatlanok
@@ -730,41 +808,30 @@ async function figyelesFuttat(job, opts) {
         `, params);
 
         // Csak értelmes linkek (a hibás adatsorokat kihagyjuk)
-        let lista = r.rows.filter(i => /^https?:\/\//.test(i.link) && (isListingUrl(i.link) || /imoradar24\.ro\//i.test(i.link)));
+        let lista = r.rows.filter(i => /^https?:\/\//.test(i.link) && (isListingUrl(i.link) || /imoradar24\.ro\//i.test(i.link) || forrasHely.kozvetlenHirdetes(i.link)));
+
+        // Ebben a futásban a saját oldalukon fent látott hirdetések (a közvetítő listájából
+        // hiányzásuk miatt nem jelöljük őket "nem elérhető"-nek)
+        job.kozvetlenOk = new Set();
 
         // Az imobiliare.ro letiltja a szervert: az ilyen hirdetéseket a város
         // Imoradar24-es listájából frissítjük (ár, képek, adatok), és ami
         // már nincs a listában, azt "nem elérhető"-nek jelöljük
         // (ugyanígy az Imoradar24-re mutató régi hirdetések: a lista forrás-azonosítóiból
         // így megkapják az eredeti OLX / Storia / … linket – services/forrasHely.js)
-        const imo = lista.filter(i => /imobiliare\.ro|imoradar24\.ro/i.test(i.link));
+        const listasLink = i => /imobiliare\.ro|imoradar24\.ro/i.test(i.link);
+        const imoradarbol = i => (Array.isArray(i.kulso_azon) ? i.kulso_azon : []).some(k => /imoradar24\.ro\//i.test(String(k)));
 
-        if (imo.length) {
+        // A város listáját akkor is végigolvassuk, ha a hirdetés már az eredeti oldalra mutat,
+        // de az Imoradar24-ről jött (városra indított teljes ellenőrzésnél): ha a forrásoldal
+        // letiltja a szervert, a listából derül ki, hogy levették-e
+        const listaCsoport = lista.filter(i => listasLink(i) || (teljesVaros && imoradarbol(i)));
+        const kozvetlen = lista.filter(i => !listasLink(i));
 
-            const csoportok = new Map();
-            for (const i of imo) {
-                // A környék-város hirdetései az anyaváros listájában vannak a forrásoldalon
-                const varos = (await kornyek.anyaVarosa(i.varos).catch(() => null)) || i.varos;
-                const c = { varos, tipus: i.tipus || "lakas", ugylet: i.ugylet || "elado" };
-                csoportok.set(`${c.varos}|${c.tipus}|${c.ugylet}`, c);
-            }
-
-            job.allapot = "fut";
-
-            // FONTOS: itt csak a meglévő hirdetéseket frissítjük (ár, képek,
-            // elérhetőség) – új hirdetést a város listájából NEM veszünk fel.
-            // (Korábban a teljes ellenőrzés a listában talált új hirdetéseket is
-            // beolvasta, vagyis ugyanazt csinálta, mint a sima beolvasás.)
-            // Az ellenőrzés idejét a frissítés / a "nem elérhető" jelölés állítja be.
-            await varosSzinkron([...csoportok.values()], job, { csakMeglevo: true });
-
-            lista = lista.filter(i => !/imobiliare\.ro|imoradar24\.ro/i.test(i.link));
-
-        }
-
-        job.osszes += lista.length;
+        job.osszes += kozvetlen.length;
         job.allapot = "fut";
 
+        // 1) Az eredeti oldalukra mutató hirdetések: egyenként a forrásoldalon
         // Ha egy oldal sorban többször letilt (403 / 429), a többi hirdetését most
         // nem próbáljuk (csak terhelnénk, és még jobban letiltana) – a következő
         // ellenőrzés újra megpróbálja őket. A hirdetések addig változatlanok.
@@ -772,7 +839,7 @@ async function figyelesFuttat(job, opts) {
         const letiltott = new Set();
         const TILTAS_HATAR = 3;
 
-        for (const i of lista) {
+        for (const i of kozvetlen) {
 
             const oldal = oldalNev(i.link);
 
@@ -794,8 +861,8 @@ async function figyelesFuttat(job, opts) {
                     tiltasSor.set(oldal, n);
                     if (n >= TILTAS_HATAR) {
                         letiltott.add(oldal);
-                        const marad = lista.filter(x => oldalNev(x.link) === oldal).length;
-                        naplo(job, { url: i.link, eredmeny: "letiltva", uzenet: `${tiltasUzenet(i.link, Number((/HTTP (\d+)/.exec(e.message) || [])[1]) || 403)} (${oldal}: a többi hirdetése – összesen ${marad} – most kimarad)` });
+                        const marad = kozvetlen.filter(x => oldalNev(x.link) === oldal).length;
+                        naplo(job, { url: i.link, eredmeny: "letiltva", uzenet: `${tiltasUzenet(i.link, Number((/HTTP (\d+)/.exec(e.message) || [])[1]) || 403)} (${oldal}: a többi hirdetése – összesen ${marad} – most kimarad${teljesVaros ? ", az Imoradar24-ről jötteket a lista alapján nézzük meg" : ""})` });
                     } else {
                         naplo(job, { url: i.link, eredmeny: "letiltva", uzenet: tiltasUzenet(i.link, Number((/HTTP (\d+)/.exec(e.message) || [])[1]) || 403), id: i.id });
                     }
@@ -810,6 +877,39 @@ async function figyelesFuttat(job, opts) {
 
             await sleep(KESLELTETES);
 
+        }
+
+        // 2) A városok Imoradar24-listái (a végéig): az imobiliare-s és Imoradar24-re mutató
+        //    hirdetések frissítése, az eredeti linkjük, és ami már nincs a listában: "nem elérhető"
+        if (listaCsoport.length) {
+
+            const csoportok = new Map();
+            for (const i of listaCsoport) {
+                // A környék-város hirdetései az anyaváros listájában vannak a forrásoldalon
+                const varos = (await kornyek.anyaVarosa(i.varos).catch(() => null)) || i.varos_eredeti || i.varos;
+                const c = { varos, tipus: i.tipus || "lakas", ugylet: i.ugylet || "elado" };
+                csoportok.set(`${c.varos}|${c.tipus}|${c.ugylet}`, c);
+            }
+
+            job.allapot = "fut";
+
+            // FONTOS: itt csak a meglévő hirdetéseket frissítjük (ár, képek,
+            // elérhetőség) – új hirdetést a város listájából NEM veszünk fel.
+            // Az ellenőrzés idejét a frissítés / a "nem elérhető" jelölés állítja be.
+            await varosSzinkron([...csoportok.values()], job, { csakMeglevo: true, teljesVaros });
+
+        }
+
+        // 3) Városra indítva: ami még mindig az Imoradar24-re mutat, annak az eredeti
+        //    hirdetése az adatok alapján (OLX / Storia) – forrasHely.javitMind
+        if (teljesVaros && !opts.forraslinkNelkul) {
+            job.allapot = "fut";
+            naplo(job, { eredmeny: "forraslinkek" });
+            const e = await forrasHely.javitMind({ limit: 5000, varosok: opts.varosok, csakAdat: true }).catch(x => ({ hiba: x.message }));
+            job.forraslinkek = e;
+            const meg = await db.query(`SELECT COUNT(*)::int AS n FROM ingatlanok WHERE statusz = 'aktiv' AND link ~* 'imoradar24\\.ro/'
+                AND (varos = ANY($1::text[]) OR varos_eredeti = ANY($1::text[]))`, [opts.varosok]).catch(() => ({ rows: [{ n: null }] }));
+            job.forrasNelkul = meg.rows[0].n;
         }
 
         job.allapot = "kesz";
@@ -864,4 +964,4 @@ async function figyeltFuttat(ids) {
 
 }
 
-module.exports = { indit, allapot, figyeltFuttat, figyelesIndit, frissitForrasbol, ujJob, imoradarLink, _teszt: { linkKulcsok, elemKulcsok, listaAlap } };
+module.exports = { indit, allapot, figyeltFuttat, figyelesIndit, frissitForrasbol, ujJob, imoradarLink, varosCsoport, _teszt: { linkKulcsok, elemKulcsok, listaAlap } };
