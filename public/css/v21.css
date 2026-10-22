@@ -25,33 +25,22 @@
     unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-/* ---------- Színek (világos) ---------- */
-:root {
+/* ---------- Színek ----------
+   A színeket a nyilvános oldalak <body>-ján állítjuk (mint a v14), külön világos
+   és sötét értékkel – így a sötét módban a szöveg mindig világos marad.
+   (Korábban a :root-on lévő világos szövegszín a sötét módot is felülírta.) */
+body:not([data-page="admin"]) {
     --ip-display: "Fraunces", Georgia, "Times New Roman", serif;
-    --ip-accent: #1c6553;
-    --ip-accent-strong: #154d40;
-    --ip-accent-soft: rgba(28, 101, 83, 0.09);
-    --ip-bg: #f6f5f0;
-    --ip-surface-2: #efeee8;
-    --ip-border: #e4e2da;
-    --ip-border-soft: #ebe9e2;
-    --ip-text: #18201c;
-    --ip-ink: #141c18;
-    --ip-muted: #5e6762;
+    --ip-bg: #f3f5f2;
+    --ip-border-soft: #e9ece7;
+    --ip-ink: #13201a;
     --ip-grad: linear-gradient(135deg, #217561 0%, #164f42 100%);
-    --ip-shadow: 0 1px 2px rgba(24, 32, 28, 0.04), 0 6px 20px rgba(24, 32, 28, 0.05);
-    --ip-shadow-lift: 0 2px 6px rgba(24, 32, 28, 0.05), 0 18px 40px rgba(24, 32, 28, 0.10);
-    --bs-primary-rgb: 28, 101, 83;
-    --bs-link-color-rgb: 28, 101, 83;
 }
-[data-bs-theme="dark"] {
-    --ip-display: "Fraunces", Georgia, serif;
-    --ip-bg: #0f1311;
-    --ip-surface: #161b18;
-    --ip-surface-2: #1d231f;
-    --ip-border: #272e2a;
-    --ip-border-soft: #232a26;
+[data-bs-theme="dark"] body:not([data-page="admin"]) {
+    --ip-bg: #0e1210;
+    --ip-border-soft: #1f2522;
     --ip-ink: #eef2ef;
+    --ip-grad: linear-gradient(135deg, #2c8a73 0%, #1f6f5c 100%);
 }
 
 /* ---------- Címek: elegáns, szerif display betű ---------- */
@@ -144,14 +133,6 @@ body:not([data-page="admin"]) .btn:active { transform: translateY(1px); }
 /* ---------- Lábléc ---------- */
 .appFooter { border-top: 1px solid var(--ip-border-soft); }
 
-/* ---------- Görgetésre beúszó szakaszok (reveal.js teszi rá) ---------- */
-.ipReveal { opacity: 0; transform: translateY(14px); transition: opacity .7s cubic-bezier(.2, .7, .2, 1), transform .7s cubic-bezier(.2, .7, .2, 1); }
-.ipReveal.isIn { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) {
-    .ipReveal { opacity: 1; transform: none; transition: none; }
-    body[data-page="home"] .homeHeroMedia img { transition: none; }
-}
-
 /* ---------- Görgethető ablakok: ha a tartalmat egy <form> veszi körül
    (pl. reklámfelület-kérés), a Bootstrap görgetése nem működött – iPaden az
    ablak alja nem látszott és nem lehetett lejjebb görgetni ---------- */
@@ -172,3 +153,69 @@ body:not([data-page="admin"]) .btn:active { transform: translateY(1px); }
     .modal-dialog-scrollable { height: calc(100dvh - var(--bs-modal-margin, .5rem) * 2); }
     .modal-dialog-scrollable .modal-content { max-height: calc(100dvh - var(--bs-modal-margin, .5rem) * 2); }
 }
+
+/* ============================================================
+   Mozgás – egyetlen, összehangolt nyitójelenet a kezdőlapon,
+   a többi mozgás csak a felhasználó műveletére válaszol
+   (oldalváltás, kártya fölé állás, kedvenc). js/core/motion.js
+   ============================================================ */
+
+/* Szintvonalak a hős rész mögött – a Kárpátok domborzati térképére utal;
+   betöltéskor egyszer "megrajzolódnak" */
+.ipContour {
+    position: absolute;
+    inset: -6% 0 -4% 0;
+    z-index: -1;
+    width: 100%;
+    height: 112%;
+    pointer-events: none;
+    color: var(--ip-accent);
+    opacity: .22;
+}
+[data-bs-theme="dark"] .ipContour { opacity: .28; }
+.ipContour path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+}
+.ipIntro .ipContour path { animation: ipDraw 2.6s cubic-bezier(.45, .05, .2, 1) both; animation-delay: calc(var(--i, 0) * 70ms + 150ms); }
+@keyframes ipDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+/* A cím alulról "felgördül", utána a többi elem sorban érkezik */
+.ipIntro .homeHeroText h1 { animation: ipRise 1s cubic-bezier(.2, .8, .2, 1) both .1s; }
+.ipIntro .homeLead { animation: ipFade .8s ease both .45s; }
+.ipIntro .heroSearch { animation: ipLift .9s cubic-bezier(.2, .8, .2, 1) both .6s; }
+.ipIntro .heroLinks { animation: ipFade .8s ease both .85s; }
+.ipIntro .homeHeroMedia { animation: ipMedia 1.4s cubic-bezier(.2, .8, .2, 1) both .2s; }
+.ipIntro .heroBadge { animation: ipLift .8s cubic-bezier(.2, .8, .2, 1) both 1s; }
+
+@keyframes ipRise { from { clip-path: inset(0 0 100% 0); transform: translateY(28px); } to { clip-path: inset(0 0 -10% 0); transform: none; } }
+@keyframes ipFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ipLift { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes ipMedia { from { opacity: 0; transform: scale(1.04); clip-path: inset(6% 6% 6% 6% round 28px); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 28px); } }
+
+/* Oldalváltás: az új oldal finoman beúszik (a térkép csak áttűnik – a Leaflet miatt) */
+.page.ipEnter { animation: ipPage .38s cubic-bezier(.2, .8, .2, 1) both; }
+#page-map.ipEnter { animation-name: ipFade; }
+@keyframes ipPage { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Kártya: a kép lassan közelebb jön, ha fölé állsz */
+html body .ipCard .thumbStrip img { transition: transform .9s cubic-bezier(.2, .8, .2, 1); }
+html body .ipCard:hover .thumbStrip img { transform: scale(1.045); }
+/* Kedvenc: rugalmas visszajelzés kattintáskor */
+html body .ipCard .ipFav { transition: transform .25s cubic-bezier(.3, 1.6, .5, 1), background .2s, color .2s; }
+html body .ipCard .ipFav:active { transform: scale(.82); }
+
+@media (prefers-reduced-motion: reduce) {
+    .ipIntro .ipContour path,
+    .ipIntro .homeHeroText h1, .ipIntro .homeLead, .ipIntro .heroSearch, .ipIntro .heroLinks,
+    .ipIntro .homeHeroMedia, .ipIntro .heroBadge, .page.ipEnter { animation: none !important; }
+    html body .ipCard:hover .thumbStrip img { transform: none; }
+}
+
+/* Sötét mód: a fotón lévő hirdetésszám-jelvény sötét üveg legyen (eddig fehér háttéren fehér szám) */
+[data-bs-theme="dark"] body[data-page="home"] .heroBadge { background: rgba(20, 26, 23, 0.82); color: var(--ip-ink); }
+[data-bs-theme="dark"] body[data-page="home"] .heroBadge span { color: var(--ip-muted); }
