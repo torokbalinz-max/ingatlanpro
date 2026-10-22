@@ -51,6 +51,7 @@
     <link rel="stylesheet" href="css/v16.css">
     <link rel="stylesheet" href="css/v17.css">
     <link rel="stylesheet" href="css/v18.css">
+    <link rel="stylesheet" href="css/v19.css">
 </head>
 
 <body>
@@ -172,6 +173,12 @@
                 <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i><span data-i18n="authLoginBtn">Belépés</span>
             </button>
 
+            <!-- Bejelentkezve: értesítések (Fiókom → Értesítések; js/account/notifications.js) -->
+            <a class="navIconBtn navBellBtn auth-only" id="navBellBtn" href="#fiok/ertesitesek" hidden data-i18n-title="ntfTitle" title="Értesítések" aria-label="Értesítések">
+                <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                <span class="navMsgCount navBellCount" hidden></span>
+            </a>
+
             <!-- Bejelentkezve: fiók menü -->
             <div class="dropdown auth-only" hidden>
                 <button class="navIconBtn navUserBtn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-i18n-title="menuFiok" title="Fiókom">
@@ -193,6 +200,7 @@
                     <li><a class="dropdown-item" href="#iroda"><i class="fa-solid fa-briefcase"></i> <span data-i18n="agMyAgency">Irodám kezelése</span> <span class="badge text-bg-danger ms-1 navInviteCount" hidden></span></a></li>
                     <li><h6 class="dropdown-header" data-i18n="navUserAccount">Fiók</h6></li>
                     <li><a class="dropdown-item" href="#fiok/uzenetek"><i class="fa-solid fa-envelope"></i> <span data-i18n="accTabMessages">Üzenetek</span> <span class="badge text-bg-danger ms-1 navMsgCount2" hidden></span></a></li>
+                    <li><a class="dropdown-item" href="#fiok/ertesitesek"><i class="fa-solid fa-bell"></i> <span data-i18n="accTabNotifications">Értesítések</span> <span class="badge text-bg-danger ms-1 navBellCount" hidden></span></a></li>
                     <li><a class="dropdown-item" href="#fiok/profil"><i class="fa-solid fa-id-card"></i> <span data-i18n="accTabProfil">Profil</span></a></li>
                     <li class="panel-only" hidden><a class="dropdown-item" href="#admin"><i class="fa-solid fa-user-shield"></i> <span data-i18n="menuAdmin">Admin</span></a></li>
                     <li class="adminView-only" hidden><hr class="dropdown-divider"></li>
@@ -1430,6 +1438,7 @@
 <script src="js/core/i18n-v18.js"></script>
 <script src="js/core/i18n-v19.js"></script>
 <script src="js/core/i18n-v20.js"></script>
+<script src="js/core/i18n-v21.js"></script>
 <script src="js/core/dokumentum.js"></script>
 <script src="js/core/gridLocale.js"></script>
 <script src="js/core/telepulesek.js"></script>
@@ -1500,6 +1509,7 @@
 <script src="js/account/savedSearches.js"></script>
 <script src="js/account/messages.js"></script>
 <script src="js/account/accountPage.js"></script>
+<script src="js/account/notifications.js"></script>
 <script src="js/requests/requestsPage.js"></script>
 <script src="js/agency/anaf.js"></script>
 <script src="js/agency/agencyPage.js"></script>

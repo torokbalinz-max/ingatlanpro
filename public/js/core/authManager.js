@@ -20,6 +20,7 @@ class AuthManager {
     static user = null;
     static config = {};
     static olvasatlan = 0;
+    static ertesites = 0;          // olvasatlan értesítések (Fiókom → Értesítések, a csengő)
     static adminNezet = false;      // az admin a felhasználói nézetet próbálja
     static irodak = [];             // az ingatlanirodák, amelyeknek tagja
     static irodaMeghivasok = [];    // ingatlanirodák, ahová meghívták (még nem fogadta el)
@@ -113,6 +114,7 @@ class AuthManager {
         AuthManager.szerep = me.szerep || (me.user ? me.user.szerep : "vendeg");
         AuthManager.felhasznalo = me.felhasznalo || null;
         AuthManager.olvasatlan = me.olvasatlan || 0;
+        AuthManager.ertesites = me.ertesites || 0;
         AuthManager.adminNezet = !!me.adminNezet;
         AuthManager.irodak = Array.isArray(me.irodak) ? me.irodak : [];
         AuthManager.irodaMeghivasok = Array.isArray(me.irodaMeghivasok) ? me.irodaMeghivasok : [];
@@ -204,6 +206,11 @@ class AuthManager {
             badge.hidden = !(osszes > 0);
             badge.innerText = osszes > 9 ? "9+" : osszes;
         });
+        // Értesítések: a csengő a fejlécben (account/notifications.js)
+        if (typeof Notifications !== "undefined") {
+            Notifications.jelvenyFrissit();
+            if (bent) { Notifications.figyel(); Notifications.nyelvKuld(); }
+        }
 
     }
 

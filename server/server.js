@@ -133,6 +133,8 @@ app.use(cors());
 // bejelentkezve; vendégtől legfeljebb 1 MB (ne lehessen óriási kérésekkel terhelni)
 const jsonNagy = express.json({ limit: "40mb" });
 const jsonKicsi = express.json({ limit: "1mb" });
+// A hirdető a fizetési oldalon (belépés nélkül, a titkos linkkel) tölti fel a reklám képét
+app.use(/^\/reklam-szerzodes\/[a-f0-9]{48}\/anyag$/, express.json({ limit: "12mb" }));
 app.use((req, res, next) => (req.user ? jsonNagy : jsonKicsi)(req, res, next));
 
 // ===================== API =====================
@@ -163,6 +165,7 @@ app.use(require("./routes/csapat"));
 app.use(require("./routes/fizetes"));
 app.use(require("./routes/efactura"));
 app.use(require("./routes/irattar"));
+app.use(require("./routes/ertesitesek"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {
@@ -180,6 +183,8 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`Szerver elindult a ${PORT} porton.`);
+    // Értesítések (mentett keresések, igények, kedvencek ára): 15 percenként
+    require("./services/ertesitesek").indit();
     // Az állapotok listája (Admin → Állapotok) a gyorstárba
     require("./services/allapotok").kesz();
     // A meglévő hirdetések automatikus javítása – csak egyszer, az első indításkor.

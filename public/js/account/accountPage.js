@@ -5,6 +5,7 @@
 //   #fiok/keresesek    mentett keresések (új találatok)
 //   #fiok/igenyek      a keresési igényeim és a rájuk jött válaszok
 //   #fiok/uzenetek     üzenetek
+//   #fiok/ertesitesek  értesítések + beállításuk (account/notifications.js)
 //   #fiok/csomag       csomagom, rendeléseim, díjbekérőim (services/accountBilling.js)
 //   #fiok/megbizasok   „Eladjuk helyetted” megbízásaim (services/myMandates.js)
 // ============================================================
@@ -20,6 +21,7 @@ class AccountPage {
         { key: "keresesek", icon: "fa-solid fa-bookmark", label: "accTabSearches" },
         { key: "igenyek", icon: "fa-solid fa-bullhorn", label: "accTabRequests" },
         { key: "uzenetek", icon: "fa-solid fa-envelope", label: "accTabMessages" },
+        { key: "ertesitesek", icon: "fa-solid fa-bell", label: "accTabNotifications" },
         { key: "csomag", icon: "fa-solid fa-receipt", label: "accTabBilling" }
     ];
 
@@ -51,6 +53,7 @@ class AccountPage {
                     <a class="typeTab ${t.key === AccountPage.tab ? "active" : ""}" href="#fiok/${t.key}" role="tab" aria-selected="${t.key === AccountPage.tab}">
                         <i class="${t.icon}" aria-hidden="true"></i> ${I18n.t(t.label)}
                         ${t.key === "uzenetek" ? `<span class="badge rounded-pill text-bg-danger accMsgCount" ${AuthManager.olvasatlan ? "" : "hidden"}>${AuthManager.olvasatlan}</span>` : ""}
+                        ${t.key === "ertesitesek" ? `<span class="badge rounded-pill text-bg-danger accNotifCount" ${AuthManager.ertesites ? "" : "hidden"}>${AuthManager.ertesites > 9 ? "9+" : AuthManager.ertesites}</span>` : ""}
                     </a>`).join("")}
                 <a class="typeTab" href="#favorites"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("menuKedvencek")}</a>
                 <a class="typeTab" href="#iroda"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> ${I18n.t(AuthManager.irodak.length ? "agMenu" : "agCreateShort")}</a>
@@ -72,6 +75,7 @@ class AccountPage {
                 AccountPage.nyitando = null;
                 Messages.render(body, ny);
             },
+            ertesitesek: () => Notifications.render(body),
             csomag: () => AccountBilling.render(body),
             megbizasok: () => MyMandates.render(body)
         })[AccountPage.tab]();
@@ -115,11 +119,7 @@ class AccountPage {
                                     ${!u.email ? `<div class="form-text text-warning">${I18n.t("accNoEmail")}</div>` : ""}
                                 </div>
                                 <div class="col-12">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="apErtesites" ${u.ertesites_email ? "checked" : ""}>
-                                        <label class="form-check-label" for="apErtesites">${I18n.t("accNotify")}</label>
-                                    </div>
-                                    ${!c.email ? `<div class="form-text">${I18n.t("accNotifyOff")}</div>` : ""}
+                                    <a class="small" href="#fiok/ertesitesek"><i class="fa-regular fa-bell" aria-hidden="true"></i> ${I18n.t("accNotifySettingsLink")}</a>
                                 </div>
                             </div>
                             <div class="accMsg alert small py-2 mt-3" hidden></div>
@@ -169,7 +169,7 @@ class AccountPage {
                     nev: document.getElementById("apNev").value,
                     telefon: document.getElementById("apTel").value,
                     email: document.getElementById("apEmail").value,
-                    ertesites_email: document.getElementById("apErtesites").checked
+                    // az e-mail értesítések a Fiókom → Értesítések fülön
                 })
             })
                 .then(r => r.json().then(v => ({ ok: r.ok, v })))

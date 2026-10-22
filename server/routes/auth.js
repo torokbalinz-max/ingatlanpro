@@ -26,7 +26,7 @@ router.get("/api/config", async (req, res) => {
     let reklamok = [];
 
     try { uzemelteto = await oldalAdatok.nyilvanos(); } catch (e) { /* az alapértékek maradnak */ }
-    try { reklamAdat = await reklam.olvas(); } catch (e) { /* alapból látszanak a helyőrzők */ }
+    try { reklamAdat = await reklam.publikus(); } catch (e) { /* alapból látszanak a helyőrzők */ }
     try { reklamok = await reklam.aktivak(); } catch (e) { /* nincs futó hirdetés */ }
     try { await allapotok.kesz(); allapotLista = allapotok.nyilvanos(); } catch (e) { /* a beépített lista marad */ }
     let funkciok = { ...require("../services/funkciok").ALAP };
@@ -56,6 +56,9 @@ router.get("/api/config", async (req, res) => {
             helyorzo: reklamAdat.helyorzo !== false,
             email: reklamAdat.email || (uzemelteto && uzemelteto.email) || "",
             helyek: reklamAdat.helyek || {},
+            // árlista (ha nyilvános) és a pénznem – a bérlési űrlaphoz
+            penznem: reklamAdat.penznem || "RON",
+            arak_mutat: !!reklamAdat.arak_mutat,
             hirdetesek: reklamok
         },
         // Hibakereséshez: ha induláskor egy táblát nem sikerült létrehozni (csak az adminnak)
@@ -69,6 +72,7 @@ router.get("/api/me", async (req, res) => {
     try {
 
         let olvasatlan = 0;
+        let ertesites = 0;
         let irodak = [];
         let irodaMeghivasok = [];
         let csomag = null;
@@ -79,6 +83,8 @@ router.get("/api/me", async (req, res) => {
         if (req.user) {
             const r = await db.query("SELECT COUNT(*)::int AS n FROM uzenetek WHERE cimzett_id = $1 AND NOT olvasva", [req.user.id]);
             olvasatlan = r.rows[0].n;
+            // Értesítések (Fiókom → Értesítések): az olvasatlanok száma a csengőn
+            ertesites = await require("../services/ertesitesek").olvasatlanDb(req.user.id).catch(() => 0);
             irodak = await require("./irodak").sajatIrodak(req.user.id).catch(() => []);
             irodaMeghivasok = await require("./irodak").meghivasok(req.user.id).catch(() => []);
             // Az előfizetett csomagok jogai (reklámmentes, hirdetésszám...) – Admin → Pénzügyek
@@ -100,6 +106,7 @@ router.get("/api/me", async (req, res) => {
             felhasznalo: req.felhasznalo,
             nyilvanos: nyilvanosMod(),
             olvasatlan,
+            ertesites,
             irodak,
             irodaMeghivasok,
             csomag,

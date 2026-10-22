@@ -13,6 +13,7 @@
 // ============================================================
 
 function elerheto() {
+    if (process.env.MAIL_TESZT_MAPPA) return true;
     return !!((process.env.BREVO_API_KEY || process.env.RESEND_API_KEY) && process.env.MAIL_FROM);
 }
 
@@ -41,6 +42,18 @@ function sablon({ cim, sorok = [], gomb, link, lablec, logo, fejNev }) {
 async function kuld({ to, subject, html, text, replyTo, csatolmanyok }) {
 
     if (!elerheto() || !to) return false;
+
+    // Csak fejlesztéshez: a levelek fájlba mennek (MAIL_TESZT_MAPPA), nem küldjük el
+    if (process.env.MAIL_TESZT_MAPPA) {
+        try {
+            const fs = require("fs"), path = require("path");
+            fs.mkdirSync(process.env.MAIL_TESZT_MAPPA, { recursive: true });
+            const nev = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            fs.writeFileSync(path.join(process.env.MAIL_TESZT_MAPPA, nev + ".json"), JSON.stringify({ to, subject, replyTo, text, csatolmanyok: (csatolmanyok || []).map(c => c.nev) }, null, 1));
+            fs.writeFileSync(path.join(process.env.MAIL_TESZT_MAPPA, nev + ".html"), html || "");
+            return true;
+        } catch (e) { return false; }
+    }
 
     const from = process.env.MAIL_FROM;
     const fromName = process.env.MAIL_FROM_NAME || "IngatlanPro";

@@ -9,6 +9,11 @@
 //  a szerződést is elfogadhatja (időpont + IP). A fizetés után ugyanolyan
 //  számla készül, mint a csomagoknál (szamlazo.js), és megy az ANAF-hoz.
 //
+//  A reklám anyagát (kép, telefonos kép, hova vigyen) a hirdető maga is
+//  feltöltheti ugyanezen az oldalon – vagy elküldi, és az admin tölti fel.
+//  Amint ki van fizetve és van képe, a reklám magától megjelenik (a
+//  kezdő naptól); ha fizetett, de még nincs kép, levélben kérjük.
+//
 //  Jogilag: cégek között a szolgáltatási szerződésnek nincs kötelező
 //  alakja (Codul civil art. 1178) – az írásos, elfogadott megrendelés a
 //  bizonyíték. A reklám tartalmáért a hirdető felel (Legea 148/2000).
@@ -148,8 +153,8 @@ async function kuld(id, alapCim) {
         const t = mail.sablon({
             cim: `Plată spațiu publicitar / Reklámfelület díja – ${dijbekero.sorszam}`,
             sorok: [
-                `Vă mulțumim! Spațiul publicitar „${r.nev}” (${tol} – ${ig}): ${dijbekero.brutto} ${penznem}. Plata se poate face online cu cardul sau prin transfer bancar la linkul de mai jos${r.szerzodes_kell !== false ? ", unde găsiți și contractul" : ""}. După plată primiți factura.`,
-                `Köszönjük! A(z) „${r.nev}” reklámfelület (${tol} – ${ig}): ${dijbekero.brutto} ${penznem}. Az alábbi linken kártyával vagy átutalással fizethet${r.szerzodes_kell !== false ? ", és ott a szerződés is" : ""}. A fizetés után megkapja a számlát.`,
+                `Vă mulțumim! Spațiul publicitar „${r.nev}” (${tol} – ${ig}): ${dijbekero.brutto} ${penznem}. Plata se poate face online cu cardul sau prin transfer bancar la linkul de mai jos${r.szerzodes_kell !== false ? ", unde găsiți și contractul" : ""}. Tot acolo puteți încărca imaginea reclamei – după plată reclama apare automat. Factura o primiți pe e-mail.`,
+                `Köszönjük! A(z) „${r.nev}” reklámfelület (${tol} – ${ig}): ${dijbekero.brutto} ${penznem}. Az alábbi linken kártyával vagy átutalással fizethet${r.szerzodes_kell !== false ? ", és ott a szerződés is" : ""}. Ugyanott feltöltheti a reklám képét – a fizetés után a reklám magától megjelenik. A számlát e-mailben küldjük.`,
                 be.iban ? `IBAN: ${be.iban}${be.bank ? " (" + be.bank + ")" : ""} – detalii plată / közlemény: ${dijbekero.sorszam}` : ""
             ].filter(Boolean),
             gomb: "Plătește / Fizetés",
@@ -187,8 +192,31 @@ const T = {
     atutalas: { ro: "Sau prin transfer bancar", hu: "Vagy átutalással", en: "Or by bank transfer" },
     kozlemeny: { ro: "Detalii plată", hu: "Közlemény", en: "Reference" },
     fizetve: { ro: "Plătit – mulțumim!", hu: "Kifizetve – köszönjük!", en: "Paid – thank you!" },
-    szamla: { ro: "factura", hu: "számla", en: "invoice" }
+    szamla: { ro: "factura", hu: "számla", en: "invoice" },
+    anyagCim: { ro: "Materialul reclamei", hu: "A reklám anyaga", en: "Your ad creative" },
+    anyagInfo: {
+        ro: "Încărcați imaginea reclamei și linkul la care trimite. După plată, reclama apare automat de la data de început – nu trebuie să ne trimiteți nimic altceva.",
+        hu: "Töltsd fel a reklám képét és add meg, hova vigyen a kattintás. A fizetés után a reklám a kezdő naptól magától megjelenik – mást nem kell küldened.",
+        en: "Upload your ad image and the link it should open. After payment the ad appears automatically from the start date – nothing else to send."
+    },
+    anyagNincs: { ro: "Încă nu există imagine.", hu: "Még nincs kép.", en: "No image yet." },
+    anyagFut: { ro: "Reclama dvs. este afișată acum.", hu: "A reklámod most is megjelenik.", en: "Your ad is live now." },
+    anyagFizetesUtan: { ro: "Imaginea este pregătită – reclama apare automat după plată.", hu: "A kép megvan – a reklám a fizetés után magától megjelenik.", en: "The image is ready – the ad goes live automatically after payment." },
+    anyagKezdet: { ro: "Imaginea este pregătită – reclama apare de la", hu: "A kép megvan – a reklám ettől a naptól jelenik meg:", en: "The image is ready – the ad appears from" },
+    anyagKep: { ro: "Imagine (desktop)", hu: "Kép (számítógép)", en: "Image (desktop)" },
+    anyagMobil: { ro: "Imagine pentru telefon (opțional)", hu: "Kép telefonra (nem kötelező)", en: "Image for phones (optional)" },
+    anyagUrl: { ro: "Link (unde trimite reclama)", hu: "Link (hova vigyen a reklám)", en: "Link (where the ad leads)" },
+    anyagAlt: { ro: "Text scurt (pentru cititoare de ecran)", hu: "Rövid szöveg (felolvasó programoknak)", en: "Short text (for screen readers)" },
+    anyagMeret: { ro: "Dimensiuni recomandate", hu: "Ajánlott méretek", en: "Recommended sizes" },
+    anyagMent: { ro: "Salvează materialul", hu: "Anyag mentése", en: "Save creative" },
+    anyagKesz: { ro: "Salvat – mulțumim!", hu: "Elmentve – köszönjük!", en: "Saved – thank you!" },
+    anyagHibaMeret: { ro: "Imaginea este prea mare (max. 3 MB).", hu: "A kép túl nagy (legfeljebb 3 MB).", en: "The image is too large (max 3 MB)." },
+    anyagHibaTipus: { ro: "Format acceptat: JPG, PNG, WebP, GIF.", hu: "Elfogadott formátum: JPG, PNG, WebP, GIF.", en: "Accepted formats: JPG, PNG, WebP, GIF." },
+    anyagKell: { ro: "Alegeți o imagine.", hu: "Válassz egy képet.", en: "Choose an image." }
 };
+
+// A reklámhelyek formája és mérete (mint a weboldalon: public/js/core/ads.js)
+const FORMA_MERET = { billboard: [970, 250], csik: [970, 90], leaderboard: [728, 90], negyzet: [300, 250], allo: [300, 600] };
 
 function cikkek(r, u, ugyfel, ar, ho, penznem, helyekSzoveg) {
     const per = `${r.kezdet}${r.vege ? " – " + r.vege : ""}`;
@@ -248,6 +276,7 @@ const HELY_NEV = {
 async function html(r, o = {}) {
     const ford = o.ford || "";
     const L = k => dok.ket(T[k], ford);
+    const TX = k => dok.ket(T[k], ford).replace(/<[^>]+>/g, "");
     const u = await oldalAdatok.nyilvanos();
     const be = await pu.beallitas();
     const ugyfel = await ugyfelAdat(r.ugyfel_id) || {};
@@ -261,6 +290,32 @@ async function html(r, o = {}) {
         FROM penzugy_szamlak d WHERE d.reklam_id = $1 AND d.tipus = 'dijbekero' AND d.statusz <> 'sztorno' ORDER BY d.kiallitva, d.id`, [r.id]);
     const nyitott = sz.rows.find(x => x.statusz === "kiallitva");
     const fizetett = sz.rows.filter(x => x.statusz === "fizetve");
+
+    // ---- a reklám anyaga (a hirdető maga tölti fel) ----
+    const reklam = require("./reklam");
+    const kepInfo = (await db.query("SELECT kep_mime, kep_w, kep_h, (kep_mobil IS NOT NULL) AS van_mobil, cel_url, alt, EXTRACT(EPOCH FROM updated_at)::bigint AS v FROM reklamok WHERE id = $1", [r.id])).rows[0] || {};
+    const formak = [...new Set((Array.isArray(r.helyek) ? r.helyek : []).map(h => reklam.HELYEK[h]).filter(Boolean))];
+    const ma = pu.ma();
+    const anyagAllapot = !kepInfo.kep_mime ? L("anyagNincs")
+        : fizetett.length ? ((!r.kezdet || r.kezdet <= ma) ? `✓ ${L("anyagFut")}` : `${L("anyagKezdet")} ${esc(r.kezdet)}`)
+        : r.fizetes_utan ? L("anyagFizetesUtan") : `✓ ${L("anyagFut")}`;
+    const anyag = o.elfogadhato ? `
+  <div class="anyag" id="anyag">
+    <h2>${L("anyagCim")}</h2>
+    <p class="kicsi">${dok.ket(T.anyagInfo, ford)}</p>
+    <div class="anyagSor">
+      <div class="anyagKep" id="anyagPrev">${kepInfo.kep_mime ? `<img src="/api/reklam/${r.id}/kep?v=${kepInfo.v}" alt="">` : `<span>${L("anyagNincs")}</span>`}</div>
+      <div class="anyagAll"><b id="anyagAllapot">${anyagAllapot}</b>
+        ${formak.length ? `<div class="kicsi">${L("anyagMeret")}: ${formak.map(fm => { const m = FORMA_MERET[fm] || [970, 250]; return `${m[0] * 2} × ${m[1] * 2} px`; }).join(", ")}</div>` : ""}
+      </div>
+    </div>
+    <label class="mezo">${L("anyagKep")}<input type="file" id="anyagKep" accept="image/jpeg,image/png,image/webp,image/gif"></label>
+    <label class="mezo">${L("anyagMobil")}<input type="file" id="anyagMobil" accept="image/jpeg,image/png,image/webp,image/gif"></label>
+    <label class="mezo">${L("anyagUrl")}<input type="url" id="anyagUrl" maxlength="500" placeholder="https://" value="${esc(kepInfo.cel_url || r.cel_url || "")}"></label>
+    <label class="mezo">${L("anyagAlt")}<input type="text" id="anyagAlt" maxlength="200" value="${esc(kepInfo.alt || "")}"></label>
+    <button type="button" class="gomb" id="anyagGomb">${L("anyagMent")}</button>
+    <div id="anyagUzenet" class="kicsi" aria-live="polite"></div>
+  </div>` : "";
     const online = o.elfogadhato && nyitott && Number(nyitott.brutto) > 0
         ? await require("./fizetes").allapot().then(a => a.elerheto).catch(() => false) : false;
 
@@ -297,6 +352,7 @@ async function html(r, o = {}) {
 
     const tartalom = szerzodes ? `
   ${fizetes}
+  ${anyag}
   <h1>${dok.ket(T.cim, ford, { blokk: true })}</h1>
   <p class="kozep">${L("nr")} <b>${esc(r.szerzodes_szam || "–")}</b> ${L("din")} ${esc(String(r.szerzodes_kuldve ? new Date(r.szerzodes_kuldve).toISOString().slice(0, 10) : pu.ma()))}</p>
   ${felek}
@@ -311,7 +367,8 @@ async function html(r, o = {}) {
   <h1>${dok.ket(T.cimFizetes, ford, { blokk: true })}</h1>
   ${felek}
   ${osszegzes}
-  ${fizetes}`;
+  ${fizetes}
+  ${anyag}`;
 
     // az oldal CSP-je nem enged űrlap-küldést – a gombok fetch-csel küldenek
     const tok = JSON.stringify(String(o.token || ""));
@@ -334,6 +391,53 @@ async function html(r, o = {}) {
     fetch("/reklam-szerzodes/" + tok + "/fizet", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
       .then(function (r) { return r.json().then(function (v) { if (!r.ok || !v.url) throw new Error(); location.href = v.url; }); })
       .catch(function () { k.disabled = false; alert("Error / Hiba"); });
+  };
+  // a reklám anyaga: kép (3 MB fölött – ha nem GIF – lekicsinyítve), telefonos kép, link
+  var ag = document.getElementById("anyagGomb"), au = document.getElementById("anyagUzenet");
+  var olvas = function (f) {
+    return new Promise(function (ok, hiba) {
+      if (!f) return ok(null);
+      if (!/^image\\/(jpeg|png|webp|gif)$/.test(f.type)) return hiba(${JSON.stringify(TX("anyagHibaTipus"))});
+      var fr = new FileReader();
+      fr.onerror = function () { hiba("?"); };
+      fr.onload = function () {
+        if (f.size <= 3 * 1024 * 1024) return ok(fr.result);
+        if (f.type === "image/gif") return hiba(${JSON.stringify(TX("anyagHibaMeret"))});
+        var img = new Image();
+        img.onload = function () {
+          var k = Math.min(1, 2400 / Math.max(img.width, img.height));
+          var c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          var d = c.toDataURL("image/jpeg", 0.85);
+          if (d.length * 0.75 > 3 * 1024 * 1024) return hiba(${JSON.stringify(TX("anyagHibaMeret"))});
+          ok(d);
+        };
+        img.onerror = function () { hiba(${JSON.stringify(TX("anyagHibaTipus"))}); };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(f);
+    });
+  };
+  var ak = document.getElementById("anyagKep");
+  if (ak) ak.onchange = function () {
+    var f = ak.files && ak.files[0]; if (!f) return;
+    olvas(f).then(function (d) { document.getElementById("anyagPrev").innerHTML = '<img src="' + d + '" alt="">'; }).catch(function (m) { au.textContent = m; });
+  };
+  if (ag) ag.onclick = function () {
+    var vanKep = !!document.querySelector("#anyagPrev img");
+    var kf = ak && ak.files && ak.files[0], mf = document.getElementById("anyagMobil").files[0];
+    if (!kf && !vanKep) { au.textContent = ${JSON.stringify(TX("anyagKell"))}; return; }
+    ag.disabled = true; au.textContent = "…";
+    Promise.all([olvas(kf), olvas(mf)]).then(function (k) {
+      var body = { cel_url: document.getElementById("anyagUrl").value, alt: document.getElementById("anyagAlt").value, ford: ${JSON.stringify(ford)} };
+      if (k[0]) body.kep = k[0];
+      if (k[1]) body.kep_mobil = k[1];
+      return fetch("/reklam-szerzodes/" + tok + "/anyag", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (v) { if (!r.ok) throw (v.uzenet || v.error || "Error / Hiba"); return v; }); });
+    }).then(function (v) {
+      au.textContent = ${JSON.stringify(TX("anyagKesz"))};
+      if (v.allapot) document.getElementById("anyagAllapot").textContent = v.allapot;
+    }).catch(function (m) { au.textContent = String(m); }).then(function () { ag.disabled = false; });
   };
   // visszatérés a kártyás fizetésből: ellenőrzés, majd frissítés
   var q = new URLSearchParams(location.search).get("fizetes");
@@ -363,8 +467,16 @@ async function html(r, o = {}) {
   .gomb:disabled { opacity: .6; cursor: default; }
   .pecset { border: 3px solid #1f6f5c; color: #1f6f5c; display: inline-block; padding: 8px 14px; font-weight: bold; border-radius: 8px; margin-top: 10px; }
   .elfogad { background: #f1f6f3; border-radius: 10px; padding: 14px; margin-top: 18px; }
+  .anyag { border: 1px solid #dfe3df; border-radius: 12px; padding: 14px 16px; margin: 0 0 22px; }
+  .anyag h2 { margin: 0 0 4px; font-size: 17px; color: #1f6f5c; }
+  .anyagSor { display: flex; gap: 14px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+  .anyagKep { width: 220px; min-height: 70px; background: #f1f3f1; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 12.5px; color: #6a746f; }
+  .anyagKep img { max-width: 100%; max-height: 160px; display: block; }
+  .anyagAll { flex: 1; min-width: 200px; font-size: 14px; }
+  .mezo { display: block; font-size: 13px; margin: 8px 0; }
+  .mezo input { display: block; width: 100%; margin-top: 3px; padding: 7px 9px; border: 1px solid #cfd5d1; border-radius: 7px; font: inherit; }
   @media (max-width: 600px) { .felek { grid-template-columns: 1fr; } }
-  @media print { .elfogad, .gomb { display: none; } }`;
+  @media print { .elfogad, .gomb, .anyag { display: none; } }`;
     return dok.oldal({ cim: szerzodes ? `Contract ${r.szerzodes_szam || ""}` : `Plată ${nyitott ? nyitott.sorszam : ""}`, css, tartalom, ford, ui: o.ui || "ro", vissza: o.vissza || "/", script });
 }
 
@@ -393,6 +505,92 @@ async function elfogad(token, ip) {
     return reklamAdat(r.id);
 }
 
+// ---------- a reklám anyaga: a hirdető feltölti (a fizetési oldalon) ----------
+
+async function anyagAllapot(id, ford = "") {
+    const r = await reklamAdat(id);
+    if (!r) return "";
+    const k = (await db.query("SELECT kep_mime FROM reklamok WHERE id = $1", [id])).rows[0] || {};
+    const fizetve = (await db.query("SELECT 1 FROM penzugy_szamlak WHERE reklam_id = $1 AND tipus = 'dijbekero' AND statusz = 'fizetve' LIMIT 1", [id])).rowCount > 0;
+    const t = x => dok.ket(x, ["hu", "en"].includes(ford) ? ford : "").replace(/<[^>]+>/g, "");
+    if (!k.kep_mime) return t(T.anyagNincs);
+    if (fizetve) return (!r.kezdet || r.kezdet <= pu.ma()) ? t(T.anyagFut) : `${t(T.anyagKezdet)} ${r.kezdet}`;
+    return r.fizetes_utan ? t(T.anyagFizetesUtan) : t(T.anyagFut);
+}
+
+async function anyagFeltolt(token, b) {
+    const r = await tokennel(token);
+    if (!r) throw hibaKod("not_found");
+    // a lejárt kampányhoz már nem
+    if (r.vege && r.vege < pu.ma()) throw hibaKod("ad_ended");
+    await require("./reklam").anyagMent(r.id, b || {});
+    // értesítés az adminnak
+    try {
+        const mail = require("./mail");
+        const cim = await adminCim();
+        if (mail.elerheto() && cim) {
+            const t = mail.sablon({
+                cim: `A hirdető feltöltötte a reklám anyagát: ${r.nev}`,
+                sorok: [`${r.hirdeto || ""} – ${r.kezdet || ""}${r.vege ? " – " + r.vege : ""}`, "A kép az Admin → Reklámfelületek alatt látszik; ha ki van fizetve, a reklám magától megjelenik."],
+                gomb: "Megnyitás az adminban", link: `${mail.oldalCim()}/#admin/reklam`, lablec: "Admin értesítés."
+            });
+            await mail.kuld({ to: cim, subject: `Reklám anyag feltöltve – ${r.nev}`, html: t.html, text: t.text });
+        }
+    } catch (e) { /* nem kritikus */ }
+    return { allapot: await anyagAllapot(r.id, b && b.ford) };
+}
+
+async function adminCim() {
+    const b = await require("./reklam").olvas().catch(() => ({}));
+    if (b && b.email) return b.email;
+    return require("./oldalAdatok").adminEmail();
+}
+
+// Kifizették a díjbekérőt: a reklám a kezdő naptól magától megjelenik. Ha még
+// nincs képe, a hirdetőt levélben kérjük (a fizetési oldal linkjével), az admin is tud róla.
+async function fizetveUtan(szamlaId) {
+    const sz = (await db.query("SELECT id, reklam_id, tipus FROM penzugy_szamlak WHERE id = $1", [szamlaId])).rows[0];
+    if (!sz || !sz.reklam_id || sz.tipus !== "dijbekero") return;
+    const reklam = require("./reklam");
+    reklam.cacheUrit();
+    const r = await reklamAdat(sz.reklam_id);
+    if (!r) return;
+    const k = (await db.query("SELECT kep_mime, szerzodes_token, anyag_kerve FROM reklamok WHERE id = $1", [r.id])).rows[0] || {};
+    const mail = require("./mail");
+    if (!mail.elerheto()) return;
+    const alap = mail.oldalCim().replace(/\/+$/, "");
+    const ugyfel = await ugyfelAdat(r.ugyfel_id);
+    if (!k.kep_mime && ugyfel && ugyfel.email && k.szerzodes_token && !k.anyag_kerve) {
+        const t = mail.sablon({
+            cim: "Mulțumim pentru plată! / Köszönjük a befizetést!",
+            sorok: [
+                `Plata pentru „${r.nev}” a fost primită. Mai lipsește imaginea reclamei: încărcați-o la linkul de mai jos (sau trimiteți-o răspunzând la acest e-mail) – reclama apare automat${r.kezdet && r.kezdet > pu.ma() ? " de la " + r.kezdet : ""}.`,
+                `A(z) „${r.nev}” díja megérkezett. Már csak a reklám képe hiányzik: töltse fel az alábbi linken (vagy küldje el válaszként erre a levélre) – a reklám magától megjelenik${r.kezdet && r.kezdet > pu.ma() ? " " + r.kezdet + "-tól" : ""}.`
+            ],
+            gomb: "Încarcă imaginea / Kép feltöltése",
+            link: `${alap}/reklam-szerzodes/${k.szerzodes_token}#anyag`,
+            lablec: "IngatlanPro – spațiu publicitar / reklámfelület."
+        });
+        const valasz = await adminCim().catch(() => null);
+        if (await mail.kuld({ to: ugyfel.email, subject: `Imaginea reclamei / A reklám képe – ${r.nev}`, html: t.html, text: t.text, replyTo: valasz || undefined })) {
+            await db.query("UPDATE reklamok SET anyag_kerve = NOW() WHERE id = $1", [r.id]);
+        }
+    }
+    try {
+        const cim = await adminCim();
+        if (cim) {
+            const t = mail.sablon({
+                cim: `Kifizették a reklámot: ${r.nev}`,
+                sorok: [k.kep_mime ? `A reklám magától megjelenik${r.kezdet && r.kezdet > pu.ma() ? " " + r.kezdet + "-tól" : ""}.` : "Még nincs képe – a hirdetőt levélben kértük, hogy töltse fel (vagy töltsd fel te az adminban)."],
+                gomb: "Megnyitás az adminban", link: `${alap}/#admin/reklam`, lablec: "Admin értesítés."
+            });
+            await mail.kuld({ to: cim, subject: `Reklám kifizetve – ${r.nev}`, html: t.html, text: t.text });
+        }
+    } catch (e) { /* nem kritikus */ }
+}
+
+pu.fizetveFigyelo(id => fizetveUtan(id).catch(e => console.error("Reklám fizetés után:", e.message)));
+
 // Az Irattárnak (Szerződések → Reklám)
 async function irattarLista() {
     const r = await db.query(`
@@ -403,4 +601,4 @@ async function irattarLista() {
     return r.rows;
 }
 
-module.exports = { allapot, kuld, html, tokennel, elfogad, irattarLista, honapok, reklamAdat };
+module.exports = { allapot, kuld, html, tokennel, elfogad, irattarLista, honapok, reklamAdat, anyagFeltolt, anyagAllapot, fizetveUtan };

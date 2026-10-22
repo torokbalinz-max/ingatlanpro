@@ -25,6 +25,10 @@
 //    agencies        Ingatlanirodák: jobb oldalt                   300×250
 //    requests        Keresek: a lista fölött                       970×90
 //
+//  Több hirdetés egy helyen: a súlyuk szerint váltakoznak – oldalbetöltésenként,
+//  vagy (ha az adminban a helynél be van állítva) néhány másodpercenként a
+//  helyen belül is (csak amíg a lap látszik).
+//
 //  Az oldalakon egy reklámhely: <div data-ad-mount="hely"></div> (vagy
 //  AdSlots.slot("hely")) – az AdSlots.mount() tölti ki, és elrejti, ha ott
 //  nincs mit mutatni. Beállítás- vagy nyelvváltáskor mind frissül.
@@ -97,8 +101,10 @@ class AdSlots {
     }
 
     // Több hirdetés egy helyen: a súlyuk szerint, véletlenszerűen
-    static valaszt(hely) {
-        const lista = AdSlots.hirdetesek(hely);
+    //  (kiveve: az éppen látszó – a váltáskor ne ugyanaz jöjjön)
+    static valaszt(hely, kiveve) {
+        let lista = AdSlots.hirdetesek(hely);
+        if (kiveve && lista.length > 1) lista = lista.filter(a => a.id !== kiveve);
         if (!lista.length) return null;
         const ossz = lista.reduce((s, a) => s + (a.suly || 1), 0);
         let r = Math.random() * ossz;
@@ -111,13 +117,13 @@ class AdSlots {
         return AdSlots.htmlNyers(hely).trim();
     }
 
-    static htmlNyers(hely) {
+    static htmlNyers(hely, kenyszer) {
 
         const s = AdSlots.SLOTS[hely];
         if (!s || !AdSlots.helyAktiv(hely)) return "";
 
         const esc = Utils.escape;
-        const a = AdSlots.valaszt(hely);
+        const a = kenyszer || AdSlots.valaszt(hely);
 
         if (a) {
 
@@ -187,7 +193,33 @@ class AdSlots {
             const h = AdSlots.html(el.dataset.adMount);
             el.innerHTML = h;
             el.hidden = !h;
+            AdSlots.forgat(el);
         });
+    }
+
+    // Váltás a helyen belül (Admin → Reklámfelületek → a helynél: „Váltás”): ha
+    // több hirdetés fut ott, X másodpercenként a következő – csak ha a lap látszik
+    static valtasMp(hely) {
+        const h = (AdSlots.beallitas().helyek || {})[hely] || {};
+        return Number(h.valtas) || 0;
+    }
+
+    static forgat(el) {
+        clearInterval(el._adForgat);
+        el._adForgat = null;
+        const hely = el.dataset.adMount;
+        const mp = AdSlots.valtasMp(hely);
+        if (!mp || AdSlots.hirdetesek(hely).length < 2) return;
+        el._adForgat = setInterval(() => {
+            if (!el.isConnected) { clearInterval(el._adForgat); el._adForgat = null; return; }
+            if (document.hidden || el.hidden) return;
+            const most = el.querySelector("[data-ad-id]");
+            const kov = AdSlots.valaszt(hely, most ? Number(most.dataset.adId) : null);
+            if (!kov) return;
+            el.innerHTML = AdSlots.htmlNyers(hely, kov).trim();
+            const uj = el.querySelector(".adReal");
+            if (uj) uj.classList.add("adValt");
+        }, Math.max(4, mp) * 1000);
     }
 
     static mountStatic() {
@@ -252,11 +284,17 @@ class AdSlots {
                         <div class="col-md-6"><label class="form-label" for="adAskTel">${I18n.t("adAskPhone")}</label>
                             <input type="tel" class="form-control" id="adAskTel" maxlength="40" autocomplete="tel" value="${esc(u.telefon || "")}"></div>
                         <div class="col-md-6"><label class="form-label" for="adAskCui">${I18n.t("adAskCui")}</label>
-                            <input class="form-control" id="adAskCui" maxlength="20" placeholder="RO12345678"></div>
-                        <div class="col-md-8"><label class="form-label" for="adAskCim">${I18n.t("adAskAddress")}</label>
+                            <div class="input-group">
+                                <input class="form-control" id="adAskCui" maxlength="20" placeholder="RO12345678">
+                                <button type="button" class="btn btn-outline-secondary" id="adAskAnaf" title="${esc(I18n.t("adAskAnafHint"))}"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i> ANAF</button>
+                            </div>
+                            <div class="form-text" id="adAskAnafMsg">${I18n.t("adAskAnafHelp")}</div></div>
+                        <div class="col-md-12"><label class="form-label" for="adAskCim">${I18n.t("adAskAddress")}</label>
                             <input class="form-control" id="adAskCim" maxlength="400" autocomplete="street-address"></div>
-                        <div class="col-md-4"><label class="form-label" for="adAskVaros">${I18n.t("adAskCity")}</label>
+                        <div class="col-md-6"><label class="form-label" for="adAskVaros">${I18n.t("adAskCity")}</label>
                             <input class="form-control" id="adAskVaros" maxlength="80" autocomplete="address-level2"></div>
+                        <div class="col-md-6"><label class="form-label" for="adAskMegye">${I18n.t("adAskCounty")}</label>
+                            <select class="form-select" id="adAskMegye"><option value="">–</option>${(typeof PricingPage !== "undefined" && PricingPage.MEGYEK ? PricingPage.MEGYEK : []).map(([k, n]) => `<option value="RO-${k}">${esc(n)}</option>`).join("")}</select></div>
                         <div class="col-md-6"><label class="form-label" for="adAskWeb">${I18n.t("adAskWeb")}</label>
                             <input type="url" class="form-control" id="adAskWeb" maxlength="300" placeholder="https://"></div>
                         <div class="col-12">
@@ -267,7 +305,8 @@ class AdSlots {
                                         ${helyek.map(k => {
                                             const f = AdSlots.FORMAK[AdSlots.SLOTS[k].forma] || {};
                                             return `<div class="form-check"><input class="form-check-input" type="checkbox" id="adAsk_${k}" value="${k}" ${k === hely ? "checked" : ""}>
-                                                <label class="form-check-label small" for="adAsk_${k}">${esc(I18n.t("adPlace_" + k))} <span class="text-body-secondary">${f.w}×${f.h}</span></label></div>`;
+                                                <label class="form-check-label small" for="adAsk_${k}">${esc(I18n.t("adPlace_" + k))} <span class="text-body-secondary">${f.w}×${f.h}</span>
+                                                <span class="adAskPrice" data-ask-ar="${k}"></span></label></div>`;
                                         }).join("")}
                                     </fieldset>`).join("")}
                             </div>
@@ -276,6 +315,7 @@ class AdSlots {
                             <select class="form-select" id="adAskKezdet">${honapok.map((h, i) => `<option value="${h.k}" ${i === 1 ? "selected" : ""}>${esc(h.n)}</option>`).join("")}</select></div>
                         <div class="col-md-6"><label class="form-label" for="adAskHonap">${I18n.t("adAskMonths")}</label>
                             <select class="form-select" id="adAskHonap">${[1, 2, 3, 6, 12].map(n => `<option value="${n}">${I18n.f("adAskMonthsN", { n })}</option>`).join("")}</select></div>
+                        <div class="col-12"><div class="adAskTotal small" id="adAskTotal" aria-live="polite"></div></div>
                         <div class="col-12"><label class="form-label" for="adAskMsg">${I18n.t("adAskMessage")}</label>
                             <textarea class="form-control" id="adAskMsg" rows="3" maxlength="3000" placeholder="${esc(I18n.t("adAskMessagePh"))}"></textarea></div>
                         <div class="adAskHp" aria-hidden="true"><label for="adAskWeb2">Web</label><input id="adAskWeb2" tabindex="-1" autocomplete="off"></div>
@@ -295,6 +335,61 @@ class AdSlots {
         const $ = id => document.getElementById(id);
         const modal = bootstrap.Modal.getOrCreateInstance(el);
 
+        // Árak és foglaltság a választott hónapokra (/api/reklam/arlista)
+        const arlista = () => {
+            const kezdet = $("adAskKezdet").value, honap = Number($("adAskHonap").value) || 1;
+            fetch(`/api/reklam/arlista?kezdet=${encodeURIComponent(kezdet)}&honap=${honap}`, { cache: "no-store" })
+                .then(r => r.ok ? r.json() : null)
+                .then(v => {
+                    if (!v || !v.helyek) return;
+                    AdSlots._arlista = v;
+                    el.querySelectorAll("[data-ask-ar]").forEach(sp => {
+                        const k = sp.dataset.askAr, h = v.helyek[k] || {};
+                        const cb = $("adAsk_" + k);
+                        sp.innerHTML = !h.szabad
+                            ? ` <span class="badge text-bg-secondary">${esc(I18n.t("adAskTaken"))}</span>`
+                            : h.ar ? ` <span class="badge text-bg-light">${esc(Utils.num(h.ar))} ${esc(v.penznem)}${esc(I18n.t("adAskPerMonth"))}</span>` : "";
+                        if (cb) { cb.disabled = !h.szabad; if (!h.szabad) cb.checked = false; }
+                    });
+                    osszeg();
+                })
+                .catch(() => { });
+        };
+        const osszeg = () => {
+            const v = AdSlots._arlista, box = $("adAskTotal");
+            if (!v || !box) return;
+            const kiv = [...el.querySelectorAll(".adAskPlaces input:checked")].map(c => c.value);
+            const honap = Number($("adAskHonap").value) || 1;
+            const arak = kiv.map(k => (v.helyek[k] || {}).ar);
+            box.innerHTML = kiv.length && v.arak_mutat && arak.every(a => a > 0)
+                ? `<i class="fa-solid fa-calculator" aria-hidden="true"></i> ${esc(I18n.f("adAskTotalN", { havi: Utils.num(arak.reduce((x, y) => x + y, 0)) + " " + v.penznem, n: honap, ossz: Utils.num(arak.reduce((x, y) => x + y, 0) * honap) + " " + v.penznem }))}`
+                : "";
+        };
+        $("adAskKezdet").onchange = arlista;
+        $("adAskHonap").onchange = arlista;
+        el.querySelectorAll(".adAskPlaces input").forEach(c => c.addEventListener("change", osszeg));
+        arlista();
+
+        // Cégadatok az adószám alapján (ANAF)
+        $("adAskAnaf").onclick = () => {
+            const cui = $("adAskCui").value.trim(), msg = $("adAskAnafMsg"), g = $("adAskAnaf");
+            if (!cui) { $("adAskCui").focus(); return; }
+            g.disabled = true;
+            msg.textContent = "…";
+            fetch("/api/reklam/ceg/" + encodeURIComponent(cui))
+                .then(r => r.json().then(v => ({ ok: r.ok, v })))
+                .then(({ ok, v }) => {
+                    if (!ok || !v.talalt) { msg.textContent = I18n.t(v && v.error === "bad_cui" ? "adAskAnafBad" : ok ? "adAskAnafNotFound" : "adAskAnafErr"); return; }
+                    if (v.nev) $("adAskCeg").value = v.nev;
+                    if (v.cim) $("adAskCim").value = v.cim;
+                    if (v.varos) $("adAskVaros").value = v.varos;
+                    if (v.megye) $("adAskMegye").value = v.megye;
+                    msg.textContent = I18n.t(v.aktiv === false ? "adAskAnafInactive" : "adAskAnafOk");
+                })
+                .catch(() => { msg.textContent = I18n.t("adAskAnafErr"); })
+                .finally(() => { g.disabled = false; });
+        };
+
         $("adAskForm").onsubmit = e => {
             e.preventDefault();
             const err = $("adAskErr");
@@ -308,6 +403,7 @@ class AdSlots {
                 cui: $("adAskCui").value.trim(),
                 cim: $("adAskCim").value.trim(),
                 varos: $("adAskVaros").value.trim(),
+                megye: $("adAskMegye").value,
                 weboldal: $("adAskWeb").value.trim(),
                 helyek: [...el.querySelectorAll(".adAskPlaces input:checked")].map(c => c.value),
                 kezdet: $("adAskKezdet").value,
@@ -397,6 +493,9 @@ class AdSlots {
         new MutationObserver(lista => {
             lista.forEach(m => m.addedNodes.forEach(n => {
                 if (n.nodeType !== 1) return;
+                // a lapok saját reklámhelyei (AdSlots.slot): a váltás itt indul
+                if (n.matches && n.matches("[data-ad-mount]")) { if (!n._adForgat) AdSlots.forgat(n); }
+                else if (n.querySelectorAll) n.querySelectorAll("[data-ad-mount]").forEach(x => { if (!x._adForgat) AdSlots.forgat(x); });
                 if (n.matches && n.matches("[data-ad-id]")) figyel(n.parentElement || document);
                 else figyel(n);
             }));

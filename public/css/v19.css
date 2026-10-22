@@ -1,0 +1,137 @@
+/* ============================================================
+   19. változat
+    - Értesítések: a csengő a fejlécben, Fiókom → Értesítések
+    - Reklám: helyenként ár / hány hirdető / váltás, foglaltság,
+      a bérlési űrlapon ár és szabad hely, váltáskor halvány átmenet
+   ============================================================ */
+
+/* ---------- Csengő a fejlécben ---------- */
+
+.navBellBtn { position: relative; }
+.navBellBtn .navMsgCount[hidden], .navBellCount[hidden], .accNotifCount[hidden] { display: none; }
+
+/* ---------- Értesítések listája ---------- */
+
+.ntfList { list-style: none; margin: 0; padding: 0; }
+
+.ntfItem {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--ip-border);
+    cursor: pointer;
+}
+
+.ntfItem:last-child { border-bottom: 0; }
+.ntfItem:hover { background: var(--ip-surface-2); }
+.ntfItem.unread { background: color-mix(in srgb, var(--ip-accent-soft) 70%, transparent); }
+.ntfItem.unread .ntfBody > div:first-child b::after {
+    content: "";
+    display: inline-block;
+    width: 8px; height: 8px;
+    margin-left: 0.4rem;
+    border-radius: 50%;
+    background: var(--ip-accent);
+    vertical-align: middle;
+}
+
+.ntfIcon {
+    width: 38px; height: 38px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent);
+}
+
+.ntfIcon.ntf-kedvenc_ar { background: color-mix(in srgb, var(--bs-success) 14%, transparent); color: var(--bs-success); }
+.ntfIcon.ntf-kedvenc_statusz { background: color-mix(in srgb, var(--bs-warning) 18%, transparent); color: var(--bs-warning-text-emphasis); }
+
+.ntfBody { min-width: 0; }
+.ntfDel { flex: 0 0 auto; opacity: 0.45; font-size: 0.65rem; margin-top: 0.3rem; }
+.ntfItem:hover .ntfDel, .ntfDel:focus-visible { opacity: 0.9; }
+
+.ntfListing {
+    display: flex;
+    gap: 0.7rem;
+    align-items: center;
+    margin-top: 0.55rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.ntfListing:hover b { color: var(--ip-accent); }
+
+.ntfThumb {
+    flex: 0 0 76px;
+    width: 76px; height: 56px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--ip-surface-2);
+    display: grid; place-items: center;
+    color: var(--ip-muted);
+}
+
+.ntfThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.ntfListingText { min-width: 0; display: flex; flex-direction: column; font-size: 0.88rem; line-height: 1.35; }
+.ntfListingText b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ntfPrice { font-weight: 700; color: var(--ip-accent); }
+.ntfPriceChange s { color: var(--ip-muted); }
+
+/* ---------- Értesítések beállítása ---------- */
+
+.ntfPrefs { display: flex; flex-direction: column; }
+
+.ntfPrefHead, .ntfPref {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 70px 128px;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.ntfPrefHead { padding-bottom: 0.35rem; border-bottom: 1px solid var(--ip-border); }
+.ntfPrefHead span:not(:first-child) { text-align: center; }
+.ntfPref { padding: 0.7rem 0; border-bottom: 1px solid var(--ip-border); }
+.ntfPref:last-child { border-bottom: 0; }
+.ntfPref b { font-weight: 600; font-size: 0.92rem; }
+.ntfPref b i { color: var(--ip-accent); }
+
+.ntfMobLabel { display: none; }
+
+@media (max-width: 479.98px) {
+    .ntfPrefHead { display: none; }
+    .ntfMobLabel { display: block; font-size: 0.75rem; color: var(--ip-muted); text-align: left; }
+    .ntfPref { grid-template-columns: minmax(0, 1fr) auto; }
+    .ntfPref > div:first-child { grid-column: 1 / -1; }
+}
+
+/* ---------- Reklámhelyek: ár, hány hirdető, váltás ---------- */
+
+.adsSlotRule {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem 0.9rem;
+    margin: 0.25rem 0 0.15rem;
+}
+
+.adsRuleField { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.78rem; color: var(--ip-muted); }
+.adsRuleField { flex: 1 1 190px; max-width: 260px; }
+.adsRuleField .input-group, .adsRuleField select { width: 100%; }
+.adsRuleUse { align-self: center; }
+
+/* A szerkesztőben: foglaltság helyenként */
+.adsOcc { display: block; font-size: 0.76rem; line-height: 1.25; }
+
+/* ---------- Bérlési űrlap: ár és szabad hely ---------- */
+
+.adAskPrice .badge { font-weight: 600; }
+.adAskTotal { color: var(--ip-accent); font-weight: 600; min-height: 1.2em; }
+.adAskPlaces .form-check-input:disabled + .form-check-label { opacity: 0.6; }
+
+/* Váltás a helyen belül: halvány átmenet */
+.adValt { animation: adValtBe 0.45s ease-out; }
+@keyframes adValtBe { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .adValt { animation: none; } }

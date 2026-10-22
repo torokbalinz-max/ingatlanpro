@@ -113,6 +113,56 @@ router.post("/api/admin/reklam-keresek/:id/hirdetes", csapat.csakResz("reklam"),
     try { res.json({ siker: true, ...(await rk.hirdetesbol(Number(req.params.id))) }); } catch (err) { hibaKod(res, err); }
 });
 
+// Egy kattintással: ügyfél (az ANAF-ból kiegészítve) + hirdetés (az árlista szerinti
+// díjjal) + díjbekérő és fizetési link e-mailben. Ha valami hiányzik, megmondja, mit.
+router.post("/api/admin/reklam-keresek/:id/ajanlat", csapat.csakResz("reklam"), async (req, res) => {
+    try { res.json({ siker: true, ...(await rk.ajanlat(Number(req.params.id), mail.oldalCim(req))) }); } catch (err) { hibaKod(res, err); }
+});
+
+// ---------- Árlista, foglaltság ----------
+
+// Az admin szerkesztőjének: helyenként hány hirdetés van már az időszakban
+router.get("/api/admin/reklam/foglaltsag", csapat.csakResz("reklam"), async (req, res) => {
+    try {
+        res.json({
+            foglaltsag: await reklam.foglaltsag(req.query.kezdet, req.query.vege, Number(req.query.kizar) || 0),
+            ar: await reklam.arlistaAr(String(req.query.helyek || "").split(",").filter(Boolean))
+        });
+    } catch (err) { hiba(res, err); }
+});
+
+// A weboldal bérlési űrlapjának: a kért hónapokra szabad-e a hely (és ha az árak
+// nyilvánosak, a havi díj) – a hirdetők neve nélkül
+router.get("/api/reklam/arlista", async (req, res) => {
+    try {
+        const ido = rk.idoszak(/^\d{4}-\d{2}$/.test(String(req.query.kezdet || "")) ? String(req.query.kezdet) : null,
+            Math.max(1, Math.min(24, parseInt(req.query.honap, 10) || 1)));
+        const [b, f] = await Promise.all([reklam.publikus(), reklam.foglaltsag(ido.kezdet, ido.vege, 0)]);
+        const helyek = {};
+        Object.keys(reklam.HELYEK).forEach(k => {
+            helyek[k] = { szabad: !!(f[k] && f[k].szabad), ...(b.arak_mutat && b.helyek[k] && b.helyek[k].ar ? { ar: b.helyek[k].ar } : {}) };
+        });
+        res.set("Cache-Control", "no-store");
+        res.json({ penznem: b.penznem, arak_mutat: b.arak_mutat, kezdet: ido.kezdet, vege: ido.vege, helyek });
+    } catch (err) { hiba(res, err); }
+});
+
+// A bérlési űrlapon: cégadatok az adószám alapján (ANAF) – belépés nélkül, korlátozva
+router.get("/api/reklam/ceg/:cui", async (req, res) => {
+    try {
+        const anaf = require("../services/anaf");
+        const cui = anaf.cuiTisztit(req.params.cui);
+        if (!cui || !anaf.cuiErvenyes(cui)) return res.status(400).json({ error: "bad_cui" });
+        const ip = String(req.ip || (req.socket && req.socket.remoteAddress) || "?");
+        if (acc.korlat("reklamceg:" + ip, 12, 60 * 60 * 1000)) return res.status(429).json({ error: "too_many" });
+        const v = await anaf.lekerdez(cui).catch(() => null);
+        if (!v) return res.status(502).json({ error: "anaf_unavailable" });
+        if (!v.talalt) return res.json({ talalt: false });
+        const a = v.adat || {};
+        res.json({ talalt: true, nev: a.nev, cim: a.utca || a.cim, varos: rk.telepulesNev(a.telepules), megye: rk.megyeKod(a.megye), aktiv: a.aktiv !== false });
+    } catch (err) { hiba(res, err); }
+});
+
 // ---------- Számlázás, szerződés (services/reklamSzamla.js) ----------
 
 const rsz = require("../services/reklamSzamla");
@@ -151,6 +201,8 @@ router.get("/reklam-szerzodes/:token", async (req, res) => {
         res.set("Content-Security-Policy", dok.CSP);
         res.set("Cache-Control", "private, no-store");
         res.set("X-Robots-Tag", "noindex");
+        // a reklám jelenlegi képe is látszik (a saját szerverünkről)
+        res.set("Content-Security-Policy", dok.CSP.replace("img-src data:", "img-src data: 'self'"));
         res.send(await rsz.html(r, { ford: dok.fordKer(req.query, ""), ui: dok.uiKer(req.query, "ro"), elfogadhato: true, token: req.params.token }));
     } catch (err) { hiba(res, err); }
 });
@@ -179,6 +231,29 @@ router.get("/reklam-szerzodes/:token/fizetes/:m", async (req, res) => {
         if (!s) return res.status(404).json({ error: "not_found" });
         res.json(await require("../services/fizetes").ellenoriz({ szamlaId: s.id }, req.params.m));
     } catch (err) { hibaKod(res, err); }
+});
+
+// A hirdető feltölti a reklám anyagát (kép, telefonos kép, link) – a titkos linkkel
+router.post("/reklam-szerzodes/:token/anyag", async (req, res) => {
+    try {
+        const ip = String(req.ip || "");
+        if (acc.korlat("reklamanyag:" + ip, 20, 60 * 60 * 1000)) return res.status(429).json({ error: "too_many" });
+        res.json({ siker: true, ...(await rsz.anyagFeltolt(req.params.token, req.body || {})) });
+    } catch (err) {
+        if (err && err.kod) {
+            const u = {
+                image_too_big: "Imaginea este prea mare (max. 3 MB) / A kép túl nagy (legfeljebb 3 MB)",
+                bad_image_type: "Format acceptat: JPG, PNG, WebP, GIF / Elfogadott formátum: JPG, PNG, WebP, GIF",
+                bad_image: "Imagine invalidă / Hibás kép",
+                image_required: "Alegeți o imagine / Válassz egy képet",
+                bad_url: "Link invalid / Hibás link",
+                ad_ended: "Campania s-a încheiat / A kampány véget ért",
+                not_found: "Inexistent / Nincs ilyen"
+            }[err.kod];
+            return res.status(err.kod === "not_found" ? 404 : 400).json({ error: err.kod, uzenet: u || err.kod });
+        }
+        hiba(res, err);
+    }
 });
 
 router.post("/reklam-szerzodes/:token/elfogad", async (req, res) => {

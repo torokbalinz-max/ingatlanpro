@@ -11,6 +11,11 @@
 //     befizetés után a számla magától elkészül és e-mailben megy
 //   - az állapot a hirdetésből magától követi: elküldve → ajánlat,
 //     kifizetve → elfogadva
+//   - "Ajánlat küldése" egy kattintással: ügyfél (adószámnál az ANAF-ból
+//     kiegészítve: hivatalos név, cím, település, megye) + hirdetés (az
+//     árlista szerinti havi díjjal) + díjbekérő és fizetési link e-mailben.
+//     Bekapcsolható, hogy az új kérésekre ez magától menjen (ha minden adat
+//     megvan és a helyek szabadok) – Admin → Reklámfelületek → Beállítások.
 // ============================================================
 
 const db = require("../db/database");
@@ -38,6 +43,7 @@ function tisztit(b) {
         telefon: sz(b.telefon, 40),
         cim: sz(b.cim, 400),
         varos: sz(b.varos, 80),
+        megye: /^RO-[A-Z]{1,2}$/.test(String(b.megye || "")) ? String(b.megye) : null,
         helyek: Array.isArray(b.helyek) ? [...new Set(b.helyek.filter(h => reklam.HELYEK[h]))].slice(0, 20) : [],
         kezdet: /^\d{4}-\d{2}$/.test(String(b.kezdet || "")) ? String(b.kezdet) : null,
         honap: Math.max(1, Math.min(24, parseInt(b.honap, 10) || 1)),
@@ -71,6 +77,34 @@ const HELY_NEV = {
     ro: { home_top: "Prima pagină – sus", home: "Prima pagină – jos", list_top: "Proprietăți – deasupra rezultatelor", feed: "Proprietăți – între carduri", feed_wide: "Proprietăți – bandă lată", sidebar: "Proprietăți – lateral", map: "Hartă", listing_side: "Pagina anunțului – dreapta", listing: "Pagina anunțului – jos", valuation_side: "Evaluare – lateral", valuation: "Evaluare – jos", market_top: "Analiza pieței – sus", market: "Analiza pieței – jos", agencies: "Agenții", requests: "Cereri" },
     en: { home_top: "Home – top", home: "Home – bottom", list_top: "Properties – above results", feed: "Properties – between cards", feed_wide: "Properties – wide strip", sidebar: "Properties – sidebar", map: "Map", listing_side: "Listing page – right", listing: "Listing page – bottom", valuation_side: "Valuation – side", valuation: "Valuation – bottom", market_top: "Market – top", market: "Market – bottom", agencies: "Agencies", requests: "Requests" }
 };
+// Az ANAF-tól jövő megyenév ("COVASNA", "MUNICIPIUL BUCUREŞTI") → "RO-CV"
+const MEGYEK = [["AB", "Alba"], ["AR", "Arad"], ["AG", "Arges"], ["BC", "Bacau"], ["BH", "Bihor"], ["BN", "Bistrita-Nasaud"], ["BT", "Botosani"],
+    ["BV", "Brasov"], ["BR", "Braila"], ["BZ", "Buzau"], ["CS", "Caras-Severin"], ["CL", "Calarasi"], ["CJ", "Cluj"], ["CT", "Constanta"],
+    ["CV", "Covasna"], ["DB", "Dambovita"], ["DJ", "Dolj"], ["GL", "Galati"], ["GR", "Giurgiu"], ["GJ", "Gorj"], ["HR", "Harghita"], ["HD", "Hunedoara"],
+    ["IL", "Ialomita"], ["IS", "Iasi"], ["IF", "Ilfov"], ["MM", "Maramures"], ["MH", "Mehedinti"], ["MS", "Mures"], ["NT", "Neamt"], ["OT", "Olt"],
+    ["PH", "Prahova"], ["SM", "Satu Mare"], ["SJ", "Salaj"], ["SB", "Sibiu"], ["SV", "Suceava"], ["TR", "Teleorman"], ["TM", "Timis"], ["TL", "Tulcea"],
+    ["VS", "Vaslui"], ["VL", "Valcea"], ["VN", "Vrancea"], ["B", "Bucuresti"]];
+function megyeKod(nev) {
+    const n = String(nev || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    if (!n) return null;
+    const t = MEGYEK.find(([, m]) => n.includes(m.toLowerCase())) || (n.includes("bucuresti") ? ["B"] : null);
+    return t ? "RO-" + t[0] : null;
+}
+const telepulesNev = t => t ? String(t).replace(/^(mun\.|ors\.|oraș|oras|municipiul|com\.|sat)\s*/i, "").trim() : null;
+
+// Cégadatok az ANAF-ból (hivatalos név, utca, település, megye, cégjegyzékszám); hiba esetén null
+async function anafAdat(cui) {
+    if (!cui) return null;
+    try {
+        const anaf = require("./anaf");
+        if (!anaf.cuiErvenyes(cui)) return null;
+        const v = await anaf.lekerdez(cui);
+        if (!v || !v.talalt || !v.adat) return null;
+        const a = v.adat;
+        return { nev: a.nev, cim: a.utca || a.cim, varos: telepulesNev(a.telepules), megye: megyeKod(a.megye), reg_com: a.regCom, afa_alany: !!a.tva, aktiv: a.aktiv !== false };
+    } catch (e) { return null; }
+}
+
 const helyNevek = (helyek, ny) => helyek.map(h => (HELY_NEV[ny] || HELY_NEV.hu)[h] || h).join(", ");
 
 async function cimzett() {
@@ -89,9 +123,9 @@ async function uj(b, { ip, alapCim } = {}) {
     if (dupla.rows[0]) return { id: dupla.rows[0].id, dupla: true };
 
     const r = await db.query(`
-        INSERT INTO reklam_keresek (nev, ceg, cui, email, telefon, cim, varos, helyek, kezdet, honap, weboldal, uzenet, nyelv, ip)
-        VALUES ($1,$2,$3,$4,$5,$13,$14,$6::jsonb,$7,$8,$9,$10,$11,$12) RETURNING id`,
-        [d.nev, d.ceg, d.cui, d.email, d.telefon, JSON.stringify(d.helyek), d.kezdet, d.honap, d.weboldal, d.uzenet, d.nyelv, ip || null, d.cim, d.varos]);
+        INSERT INTO reklam_keresek (nev, ceg, cui, email, telefon, cim, varos, helyek, kezdet, honap, weboldal, uzenet, nyelv, ip, megye)
+        VALUES ($1,$2,$3,$4,$5,$13,$14,$6::jsonb,$7,$8,$9,$10,$11,$12,$15) RETURNING id`,
+        [d.nev, d.ceg, d.cui, d.email, d.telefon, JSON.stringify(d.helyek), d.kezdet, d.honap, d.weboldal, d.uzenet, d.nyelv, ip || null, d.cim, d.varos, d.megye]);
     const id = r.rows[0].id;
 
     if (mail.elerheto()) {
@@ -136,6 +170,14 @@ async function uj(b, { ip, alapCim } = {}) {
         } catch (e) { /* semmi */ }
     }
 
+    // Magától ajánlat (ha be van kapcsolva): a háttérben, a kérő nem vár rá
+    const be = await reklam.olvas().catch(() => ({}));
+    if (be && be.auto_ajanlat) {
+        setImmediate(() => ajanlat(id, alapCim, { auto: true })
+            .then(v => { if (v.kuldve) console.log(`Reklám bérlési kérés #${id}: ajánlat magától elküldve (${v.dijbekero && v.dijbekero.sorszam}).`); })
+            .catch(e => console.error("Reklám automatikus ajánlat:", e.message)));
+    }
+
     return { id };
 
 }
@@ -155,7 +197,7 @@ async function szinkron() {
 async function lista() {
     await szinkron().catch(() => { });
     const r = await db.query(`
-        SELECT k.id, k.nev, k.ceg, k.cui, k.email, k.telefon, k.cim, k.varos, k.helyek, k.kezdet, k.honap, k.weboldal, k.uzenet, k.nyelv,
+        SELECT k.id, k.nev, k.ceg, k.cui, k.email, k.telefon, k.cim, k.varos, k.megye, k.helyek, k.kezdet, k.honap, k.weboldal, k.uzenet, k.nyelv,
                k.statusz, k.admin_megjegyzes, k.reklam_id, k.ugyfel_id, k.created_at, k.updated_at,
                r.nev AS reklam_nev, r.szerzodes_kuldve, r.szerzodes_elfogadva,
                EXISTS (SELECT 1 FROM penzugy_szamlak s WHERE s.reklam_id = k.reklam_id AND s.statusz = 'fizetve') AS fizetve
@@ -207,17 +249,31 @@ async function hirdetesbol(id) {
             WHERE ($1::text IS NOT NULL AND cui = $1) OR (LOWER(email) = $2)
             ORDER BY (cui = $1) DESC NULLS LAST, id LIMIT 1`, [k.cui, k.email]);
         ugyfelId = m.rows[0] ? m.rows[0].id : null;
+        // a meglévő ügyfél hiányzó számlázási adatai az ANAF-ból
+        if (ugyfelId && k.cui) {
+            const u = (await db.query("SELECT * FROM penzugy_ugyfelek WHERE id = $1", [ugyfelId])).rows[0];
+            if (u && (!u.cim || !u.varos || !u.megye)) {
+                const a = await anafAdat(u.cui || k.cui);
+                if (a) await require("./penzugy").ugyfelMent(u.id, { ...u, cim: u.cim || a.cim, varos: u.varos || a.varos, megye: u.megye || a.megye, reg_com: u.reg_com || a.reg_com, orszag: u.orszag || "RO" }).catch(() => { });
+            }
+        }
     }
     if (!ugyfelId) {
+        // adószámnál: a hivatalos adatok az ANAF-ból (a számlához kell a település és a megye)
+        const a = await anafAdat(k.cui);
         ugyfelId = await require("./penzugy").ugyfelMent(null, {
-            tipus: k.cui ? "ceg" : "maganszemely",
-            nev: k.ceg || k.nev,
+            tipus: k.cui ? (a && /PFA|INTREPRINDERE|ÎNTREPRINDERE/i.test(a.nev || "") ? "pfa" : "ceg") : "maganszemely",
+            nev: (a && a.nev) || k.ceg || k.nev,
             cui: k.cui,
+            reg_com: a ? a.reg_com : null,
             email: k.email,
             telefon: k.telefon,
-            cim: k.cim,
-            varos: k.varos,
-            jegyzet: `Reklám bérlési kérésből (#${k.id}) – kapcsolattartó: ${k.nev}`
+            cim: (a && a.cim) || k.cim,
+            varos: (a && a.varos) || k.varos,
+            megye: (a && a.megye) || k.megye || null,
+            orszag: "RO",
+            afa_alany: a ? a.afa_alany : false,
+            jegyzet: `Reklám bérlési kérésből (#${k.id}) – kapcsolattartó: ${k.nev}${a ? " · adatok: ANAF" : ""}`
         });
     }
 
@@ -226,8 +282,12 @@ async function hirdetesbol(id) {
     let cel = k.weboldal || null;
     try { if (cel) new URL(cel); } catch (e) { cel = null; }
 
+    const b = await reklam.olvas().catch(() => ({}));
     const h = await reklam.letrehoz({
         nev: `${k.ceg || k.nev} – ${ido.kezdet.slice(0, 7)}`,
+        // az árlista szerint (a választott helyek havi díjának összege) – a szerkesztőben átírható
+        ar: await reklam.arlistaAr(helyek),
+        penznem: b && b.penznem ? b.penznem : "RON",
         hirdeto: k.ceg || k.nev,
         kapcsolat: [k.nev, k.email, k.telefon].filter(Boolean).join(" · "),
         cel_url: cel,
@@ -248,4 +308,27 @@ async function hirdetesbol(id) {
 
 }
 
-module.exports = { ALLAPOTOK, uj, lista, ujDb, modosit, torol, hirdetesbol, idoszak };
+// Egy kattintással (vagy magától, az új kérésre): ügyfél + hirdetés + díjbekérő és
+// fizetési link e-mailben. Ha valami hiányzik (pl. a számlázási cím), nem küld
+// semmit, és megmondja, mi kell – a hirdetés ilyenkor a szerkesztőben folytatható.
+async function ajanlat(id, alapCim, { auto = false } = {}) {
+    const k = (await db.query("SELECT * FROM reklam_keresek WHERE id = $1", [id])).rows[0];
+    if (!k) throw kodHiba("not_found");
+    const helyek = Array.isArray(k.helyek) ? k.helyek : [];
+    if (!helyek.length) return { kuldve: false, hianyzik: ["helyek"], reklam_id: k.reklam_id || null };
+    // foglalt hely: nem küldünk ajánlatot (az admin dönt)
+    const ido = idoszak(k.kezdet, k.honap || 1);
+    const f = await reklam.foglaltsag(ido.kezdet, ido.vege, k.reklam_id || 0);
+    const foglalt = helyek.filter(h => f[h] && !f[h].szabad);
+    if (foglalt.length) return { kuldve: false, foglalt, hianyzik: [], reklam_id: k.reklam_id || null };
+    const v = await hirdetesbol(id);
+    const rsz = require("./reklamSzamla");
+    const a = await rsz.allapot(v.reklam_id);
+    if (a.hianyzik.length) return { kuldve: false, hianyzik: a.hianyzik, reklam_id: v.reklam_id };
+    if (auto && (!a.ugyfel || !a.ugyfel.email)) return { kuldve: false, hianyzik: ["ugyfel_email"], reklam_id: v.reklam_id };
+    const kuld = await rsz.kuld(v.reklam_id, alapCim);
+    await db.query("UPDATE reklam_keresek SET statusz = 'ajanlat', updated_at = NOW() WHERE id = $1 AND statusz IN ('uj', 'folyamatban')", [id]);
+    return { kuldve: true, reklam_id: v.reklam_id, ...kuld };
+}
+
+module.exports = { ALLAPOTOK, uj, lista, ujDb, modosit, torol, hirdetesbol, idoszak, ajanlat, anafAdat, megyeKod, telepulesNev };

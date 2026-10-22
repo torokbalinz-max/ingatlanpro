@@ -1341,6 +1341,69 @@ async function createSchema(db) {
         )
     `);
 
+    // ---------- Reklám: a hirdető maga tölti fel az anyagot (a fizetési oldalon) ----------
+    await db.query(`ALTER TABLE reklamok ADD COLUMN IF NOT EXISTS anyag_feltoltve TIMESTAMP`);
+    await db.query(`ALTER TABLE reklamok ADD COLUMN IF NOT EXISTS anyag_kerve TIMESTAMP`);
+    // a bérlési kérésben a számlázási megye is (a számlához / e-Facturához kell)
+    await db.query(`ALTER TABLE reklam_keresek ADD COLUMN IF NOT EXISTS megye TEXT`);
+
+    // ---------- Értesítések (Fiókom → Értesítések; services/ertesitesek.js) ----------
+    //  users.ertesites_beall: melyik esemény az oldalon / e-mailben (és milyen gyakran)
+    //  users.nyelv: a levelek nyelve (hu / ro / en)
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ertesites_beall JSONB`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS nyelv TEXT`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS utolso_osszesito TIMESTAMP`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS utolso_heti TIMESTAMP`);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS ertesitesek (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            tipus TEXT NOT NULL,
+            adat JSONB,
+            link TEXT,
+            oldalon BOOLEAN DEFAULT true,
+            email_kell BOOLEAN DEFAULT false,
+            emailezve TIMESTAMP,
+            olvasva TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ertesitesek_user ON ertesitesek (user_id, created_at DESC)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ertesitesek_email ON ertesitesek (user_id) WHERE email_kell AND emailezve IS NULL`);
+
+    // A hirdetések ár- és állapotváltozásai (a kedvencek értesítéséhez). Az adatbázis
+    // maga jegyzi fel (trigger), így minden módosítás látszik: kézi szerkesztés,
+    // a forrásoldalról frissítés, tömeges módosítás, archiválás.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS hirdetes_valtozasok (
+            id BIGSERIAL PRIMARY KEY,
+            ingatlan_id INTEGER,
+            mezo TEXT NOT NULL,
+            regi TEXT,
+            uj TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_hirdetes_valtozasok_ido ON hirdetes_valtozasok (created_at)`);
+    await db.query(`
+        CREATE OR REPLACE FUNCTION ingatlan_valtozas_naplo() RETURNS trigger AS $$
+        BEGIN
+            IF NEW.ar IS DISTINCT FROM OLD.ar AND OLD.ar IS NOT NULL AND NEW.ar IS NOT NULL THEN
+                INSERT INTO hirdetes_valtozasok (ingatlan_id, mezo, regi, uj) VALUES (NEW.id, 'ar', OLD.ar::text, NEW.ar::text);
+            END IF;
+            IF NEW.statusz IS DISTINCT FROM OLD.statusz THEN
+                INSERT INTO hirdetes_valtozasok (ingatlan_id, mezo, regi, uj) VALUES (NEW.id, 'statusz', OLD.statusz, NEW.statusz);
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql
+    `);
+    await db.query(`DROP TRIGGER IF EXISTS ingatlan_valtozas ON ingatlanok`);
+    await db.query(`
+        CREATE TRIGGER ingatlan_valtozas AFTER UPDATE OF ar, statusz ON ingatlanok
+        FOR EACH ROW EXECUTE FUNCTION ingatlan_valtozas_naplo()
+    `);
+
 }
 
 // Kezdő kerületlista: [magyar név, román név, más oldalakon használt nevek]

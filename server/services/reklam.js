@@ -10,6 +10,11 @@
 //  - Statisztika: megjelenés (amikor a hirdetés legalább félig látszott) és
 //    kattintás, naponta és helyenként – süti és személyes adat nélkül.
 //
+//  - Árlista és rend: helyenként havi ár, hány hirdető lehet egyszerre
+//    (1 = kizárólagos), és több hirdetőnél hogyan váltakozzanak (oldal-
+//    betöltésenként, vagy néhány másodpercenként a helyen belül). Ebből jön
+//    a foglaltság (ne lehessen egy helyet túladni) és a javasolt havi díj.
+//
 //  A reklámhelyek (hol vannak az oldalon, mekkorák) a weboldalon:
 //  public/js/core/ads.js – itt csak a kulcsuk és a formájuk kell.
 // ============================================================
@@ -45,7 +50,23 @@ let cache = null;
 let aktivCache = null;
 const CACHE_MS = 60 * 1000;
 
-const alap = () => ({ mutat: true, email: "", helyorzo: true, helyek: {} });
+const alap = () => ({ mutat: true, email: "", helyorzo: true, helyek: {}, penznem: "RON", arak_mutat: false, auto_ajanlat: false });
+
+// Egy hely beállításai az alapértékekkel: aktív, helyőrző, havi ár, egyszerre
+// hány hirdető (1 = kizárólagos), váltás (0 = oldalbetöltésenként, különben mp)
+const MAX_HIRDETO = 6;
+const VALTASOK = [0, 6, 10, 15, 30];
+function helyBeall(b, k) {
+    const h = (b && b.helyek && b.helyek[k]) || {};
+    const ar = Number(h.ar);
+    return {
+        aktiv: h.aktiv !== false,
+        helyorzo: h.helyorzo !== false,
+        ar: isFinite(ar) && ar > 0 ? Math.round(ar * 100) / 100 : null,
+        max: Math.max(1, Math.min(MAX_HIRDETO, parseInt(h.max, 10) || 1)),
+        valtas: VALTASOK.includes(Number(h.valtas)) ? Number(h.valtas) : 0
+    };
+}
 
 // ---------- Beállítások ----------
 
@@ -80,21 +101,24 @@ async function ment(b) {
         throw e;
     }
 
-    // Helyenként: aktív-e, és üresen látszik-e a helyőrző
-    const helyek = { ...regi.helyek };
-    if (b && b.helyek && typeof b.helyek === "object") {
-        Object.keys(b.helyek).forEach(k => {
-            if (!HELYEK[k]) return;
-            const h = b.helyek[k] || {};
-            helyek[k] = { aktiv: h.aktiv !== false, helyorzo: h.helyorzo !== false };
-        });
-    }
+    // Helyenként: aktív-e, üresen látszik-e a helyőrző, havi ár, hány hirdető, váltás
+    //  (ami nem jön a kérésben, marad a régi)
+    const helyek = {};
+    Object.keys(HELYEK).forEach(k => {
+        const uj = b && b.helyek && typeof b.helyek === "object" && b.helyek[k] ? b.helyek[k] : null;
+        helyek[k] = helyBeall({ helyek: { [k]: { ...((regi.helyek || {})[k] || {}), ...(uj || {}) } } }, k);
+    });
 
     const adat = {
         mutat: b && "mutat" in b ? b.mutat !== false : regi.mutat !== false,
         helyorzo: b && "helyorzo" in b ? b.helyorzo !== false : regi.helyorzo !== false,
         email,
-        helyek
+        helyek,
+        penznem: b && ["RON", "EUR"].includes(b.penznem) ? b.penznem : (["RON", "EUR"].includes(regi.penznem) ? regi.penznem : "RON"),
+        // az árak a weboldal bérlési űrlapján is látszanak
+        arak_mutat: b && "arak_mutat" in b ? !!b.arak_mutat : !!regi.arak_mutat,
+        // új bérlési kérésre magától ajánlat (ügyfél + díjbekérő + fizetési link), ha minden adat megvan
+        auto_ajanlat: b && "auto_ajanlat" in b ? !!b.auto_ajanlat : !!regi.auto_ajanlat
     };
 
     await db.query(
@@ -166,7 +190,7 @@ function allapotSql() {
 const MEZOK = `r.id, r.nev, r.hirdeto, r.kapcsolat, r.cel_url, r.alt, r.kep_mime, r.kep_w, r.kep_h,
     (r.kep_mobil IS NOT NULL) AS van_mobil, r.kep_mobil_w, r.kep_mobil_h,
     r.helyek, r.kezdet::text AS kezdet, r.vege::text AS vege, r.aktiv, r.suly, r.ar, r.megjegyzes,
-    r.megjelenes, r.kattintas, r.created_at, r.updated_at,
+    r.megjelenes, r.kattintas, r.created_at, r.updated_at, r.anyag_feltoltve,
     r.ugyfel_id, r.penznem, r.szamlazas, r.fizetes_utan, COALESCE(r.szerzodes_kell, true) AS szerzodes_kell, r.szerzodes_szam, r.szerzodes_kuldve, r.szerzodes_elfogadva,
     (SELECT u.nev FROM penzugy_ugyfelek u WHERE u.id = r.ugyfel_id) AS ugyfel_nev,
     EXISTS (SELECT 1 FROM penzugy_szamlak s WHERE s.reklam_id = r.id AND s.tipus = 'dijbekero' AND s.statusz = 'fizetve') AS fizetve_van,
@@ -246,6 +270,8 @@ function tisztit(b) {
 async function letrehoz(b) {
 
     const d = tisztit(b || {});
+    // ár nélkül: az árlista szerint (a választott helyek havi díjának összege)
+    if (d.ar === null) d.ar = await arlistaAr(d.helyek);
     const kep = await kepAdat(b.kep);
     const mobil = await kepAdat(b.kep_mobil);
 
@@ -272,6 +298,7 @@ async function modosit(id, b) {
     if (!regi) return null;
 
     const d = tisztit({ ...regi, ...(b || {}) });
+    if (d.ar === null) d.ar = await arlistaAr(d.helyek);
     const kep = b && b.kep ? await kepAdat(b.kep) : null;
     const mobil = b && b.kep_mobil ? await kepAdat(b.kep_mobil) : null;
 
@@ -356,6 +383,85 @@ async function aktivak() {
 
 }
 
+// ---------- Árlista, foglaltság ----------
+
+// A weboldalnak (/api/config): helyenként aktív, helyőrző, váltás – az ár csak
+// akkor, ha az árak nyilvánosak
+async function publikus() {
+    const b = await olvas();
+    const helyek = {};
+    Object.keys(HELYEK).forEach(k => {
+        const h = helyBeall(b, k);
+        helyek[k] = { aktiv: h.aktiv, helyorzo: h.helyorzo, valtas: h.valtas, ...(b.arak_mutat && h.ar ? { ar: h.ar } : {}) };
+    });
+    return { mutat: b.mutat !== false, helyorzo: b.helyorzo !== false, email: b.email || "", helyek, penznem: b.penznem || "RON", arak_mutat: !!b.arak_mutat };
+}
+
+// A választott helyek havi díja az árlista szerint (null, ha valamelyiknek nincs ára)
+async function arlistaAr(helyek) {
+    const b = await olvas();
+    const lista = (Array.isArray(helyek) ? helyek : []).filter(k => HELYEK[k]);
+    if (!lista.length) return null;
+    let ossz = 0;
+    for (const k of lista) {
+        const h = helyBeall(b, k);
+        if (!h.ar) return null;
+        ossz += h.ar;
+    }
+    return Math.round(ossz * 100) / 100;
+}
+
+// Foglaltság egy időszakra: helyenként hány hirdetés fut / van lefoglalva.
+//  Foglal: a bekapcsolt hirdetés, ami belelóg az időszakba, és vagy nem vár
+//  fizetésre, vagy már kifizették, vagy 14 napon belül ment ki az ajánlat.
+//  -> { hely: { db, max, szabad, hirdetok: [név] } }
+async function foglaltsag(kezdet, vege, kizarId) {
+    const b = await olvas();
+    const datum = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? String(v) : null;
+    const tol = datum(kezdet) || new Date().toISOString().slice(0, 10);
+    const ig = datum(vege) || tol;
+    const r = await db.query(`
+        SELECT r.id, r.helyek, COALESCE(r.hirdeto, r.nev) AS nev
+        FROM reklamok r
+        WHERE r.aktiv AND r.id <> $3
+          AND (r.kezdet IS NULL OR r.kezdet <= $2::date)
+          AND (r.vege IS NULL OR r.vege >= $1::date)
+          AND (NOT COALESCE(r.fizetes_utan, false)
+               OR EXISTS (SELECT 1 FROM penzugy_szamlak s WHERE s.reklam_id = r.id AND s.tipus = 'dijbekero' AND s.statusz = 'fizetve')
+               OR r.szerzodes_kuldve > NOW() - INTERVAL '14 days')
+    `, [tol, ig, Number(kizarId) || 0]);
+    const ki = {};
+    Object.keys(HELYEK).forEach(k => {
+        const h = helyBeall(b, k);
+        const rajta = r.rows.filter(x => Array.isArray(x.helyek) && x.helyek.includes(k));
+        ki[k] = { db: rajta.length, max: h.max, szabad: h.aktiv && rajta.length < h.max, aktiv: h.aktiv, hirdetok: rajta.map(x => x.nev) };
+    });
+    return ki;
+}
+
+// A hirdető tölti fel az anyagot (a fizetési oldalon, a titkos linkkel):
+//  kép (+ telefonos kép), hova vigyen, alt szöveg. A hirdetés ettől kezdve
+//  magától megjelenik (ha nem vár fizetésre, vagy már kifizették).
+async function anyagMent(id, b) {
+    const regi = await egy(id);
+    if (!regi) throw kodHiba("not_found");
+    const kep = b && b.kep ? await kepAdat(b.kep) : null;
+    const mobil = b && b.kep_mobil ? await kepAdat(b.kep_mobil) : null;
+    if (!kep && !regi.kep_mime) throw kodHiba("image_required");
+    let cel = b && "cel_url" in b ? String(b.cel_url || "").trim().slice(0, 500) : regi.cel_url;
+    if (cel && !/^https?:\/\//i.test(cel)) cel = "https://" + cel;
+    if (cel) {
+        try { const u = new URL(cel); if (!/^https?:$/.test(u.protocol)) throw new Error(); cel = u.toString(); }
+        catch (e) { throw kodHiba("bad_url"); }
+    }
+    const alt = b && "alt" in b ? (String(b.alt || "").trim().slice(0, 200) || null) : regi.alt;
+    await db.query("UPDATE reklamok SET cel_url = $2, alt = $3, anyag_feltoltve = NOW(), updated_at = NOW() WHERE id = $1", [id, cel || null, alt]);
+    if (kep) await db.query("UPDATE reklamok SET kep=$1, kep_mime=$2, kep_w=$3, kep_h=$4 WHERE id=$5", [kep.buf, kep.mime, kep.w, kep.h, id]);
+    if (mobil) await db.query("UPDATE reklamok SET kep_mobil=$1, kep_mobil_mime=$2, kep_mobil_w=$3, kep_mobil_h=$4 WHERE id=$5", [mobil.buf, mobil.mime, mobil.w, mobil.h, id]);
+    aktivCache = null;
+    return egy(id);
+}
+
 // ---------- Statisztika ----------
 
 async function noveles(id, hely, mezo, db_ = 1) {
@@ -423,5 +529,6 @@ async function lejarok(napok = 7) {
 
 module.exports = {
     HELYEK, olvas, ment, lista, egy, letrehoz, modosit, torol, kep, aktivak, cacheUrit: () => { aktivCache = null; },
-    megjelenesek, kattintas, napiStat, osszesites, lejarok
+    megjelenesek, kattintas, napiStat, osszesites, lejarok,
+    helyBeall, publikus, arlistaAr, foglaltsag, anyagMent, MAX_HIRDETO, VALTASOK
 };
