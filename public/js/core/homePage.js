@@ -122,6 +122,32 @@ class HomePage {
 
     }
 
+    // A kezdőlap városrész-táblája: minden városrész (legalább 2 eladó lakással),
+    // a sáv hossza az ár szerint (a legolcsóbb 30 %, a legdrágább 100 %), és hogy
+    // mennyivel tér el a város átlagától
+    static kerulettabla() {
+        const p = HomePage.piac();
+        const lista = (DataManager.ingatlanok || []).filter(i =>
+            (i.tipus || "lakas") === "lakas" && (i.ugylet || "elado") === "elado" && Utils.verified(i) && i.ar > 0 && i.nm > 0 && i.kerulet);
+        const csop = new Map();
+        lista.forEach(i => {
+            const c = csop.get(i.kerulet) || { nev: i.kerulet, db: 0, osszeg: 0 };
+            c.db++; c.osszeg += i.ar / i.nm;
+            csop.set(i.kerulet, c);
+        });
+        const sorok = [...csop.values()].filter(c => c.db >= 2).map(c => ({ ...c, atlag: c.osszeg / c.db }))
+            .sort((a, b) => b.atlag - a.atlag).slice(0, 8);
+        const arak = sorok.map(k => k.atlag);
+        const lo = Math.min(...arak), hi = Math.max(...arak);
+        const hossz = v => hi > lo ? Math.round(30 + 70 * (v - lo) / (hi - lo)) : 100;
+        sorok.forEach(k => {
+            k.hossz = hossz(k.atlag);
+            k.cimke = CityManager.keruletLabel(k.nev, DataManager.currentCity);
+            k.elteres = p.atlag ? Math.round((k.atlag / p.atlag - 1) * 100) : 0;
+        });
+        return { sorok, atlag: p.atlag, db: p.db, kozep: p.atlag && hi > lo ? Math.max(0, Math.min(100, hossz(p.atlag))) : 100 };
+    }
+
     // A cím utolsó szava (pl. "Erdélyben.") kiemelve – a nyitójelenetben alá egy vonal rajzolódik
     static cim(szoveg) {
         const esc = Utils.escape;
@@ -143,9 +169,15 @@ class HomePage {
         const db = tipus => lista.filter(i => (i.tipus || "lakas") === tipus).length;
         const terkepen = typeof MapManager !== "undefined" ? lista.filter(i => MapManager.pontos(i)).length : 0;
 
-        // Kiemelt (promóciós) hirdetések – legfeljebb 8, véletlen sorrendben
-        const kiemeltek = lista.filter(i => CardsView.kiemelt(i))
+        // Kiemelt (promóciós) hirdetések – legfeljebb 8, véletlen sorrendben –, utánuk
+        // a legfrissebb fényképes, ellenőrzött hirdetések (összesen legfeljebb 12)
+        const kiemelt = lista.filter(i => CardsView.kiemelt(i))
             .map(i => [Math.random(), i]).sort((a, b) => a[0] - b[0]).map(x => x[1]).slice(0, 8);
+        const friss = lista.filter(i => !CardsView.kiemelt(i) && Utils.verified(i) && Utils.hasPhoto(i) && i.ar > 0 && !i.dup)
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0) || b.id - a.id)
+            .slice(0, Math.max(0, 12 - kiemelt.length));
+        const kiemeltek = kiemelt.concat(friss);
+        const areas = HomePage.kerulettabla();
 
         const varosOpciok = [...CityManager.varosok].map(v => v.nev)
             .sort((a, b) => CityManager.displayName(a).localeCompare(CityManager.displayName(b), "hu"))
@@ -263,7 +295,10 @@ class HomePage {
             ${kiemeltek.length ? `
             <section class="homeSection homeFeatured">
                 <div class="homeSectionHead">
-                    <h2 class="homeH2">${t("ftHomeTitle")}</h2>
+                    <div>
+                        <h2 class="homeH2">${t(kiemelt.length ? "ftHomeTitle" : "homeFreshTitle")}</h2>
+                        <p class="homeSub">${esc(I18n.f(kiemelt.length ? "homeFreshSubFeat" : "homeFreshSub", { v: s.varos }))}</p>
+                    </div>
                     <div class="featNav">
                         <a href="#properties" class="homeAll">${t("homeAllListings")}</a>
                         <button type="button" class="featArrow" data-feat-dir="-1" aria-label="${esc(t("featPrev"))}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
@@ -288,6 +323,42 @@ class HomePage {
                                 <span>${I18n.f("homeCatCount", { n: Utils.num(db(k.tipus)) })}</span>
                             </span>
                         </a>`).join("")}
+                </div>
+            </section>
+
+            ${areas.sorok.length >= 2 ? `
+            <section class="homeSection homeAreas" aria-labelledby="homeAreasTitle">
+                <div class="areasIntro">
+                    <h2 class="homeH2" id="homeAreasTitle">${esc(I18n.f("homeAreasTitle", { v: s.varos }))}</h2>
+                    <p class="homeSub">${t("homeAreasSub")}</p>
+                    <div class="areasAvg">
+                        <b>${Utils.eurNm(areas.atlag)}</b>
+                        <span>${esc(I18n.f("homeAreasAvg", { n: Utils.num(areas.db) }))}</span>
+                    </div>
+                    <a href="#market" class="homeAll">${t("homeBoardLink")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                </div>
+                <ol class="areasList">
+                    ${areas.sorok.map((k, n) => `
+                        <li style="--n:${n}">
+                            <a href="#properties" class="areaRow" data-area="${esc(k.nev)}" title="${esc(I18n.f("homeAreasOpen", { k: k.cimke }))}">
+                                <span class="areaName"><b>${esc(k.cimke)}</b><small>${esc(I18n.f("homeAreasCount", { n: k.db }))}</small></span>
+                                <span class="areaTrack" aria-hidden="true"><span class="areaBar" style="--w:${k.hossz}%"></span><span class="areaMid" style="--m:${areas.kozep}%"></span></span>
+                                <span class="areaVal">${Utils.eurNm(k.atlag)}<small class="${k.elteres >= 0 ? "isUp" : "isDown"}">${k.elteres >= 0 ? "+" : ""}${k.elteres}%</small></span>
+                                <i class="fa-solid fa-arrow-right areaGo" aria-hidden="true"></i>
+                            </a>
+                        </li>`).join("")}
+                </ol>
+            </section>` : ""}
+
+            <section class="homeSellBand">
+                <div class="sellBandText">
+                    <h2>${t("homeSellBandTitle")}</h2>
+                    <p>${t(Utils.ertekesites() ? "homeSellBandText" : "homeSellBandTextNoSales")}</p>
+                </div>
+                <div class="sellBandActions">
+                    <a class="btn btn-lg sellBandMain" href="#new"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${t("navPost")}</a>
+                    <a class="btn btn-lg sellBandGhost" href="#valuation"><i class="fa-solid fa-calculator" aria-hidden="true"></i> ${t("homeSellBandValue")}</a>
+                    ${Utils.ertekesites() ? `<a class="sellBandLink" href="#eladjuk">${t("menuEladjuk")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>` : ""}
                 </div>
             </section>
 
@@ -389,6 +460,18 @@ class HomePage {
         // A kiemelt kártyák ugyanúgy működnek, mint a találati listában
         // (képlapozás, térkép gomb, forrásoldalra vivő hirdetés)
         CardsView.bindCards(box.querySelector(".homeFeatured"));
+
+        // Városrészek: egy sorra kattintva a hirdetések, csak abban a városrészben
+        box.querySelectorAll("[data-area]").forEach(a => {
+            a.addEventListener("click", e => {
+                e.preventDefault();
+                HomePage.go({ tipus: "lakas", ugylet: "elado" });
+                if (FilterManager.keruletMS) {
+                    FilterManager.keruletMS.values = [a.dataset.area];
+                    FilterManager.apply();
+                }
+            });
+        });
 
         box.querySelectorAll("[data-cat]").forEach(a => {
             a.addEventListener("click", e => {

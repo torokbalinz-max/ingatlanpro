@@ -56,6 +56,7 @@
     <link rel="stylesheet" href="css/v20.css">
     <link rel="stylesheet" href="css/v21.css">
     <link rel="stylesheet" href="css/v22.css">
+    <link rel="stylesheet" href="css/v23.css">
 </head>
 
 <body>
@@ -1203,17 +1204,41 @@
         <div class="pageHeaderRow">
             <div>
                 <h2 data-i18n="favTitle">Kedvencek</h2>
-                <p class="text-body-secondary mb-0" data-i18n="favSubtitle">Kattints egy sorra, és megnyílik a hirdetés.</p>
+                <p class="text-body-secondary mb-0" data-i18n="favSubtitleCards">A megjelölt hirdetéseid egy helyen. Kattints egy kártyára, és megnyílik a hirdetés.</p>
             </div>
             <button class="helpBtn" type="button" data-help="favorites"><i class="fa-regular fa-circle-question" aria-hidden="true"></i><span data-i18n="helpBtn">Hogyan működik?</span></button>
         </div>
         <div class="pageHelp" id="help-favorites" hidden></div>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <div id="favoritesGrid" class="gridBox"></div>
+    <!-- Eszközsáv: darabszám, átlagár, rendezés, mind a térképen (js/favorites/favorites.js) -->
+    <div class="favBar" id="favBar" hidden>
+        <div class="favBarInfo">
+            <span id="favCount"></span>
+            <span class="favAvg" id="favAvg"></span>
         </div>
+        <div class="favBarTools">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="favMapBtn" hidden><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> <span data-i18n="favAllOnMap">Mind a térképen</span></button>
+            <label class="favSortLbl">
+                <span data-i18n="favSortLabel">Rendezés</span>
+                <select id="favSort" class="form-select form-select-sm">
+                    <option value="added" data-i18n="favSortAdded">Legutóbb jelölt</option>
+                    <option value="priceAsc" data-i18n="sortPriceAsc">Ár szerint növekvő</option>
+                    <option value="priceDesc" data-i18n="sortPriceDesc">Ár szerint csökkenő</option>
+                    <option value="nmAsc" data-i18n="sortNmAsc">€/m² szerint növekvő</option>
+                    <option value="areaDesc" data-i18n="sortAreaDesc">Alapterület szerint csökkenő</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <div class="row g-4 favGrid" id="favoritesCards"></div>
+
+    <div class="favEmpty" id="favEmpty" hidden>
+        <span class="favEmptyIcon"><i class="fa-regular fa-star" aria-hidden="true"></i></span>
+        <h3 data-i18n="favEmptyTitle">Még nincs kedvenced</h3>
+        <p data-i18n="favEmptyText">A hirdetések kártyáján a csillaggal jelölheted meg, ami tetszik. Itt mind együtt lesznek, és látod, ha valamelyiket levették.</p>
+        <a class="btn btn-primary" href="#properties"><i class="fa-solid fa-house" aria-hidden="true"></i> <span data-i18n="favEmptyBtn">Hirdetések böngészése</span></a>
     </div>
 
 </section>
@@ -1524,6 +1549,7 @@
 <script src="js/core/i18n-v20.js"></script>
 <script src="js/core/i18n-v21.js"></script>
 <script src="js/core/i18n-v22.js"></script>
+<script src="js/core/i18n-v23.js"></script>
 <script src="js/core/dokumentum.js"></script>
 <script src="js/core/gridLocale.js"></script>
 <script src="js/core/telepulesek.js"></script>
@@ -1602,6 +1628,7 @@
 <script src="js/agency/agencyDirectory.js"></script>
 <script src="js/agency/profileFeature.js"></script>
 <script src="js/core/homePage.js"></script>
+<script src="js/core/quickNav.js"></script>
 <script src="js/services/pricingPage.js"></script>
 <script src="js/services/accountBilling.js"></script>
 <script src="js/services/featureModal.js"></script>

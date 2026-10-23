@@ -164,7 +164,7 @@ const HELP_CONTENT = {
             id: "kedvencek", icon: "fa-solid fa-star", title: "Kedvencek és mentett keresések",
             sections: [
                 { h: "Kedvencek", ul: [
-                    "A csillaggal jelölt hirdetések a Kedvencek oldalon egy táblázatban látszanak.",
+                    "A csillaggal jelölt hirdetések a Kedvencek oldalon kártyákon látszanak, rendezhetők, és a levett hirdetés is jelölve marad.",
                     "A kedvencek a fiókodhoz tartoznak, bármelyik eszközön látod őket."
                 ] },
                 { h: "Mentett keresések", ul: [
@@ -503,7 +503,7 @@ const HELP_CONTENT = {
             id: "kedvencek", icon: "fa-solid fa-star", title: "Favourites and saved searches",
             sections: [
                 { h: "Favourites", ul: [
-                    "Starred listings are shown in a table on the Favourites page.",
+                    "Starred listings are shown as cards on the Favourites page; you can sort them, and a listing that was taken down stays marked.",
                     "Favourites belong to your account – you see them on any device."
                 ] },
                 { h: "Saved searches", ul: [
@@ -842,7 +842,7 @@ const HELP_CONTENT = {
             id: "kedvencek", icon: "fa-solid fa-star", title: "Favorite și căutări salvate",
             sections: [
                 { h: "Favorite", ul: [
-                    "Anunțurile marcate cu stea apar într-un tabel pe pagina Favorite.",
+                    "Anunțurile marcate cu stea apar ca și carduri pe pagina Favorite; le poți sorta, iar un anunț retras rămâne marcat.",
                     "Favoritele aparțin contului tău – le vezi pe orice dispozitiv."
                 ] },
                 { h: "Căutări salvate", ul: [

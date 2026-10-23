@@ -164,6 +164,8 @@ class DataManager {
 
                 CardsView.refreshFavorites();
 
+                if (typeof FavoritesManager !== "undefined") FavoritesManager.onToggle(id, !isFav);
+
                 if (typeof ListingPage !== "undefined") ListingPage.updateFavorite(id);
 
                 if (UIManager.selectedIngatlan && UIManager.selectedIngatlan.id === id) {

@@ -150,8 +150,110 @@
         el.addEventListener("animationend", vege);
     }
 
-    new MutationObserver(() => { oldalValtas(); hos(); felfed(); })
+    // ======================================================================
+    //  v23: az egész oldalon (nem csak a kezdőlapon)
+    //   - az oldalak fejléce (örökzöld sáv) megkapja a szintvonalakat
+    //   - a kártyák, dobozok görgetéskor / megjelenéskor finoman beúsznak
+    //     (sorban, legfeljebb 8 lépcsővel – a szűrésre újrarajzolt kártyák is)
+    //   - a számlálók (találatok, átlagár…) az új értékre "átpörögnek"
+    //  Az admin felület és a térkép kimarad. Csökkentett mozgásnál semmi sem mozog.
+    // ======================================================================
+
+    const REVEAL = [
+        ".pageHeader", ".prHero", ".prCard", ".kpiCard", ".listingCard", ".favBar", ".favEmpty", ".emptyState",
+        ".page > .card", ".page > .row > [class*='col'] > .card", ".statsCard", ".valCard",
+        ".homeAreas", ".homeSellBand", ".homeHelpStrip", ".pricingCard", ".pkgCard", ".agCard",
+        ".helpLayout", ".legalLayout", ".accLayout", ".ipPanel"
+    ].join(", ");
+    const KIZAR = "#page-admin, #page-map, .modal, .dropdown-menu, .leaflet-container, .ag-root-wrapper, .featTrack, #page-home .homeHero";
+
+    const lathato = el => {
+        const r = el.getBoundingClientRect();
+        return r.top < window.innerHeight * 0.98 && r.bottom > 0;
+    };
+
+    const rFigyelo = !csendes && "IntersectionObserver" in window ? new IntersectionObserver(es => {
+        es.forEach(e => {
+            if (!e.isIntersecting) return;
+            e.target.classList.add("ipRvIn");
+            rFigyelo.unobserve(e.target);
+        });
+    }, { threshold: 0.08, rootMargin: "0px 0px -4% 0px" }) : null;
+
+    function fejlecek(root) {
+        document.querySelectorAll(".page .pageHeader:not([data-ipfej]), .page .homeSellBand:not([data-ipfej]), .page .prHero:not([data-ipfej]), .favEmpty:not([data-ipfej]), .appFooter:not([data-ipfej])").forEach(h => {
+            if (h.closest("#page-admin")) return;
+            h.setAttribute("data-ipfej", "");
+            const svg = szintvonalak();
+            svg.classList.add("ipContourSm");
+            h.prepend(svg);
+        });
+    }
+
+    function scan(root) {
+        fejlecek(root);
+        if (!rFigyelo) return;
+        let lepcso = 0;
+        (root || document).querySelectorAll(REVEAL).forEach(el => {
+            if (el.hasAttribute("data-iprv") || el.closest(KIZAR) || !el.closest(".page")) return;
+            el.setAttribute("data-iprv", "");
+            if (lathato(el)) {
+                // ami már látszik: azonnal, sorban (a sor ne várjon sokat)
+                el.style.setProperty("--rv", String(Math.min(8, lepcso++)));
+                el.classList.add("ipRv");
+                requestAnimationFrame(() => el.classList.add("ipRvIn"));
+            } else {
+                el.style.setProperty("--rv", "0");
+                el.classList.add("ipRv");
+                rFigyelo.observe(el);
+            }
+        });
+    }
+
+    // ---------- Számlálók: az új értékre pörögnek (a régiről) ----------
+    const szamErtek = szoveg => {
+        const m = String(szoveg).match(/\d[\d.,\u00a0\u202f ]*\d|\d/);
+        if (!m || /[.,]\d{1,2}(?!\d)/.test(m[0])) return null;
+        return { n: Number(m[0].replace(/\D/g, "")), m };
+    };
+
+    // Az oldal ezzel írja a számlálókat (találatok, átlagár…): ha a szám változik és
+    // látszik, a régi értékről az újra pörög; minden más esetben azonnal beíródik.
+    const futo = new WeakMap();
+    function szamIr(el, cel) {
+        if (!el) return;
+        cel = String(cel);
+        const regi = szamErtek(el.textContent), uj = szamErtek(cel);
+        const id = (futo.get(el) || 0) + 1;
+        futo.set(el, id);
+        if (csendes || !uj || !regi || uj.n === regi.n || document.hidden || !lathato(el)) { el.textContent = cel; return; }
+        const nyers = uj.m[0];
+        const elv = (nyers.match(/[^\d]/) || [""])[0];
+        const form = n => elv ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, elv) : String(n);
+        const elo = cel.slice(0, uj.m.index), uto = cel.slice(uj.m.index + nyers.length);
+        const t0 = performance.now(), ido = 650;
+        const lep = t => {
+            if (futo.get(el) !== id) return;            // közben új érték jött: az nyer
+            const p = Math.min(1, (t - t0) / ido), e = 1 - Math.pow(1 - p, 3);
+            el.textContent = p < 1 ? elo + form(Math.round(regi.n + (uj.n - regi.n) * e)) + uto : cel;
+            if (p < 1) requestAnimationFrame(lep);
+        };
+        requestAnimationFrame(lep);
+    }
+
+    window.IpMotion = { csendes, scan, szamIr, szintvonalak, felszamol };
+
+    // Új tartalom (a JS-ből rajzolt oldalak, a szűrésre újrarajzolt kártyák): átnézzük
+    let scanIdo = null;
+    const main = document.querySelector(".appMain") || document.body;
+    new MutationObserver(() => {
+        if (scanIdo) return;
+        scanIdo = requestAnimationFrame(() => { scanIdo = null; scan(main); });
+    }).observe(main, { childList: true, subtree: true });
+
+    new MutationObserver(() => { oldalValtas(); hos(); felfed(); scan(main); })
         .observe(document.body, { attributes: true, attributeFilter: ["data-page"] });
+    scan(main);
 
     // A kezdőlap tartalma később rajzolódik ki: figyeljük, amíg megjelenik
     const home = document.getElementById("page-home");

@@ -9,6 +9,7 @@
 //  Git Bash-ből (a projekt mappájában):
 //    npm run ellenorzes -- --varos Sepsiszentgyorgy      egy város minden hirdetése
 //    npm run ellenorzes -- --mind                        minden város (lassú)
+//    npm run ellenorzes -- --forras imobiliare           csak az imobiliare.ro hirdetései (minden városban)
 //    npm run beolvasas -- <link> [<link>...] --varos Marosvasarhely [--tipus lakas] [--ugylet elado]
 //
 //  A .env-ben a DATABASE_URL az éles (Neon) adatbázis legyen – ugyanaz, mint a Renderen.
@@ -71,15 +72,17 @@ async function main() {
     } else {
 
         let varosok = null;
-        if (!van("mind")) {
+        const forras = ertek("forras");
+        if (!van("mind") && !(forras && !ertek("varos"))) {
             const v = ertek("varos");
             if (!v) hiba("Add meg a várost (--varos Sepsiszentgyorgy), vagy --mind az összeshez.");
             varosok = await importer.varosCsoport(await varosNev(v));
-        } else {
+        } else if (van("mind")) {
             varosok = (await db.query("SELECT nev FROM varosok ORDER BY nev")).rows.map(v => v.nev);
         }
-        console.log(`Ellenőrzés a gépedről: ${varosok.join(", ")}\n(ár, elérhetőség, eredeti linkek; a levett hirdetések "nem elérhető"-k lesznek)\n`);
-        job = importer.figyelesIndit({ varosok, helyi: true });
+        if (forras) console.log(`Csak a(z) ${forras} hirdetései.`);
+        console.log(`Ellenőrzés a gépedről: ${varosok ? varosok.join(", ") : "minden város"}\n(ár, elérhetőség, eredeti linkek; a levett hirdetések "nem elérhető"-k lesznek)\n`);
+        job = importer.figyelesIndit({ varosok, helyi: true, forras: forras || null, forraslinkNelkul: !!forras });
 
     }
 

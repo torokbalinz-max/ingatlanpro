@@ -1,0 +1,702 @@
+/* ============================================================
+   v23: AZ EGÉSZ OLDAL EGYSÉGES, ÉLŐ ARCULATA
+   (nyilvános oldalak; az admin felület nem változik)
+
+   - Minden oldal fejléce örökzöld sáv domborzati szintvonalakkal
+     (ugyanaz a nyelv, mint a kezdőlap fő panelje), így minden oldal
+     azonnal felismerhető és "ugyanahhoz a helyhez" tartozik.
+   - Kártyák, dobozok: megjelenéskor sorban beúsznak, fölé állva
+     megemelkednek; a számlálók az új értékre pörögnek (motion.js).
+   - Kedvencek: ugyanazok a kártyák, mint az Ingatlanoknál.
+   - Kezdőlap lejjebb: friss hirdetések sávja, városrészek árai,
+     eladói sáv, a lábléc is szintvonalas.
+   - "Mit szeretnél csinálni?" gyorsindító (Ctrl+K, kérdőjel gomb).
+   Csökkentett mozgásnál minden azonnal, mozgás nélkül látszik.
+   ============================================================ */
+
+/* ==========================================================================
+   OLDALFEJLÉC: örökzöld sáv
+   ========================================================================== */
+
+body:not([data-page="admin"]) .page .pageHeader {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background:
+        radial-gradient(120% 140% at 100% 0%, rgba(159, 220, 196, 0.16) 0%, transparent 55%),
+        var(--ev-900);
+    color: var(--ev-text);
+    border-radius: var(--r-panel);
+    padding: clamp(1.35rem, 1rem + 1.6vw, 2.25rem) clamp(1.25rem, .9rem + 1.8vw, 2.5rem);
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 40px -24px rgba(11, 38, 30, 0.55);
+}
+body:not([data-page="admin"]) .page .pageHeader h2 { color: #fff; margin-bottom: .35rem; }
+body:not([data-page="admin"]) .page .pageHeader p,
+body:not([data-page="admin"]) .page .pageHeader .text-body-secondary,
+body:not([data-page="admin"]) .page .pageHeader .text-muted { color: var(--ev-muted) !important; max-width: 62ch; }
+body:not([data-page="admin"]) .page .pageHeader a:not(.btn) { color: var(--mint); }
+
+/* A "Hogyan működik?" gomb a sötét sávon */
+body:not([data-page="admin"]) .page .pageHeader .helpBtn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(231, 241, 236, 0.22);
+    color: var(--ev-text);
+    backdrop-filter: none;
+}
+body:not([data-page="admin"]) .page .pageHeader .helpBtn:hover,
+body:not([data-page="admin"]) .page .pageHeader .helpBtn[aria-expanded="true"] {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(231, 241, 236, 0.4);
+    color: #fff;
+}
+/* A kinyíló súgó a sávon belül: világos lap */
+body:not([data-page="admin"]) .page .pageHeader .pageHelp {
+    position: relative;
+    margin-top: 1rem;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(231, 241, 236, 0.16);
+    color: var(--ev-text);
+    border-radius: var(--ip-radius);
+}
+body:not([data-page="admin"]) .page .pageHeader .pageHelp li::marker { color: var(--mint); }
+/* A sávon lévő egyéb gombok, választók (pl. a piaci elemzés, a térkép nézetváltója) */
+body:not([data-page="admin"]) .page .pageHeader .btn-outline-secondary,
+body:not([data-page="admin"]) .page .pageHeader .btn-outline-primary {
+    color: var(--ev-text);
+    border-color: rgba(231, 241, 236, 0.3);
+    background: transparent;
+}
+body:not([data-page="admin"]) .page .pageHeader .btn-outline-secondary:hover,
+body:not([data-page="admin"]) .page .pageHeader .btn-outline-primary:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+body:not([data-page="admin"]) .page .pageHeader .btn-check:checked + .btn {
+    background: var(--mint);
+    border-color: var(--mint);
+    color: var(--ev-900);
+}
+body:not([data-page="admin"]) .page .pageHeader .form-select,
+body:not([data-page="admin"]) .page .pageHeader .form-control {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(231, 241, 236, 0.24);
+    color: #fff;
+}
+body:not([data-page="admin"]) .page .pageHeader .form-select option { color: #111; }
+body:not([data-page="admin"]) .page .pageHeader .nav-pills .nav-link,
+body:not([data-page="admin"]) .page .pageHeader .nav-tabs .nav-link { color: var(--ev-muted); }
+body:not([data-page="admin"]) .page .pageHeader .nav-pills .nav-link.active,
+body:not([data-page="admin"]) .page .pageHeader .nav-tabs .nav-link.active { background: var(--mint); color: var(--ev-900); border-color: var(--mint); }
+
+/* Szintvonalak a sávban (motion.js rajzolja) */
+.ipContourSm {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    color: var(--mint);
+    opacity: .13;
+}
+.ipContourSm path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+}
+html.ipMotion .ipRvIn > .ipContourSm path,
+html.ipMotion .ipRvIn.homeSellBand .ipContourSm path {
+    animation: ipDraw23 2.2s cubic-bezier(.45, .05, .2, 1) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes ipDraw23 { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+[data-bs-theme="dark"] body:not([data-page="admin"]) .page .pageHeader {
+    background:
+        radial-gradient(120% 140% at 100% 0%, rgba(159, 220, 196, 0.12) 0%, transparent 55%),
+        var(--ev-800);
+    box-shadow: 0 0 0 1px rgba(159, 220, 196, 0.08) inset;
+}
+
+/* ==========================================================================
+   MEGJELENÉS: a dobozok sorban beúsznak (motion.js: .ipRv / .ipRvIn)
+   ========================================================================== */
+
+html.ipMotion .ipRv:not(.ipRvIn) { opacity: 0; }
+html.ipMotion .ipRv.ipRvIn {
+    animation: ipRv23 .6s cubic-bezier(.16, 1, .3, 1) backwards;
+    animation-delay: calc(var(--rv, 0) * 55ms);
+}
+@keyframes ipRv23 {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: none; }
+}
+html.ipMotion .pageHeader.ipRv.ipRvIn { animation-name: ipRvHead23; animation-duration: .7s; }
+@keyframes ipRvHead23 {
+    from { opacity: 0; transform: translateY(10px) scale(.992); }
+    to { opacity: 1; transform: none; }
+}
+
+/* Betöltés közben: kártya-váz (a kedvenceknél) */
+.ipSkeleton {
+    border-radius: var(--ip-radius);
+    background: var(--ip-surface);
+    border: 1px solid var(--ip-border-soft);
+    overflow: hidden;
+    padding-bottom: 1rem;
+}
+.ipSkeleton span { display: block; aspect-ratio: 4 / 3; background: var(--ip-surface-2); }
+.ipSkeleton i { display: block; height: 12px; margin: 14px 16px 0; border-radius: 6px; background: var(--ip-surface-2); width: 62%; }
+.ipSkeleton i:first-of-type { height: 20px; width: 42%; margin-top: 18px; }
+.ipSkeleton i.rov { width: 80%; }
+.ipSkeleton span, .ipSkeleton i {
+    background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%);
+    background-size: 220% 100%;
+    background-repeat: no-repeat;
+    animation: ipShimmer 1.4s ease-in-out infinite;
+}
+[data-bs-theme="dark"] .ipSkeleton span, [data-bs-theme="dark"] .ipSkeleton i {
+    background-color: var(--ip-surface-2);
+    background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%);
+}
+@keyframes ipShimmer { from { background-position: 160% 0; } to { background-position: -60% 0; } }
+
+/* ==========================================================================
+   KÁRTYÁK: fölé állva megemelkednek
+   ========================================================================== */
+
+body:not([data-page="admin"]) .ipCard {
+    transition: transform .35s cubic-bezier(.2, .8, .2, 1), box-shadow .35s cubic-bezier(.2, .8, .2, 1), border-color .25s;
+}
+@media (hover: hover) {
+    body:not([data-page="admin"]) .ipCard:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--ip-shadow-lift);
+        border-color: rgba(27, 106, 85, 0.28);
+    }
+    body:not([data-page="admin"]) .ipCard:hover .ipPrice { color: var(--ip-accent-strong); }
+}
+body:not([data-page="admin"]) .ipCard:active { transform: translateY(-1px) scale(.995); }
+body:not([data-page="admin"]) .ipCard .ipPrice { transition: color .25s; }
+
+/* A kedvenc csillag: rugalmas visszajelzés */
+body:not([data-page="admin"]) .ipCard .ipFav.active { color: #f2b01e; }
+@media (hover: hover) {
+    body:not([data-page="admin"]) .ipCard .ipFav:hover { transform: scale(1.1); }
+}
+
+/* KPI csempék (Ingatlanok): finom kiemelés */
+body:not([data-page="admin"]) .kpiCard {
+    transition: transform .3s cubic-bezier(.2, .8, .2, 1), box-shadow .3s;
+    font-variant-numeric: tabular-nums;
+}
+body:not([data-page="admin"]) .kpiCard h3 { font-family: var(--ip-display); font-stretch: 106%; letter-spacing: -0.02em; }
+@media (hover: hover) {
+    body:not([data-page="admin"]) .kpiCard:hover { transform: translateY(-2px); box-shadow: var(--ip-shadow-lift); }
+}
+
+/* ==========================================================================
+   KEDVENCEK
+   ========================================================================== */
+
+.favBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem 1.25rem;
+    margin-bottom: 1.25rem;
+    padding: .8rem 1rem .8rem 1.25rem;
+    background: var(--ip-surface);
+    border: 1px solid var(--ip-border-soft);
+    border-radius: var(--ip-radius);
+    box-shadow: var(--ip-shadow);
+}
+.favBarInfo { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem 1rem; color: var(--ip-muted); }
+.favBarInfo b { font-family: var(--ip-display); font-stretch: 108%; font-size: 1.35rem; color: var(--ip-ink); letter-spacing: -0.02em; margin-right: .2rem; }
+.favGone { color: #9a5a14; font-size: .9rem; }
+[data-bs-theme="dark"] .favGone { color: #e7b46e; }
+.favAvg { font-size: .92rem; }
+.favBarTools { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.favSortLbl { display: inline-flex; align-items: center; gap: .5rem; margin: 0; font-size: .88rem; color: var(--ip-muted); }
+.favSortLbl .form-select { width: auto; min-width: 12rem; }
+
+.favGrid { min-height: 4rem; }
+.favGrid > [class*="col"].favLeaving { animation: favOut .32s cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes favOut { to { opacity: 0; transform: scale(.94) translateY(6px); } }
+
+/* A levett hirdetés: halványan, jelölve */
+.ipCard.isGone { opacity: .78; }
+.ipCard.isGone .thumbStrip img, .ipCard.isGone .listingThumb { filter: grayscale(.85); }
+.ipCard.isGone .ipPrice { text-decoration: line-through; text-decoration-thickness: 1.5px; color: var(--ip-muted); }
+.ipChip.isGoneChip { background: #3b2a12; color: #ffe2b6; }
+
+.favEmpty {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    text-align: center;
+    padding: clamp(2.5rem, 2rem + 4vw, 5rem) 1.5rem;
+    background: var(--ip-surface);
+    border: 1px solid var(--ip-border-soft);
+    border-radius: var(--r-panel);
+}
+.favEmpty .ipContourSm { color: var(--ip-accent); opacity: .09; }
+.favEmptyIcon {
+    display: inline-grid;
+    place-items: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 50%;
+    background: var(--ip-accent-soft);
+    color: var(--ip-accent);
+    font-size: 1.9rem;
+    margin-bottom: 1rem;
+}
+html.ipMotion .favEmpty.ipRvIn .favEmptyIcon { animation: favStar 1.1s cubic-bezier(.3, 1.5, .5, 1) both .15s; }
+@keyframes favStar { from { transform: scale(.4) rotate(-40deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.favEmpty h3 { font-family: var(--ip-display); font-stretch: 110%; font-weight: 640; letter-spacing: -0.03em; font-size: 1.5rem; color: var(--ip-ink); }
+.favEmpty p { max-width: 46ch; margin: .5rem auto 1.5rem; color: var(--ip-muted); }
+
+/* "Eltávolítva – Visszavonás" sáv */
+.favUndo {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: .6rem .6rem .6rem 1.1rem;
+    border-radius: 999px;
+    background: var(--ev-900);
+    color: var(--ev-text);
+    box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.45);
+    transform: translate(-50%, 140%);
+    opacity: 0;
+    transition: transform .4s cubic-bezier(.16, 1, .3, 1), opacity .3s;
+    pointer-events: none;
+}
+.favUndo.isOn { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+.favUndo .btn { background: var(--mint); color: var(--ev-900); border: 0; border-radius: 999px; font-weight: 600; padding: .35rem .9rem; }
+.favUndo .btn:hover { background: #c3ecdb; }
+@media (max-width: 991.98px) { .favUndo { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
+
+/* ==========================================================================
+   KEZDŐLAP (a fő panel alatt)
+   ========================================================================== */
+
+.homeSub { color: var(--ip-muted); margin: -.6rem 0 0; max-width: 60ch; }
+.homeFeatured .homeSectionHead { align-items: flex-end; gap: 1rem; }
+.homeFeatured .homeSectionHead .homeH2 { margin-bottom: .5rem; }
+
+/* Funkció-sáv: fölé állva a nyíl előre lép, az ikon kitöltődik */
+body:not([data-page="admin"]) .dockItem .dockIcon { transition: background .25s, color .25s, transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+body:not([data-page="admin"]) .dockItem .dockGo { transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .3s; }
+@media (hover: hover) {
+    body:not([data-page="admin"]) .dockItem:hover .dockIcon { background: var(--ip-accent); color: #fff; transform: translateY(-2px); }
+    body:not([data-page="admin"]) .dockItem:hover .dockGo { transform: translateX(4px); opacity: 1; }
+}
+
+/* Típus-csempék: fölé állva a kép közelebb jön, a nyíl megjelenik */
+body:not([data-page="admin"]) .catTile img { transition: transform 1.1s cubic-bezier(.2, .8, .2, 1); }
+body:not([data-page="admin"]) .catTile .catText b::after {
+    content: "\f061";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: .7em;
+    display: inline-block;
+    margin-left: .55em;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity .3s, transform .35s cubic-bezier(.2, .8, .2, 1);
+    vertical-align: .12em;
+}
+@media (hover: hover) {
+    body:not([data-page="admin"]) .catTile:hover img { transform: scale(1.06); }
+    body:not([data-page="admin"]) .catTile:hover .catText b::after { opacity: 1; transform: none; }
+}
+
+/* ---------- Városrészek árai ---------- */
+.homeAreas {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: clamp(1.5rem, 1rem + 3vw, 4rem);
+    align-items: start;
+}
+.areasIntro { position: sticky; top: 96px; }
+.areasIntro .homeH2 { margin-bottom: .75rem; }
+.areasIntro .homeSub { margin: 0 0 1.5rem; }
+.areasAvg { display: flex; flex-direction: column; gap: .15rem; margin-bottom: 1.25rem; }
+.areasAvg b {
+    font-family: var(--ip-display);
+    font-stretch: 112%;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    font-size: clamp(2.2rem, 1.6rem + 2vw, 3.2rem);
+    line-height: 1;
+    color: var(--ip-ink);
+    font-variant-numeric: tabular-nums;
+}
+.areasAvg span { color: var(--ip-muted); font-size: .92rem; }
+
+.areasList {
+    list-style: none;
+    margin: 0;
+    padding: .5rem;
+    background: var(--ip-surface);
+    border: 1px solid var(--ip-border-soft);
+    border-radius: var(--r-panel);
+    box-shadow: var(--ip-shadow);
+}
+.areaRow {
+    display: grid;
+    grid-template-columns: minmax(7rem, 1.1fr) minmax(0, 2fr) auto 1rem;
+    align-items: center;
+    gap: 1rem;
+    padding: .8rem 1rem;
+    border-radius: 14px;
+    color: inherit;
+    text-decoration: none;
+    transition: background .2s;
+}
+.areaRow:hover, .areaRow:focus-visible { background: var(--ip-accent-soft); color: inherit; }
+.areaName { display: flex; flex-direction: column; min-width: 0; }
+.areaName b { font-weight: 600; color: var(--ip-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.areaName small { color: var(--ip-muted); font-size: .8rem; }
+.areaTrack { position: relative; height: 10px; border-radius: 999px; background: var(--ip-surface-2); }
+.areaBar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--w);
+    border-radius: inherit;
+    background: linear-gradient(90deg, #7cc8ad 0%, var(--ip-accent) 100%);
+    transform-origin: left center;
+}
+.areaMid {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: var(--m);
+    width: 2px;
+    border-radius: 2px;
+    background: var(--ip-ink);
+    opacity: .35;
+}
+.areaVal {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--ip-ink);
+    white-space: nowrap;
+}
+.areaVal small { font-weight: 600; font-size: .78rem; padding: .1rem .45rem; border-radius: 999px; }
+.areaVal small.isUp { background: rgba(176, 106, 20, 0.12); color: #8a5208; }
+.areaVal small.isDown { background: var(--ip-accent-soft); color: var(--ip-accent-strong); }
+[data-bs-theme="dark"] .areaVal small.isUp { color: #f0c27f; background: rgba(240, 194, 127, 0.12); }
+.areaGo { color: var(--ip-muted); opacity: .5; transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .3s, color .3s; }
+.areaRow:hover .areaGo { transform: translateX(4px); opacity: 1; color: var(--ip-accent); }
+
+html.ipMotion .homeAreas.ipRv:not(.ipRvIn) .areaBar { transform: scaleX(0); }
+html.ipMotion .homeAreas.ipRvIn .areaBar { animation: areaGrow 1.1s cubic-bezier(.16, 1, .3, 1) backwards; animation-delay: calc(var(--n, 0) * 70ms + 200ms); }
+html.ipMotion .homeAreas.ipRvIn li { animation: ipRv23 .6s cubic-bezier(.16, 1, .3, 1) backwards; animation-delay: calc(var(--n, 0) * 55ms + 100ms); }
+@keyframes areaGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+
+@media (max-width: 991.98px) {
+    .homeAreas { grid-template-columns: 1fr; }
+    .areasIntro { position: static; }
+}
+@media (max-width: 575.98px) {
+    .areasList { padding: .35rem; }
+    .areaRow { grid-template-columns: minmax(0, 1fr) auto; gap: .45rem .75rem; padding: .75rem .75rem; }
+    .areaTrack { grid-column: 1 / -1; grid-row: 2; height: 8px; }
+    .areaGo { display: none; }
+}
+
+/* ---------- Eladói sáv ---------- */
+.homeSellBand {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.5rem 3rem;
+    margin: clamp(2.5rem, 2rem + 3vw, 4.5rem) 0;
+    padding: clamp(1.75rem, 1.2rem + 3vw, 3.5rem) clamp(1.5rem, 1rem + 3vw, 3.5rem);
+    border-radius: var(--r-panel);
+    background:
+        radial-gradient(90% 120% at 0% 100%, rgba(159, 220, 196, 0.18) 0%, transparent 60%),
+        var(--ev-900);
+    color: var(--ev-text);
+}
+.homeSellBand .ipContourSm { opacity: .16; }
+.sellBandText h2 {
+    font-family: var(--ip-display);
+    font-stretch: 112%;
+    font-weight: 650;
+    letter-spacing: -0.035em;
+    font-size: clamp(1.55rem, 1.1rem + 1.6vw, 2.4rem);
+    line-height: 1.08;
+    color: #fff;
+    margin-bottom: .6rem;
+}
+.sellBandText p { color: var(--ev-muted); max-width: 52ch; margin: 0; }
+.sellBandActions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; }
+.sellBandMain {
+    background: var(--mint);
+    color: var(--ev-900);
+    border: 0;
+    font-weight: 650;
+    border-radius: 14px;
+    white-space: nowrap;
+    transition: transform .25s cubic-bezier(.2, .8, .2, 1), background .2s, box-shadow .25s;
+}
+.sellBandMain:hover { background: #c3ecdb; color: var(--ev-900); transform: translateY(-2px); box-shadow: 0 14px 30px -14px rgba(159, 220, 196, 0.8); }
+.sellBandGhost {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(231, 241, 236, 0.35);
+    border-radius: 14px;
+    white-space: nowrap;
+    transition: background .2s, border-color .2s, transform .25s cubic-bezier(.2, .8, .2, 1);
+}
+.sellBandGhost:hover { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(231, 241, 236, 0.6); transform: translateY(-2px); }
+.sellBandMain:active, .sellBandGhost:active { transform: translateY(0) scale(.98); }
+.sellBandLink { flex-basis: 100%; color: var(--mint); text-decoration: none; font-weight: 600; font-size: .95rem; }
+.sellBandLink i { transition: transform .3s; }
+.sellBandLink:hover { color: #fff; }
+.sellBandLink:hover i { transform: translateX(4px); }
+@media (max-width: 767.98px) {
+    .homeSellBand { grid-template-columns: 1fr; }
+    .sellBandActions .btn { flex: 1 1 12rem; justify-content: center; }
+}
+
+/* ==========================================================================
+   LÁBLÉC: szintvonalak
+   ========================================================================== */
+
+body:not([data-page="admin"]) .appFooter { position: relative; isolation: isolate; overflow: hidden; }
+body:not([data-page="admin"]) .appFooter > .ipContourSm { opacity: .08; }
+body[data-page="admin"] .appFooter > .ipContourSm { display: none; }
+
+/* ==========================================================================
+   GYORSINDÍTÓ (js/core/quickNav.js)
+   ========================================================================== */
+
+.qnBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: min(12vh, 7rem) 1rem 1rem;
+    background: rgba(6, 20, 15, 0.5);
+    opacity: 0;
+    transition: opacity .16s ease;
+}
+.qnBackdrop.isOn { opacity: 1; }
+.qnBackdrop[hidden] { display: none; }
+body.qnOpen { overflow: hidden; }
+
+.qnPanel {
+    --qn-bg: #ffffff;
+    width: min(640px, 100%);
+    max-height: min(72vh, 640px);
+    display: flex;
+    flex-direction: column;
+    background: var(--qn-bg);
+    color: #17241e;
+    border-radius: 20px;
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(11, 38, 30, 0.08);
+    overflow: hidden;
+    transform: translateY(-8px) scale(.985);
+    transition: transform .22s cubic-bezier(.16, 1, .3, 1);
+}
+.qnBackdrop.isOn .qnPanel { transform: none; }
+[data-bs-theme="dark"] .qnPanel { --qn-bg: #111915; color: #dde7e2; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(159, 220, 196, 0.12); }
+
+.qnHead {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid rgba(11, 38, 30, 0.08);
+    color: #55635c;
+}
+[data-bs-theme="dark"] .qnHead { border-color: rgba(255, 255, 255, 0.08); color: #97a69f; }
+.qnHead input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 1.08rem;
+    color: inherit;
+    color: var(--bs-body-color, #17241e);
+}
+.qnHead input::placeholder { color: #6b7a73; }
+.qnHead input::-webkit-search-cancel-button { display: none; }
+.qnPanel kbd {
+    display: inline-block;
+    min-width: 1.6em;
+    padding: .1rem .4rem;
+    border-radius: 6px;
+    background: rgba(11, 38, 30, 0.06);
+    border: 1px solid rgba(11, 38, 30, 0.1);
+    color: inherit;
+    font: 600 .72rem/1.4 "Geist", system-ui, sans-serif;
+    text-align: center;
+    box-shadow: none;
+}
+[data-bs-theme="dark"] .qnPanel kbd { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); }
+
+.qnList { overflow-y: auto; padding: .4rem .5rem .6rem; overscroll-behavior: contain; }
+.qnGroup {
+    padding: .75rem .75rem .3rem;
+    font-size: .72rem;
+    font-weight: 650;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #6b7a73;
+}
+.qnItem {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr) 1rem;
+    align-items: center;
+    gap: .8rem;
+    padding: .55rem .75rem;
+    border-radius: 12px;
+    color: inherit;
+    text-decoration: none;
+    scroll-margin: .5rem;
+}
+.qnItem:hover, .qnItem.isActive { background: rgba(27, 106, 85, 0.09); color: inherit; }
+[data-bs-theme="dark"] .qnItem:hover, [data-bs-theme="dark"] .qnItem.isActive { background: rgba(108, 201, 171, 0.12); }
+.qnIcon {
+    display: grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 10px;
+    background: rgba(27, 106, 85, 0.1);
+    color: #1b6a55;
+    transition: background .2s, color .2s;
+}
+.qnItem.isActive .qnIcon { background: #1b6a55; color: #fff; }
+[data-bs-theme="dark"] .qnIcon { background: rgba(108, 201, 171, 0.14); color: #6cc9ab; }
+[data-bs-theme="dark"] .qnItem.isActive .qnIcon { background: #6cc9ab; color: #0b261e; }
+.qnText { display: flex; flex-direction: column; min-width: 0; }
+.qnText b { font-weight: 600; }
+.qnText small { color: #6b7a73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-bs-theme="dark"] .qnText small, [data-bs-theme="dark"] .qnGroup { color: #97a69f; }
+.qnGo { opacity: 0; color: #1b6a55; transform: translateX(-4px); transition: opacity .2s, transform .25s; }
+.qnItem.isActive .qnGo { opacity: 1; transform: none; }
+[data-bs-theme="dark"] .qnGo { color: #6cc9ab; }
+.qnEmpty { padding: 1.5rem 1rem; text-align: center; color: #6b7a73; }
+.qnFoot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.25rem;
+    padding: .65rem 1.15rem;
+    border-top: 1px solid rgba(11, 38, 30, 0.08);
+    font-size: .8rem;
+    color: #6b7a73;
+}
+[data-bs-theme="dark"] .qnFoot { border-color: rgba(255, 255, 255, 0.08); }
+.qnFoot kbd { margin-right: .15rem; }
+
+@media (max-width: 575.98px) {
+    .qnBackdrop { padding: .75rem .5rem; align-items: flex-start; }
+    .qnPanel { max-height: calc(100dvh - 1.5rem); border-radius: 18px; }
+    .qnEsc, .qnFoot { display: none; }
+}
+
+/* Telefonon: a Menü lap tetején */
+.qnMobBtn {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    width: 100%;
+    margin: 0 0 .75rem;
+    padding: .8rem 1rem;
+    border-radius: 14px;
+    border: 1px solid var(--ip-border, #dbe2dc);
+    background: var(--ip-surface-2, #e9eee9);
+    color: var(--ip-muted, #55635c);
+    font-size: .98rem;
+    text-align: left;
+}
+.qnMobBtn i { color: var(--ip-accent, #1b6a55); }
+
+/* ==========================================================================
+   APRÓSÁGOK: egységes visszajelzés a gombokon, fókusz, kijelölés
+   ========================================================================== */
+
+body:not([data-page="admin"]) .btn { transition: transform .2s cubic-bezier(.2, .8, .2, 1), background-color .2s, border-color .2s, color .2s, box-shadow .2s; }
+body:not([data-page="admin"]) .btn:active:not(:disabled) { transform: scale(.97); }
+body:not([data-page="admin"]) .btn-primary:hover { box-shadow: 0 10px 24px -14px rgba(27, 106, 85, 0.9); }
+body:not([data-page="admin"]) ::selection { background: rgba(159, 220, 196, 0.55); color: #0b261e; }
+body:not([data-page="admin"]) :focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+
+/* A fejléc kérdőjel gombja most a gyorsindítót nyitja: jelezzük, hogy kereső */
+.navHelpBtn { position: relative; }
+
+/* ==========================================================================
+   CSÖKKENTETT MOZGÁS: minden azonnal, mozgás nélkül
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    html .ipRv, html .ipRv.ipRvIn, .ipContourSm path, .areaBar, .homeAreas li, .favEmptyIcon,
+    .favGrid > [class*="col"].favLeaving { animation: none !important; opacity: 1 !important; transform: none !important; }
+    .ipSkeleton span, .ipSkeleton i { animation: none; }
+    body:not([data-page="admin"]) .ipCard, body:not([data-page="admin"]) .ipCard:hover,
+    body:not([data-page="admin"]) .kpiCard:hover, body:not([data-page="admin"]) .btn:active { transform: none; transition: none; }
+    .favUndo, .qnPanel, .qnBackdrop { transition: none; }
+    body:not([data-page="admin"]) .catTile:hover img { transform: none; }
+}
+
+/* ---------- Javítások: sötét sávon lévő fülek, címek ---------- */
+body:not([data-page="admin"]) .page .pageHeader .marketTabs { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(231, 241, 236, 0.14); }
+body:not([data-page="admin"]) .page .pageHeader .marketTabs .nav-link { color: var(--ev-muted); }
+body:not([data-page="admin"]) .page .pageHeader .marketTabs .nav-link:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+body:not([data-page="admin"]) .page .pageHeader .marketTabs .nav-link.active { background: var(--mint); color: var(--ev-900); box-shadow: none; }
+body:not([data-page="admin"]) .page .pageHeader .marketTabs .nav-link.active i { color: var(--ev-900); }
+body:not([data-page="admin"]) .homeSellBand .sellBandText h2 { color: #fff; }
+body:not([data-page="admin"]) .homeSub { margin: 0; }
+body:not([data-page="admin"]) .homeFeatured .homeSectionHead .homeH2 { margin-bottom: .35rem; }
+
+/* ---------- Csomagok: a fejléc is örökzöld sáv ---------- */
+body:not([data-page="admin"]) .page .prHero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: radial-gradient(120% 140% at 100% 0%, rgba(159, 220, 196, 0.16) 0%, transparent 55%), var(--ev-900);
+    color: var(--ev-text);
+    border-radius: var(--r-panel);
+    padding: clamp(1.35rem, 1rem + 1.6vw, 2.25rem) clamp(1.25rem, .9rem + 1.8vw, 2.5rem);
+    margin-bottom: 1.5rem;
+    align-items: flex-end;
+}
+body:not([data-page="admin"]) .page .prHero h1 { color: #fff; font-family: var(--ip-display); font-stretch: 112%; font-weight: 640; letter-spacing: -0.035em; }
+body:not([data-page="admin"]) .page .prHero p { color: var(--ev-muted); }
+body:not([data-page="admin"]) .page .prHero .prEyebrow { background: rgba(159, 220, 196, 0.14); color: var(--mint); }
+body:not([data-page="admin"]) .page .prHero .prSwitch { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(231, 241, 236, 0.14); }
+body:not([data-page="admin"]) .page .prHero .prSwitch button { color: var(--ev-muted); background: transparent; }
+body:not([data-page="admin"]) .page .prHero .prSwitch button:hover { color: #fff; }
+body:not([data-page="admin"]) .page .prHero .prSwitch button.active { background: var(--mint); color: var(--ev-900); box-shadow: none; }
+[data-bs-theme="dark"] body:not([data-page="admin"]) .page .prHero { background: radial-gradient(120% 140% at 100% 0%, rgba(159, 220, 196, 0.12) 0%, transparent 55%), var(--ev-800); }
+.qnHead input:focus, .qnHead input:focus-visible { outline: 0; box-shadow: none; }
+
+/* Súgó telefonon: egy oszlop (a v14 felülírta, ezért kilógott jobbra) */
+@media (max-width: 991.98px) {
+    body[data-page="sugo"] .helpLayout { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+}
+.helpTopicGrid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+.qnHead:focus-within { box-shadow: inset 0 -2px 0 #1b6a55; }
+[data-bs-theme="dark"] .qnHead:focus-within { box-shadow: inset 0 -2px 0 #6cc9ab; }

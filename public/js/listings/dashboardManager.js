@@ -7,7 +7,7 @@ class DashboardManager {
         // Az átlagokba csak az ellenőrzött hirdetések számítanak
         const ervenyes = Utils.valid(lista).filter(Utils.verified);
 
-        document.getElementById("dbCount").innerText = Utils.num(lista.length);
+        Utils.szam(document.getElementById("dbCount"), Utils.num(lista.length));
         // A 4. kártya: fényképes hirdetések száma – ha egy sincs, inkább az elmúlt 7 nap új hirdetései
         // („Fényképes: 0” rosszul mutatna a látogatónak)
         const fotos = lista.filter(Utils.hasPhoto).length;
@@ -20,7 +20,7 @@ class DashboardManager {
         cimke.setAttribute("data-i18n", mutatFoto ? "dbFotos" : "dbNewWeek");
         cimke.innerText = I18n.t(mutatFoto ? "dbFotos" : "dbNewWeek");
         ikon.className = mutatFoto ? "fa-solid fa-camera" : "fa-solid fa-bolt";
-        kartya.innerText = Utils.num(mutatFoto ? fotos : uj);
+        Utils.szam(kartya, Utils.num(mutatFoto ? fotos : uj));
 
         if (ervenyes.length === 0) {
 
@@ -36,8 +36,8 @@ class DashboardManager {
 
         DashboardManager.lastAvgArNm = atlagArNm;
 
-        document.getElementById("dbPrice").innerText = Utils.price({ ar: atlagAr, ugylet: FilterManager.ugylet });
-        document.getElementById("dbNm").innerText = Utils.eurNm(atlagArNm);
+        Utils.szam(document.getElementById("dbPrice"), Utils.price({ ar: atlagAr, ugylet: FilterManager.ugylet }));
+        Utils.szam(document.getElementById("dbNm"), Utils.eurNm(atlagArNm));
 
     }
 

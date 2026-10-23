@@ -796,7 +796,13 @@ async function figyelesFuttat(job, opts) {
             job.varosok = opts.varosok;
         }
 
-        params.push(opts.limit || (teljesVaros ? 20000 : 100));
+        // Csak egy forrásoldal hirdetései (pl. --forras imobiliare a gépről indítva)
+        if (opts.forras) {
+            params.push(String(opts.forras).replace(/[^a-z0-9.-]/gi, ""));
+            felt.push(`link ILIKE '%' || $${params.length} || '%'`);
+        }
+
+        params.push(opts.limit || (teljesVaros || opts.forras ? 20000 : 100));
 
         // Amit már tudunk: az Imoradar24-re mutató hirdetés további linkjei között ott az
         // eredeti hirdetés -> az lesz a fő link (így ebben a futásban már azt nézzük meg)

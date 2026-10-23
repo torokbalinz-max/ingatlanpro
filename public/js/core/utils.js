@@ -75,6 +75,13 @@ class Utils {
     }
 
     // Más oldal képe a saját szerverünkön keresztül (így nem tiltható le)
+    // Számláló írása (a motion.js-sel az új értékre pörög, nélküle azonnal)
+    static szam(el, szoveg) {
+        if (!el) return;
+        if (typeof IpMotion !== "undefined" && IpMotion.szamIr) IpMotion.szamIr(el, szoveg);
+        else el.innerText = szoveg;
+    }
+
     static imgUrl(u) {
         if (!u) return null;
         return /^https?:\/\//i.test(u) ? "/api/img?u=" + encodeURIComponent(u) : u;

@@ -413,7 +413,7 @@ class FilterManager {
 
         DataManager.szurtIngatlanok = lista;
 
-        document.getElementById("searchResultCount").innerText = lista.length;
+        Utils.szam(document.getElementById("searchResultCount"), String(lista.length));
         const mob = document.getElementById("searchResultCountMobile");
         if (mob) mob.innerText = lista.length;
 
