@@ -92,6 +92,9 @@ class AuthManager {
             // Kikapcsolt értékesítés: minden rá mutató link / menüpont rejtve (css: body.noSales)
             document.body.classList.toggle("noSales", !Utils.ertekesites());
 
+            // AI asszisztens (csevegő): csak ha van hozzá kulcs, és be van kapcsolva
+            if (typeof ChatWidget !== "undefined") ChatWidget.indit();
+
             AuthManager.setMe(me);
 
             if (AuthManager.resetToken) {

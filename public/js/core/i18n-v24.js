@@ -1,0 +1,113 @@
+// ============================================================
+//  Szövegek (24. változat): AI asszisztens (csevegő)
+// ============================================================
+
+(() => {
+
+    const V24 = {
+        hu: {
+            chatFab: "Kérdezz",
+            chatTitle: "IngatlanPro asszisztens",
+            chatSubtitle: "AI, a mi hirdetéseinkből válaszol",
+            chatNew: "Új beszélgetés",
+            chatClose: "Bezárás",
+            chatSend: "Küldés",
+            chatPlaceholder: "Írd le, mit keresel…",
+            chatNote: "AI válasz, tévedhet. Ne írj be személyes adatot.",
+            chatPrivacy: "Adatvédelem",
+            chatWelcome: "Szia! Segítek ingatlant találni, árakat összevetni és eligazodni az oldalon. Írd le, mit keresel: város, típus, ár, szobák.",
+            chatSug1: "2 szobás lakás 80 000 € alatt, {v}",
+            chatSug2: "Melyik városrész a legolcsóbb, {v}?",
+            chatSug3: "Mennyit ér egy 60 m²-es lakás, {v}?",
+            chatSug4: "Hogyan adhatok fel hirdetést?",
+            chatThinking: "Gondolkodom…",
+            chatRooms: "{n} szoba",
+            chatSeeAll: "Mind a {n} találat",
+            chatCardsAria: "Talált hirdetések",
+            chatErrTooMany: "Most túl sok kérdés érkezett tőled. Próbáld újra pár perc múlva.",
+            chatErrDaily: "Az asszisztens mára elérte a napi keretét. Holnap újra elérhető; addig a keresőt és a Súgót használhatod.",
+            chatErrBusy: "Az AI szolgáltatás most túlterhelt. Próbáld újra egy perc múlva.",
+            chatErrOff: "Az asszisztens most ki van kapcsolva.",
+            chatErrGeneric: "Most nem sikerült válaszolnom. Próbáld újra, vagy nézd meg a [Súgót](#sugo).",
+            chatErrNetwork: "Nincs kapcsolat a szerverrel. Ellenőrizd az internetet, és próbáld újra.",
+            qnChat: "Kérdezd az asszisztenst",
+            qnChatDesc: "AI válaszol a hirdetéseink alapján",
+            wsFeatChat: "AI asszisztens (csevegő) a látogatóknak",
+            wsFeatChatHelp: "A jobb alsó sarokban: hirdetéseket keres, árakat mond el a saját adatainkból, és eligazít az oldalon. Az ANTHROPIC_API_KEY kulccsal működik; a beszélgetéseket nem tároljuk.",
+            wsFeatChatNoKey: "Nincs AI-kulcs a szerveren (Render → Environment → ANTHROPIC_API_KEY), ezért most nem látszik.",
+            wsFeatChatOn: "Az asszisztens bekapcsolva.",
+            wsFeatChatOff: "Az asszisztens kikapcsolva."
+        },
+        en: {
+            chatFab: "Ask",
+            chatTitle: "IngatlanPro assistant",
+            chatSubtitle: "AI, answers from our listings",
+            chatNew: "New conversation",
+            chatClose: "Close",
+            chatSend: "Send",
+            chatPlaceholder: "Tell me what you are looking for…",
+            chatNote: "AI answer, it can be wrong. Do not type personal data.",
+            chatPrivacy: "Privacy",
+            chatWelcome: "Hi! I can help you find a property, compare prices and find your way around the site. Tell me what you are looking for: city, type, price, rooms.",
+            chatSug1: "2-room flat under 80,000 € in {v}",
+            chatSug2: "Which neighbourhood is the cheapest in {v}?",
+            chatSug3: "What is a 60 m² flat worth in {v}?",
+            chatSug4: "How do I post a listing?",
+            chatThinking: "Thinking…",
+            chatRooms: "{n} rooms",
+            chatSeeAll: "All {n} results",
+            chatCardsAria: "Listings found",
+            chatErrTooMany: "Too many questions from you right now. Please try again in a few minutes.",
+            chatErrDaily: "The assistant has reached its daily limit. It will be back tomorrow; until then you can use the search and the Help.",
+            chatErrBusy: "The AI service is busy right now. Please try again in a minute.",
+            chatErrOff: "The assistant is switched off right now.",
+            chatErrGeneric: "I could not answer this time. Please try again, or have a look at the [Help](#sugo).",
+            chatErrNetwork: "No connection to the server. Check your internet and try again.",
+            qnChat: "Ask the assistant",
+            qnChatDesc: "AI answers based on our listings",
+            wsFeatChat: "AI assistant (chat) for visitors",
+            wsFeatChatHelp: "In the bottom right corner: searches listings, quotes prices from our own data and helps visitors find their way. Works with the ANTHROPIC_API_KEY; conversations are not stored.",
+            wsFeatChatNoKey: "There is no AI key on the server (Render → Environment → ANTHROPIC_API_KEY), so it is not shown now.",
+            wsFeatChatOn: "Assistant switched on.",
+            wsFeatChatOff: "Assistant switched off."
+        },
+        ro: {
+            chatFab: "Întreabă",
+            chatTitle: "Asistentul IngatlanPro",
+            chatSubtitle: "AI, răspunde din anunțurile noastre",
+            chatNew: "Conversație nouă",
+            chatClose: "Închide",
+            chatSend: "Trimite",
+            chatPlaceholder: "Scrie ce cauți…",
+            chatNote: "Răspuns AI, poate greși. Nu scrie date personale.",
+            chatPrivacy: "Confidențialitate",
+            chatWelcome: "Salut! Te ajut să găsești o proprietate, să compari prețuri și să te orientezi pe site. Scrie ce cauți: oraș, tip, preț, camere.",
+            chatSug1: "Apartament cu 2 camere sub 80.000 €, {v}",
+            chatSug2: "Care este cel mai ieftin cartier din {v}?",
+            chatSug3: "Cât valorează un apartament de 60 m² în {v}?",
+            chatSug4: "Cum public un anunț?",
+            chatThinking: "Mă gândesc…",
+            chatRooms: "{n} camere",
+            chatSeeAll: "Toate cele {n} rezultate",
+            chatCardsAria: "Anunțuri găsite",
+            chatErrTooMany: "Prea multe întrebări acum. Încearcă din nou peste câteva minute.",
+            chatErrDaily: "Asistentul a atins limita zilnică. Revine mâine; până atunci poți folosi căutarea și Ajutorul.",
+            chatErrBusy: "Serviciul AI este ocupat acum. Încearcă din nou peste un minut.",
+            chatErrOff: "Asistentul este oprit acum.",
+            chatErrGeneric: "Nu am reușit să răspund acum. Încearcă din nou sau vezi [Ajutorul](#sugo).",
+            chatErrNetwork: "Nu există conexiune cu serverul. Verifică internetul și încearcă din nou.",
+            qnChat: "Întreabă asistentul",
+            qnChatDesc: "AI răspunde pe baza anunțurilor noastre",
+            wsFeatChat: "Asistent AI (chat) pentru vizitatori",
+            wsFeatChatHelp: "În colțul din dreapta jos: caută anunțuri, spune prețuri din datele noastre și ajută vizitatorii să se orienteze. Funcționează cu ANTHROPIC_API_KEY; conversațiile nu sunt stocate.",
+            wsFeatChatNoKey: "Pe server nu există cheie AI (Render → Environment → ANTHROPIC_API_KEY), de aceea acum nu apare.",
+            wsFeatChatOn: "Asistent pornit.",
+            wsFeatChatOff: "Asistent oprit."
+        }
+    };
+
+    Object.keys(V24).forEach(nyelv => {
+        I18N_STRINGS[nyelv] = Object.assign(I18N_STRINGS[nyelv] || {}, V24[nyelv]);
+    });
+
+})();

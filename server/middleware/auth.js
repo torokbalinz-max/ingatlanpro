@@ -33,7 +33,10 @@ const MINDIG_NYITOTT = [/^\/api\/me$/, /^\/api\/config$/, /^\/api\/auth\//,
     // Reklámfelületek: a megjelenések számolása (sütik és személyes adat nélkül)
     /^\/api\/reklam\/megjelenes$/,
     // Reklámfelület-bérlési kérés (az "Érdeklődöm" űrlap) – IP-nként korlátozva
-    /^\/api\/reklam\/keres$/];
+    /^\/api\/reklam\/keres$/,
+    // AI asszisztens (csevegő): vendégként is – korlátozva (services/chatbot.js); privát
+    // módban (NYILVANOS=0) a route maga kér belépést
+    /^\/api\/chat$/];
 
 function nyilvanosMod() {
     return !/^(0|false|nem|no|privat|privát)$/i.test(String(process.env.NYILVANOS || "").trim());

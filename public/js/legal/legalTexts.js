@@ -177,7 +177,7 @@ ${c.ceg ? `<li>Fogyasztói panasz esetén a Nemzeti Fogyasztóvédelmi Hatóság
 ${c.mail === "brevo" ? "<li><b>Brevo (Sendinblue SAS)</b> (Franciaország, EU) – e-mail értesítések küldése.</li>" : ""}
 ${c.mail === "resend" ? "<li><b>Resend, Inc.</b> (USA) – e-mail értesítések küldése.</li>" : ""}
 ${c.google ? "<li><b>Google Ireland Ltd.</b> / Google LLC – Google-belépés (csak ha használod, és a Google-gombhoz hozzájárultál).</li>" : ""}
-${c.ai ? "<li><b>Anthropic PBC</b> (USA) – az átvett hirdetések szövegének mesterséges intelligenciával segített ellenőrzése (felhasználói fiókadatot nem kap).</li>" : ""}
+${c.ai ? "<li><b>Anthropic PBC</b> (USA) – az átvett hirdetések szövegének mesterséges intelligenciával segített ellenőrzése (felhasználói fiókadatot nem kap), és az oldal AI asszisztense: amit a csevegőbe írsz, az a válaszhoz hozzá kerül. A beszélgetést mi nem tároljuk, fiókadatot nem küldünk; ezért kérjük, ne írj be személyes adatot.</li>" : ""}
 <li><b>OpenStreetMap Foundation</b> (Egyesült Királyság) – térképcsempék és címek helymeghatározása (a térkép betöltésekor az IP-címedet látja; hirdetéseknél a címet kapja meg).</li>
 <li><b>jsDelivr</b> és <b>cdnjs (Cloudflare)</b> – a weboldal programkönyvtárainak kiszolgálása (IP-cím); <b>Unsplash</b> – a kezdőlap illusztrációs fotói (IP-cím).</li>
 <li>Hatóságok – csak jogszabályi kötelezettség alapján.</li>
@@ -419,7 +419,7 @@ ${c.ceg ? `<li>Pentru reclamații ale consumatorilor vă puteți adresa ANPC (<a
 ${c.mail === "brevo" ? "<li><b>Brevo (Sendinblue SAS)</b> (Franța, UE) – trimiterea notificărilor prin e-mail.</li>" : ""}
 ${c.mail === "resend" ? "<li><b>Resend, Inc.</b> (SUA) – trimiterea notificărilor prin e-mail.</li>" : ""}
 ${c.google ? "<li><b>Google Ireland Ltd.</b> / Google LLC – autentificarea cu Google (doar dacă o folosiți și ați consimțit la butonul Google).</li>" : ""}
-${c.ai ? "<li><b>Anthropic PBC</b> (SUA) – verificarea textului anunțurilor preluate cu ajutorul inteligenței artificiale (nu primește date din conturile utilizatorilor).</li>" : ""}
+${c.ai ? "<li><b>Anthropic PBC</b> (SUA) – verificarea textului anunțurilor preluate cu ajutorul inteligenței artificiale (nu primește date din conturile utilizatorilor) și asistentul AI al site-ului: ce scrii în chat ajunge la el pentru a genera răspunsul. Noi nu stocăm conversația și nu trimitem date din cont; de aceea te rugăm să nu scrii date personale.</li>" : ""}
 <li><b>OpenStreetMap Foundation</b> (Regatul Unit) – hărți și geocodarea adreselor (la încărcarea hărții vede adresa IP; pentru anunțuri primește adresa).</li>
 <li><b>jsDelivr</b> și <b>cdnjs (Cloudflare)</b> – livrarea bibliotecilor site-ului (adresa IP); <b>Unsplash</b> – fotografiile ilustrative de pe pagina principală (adresa IP).</li>
 <li>Autorități – doar în baza unei obligații legale.</li>
@@ -661,7 +661,7 @@ ${c.ceg ? `<li>For consumer complaints you may also contact ANPC (<a href="https
 ${c.mail === "brevo" ? "<li><b>Brevo (Sendinblue SAS)</b> (France, EU) – sending e-mail notifications.</li>" : ""}
 ${c.mail === "resend" ? "<li><b>Resend, Inc.</b> (USA) – sending e-mail notifications.</li>" : ""}
 ${c.google ? "<li><b>Google Ireland Ltd.</b> / Google LLC – Google sign-in (only if you use it and consented to the Google button).</li>" : ""}
-${c.ai ? "<li><b>Anthropic PBC</b> (USA) – AI-assisted checking of the text of imported listings (receives no user account data).</li>" : ""}
+${c.ai ? "<li><b>Anthropic PBC</b> (USA) – AI-assisted checking of the text of imported listings (receives no user account data), and the site's AI assistant: what you type into the chat is sent to it to generate the answer. We do not store the conversation and send no account data; please do not type personal data.</li>" : ""}
 <li><b>OpenStreetMap Foundation</b> (United Kingdom) – map tiles and address geocoding (sees your IP address when the map loads; receives listing addresses).</li>
 <li><b>jsDelivr</b> and <b>cdnjs (Cloudflare)</b> – delivering the site's libraries (IP address); <b>Unsplash</b> – illustrative photos on the home page (IP address).</li>
 <li>Authorities – only under a legal obligation.</li>

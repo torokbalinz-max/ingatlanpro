@@ -716,6 +716,13 @@ function pageUrl(url, n) {
 
 async function scrape(url) {
     const p = await fetchPage(url);
+    // A hirdetésről máshová (pl. a város keresőoldalára) irányított át: levették.
+    // FONTOS: ezt a válasz kódja előtt nézzük – az imobiliare.ro a levett hirdetést a
+    // keresőoldalra irányítja, és a keresőoldal sütik nélkül 403-at ad (élőben
+    // ellenőrizve 2026-10-23). Eddig ezt "letiltásnak" vettük, és a hirdetés fent maradt.
+    if (p.finalUrl && p.finalUrl !== url && isListingUrl(url) && !isListingUrl(p.finalUrl)) {
+        return { link: url, elerheto: false, kulso_kepek: [], forrasok: {} };
+    }
     if (p.status === 404 || p.status === 410) {
         return { link: url, elerheto: false, kulso_kepek: [], forrasok: {} };
     }

@@ -6,12 +6,14 @@
 //    (#erdeklodes) oldala, a megtekintés-foglalás / ajánlat a hirdetéseken,
 //    az admin „Értékesítés” modulja és az automatikus értesítők.
 //    Kikapcsolva semmi nem törlődik – visszakapcsolva minden ott folytatódik.
+//  chatbot: az AI asszisztens (csevegő) a nyilvános oldalon (services/chatbot.js) –
+//    csak ha van ANTHROPIC_API_KEY.
 // ============================================================
 
 const db = require("../db/database");
 
 const KULCS = "funkciok";
-const ALAP = { ertekesites: true };
+const ALAP = { ertekesites: true, chatbot: true };
 
 let cache = null;
 const CACHE_MS = 30 * 1000;

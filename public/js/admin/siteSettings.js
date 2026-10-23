@@ -130,6 +130,11 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
                             <label class="form-check-label" for="wsErtekesites"><b>${I18n.t("wsFeatSales")}</b></label>
                         </div>
                         <p class="small text-body-secondary mb-0 mt-1">${I18n.t("wsFeatSalesHelp")}</p>
+                        <div class="form-check form-switch mt-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="wsChatbot" ${(AuthManager.config.funkciok || {}).chatbot !== false ? "checked" : ""}>
+                            <label class="form-check-label" for="wsChatbot"><b>${I18n.t("wsFeatChat")}</b></label>
+                        </div>
+                        <p class="small text-body-secondary mb-0 mt-1">${I18n.t("wsFeatChatHelp")}${AuthManager.config.chatbot ? "" : ` <span class="text-warning-emphasis">${I18n.t("wsFeatChatNoKey")}</span>`}</p>
                         <div class="small mt-2" id="wsFunkMsg"></div>
                     </div>
                 </div>
@@ -171,6 +176,20 @@ AdminManager.drawSiteSettings = function (a, adminEmail) {
             })
             .catch(() => { funk.checked = !funk.checked; alert(I18n.t("alertSaveError")); })
             .finally(() => { funk.disabled = false; });
+    };
+
+    const chat = box.querySelector("#wsChatbot");
+    if (chat) chat.onchange = () => {
+        chat.disabled = true;
+        fetch("/api/admin/funkciok", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatbot: chat.checked }) })
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(v => {
+                AuthManager.config.funkciok = v.adat;
+                if (typeof ChatWidget !== "undefined") ChatWidget.indit();
+                box.querySelector("#wsFunkMsg").innerHTML = `<i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${I18n.t(v.adat.chatbot ? "wsFeatChatOn" : "wsFeatChatOff")}`;
+            })
+            .catch(() => { chat.checked = !chat.checked; alert(I18n.t("alertSaveError")); })
+            .finally(() => { chat.disabled = false; });
     };
 
     const form = document.getElementById("wsForm");

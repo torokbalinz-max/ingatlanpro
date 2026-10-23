@@ -34,6 +34,7 @@ class QuickNav {
         { csop: "qnGrpAccount", icon: "fa-solid fa-id-card", cim: "accTabProfil", leiras: "qnProfileDesc", hova: "fiok/profil", login: true, kulcs: "profile profil password jelszo" },
         { csop: "qnGrpAccount", icon: "fa-solid fa-user-shield", cim: "menuAdmin", leiras: "qnAdminDesc", hova: "admin", admin: true, kulcs: "admin" },
 
+        { csop: "qnGrpHelp", icon: "fa-solid fa-comments", cim: "qnChat", leiras: "qnChatDesc", hova: "chat", chat: true, kulcs: "ai chat asszisztens kerdes asistent intrebare bot" },
         { csop: "qnGrpHelp", icon: "fa-solid fa-circle-question", cim: "menuSugo", leiras: "menuSugoDesc", hova: "sugo", kulcs: "help sugo ajutor" },
         { csop: "qnGrpHelp", icon: "fa-solid fa-scale-balanced", cim: "qnLegal", leiras: "qnLegalDesc", hova: "jogi/aszf", kulcs: "terms aszf feltetelek gdpr adatvedelem cookie suti termeni" }
     ];
@@ -53,6 +54,7 @@ class QuickNav {
             .filter(p => !p.sales || Utils.ertekesites())
             .filter(p => !p.admin || AuthManager.isAdmin())
             .filter(p => !p.login || belepve)
+            .filter(p => !p.chat || (typeof ChatWidget !== "undefined" && ChatWidget.be()))
             .map(p => ({ ...p, cimSz: t(p.cim), leirasSz: t(p.leiras), csopSz: t(p.csop) }));
 
         // A súgó témái (a súgó oldal tartalma)
@@ -203,6 +205,7 @@ class QuickNav {
 
     static menj(hova) {
         QuickNav.zar();
+        if (hova === "chat" && typeof ChatWidget !== "undefined") { ChatWidget.nyit(); return; }
         PageManager.show(hova);
     }
 

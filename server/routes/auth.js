@@ -45,6 +45,8 @@ router.get("/api/config", async (req, res) => {
             google: !!process.env.GOOGLE_CLIENT_ID,
             ai: !!process.env.ANTHROPIC_API_KEY
         },
+        // AI asszisztens (csevegő): van-e hozzá kulcs (a ki/bekapcsolás a funkciok.chatbot)
+        chatbot: require("../services/chatbot").elerheto(),
         allapotok: allapotLista,
         uzemelteto,
         // Ki/bekapcsolható részek (Admin → Webhely adatai → Funkciók)
