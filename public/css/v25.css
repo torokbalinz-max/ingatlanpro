@@ -167,13 +167,4 @@
     .fsTabla td:nth-child(1), .fsTabla td:nth-child(3), .fsTabla td:nth-child(4) { width: auto; }
 }
 
-/* ---- Fejléc: „Több” két oszlop, új „Szakembereknek” lenyíló ---- */
-.navPanelTobb { width: 540px; margin-left: -270px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (max-width: 1279.98px) {
-    .navPanelTobb { width: min(540px, calc(100vw - 16px)); margin-left: -270px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-.navPanelPro { width: 360px; min-width: 0; right: 0; left: auto; margin-left: 0; }
-.navGroupPro .navGroupBtn { position: relative; }
-.navGroupPro .navAdminCount { position: static; margin-left: .3rem; }
-.navPanelPro .navPanelItem .badge { align-self: center; }
 .fsForras.f-publi24 { background: #fdeef3; color: #8f1f4a; }

@@ -265,3 +265,19 @@ class PageManager {
         return r;
     };
 })();
+
+// „Irodám kezelése” a fiókmenüben csak annak, aki egy ingatlaniroda tagja vagy meghívást kapott –
+// az átlagos felhasználót ne zavarja (irodát regisztrálni az Ingatlanirodák oldalon lehet)
+(() => {
+    if (typeof AuthManager === "undefined" || AuthManager.__irodaHorog) return;
+    AuthManager.__irodaHorog = true;
+    const eredeti = AuthManager.apply;
+    AuthManager.apply = function () {
+        const r = eredeti.apply(this, arguments);
+        try {
+            const van = (AuthManager.irodak || []).length > 0 || (AuthManager.irodaMeghivasok || []).length > 0;
+            document.querySelectorAll(".agency-only").forEach(el => { el.hidden = !(AuthManager.loggedIn() && van); });
+        } catch (e) { /* nem baj */ }
+        return r;
+    };
+})();

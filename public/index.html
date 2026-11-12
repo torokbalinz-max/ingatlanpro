@@ -88,6 +88,7 @@
             <a class="navLink nvXL" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i><span data-i18n="mapTitle">Térkép</span></a>
             <a class="navLink nvXL" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator" aria-hidden="true"></i><span data-i18n="menuErtekbecslo">Értékbecslő</span></a>
             <a class="navLink navLinkFeature" href="#eladjuk" data-page="eladjuk"><i class="fa-solid fa-key" aria-hidden="true"></i><span data-i18n="menuEladjuk">Eladjuk helyetted</span></a>
+            <a class="navLink" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags" aria-hidden="true"></i><span data-i18n="menuCsomagok">Csomagok és árak</span></a>
 
             <!-- Több: témák szerint, fejlécekkel (keskenyebb képernyőn a Térkép és az Értékbecslő is ide kerül) -->
             <div class="navGroup" data-group="tobb">
@@ -109,26 +110,15 @@
                             <a class="navPanelItem" role="menuitem" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
                         </div>
                     </div>
-                    <a class="navTobbSugo" role="menuitem" href="#sugo"><i class="fa-solid fa-circle-question" aria-hidden="true"></i> <span data-i18n="menuSugo">Súgó</span></a>
-                </div>
-            </div>
-
-            <!-- Szakembereknek: ami az átlagos látogatónak nem kell – ingatlanirodák, csomagok,
-                 irodai fiók, admin (az admin ikon és a fiókmenü admin / irodám pontja helyett) -->
-            <div class="navGroup navGroupPro" data-group="pro">
-                <button class="navLink navGroupBtn" type="button" aria-expanded="false" aria-haspopup="true">
-                    <i class="fa-solid fa-briefcase" aria-hidden="true"></i><span data-i18n="navPros">Szakembereknek</span><span class="navAdminCount" id="navAdminCount" hidden></span><i class="fa-solid fa-chevron-down navCaret" aria-hidden="true"></i>
-                </button>
-                <div class="navPanel navPanelPro" role="menu">
                     <div class="navTobbOszlop">
-                        <h6 class="navMenuHead" data-i18n="navProsHead">Irodáknak, ingatlanosoknak</h6>
+                        <h6 class="navMenuHead" data-i18n="navHeadPros">Hirdetőknek</h6>
                         <div class="navPanelList">
-                            <a class="navPanelItem" role="menuitem" href="#irodak" data-page="irodak"><i class="fa-solid fa-building"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
-                            <a class="navPanelItem" role="menuitem" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
-                            <a class="navPanelItem" role="menuitem" href="#iroda" data-page="iroda"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="proAgencyAccount">Irodai fiók</b><small data-i18n="proAgencyAccountDesc">Iroda regisztrálása, ügynökök, az iroda hirdetései</small></span><span class="badge text-bg-danger ms-auto navInviteCount" hidden></span></a>
-                            <a class="navPanelItem panel-only" hidden role="menuitem" href="#admin" data-page="admin"><i class="fa-solid fa-user-shield"></i><span><b data-i18n="menuAdmin">Admin</b><small data-i18n="proAdminDesc">Hirdetések kezelése, források, pénzügy, beállítások</small></span></a>
+                            <a class="navPanelItem" role="menuitem" href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
+                            <!-- keskeny laptopon / iPaden fekve (992–1099 px) a Csomagok is ide kerül (v22.css) -->
+                            <a class="navPanelItem nvCsomag" role="menuitem" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
                         </div>
                     </div>
+                    <a class="navTobbSugo" role="menuitem" href="#sugo"><i class="fa-solid fa-circle-question" aria-hidden="true"></i> <span data-i18n="menuSugo">Súgó</span></a>
                 </div>
             </div>
 
@@ -153,11 +143,8 @@
                     <h6 class="navMenuHead" data-i18n="navGrpMarket">Piac</h6>
                     <a class="dropdown-item" href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
                     <a class="dropdown-item" href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a>
-                    <h6 class="navMenuHead" data-i18n="navPros">Szakembereknek</h6>
-                    <a class="dropdown-item" href="#irodak" data-page="irodak"><i class="fa-solid fa-building"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
+                    <a class="dropdown-item" href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
                     <a class="dropdown-item" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
-                    <a class="dropdown-item" href="#iroda" data-page="iroda"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="proAgencyAccount">Irodai fiók</b><small data-i18n="proAgencyAccountDesc">Iroda regisztrálása, ügynökök, az iroda hirdetései</small></span></a>
-                    <a class="dropdown-item panel-only" hidden href="#admin" data-page="admin"><i class="fa-solid fa-user-shield"></i><span><b data-i18n="menuAdmin">Admin</b><small data-i18n="proAdminDesc">Hirdetések kezelése, források, pénzügy, beállítások</small></span></a>
                 </div>
             </div>
 
@@ -169,6 +156,10 @@
                 <i class="fa-solid fa-plus"></i><span data-i18n="navPost">Hirdetés feladása</span>
             </a>
 
+            <a class="navIconBtn navAdminBtn panel-only" hidden href="#admin" data-page="admin" data-i18n-title="menuAdmin" title="Admin">
+                <i class="fa-solid fa-user-shield"></i>
+                <span class="navAdminCount" id="navAdminCount" hidden></span>
+            </a>
 
             <a class="navIconBtn navHelpBtn" href="#sugo" data-page="sugo" data-i18n-title="menuSugo" title="Súgó" aria-label="Súgó">
                 <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
@@ -215,10 +206,12 @@
                     <li class="seller-only" hidden><a class="dropdown-item fw-semibold" href="#eladas"><i class="fa-solid fa-key"></i> <span data-i18n="el_menu">Ingatlanom eladása</span> <span class="badge text-bg-danger ms-1 navSellCount" hidden></span></a></li>
                     <li><a class="dropdown-item" href="#fiok/hirdetesek"><i class="fa-solid fa-house-user"></i> <span data-i18n="accTabListings">Hirdetéseim</span></a></li>
                     <li><a class="dropdown-item" href="#fiok/csomag"><i class="fa-solid fa-receipt"></i> <span data-i18n="accTabBilling">Csomagom és számláim</span></a></li>
+                    <li class="agency-only" hidden><a class="dropdown-item" href="#iroda"><i class="fa-solid fa-briefcase"></i> <span data-i18n="agMyAgency">Irodám kezelése</span> <span class="badge text-bg-danger ms-1 navInviteCount" hidden></span></a></li>
                     <li><h6 class="dropdown-header" data-i18n="navUserAccount">Fiók</h6></li>
                     <li><a class="dropdown-item" href="#fiok/uzenetek"><i class="fa-solid fa-envelope"></i> <span data-i18n="accTabMessages">Üzenetek</span> <span class="badge text-bg-danger ms-1 navMsgCount2" hidden></span></a></li>
                     <li><a class="dropdown-item" href="#fiok/ertesitesek"><i class="fa-solid fa-bell"></i> <span data-i18n="accTabNotifications">Értesítések</span> <span class="badge text-bg-danger ms-1 navBellCount" hidden></span></a></li>
                     <li><a class="dropdown-item" href="#fiok/profil"><i class="fa-solid fa-id-card"></i> <span data-i18n="accTabProfil">Profil</span></a></li>
+                    <li class="panel-only" hidden><a class="dropdown-item" href="#admin"><i class="fa-solid fa-user-shield"></i> <span data-i18n="menuAdmin">Admin</span></a></li>
                     <li class="adminView-only" hidden><hr class="dropdown-divider"></li>
                     <li class="adminView-only" hidden><button class="dropdown-item" type="button" id="navViewToggle"><i class="fa-solid fa-eye"></i> <span id="navViewLabel" data-i18n="viewAsUser">Felhasználói nézet</span></button></li>
                     <li class="navDarkItem"><button class="dropdown-item" type="button" id="navDarkItem"><i class="fa-solid fa-circle-half-stroke"></i> <span data-i18n="darkModeToggle">Sötét mód</span></button></li>
@@ -256,11 +249,9 @@
             <h6 class="navMenuHead" data-i18n="navHeadMarket">Piac</h6>
             <a href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a>
             <a href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
-            <h6 class="navMenuHead" data-i18n="navPros">Szakembereknek</h6>
-            <a href="#irodak" data-page="irodak"><i class="fa-solid fa-building"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
+            <h6 class="navMenuHead" data-i18n="navHeadPros">Hirdetőknek</h6>
             <a class="mobSheetCsomag" href="#csomagok" data-page="csomagok"><i class="fa-solid fa-tags"></i><span><b data-i18n="menuCsomagok">Csomagok és árak</b><small data-i18n="menuCsomagokDesc">Magánszemélyeknek és irodáknak</small></span></a>
-            <a href="#iroda" data-page="iroda"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="proAgencyAccount">Irodai fiók</b><small data-i18n="proAgencyAccountDesc">Iroda regisztrálása, ügynökök, az iroda hirdetései</small></span><span class="badge text-bg-danger ms-auto navInviteCount" hidden></span></a>
-            <a class="panel-only" hidden href="#admin" data-page="admin"><i class="fa-solid fa-user-shield"></i><span><b data-i18n="menuAdmin">Admin</b><small data-i18n="proAdminDesc">Hirdetések kezelése, források, pénzügy, beállítások</small></span></a>
+            <a href="#irodak" data-page="irodak"><i class="fa-solid fa-briefcase"></i><span><b data-i18n="agDirTitle">Ingatlanirodák</b><small data-i18n="agDirMenuDesc">Ellenőrzött irodák és hirdetéseik</small></span></a>
             <a href="#sugo" data-page="sugo"><i class="fa-solid fa-circle-question"></i><span><b data-i18n="menuSugo">Súgó</b><small data-i18n="menuSugoDesc">Használati útmutató, kérdések</small></span></a>
         </div>
         <div class="mobSheetBeall">
