@@ -202,19 +202,9 @@ async function futtat() {
             if (vege <= ma) {
                 const n = await archival(x, x.keret);
                 await db.query("UPDATE csomag_turelem SET lezarva = NOW(), eredmeny = 'archivalva', archivalt = $2 WHERE id = $1", [tt.id, n]);
-                if (n) {
-                    console.log(`Csomag türelmi idő lejárt (${k}): ${n} hirdetés archiválva.`);
-                    await level(x.user_id, x.iroda_id, {
-                        cim: `${n} hirdetésed archívumba került / ${n} anunțuri arhivate`,
-                        sorok: [
-                            `A csomagod lejárt, a türelmi idő is véget ért, ezért ${n} hirdetésed archívumba került (a ${x.keret} legújabb fent maradt).`,
-                            "Nem vesztek el: ha újra előfizetsz, maguktól visszakerülnek az oldalra (amennyit az új csomag enged).",
-                            `Pachetul a expirat și perioada de grație s-a încheiat: ${n} anunțuri au fost arhivate (cele mai noi ${x.keret} au rămas online). La reabonare revin automat.`
-                        ],
-                        gomb: "Csomagok / Pachete",
-                        link: require("./mail").oldalCim() + "/#csomagok"
-                    }).catch(() => false);
-                }
+                // Nem küldünk külön levelet: a két korábbi levél (a lejáratkor és előtte
+                // emlékeztető) már megírta a dátumot; a fiókban látszik, mi archiválódott
+                if (n) console.log(`Csomag türelmi idő lejárt (${k}): ${n} hirdetés archiválva.`);
             }
         }
     } catch (e) {
@@ -240,6 +230,12 @@ async function lejaratElott(b) {
         const j = e.jogosultsag || {};
         const hirdetes = b.korlatok_be && (j.hirdetes_limit !== undefined || j.hirdetes_plusz || j.korlatlan_hirdetes);
         const vege = pu.pgDatum(e.vege);
+        // Csak ha a lejáratnak következménye van (hirdetések archiválódhatnak) – a
+        // lemondást a felhasználó maga kérte, enélkül felesleges levél lenne
+        if (!hirdetes) {
+            await db.query("UPDATE penzugy_elofizetesek SET lejarat_ertesitve = NOW() WHERE id = $1", [e.id]);
+            continue;
+        }
         const ok = await level(e.user_id, e.iroda_id, {
             cim: `A csomagod ${fmt(vege)}-én lejár / Pachetul expiră`,
             sorok: [

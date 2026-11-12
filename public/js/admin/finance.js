@@ -654,48 +654,133 @@ AdminManager.renderFinPackages = function () {
             return r.map(x => `<span class="badge text-bg-light">${esc(x)}</span>`).join(" ");
         };
 
-        box.innerHTML = `
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                <p class="sectionNote mb-0 flex-fill">${I18n.t("finPackagesNote")}</p>
-                <button type="button" class="btn btn-primary btn-sm" id="finCsUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("finNewPackage")}</button>
-            </div>
-            <div class="finPkgGrid">
-                ${lista.map(c => `
-                    <article class="finPkg ${c.aktiv ? "" : "off"}">
-                        <div class="d-flex align-items-start gap-2">
-                            <span class="kpiIcon ${c.aktiv ? "green" : ""}"><i class="${AdminManager.FIN_KAT_IKON[c.kategoria] || AdminManager.FIN_KAT_IKON.egyeb}" aria-hidden="true"></i></span>
-                            <div class="flex-fill">
-                                <b>${esc(AdminManager.finCsomagNev(c))}</b>
-                                <div class="small text-body-secondary">${esc(AdminManager.finKatLabel(c.kategoria))}${c.aktiv ? "" : ` · ${I18n.t("finInactive")}`}</div>
-                                <div class="mt-1 d-flex flex-wrap gap-1">
-                                    <span class="badge text-bg-light"><i class="fa-solid ${c.celcsoport === "iroda" ? "fa-briefcase" : c.celcsoport === "maganszemely" ? "fa-user" : "fa-users"}" aria-hidden="true"></i> ${esc(I18n.t("finAud_" + (c.celcsoport || "mindenki")))}</span>
-                                    ${c.nyilvanos === false ? `<span class="badge text-bg-secondary">${I18n.t("finHidden")}</span>` : ""}
-                                    ${c.kiemelt ? `<span class="badge text-bg-warning">${I18n.t("prPopular")}</span>` : ""}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="finPkgPrice">${esc(AdminManager.finPenz(c.ar, c.penznem))} <small>/ ${esc(AdminManager.finIdoszakLabel(c.idoszak))}</small></div>
-                        ${c.leiras ? `<p class="small mb-2">${esc(c.leiras)}</p>` : ""}
-                        <div class="mb-2">${jogok(c.jogosultsag)}</div>
-                        <div class="d-flex flex-wrap align-items-center gap-2 mt-auto">
-                            <span class="small text-body-secondary flex-fill">${I18n.f("finSubscribersN", { n: c.elofizetok })}${c.rendelesek ? ` · ${I18n.f("finOrdersN", { n: c.rendelesek })}` : ""}${c.fizetesre_var ? ` · <span class="text-warning">${I18n.f("finAwaitingN", { n: c.fizetesre_var })}</span>` : ""}</span>
-                            <button type="button" class="btn btn-sm btn-outline-primary" data-cs-szerk="${c.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${I18n.t("adsEdit")}</button>
-                        </div>
-                    </article>`).join("") || `<p class="text-body-secondary">${I18n.t("finNoPackages")}</p>`}
-            </div>`;
+        // Csoportok: kinek szól; a kikapcsoltak külön, a végén
+        const f = AdminManager.fin.csSzuro = AdminManager.fin.csSzuro || { cel: "", q: "" };
+        const CSOP = [
+            { k: "maganszemely", ikon: "fa-user" },
+            { k: "iroda", ikon: "fa-briefcase" },
+            { k: "mindenki", ikon: "fa-users" }
+        ];
+        const egyezik = c => {
+            if (f.q) {
+                const hay = [c.nev, c.nev_ro, c.nev_en, c.kod].filter(Boolean).join(" ").toLowerCase();
+                if (!hay.includes(f.q.toLowerCase())) return false;
+            }
+            if (f.cel === "ki") return !c.aktiv;
+            if (f.cel) return c.aktiv && (c.celcsoport || "mindenki") === f.cel;
+            return true;
+        };
+        const szurt = lista.filter(egyezik);
+        const db = k => lista.filter(c => c.aktiv && (c.celcsoport || "mindenki") === k).length;
+        const kiDb = lista.filter(c => !c.aktiv).length;
 
+        const kartya = c => `
+            <article class="finPkg ${c.aktiv ? "" : "off"}">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="kpiIcon ${c.aktiv ? "green" : ""}"><i class="${AdminManager.FIN_KAT_IKON[c.kategoria] || AdminManager.FIN_KAT_IKON.egyeb}" aria-hidden="true"></i></span>
+                    <div class="flex-fill min-w-0">
+                        <b>${esc(AdminManager.finCsomagNev(c))}</b>
+                        <div class="small text-body-secondary">${esc(AdminManager.finKatLabel(c.kategoria))}${c.kod ? ` · <code>${esc(c.kod)}</code>` : ""}</div>
+                        <div class="mt-1 d-flex flex-wrap gap-1">
+                            ${c.nyilvanos === false ? `<span class="badge text-bg-secondary"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i> ${I18n.t("finHidden")}</span>` : `<span class="badge text-bg-light"><i class="fa-solid fa-eye" aria-hidden="true"></i> ${I18n.t("finPkgOnPricePage")}</span>`}
+                            ${c.kiemelt ? `<span class="badge text-bg-warning">${I18n.t("prPopular")}</span>` : ""}
+                            ${!c.nev_ro ? `<span class="badge text-bg-danger" title="${esc(I18n.t("finPkgNoRoHint"))}"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${I18n.t("finPkgNoRo")}</span>` : ""}
+                        </div>
+                    </div>
+                    <div class="form-check form-switch m-0" title="${esc(I18n.t("finActive"))}">
+                        <input class="form-check-input" type="checkbox" role="switch" data-cs-aktiv="${c.id}" ${c.aktiv ? "checked" : ""} aria-label="${esc(I18n.t("finActive"))}">
+                    </div>
+                </div>
+                <div class="finPkgPrice">${esc(AdminManager.finPenz(c.ar, c.penznem))} <small>/ ${esc(AdminManager.finIdoszakLabel(c.idoszak))}</small></div>
+                ${c.leiras ? `<p class="small mb-2">${esc(c.leiras)}</p>` : ""}
+                <div class="mb-2">${jogok(c.jogosultsag) || `<span class="small text-body-secondary">${I18n.t("finPkgNoRights")}</span>`}</div>
+                <div class="finPkgInvoice small"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${esc(AdminManager.finCsomagSzamlaSor(c))}</div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-auto pt-2">
+                    <span class="small text-body-secondary flex-fill">${I18n.f("finSubscribersN", { n: c.elofizetok })}${c.rendelesek ? ` · ${I18n.f("finOrdersN", { n: c.rendelesek })}` : ""}${c.fizetesre_var ? ` · <span class="text-warning">${I18n.f("finAwaitingN", { n: c.fizetesre_var })}</span>` : ""}</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-cs-masol="${c.id}" title="${esc(I18n.t("finPkgCopy"))}" aria-label="${esc(I18n.t("finPkgCopy"))}"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-cs-torol="${c.id}" title="${esc(I18n.t("finDelete"))}" aria-label="${esc(I18n.t("finDelete"))}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-cs-szerk="${c.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${I18n.t("adsEdit")}</button>
+                </div>
+            </article>`;
+
+        const csoportHtml = (cim, ikon, elemek) => elemek.length ? `
+            <section class="finPkgGroup">
+                <h6 class="finPkgGroupHead"><i class="fa-solid ${ikon}" aria-hidden="true"></i> ${cim} <span class="badge text-bg-light">${elemek.length}</span></h6>
+                <div class="finPkgGrid">${elemek.map(kartya).join("")}</div>
+            </section>` : "";
+
+        const aktivak = szurt.filter(c => c.aktiv);
+        const torzs = (f.cel === "ki" ? "" : CSOP.map(g => csoportHtml(I18n.t("finAud_" + g.k), g.ikon, aktivak.filter(c => (c.celcsoport || "mindenki") === g.k))).join(""))
+            + csoportHtml(I18n.t("finInactivePackages"), "fa-power-off", szurt.filter(c => !c.aktiv));
+
+        box.innerHTML = `
+            <div class="finPkgHelp mb-3">
+                <div class="flex-fill">
+                    <b><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${I18n.t("finPkgHowTitle")}</b>
+                    <ol class="small mb-0 mt-1">
+                        <li>${I18n.t("finPkgHow1")}</li>
+                        <li>${I18n.t("finPkgHow2")}</li>
+                        <li>${I18n.t("finPkgHow3")}</li>
+                    </ol>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm align-self-start" id="finCsUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("finNewPackage")}</button>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="${esc(I18n.t("finAudience"))}">
+                    ${[["", I18n.t("finAllPackages"), lista.length], ...CSOP.map(g => [g.k, I18n.t("finAud_" + g.k), db(g.k)]), ["ki", I18n.t("finInactive"), kiDb]]
+                        .map(([k, l, n]) => `<button type="button" class="btn ${f.cel === k ? "btn-primary" : "btn-outline-secondary"}" data-cs-cel="${k}">${esc(l)} <span class="badge text-bg-light">${n}</span></button>`).join("")}
+                </div>
+                <input type="search" class="form-control form-control-sm w-auto flex-fill" id="finCsQ" placeholder="${esc(I18n.t("finPkgSearch"))}" value="${esc(f.q)}" aria-label="${esc(I18n.t("finPkgSearch"))}">
+            </div>
+            ${torzs || `<p class="text-body-secondary">${I18n.t("finNoPackages")}</p>`}`;
+
+        const keres = c => lista.find(x => x.id === Number(c));
         document.getElementById("finCsUj").onclick = () => AdminManager.finCsomagSzerk(null);
-        box.querySelectorAll("[data-cs-szerk]").forEach(b => {
-            b.onclick = () => AdminManager.finCsomagSzerk(lista.find(c => c.id === Number(b.dataset.csSzerk)));
+        box.querySelectorAll("[data-cs-cel]").forEach(b => { b.onclick = () => { f.cel = b.dataset.csCel; AdminManager.renderFinPackages(); }; });
+        let t = null;
+        document.getElementById("finCsQ").oninput = e => { clearTimeout(t); t = setTimeout(() => { f.q = e.target.value; AdminManager.renderFinPackages(); }, 300); };
+        box.querySelectorAll("[data-cs-szerk]").forEach(b => { b.onclick = () => AdminManager.finCsomagSzerk(keres(b.dataset.csSzerk)); });
+        box.querySelectorAll("[data-cs-masol]").forEach(b => {
+            b.onclick = () => {
+                const c = keres(b.dataset.csMasol);
+                AdminManager.finCsomagSzerk({ ...c, id: null, kod: c.kod ? c.kod + "_masolat" : "", nev: c.nev + " (" + I18n.t("finPkgCopySuffix") + ")", aktiv: false, elofizetok: 0, rendelesek: 0 }, true);
+            };
+        });
+        box.querySelectorAll("[data-cs-aktiv]").forEach(cb => {
+            cb.onchange = () => {
+                const c = keres(cb.dataset.csAktiv);
+                cb.disabled = true;
+                AdminManager.finApi("csomagok/" + c.id, { method: "PUT", body: { ...c, aktiv: cb.checked } })
+                    .then(() => AdminManager.renderFinPackages())
+                    .catch(e => { cb.disabled = false; cb.checked = !cb.checked; AdminManager.finHiba(e); });
+            };
+        });
+        box.querySelectorAll("[data-cs-torol]").forEach(b => {
+            b.onclick = () => {
+                const c = keres(b.dataset.csTorol);
+                if (!confirm(I18n.f("finDeletePackageConfirm2", { nev: AdminManager.finCsomagNev(c) }))) return;
+                AdminManager.finApi("csomagok/" + c.id, { method: "DELETE" })
+                    .then(v => { if (v.kikapcsolva) alert(I18n.t("finPackageDeactivated")); AdminManager.renderFinPackages(); })
+                    .catch(AdminManager.finHiba);
+            };
         });
 
     }).catch(() => AdminManager.finHibaDoboz());
 
 };
 
-AdminManager.finCsomagSzerk = function (c) {
+// Így jelenik meg a csomag a számlán (a hivatalos szöveg román; az időszak a rendeléskor)
+AdminManager.finCsomagSzamlaSor = function (c) {
+    const b = (AdminManager.fin.cfg && AdminManager.fin.cfg.beallitas) || {};
+    const nev = c.nev_ro || c.nev || "—";
+    const ido = c.idoszak && c.idoszak !== "egyszeri" ? ` (${I18n.t("finPkgPeriodSample")})` : "";
+    const afa = b.afa_fizeto ? ` · TVA ${b.afa_kulcs ?? 21}%` : "";
+    return `${nev}${ido} – 1 × ${AdminManager.finPenz(c.ar, c.penznem)}${afa}`;
+};
 
-    const uj = !c;
+AdminManager.finCsomagSzerk = function (c, masolat) {
+
+    const uj = !c || masolat;
     c = c || { kategoria: "egyeb", idoszak: "havi", penznem: "RON", aktiv: true, jogosultsag: {} };
     const j = c.jogosultsag || {};
     const esc = Utils.escape;
@@ -718,7 +803,7 @@ AdminManager.finCsomagSzerk = function (c) {
                     <select class="form-select form-select-sm" id="fcKat">${L.kategoriak.map(k => `<option value="${k}" ${c.kategoria === k ? "selected" : ""}>${esc(AdminManager.finKatLabel(k))}</option>`).join("")}</select>
                 </div>
                 <div class="col-sm-6">
-                    <label class="form-label small mb-1" for="fcNevRo">${I18n.t("finPkgName")} (RO)</label>
+                    <label class="form-label small mb-1" for="fcNevRo">${I18n.t("finPkgName")} (RO) – ${I18n.t("finPkgRoInvoice")}</label>
                     <input class="form-control form-control-sm" id="fcNevRo" value="${esc(c.nev_ro || "")}" maxlength="160">
                 </div>
                 <div class="col-sm-6">
@@ -741,6 +826,11 @@ AdminManager.finCsomagSzerk = function (c) {
                     <label class="form-label small mb-1" for="fcLeiras">${I18n.t("finDescription")} (HU)</label>
                     <textarea class="form-control form-control-sm" id="fcLeiras" rows="2" maxlength="1000">${esc(c.leiras || "")}</textarea>
                 </div>
+            </div>
+            <div class="finPkgInvoicePreview mt-3">
+                <div class="small fw-semibold mb-1"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${I18n.t("finPkgInvoicePreview")}</div>
+                <div id="fcSzamlaSor" class="small"></div>
+                <div class="small text-body-secondary mt-1">${I18n.t("finPkgInvoicePreviewNote")}</div>
             </div>
             <h6 class="mt-3 mb-1">${I18n.t("finPricePage")}</h6>
             <p class="small text-body-secondary mb-2">${I18n.t("finPricePageNote")}</p>
@@ -834,6 +924,15 @@ AdminManager.finCsomagSzerk = function (c) {
 
     const $ = s => tartalom.querySelector(s);
     const ures = v => v === "" ? undefined : Number(v);
+
+    // A számlasor élő előnézete
+    const szamlaSor = () => {
+        const x = { nev: $("#fcNev").value, nev_ro: $("#fcNevRo").value.trim(), ar: Number($("#fcAr").value) || 0, penznem: $("#fcPenznem").value, idoszak: $("#fcIdoszak").value };
+        $("#fcSzamlaSor").innerHTML = `<code>${esc(AdminManager.finCsomagSzamlaSor(x))}</code>`
+            + (x.nev_ro ? "" : `<div class="text-danger mt-1"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${I18n.t("finPkgNoRoHint")}</div>`);
+    };
+    ["#fcNev", "#fcNevRo", "#fcAr", "#fcPenznem", "#fcIdoszak"].forEach(id => { $(id).addEventListener("input", szamlaSor); $(id).addEventListener("change", szamlaSor); });
+    szamlaSor();
 
     $("#fcMent").onclick = () => {
         if (!$("#fcNev").value.trim()) { $("#fcNev").classList.add("is-invalid"); $("#fcNev").focus(); return; }
@@ -1162,6 +1261,15 @@ AdminManager.renderFinSettings = function () {
                     </div>
                 </div>
 
+                <div class="card mb-4" id="fbFizetos">
+                    <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-unlock-keyhole" aria-hidden="true"></i> ${I18n.t("finPaidFeatures")}</h5></div>
+                    <div class="card-body row g-3">
+                        <p class="sectionNote col-12 mb-0">${I18n.t("finPaidFeaturesNote")}</p>
+                        ${kapcs("fbStatFizetos", `<b>${I18n.t("finStatPaid")}</b>`, b.stat_fizetos, I18n.t("finStatPaidHelp"))}
+                        ${kapcs("fbIrodaCsomag", `<b>${I18n.t("finAgencyPaid")}</b>`, b.iroda_csomag_kell, I18n.t("finAgencyPaidHelp"))}
+                    </div>
+                </div>
+
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> ${I18n.t("finLimits")}</h5></div>
                     <div class="card-body row g-3">
@@ -1218,6 +1326,8 @@ AdminManager.renderFinSettings = function () {
         $("#finBeallForm").onsubmit = e => {
             e.preventDefault();
             if ($("#fbKorlat").checked && !b.korlatok_be && !confirm(I18n.t("finEnforceConfirm"))) return;
+            if ($("#fbStatFizetos").checked && !b.stat_fizetos && !confirm(I18n.t("finStatPaidConfirm"))) return;
+            if ($("#fbIrodaCsomag").checked && !b.iroda_csomag_kell && !confirm(I18n.t("finAgencyPaidConfirm"))) return;
             const d = {
                 bank: $("#fbBank").value, iban: $("#fbIban").value, kedvezmenyezett: $("#fbKedv").value, revolut_link: $("#fbRevolut").value, penznem: $("#fbPenznem").value,
                 fizetesi_hatarido: $("#fbHatarido").value, dijbekero_elotag: $("#fbDbElotag").value, szamla_elotag: $("#fbSzElotag").value,
@@ -1225,6 +1335,7 @@ AdminManager.renderFinSettings = function () {
                 auto_dijbekero: $("#fbAuto").checked, elore_nap: $("#fbElore").value, turelmi_nap: $("#fbTurelmi").value,
                 eur_arfolyam: $("#fbArfolyam").value,
                 ingyenes_hirdetes: $("#fbIngyenes").value, iroda_ingyenes_hirdetes: $("#fbIrodaIngyenes").value, korlatok_be: $("#fbKorlat").checked,
+                stat_fizetos: $("#fbStatFizetos").checked, iroda_csomag_kell: $("#fbIrodaCsomag").checked,
                 lejarat_turelem_nap: $("#fbLejTurelem").value, lejarat_figyelmeztet_nap: $("#fbLejFigy").value,
                 online_fizetes: $("#fbOnline").checked, auto_szamla: $("#fbAutoSzamla").checked, sajat_szamla: $("#fbSajatSzamla").checked,
                 efactura_varos: $("#fbEfVaros").value, efactura_megye: $("#fbEfMegye").value, kiemeles_nap: $("#fbKiemelesNap").value,
@@ -1236,6 +1347,9 @@ AdminManager.renderFinSettings = function () {
                     AdminManager.fin.cfg = null;
                     $("#fbMsg").innerHTML = `<i class="fa-solid fa-circle-check text-success" aria-hidden="true"></i> ${I18n.t("finSaved")}`;
                     b.korlatok_be = d.korlatok_be;
+                    b.stat_fizetos = d.stat_fizetos;
+                    b.iroda_csomag_kell = d.iroda_csomag_kell;
+                    if (typeof StatPro !== "undefined") StatPro.betoltve = 0;
                 })
                 .catch(AdminManager.finHiba)
                 .finally(() => { $("#fbMent").disabled = false; });

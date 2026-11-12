@@ -913,6 +913,38 @@ async function createSchema(db) {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_rendeles_statusz ON penzugy_rendelesek (statusz)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_pu_rendeles_szamla ON penzugy_rendelesek (szamla_id)`);
 
+    // Fogyasztói jogok (OUG 34/2014 = 2011/83/EU irányelv):
+    //  - fogyaszto: magánszemélyként rendelt (a cég / PFA nem fogyasztó)
+    //  - azonnali_kezdes: a fogyasztó kifejezetten kérte, hogy a szolgáltatás a
+    //    fizetés után azonnal induljon, és tudomásul vette, hogy elálláskor az
+    //    addig igénybe vett rész arányos díját fizeti (14. cikk (3))
+    await db.query(`ALTER TABLE penzugy_rendelesek ADD COLUMN IF NOT EXISTS fogyaszto BOOLEAN DEFAULT false`);
+    await db.query(`ALTER TABLE penzugy_rendelesek ADD COLUMN IF NOT EXISTS azonnali_kezdes TIMESTAMP`);
+    await db.query(`ALTER TABLE penzugy_rendelesek ADD COLUMN IF NOT EXISTS visszaigazolva TIMESTAMP`);
+
+    // Elállás a szerződéstől (14 nap, „Elállás a szerződéstől” gomb – 11a. cikk):
+    // a nyilatkozat tartalma és időpontja; a visszatérítést az admin intézi
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS penzugy_elallasok (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            rendeles_id INTEGER REFERENCES penzugy_rendelesek(id) ON DELETE SET NULL,
+            elofizetes_id INTEGER REFERENCES penzugy_elofizetesek(id) ON DELETE SET NULL,
+            nev TEXT,
+            email TEXT,
+            megnevezes TEXT,
+            nyilatkozat TEXT,
+            fizetett NUMERIC(12,2),
+            visszajar NUMERIC(12,2),
+            penznem TEXT,
+            statusz TEXT DEFAULT 'beerkezett',
+            visszaigazolva TIMESTAMP,
+            rendezve TIMESTAMP,
+            jegyzet TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
     // ---------- Eladjuk helyetted: megbízásos értékesítés ----------
     // A tulajdonos az oldalon kiválasztja a szolgáltatásokat (fotózás, hirdetés,
     // bemutatás...), mi szerződést kötünk, lefotózzuk, feltöltjük, reklámozzuk,

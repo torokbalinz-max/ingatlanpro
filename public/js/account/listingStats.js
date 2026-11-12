@@ -96,8 +96,13 @@ class ListingStats {
                     <h3 class="lsTitle">${I18n.t("lsTitle")}</h3>
                     <p class="text-body-secondary mb-0 small">${I18n.t("lsNote")}</p>
                 </div>
-                <div class="lsPeriod" role="group" aria-label="${esc(I18n.t("lsPeriod"))}">
-                    ${[7, 30, 90].map(n => `<button type="button" class="${n === d.napok ? "active" : ""}" data-ls-napok="${n}" aria-pressed="${n === d.napok}">${I18n.f("lsDays", { n })}</button>`).join("")}
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <div class="lsPeriod" role="group" aria-label="${esc(I18n.t("lsPeriod"))}">
+                        ${[7, 30, 90].map(n => `<button type="button" class="${n === d.napok ? "active" : ""}" data-ls-napok="${n}" aria-pressed="${n === d.napok}">${I18n.f("lsDays", { n })}</button>`).join("")}
+                    </div>
+                    ${d.pro
+                        ? `<button type="button" class="btn btn-sm btn-outline-primary" id="lsPdf" title="${esc(I18n.t("spPdfHint"))}"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> ${I18n.t("spPdf")}</button>`
+                        : `<a class="btn btn-sm btn-outline-secondary" href="#csomagok" title="${esc(I18n.t("spPdfLocked"))}"><i class="fa-solid fa-lock" aria-hidden="true"></i> ${I18n.t("spPdf")}</a>`}
                 </div>
             </div>
 
@@ -161,6 +166,13 @@ class ListingStats {
         });
 
         if (d.pro && d.napi && typeof Chart !== "undefined") ListingStats.grafikon(d);
+
+        const pdf = document.getElementById("lsPdf");
+        if (pdf) pdf.onclick = () => StatPro.pdf({
+            cim: I18n.t("lsTitle"),
+            alcim: I18n.f("lsDays", { n: d.napok }),
+            el: box
+        });
 
     }
 

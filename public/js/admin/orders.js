@@ -103,6 +103,7 @@ AdminManager.renderOrders = function () {
                 </div>
             </div>
 
+            <div id="ordElallas"></div>
             <div id="ordTurelem"></div>
 
             <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
@@ -158,6 +159,7 @@ AdminManager.renderOrders = function () {
 
         AdminManager.finBindGo(box);
         AdminManager.ordTurelem(box.querySelector("#ordTurelem"));
+        AdminManager.ordElallas(box.querySelector("#ordElallas"));
 
         const szur = () => {
             AdminManager.ordSzuro = { statusz: box.querySelector("#ordSt").value, celcsoport: box.querySelector("#ordCel").value, csomag_id: box.querySelector("#ordCs").value };
@@ -193,6 +195,48 @@ AdminManager.renderOrders = function () {
 
 };
 
+
+// Elállások a szerződéstől (14 nap, fogyasztók): a visszatérítést 14 napon belül
+// intézni kell – utalás + sztornó számla; utána „Rendezve”
+AdminManager.ordElallas = function (el) {
+    if (!el) return;
+    AdminManager.finApi("elallasok").then(lista => {
+        if (!lista.length) { el.innerHTML = ""; return; }
+        const esc = Utils.escape;
+        const nyitott = lista.filter(e => e.statusz !== "rendezve");
+        const hatarido = e => new Date(new Date(e.created_at).getTime() + 14 * 86400000);
+        el.innerHTML = `
+            <div class="card mb-4 ${nyitott.length ? "border-warning" : ""}">
+                <div class="card-header"><h5 class="mb-0"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ${I18n.t("ordWdTitle")} ${nyitott.length ? `<span class="badge text-bg-warning">${nyitott.length}</span>` : ""}</h5></div>
+                <div class="card-body">
+                    <p class="sectionNote">${I18n.t("ordWdNote")}</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>${I18n.t("ordCustomer")}</th><th>${I18n.t("ordWdItem")}</th><th>${I18n.t("ordWdWhen")}</th><th class="text-end">${I18n.t("ordWdRefund")}</th><th>${I18n.t("ordStatus")}</th><th></th></tr></thead>
+                            <tbody>${lista.map(e => `
+                                <tr>
+                                    <td>${esc(e.nev || "–")}<div class="small text-body-secondary">${esc(e.email || "")}</div></td>
+                                    <td class="small">${esc(e.megnevezes || "")} <span class="text-body-secondary">#${e.rendeles_id || "–"}</span></td>
+                                    <td class="small text-nowrap">${esc(new Date(e.created_at).toLocaleString())}${e.statusz !== "rendezve" ? `<div class="${hatarido(e) < new Date() ? "text-danger" : "text-body-secondary"}">${I18n.f("ordWdDeadline", { d: hatarido(e).toLocaleDateString() })}</div>` : ""}</td>
+                                    <td class="text-end text-nowrap">${esc(AdminManager.finPenz(e.visszajar, e.penznem))}<div class="small text-body-secondary">/ ${esc(AdminManager.finPenz(e.fizetett, e.penznem))}</div></td>
+                                    <td>${e.statusz === "rendezve" ? `<span class="badge text-bg-success">${I18n.t("ordWdDone")}</span>` : `<span class="badge text-bg-warning">${I18n.t("ordWdOpen")}</span>`}${e.visszaigazolva ? ` <i class="fa-regular fa-envelope text-success" title="${esc(I18n.t("ordWdAck"))}"></i>` : ""}</td>
+                                    <td class="text-end">${e.statusz !== "rendezve" ? `<button type="button" class="btn btn-sm btn-outline-success" data-wd-ok="${e.id}" data-wd-osszeg="${e.visszajar}">${I18n.t("ordWdMark")}</button>` : ""}</td>
+                                </tr>`).join("")}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+        el.querySelectorAll("[data-wd-ok]").forEach(b => {
+            b.onclick = () => {
+                const v = prompt(I18n.t("ordWdPrompt"), b.dataset.wdOsszeg);
+                if (v === null) return;
+                AdminManager.finApi(`elallasok/${b.dataset.wdOk}/rendez`, { method: "POST", body: { visszajar: v.replace(",", ".") } })
+                    .then(() => AdminManager.ordElallas(el))
+                    .catch(AdminManager.finHiba);
+            };
+        });
+    }).catch(() => { el.innerHTML = ""; });
+};
 
 // Lejárt csomag miatt türelmi időben lévők (a hirdetéseik még fent vannak)
 AdminManager.ordTurelem = function (el) {

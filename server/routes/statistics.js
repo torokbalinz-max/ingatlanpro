@@ -9,6 +9,21 @@ const piactrend = require("../services/piactrend");
 
 const router = express.Router();
 
+// Részletes statisztika: ha az admin bekapcsolta, hogy csak csomaggal jár
+// (Admin → Pénzügy → Beállítások → Fizetős funkciók), a részletes végpontok
+// csak az arra jogosultaknak válaszolnak. Addig mindenkinek.
+const statJog = req => require("../services/penzugy").statJog(req).catch(() => ({ fizetos: false, pro: true }));
+
+async function csakPro(req, res, next) {
+    const j = await statJog(req);
+    if (j.pro) return next();
+    res.status(402).json({ error: "pro_required" });
+}
+
+router.get("/api/statistics/jog", async (req, res) => {
+    try { res.json(await statJog(req)); } catch (err) { hiba(res, err); }
+});
+
 // Egy piaci állapot (pillanatkép) mentése: város + típus + ügylet
 async function pillanatkepMent(varos, tipus, ugylet, note = null) {
 
@@ -169,7 +184,7 @@ router.post("/api/statistics/save", csakAdmin, async (req, res) => {
 });
 
 // Ártrend a hirdetésekből (bármelyik időszakra, mentés nélkül is)
-router.get("/api/statistics/piactrend", async (req, res) => {
+router.get("/api/statistics/piactrend", csakPro, async (req, res) => {
     try {
         res.json(await piactrend.trend(req.query));
     } catch (err) {
@@ -178,7 +193,7 @@ router.get("/api/statistics/piactrend", async (req, res) => {
 });
 
 // Két időszak (pl. április és augusztus) összevetése a hirdetésekből
-router.get("/api/statistics/osszevetes", async (req, res) => {
+router.get("/api/statistics/osszevetes", csakPro, async (req, res) => {
     try {
         const r = await piactrend.osszevet(req.query);
         if (!r) return res.status(400).json({ error: "bad_period" });
@@ -207,7 +222,7 @@ router.get("/api/statistics", async (req, res) => {
 
 });
 
-router.get("/api/statistics/trend", async (req, res) => {
+router.get("/api/statistics/trend", csakPro, async (req, res) => {
 
     try {
         const result = await db.query(`
@@ -222,7 +237,7 @@ router.get("/api/statistics/trend", async (req, res) => {
 
 });
 
-router.get("/api/statistics/:id", async (req, res) => {
+router.get("/api/statistics/:id", csakPro, async (req, res) => {
 
     try {
 

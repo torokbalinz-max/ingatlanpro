@@ -53,11 +53,16 @@ router.post("/api/csomagok/rendeles", csakBelepve, async (req, res) => {
     }
 });
 
-// Amikor a díjbekérő kifizetett lett (kártyával, vagy te jelölted kifizetettnek):
-//  - a vevő e-mailt kap, hogy a csomag él (a számla külön levélben megy – szamlazo.js)
-//  - te (admin) e-mailt kapsz, ha kártyával fizetett (az átutalást te jelölöd,
-//    arról nem kell levél)
-//  - próba (Stripe teszt / demó) fizetésnél a levelekben ott a „TESZT” jelölés
+// Amikor a díjbekérő kifizetett lett (kártyával, vagy te jelölted kifizetettnek).
+// Csak a szükséges levelek mennek (OUG 34/2014 – 2011/83/EU irányelv 8. cikk (7)):
+//  - a vevő EGY levelet kap: a számlát (PDF), benne a szerződés visszaigazolásával
+//    (mit vett, mettől meddig, megújul-e, hogyan mondható le, elállás) – ezt a
+//    számlázó küldi (services/szamlazo.js). Külön „a csomagod aktív” levél csak
+//    akkor megy, ha számla nem készül tőlünk (próbafizetés, kikapcsolt automatikus
+//    számla, vagy külső számlázó, amely maga küldi a számlát) – ilyenkor ez a
+//    visszaigazolás.
+//  - te (admin) csak akkor kapsz levelet, ha teendőd van (a számlát neked kell
+//    kiállítanod, mert az automatikus számla ki van kapcsolva)
 pu.rendelesFigyelo(async x => {
     if (!mail.elerheto() || !["aktiv", "teljesitve"].includes(x.statusz) || x.elozo !== "fizetesre_var") return;
 
@@ -65,46 +70,51 @@ pu.rendelesFigyelo(async x => {
     if (s && Number(s.brutto) === 0) return;            // ingyenes csomag: nincs mit jelezni
     const teszt = s ? await require("../services/fizetes").tesztFizetes(s.id).catch(() => false) : false;
     const tesztJel = teszt ? "[TESZT – nem valódi fizetés] " : "";
+    const szamlazo = require("../services/szamlazo");
+    const melyik = await szamlazo.melyik().catch(() => null);
+    const autoSzamla = (await pu.beallitas()).auto_szamla !== false;
+    // a saját számlát mi küldjük (a visszaigazolással együtt) → nincs külön levél
+    const sajatSzamlaMegy = !teszt && autoSzamla && melyik === "sajat";
 
-    // A vevő
-    if (x.user_id) {
+    // A vevő – csak ha a számla nem tőlünk megy
+    if (x.user_id && !sajatSzamlaMegy) {
         const r = await db.query("SELECT email FROM users WHERE id = $1", [x.user_id]);
         const f = r.rows[0];
-        if (f && f.email) {
+        const to = (s && s.vevo && s.vevo.email) || (f && f.email);
+        if (to) {
+            const rendeles = (await db.query("SELECT * FROM penzugy_rendelesek WHERE id = $1", [x.id])).rows[0] || x;
+            const vissza = await szamlazo.visszaigazolasSorok(rendeles, s).catch(() => []);
             const t = mail.sablon({
-                cim: tesztJel + "A befizetésed megérkezett – a csomagod aktív",
+                cim: tesztJel + "Confirmarea comenzii / A rendelés visszaigazolása",
                 sorok: [
-                    `${x.megnevezes || "A csomag"}: köszönjük a befizetést, a csomag mostantól él.`,
-                    "Plata a fost primită – pachetul este activ.",
-                    teszt ? "Ez egy próbafizetés volt (nem terheltünk kártyát) – számla nem készül róla." : "A számlát külön levélben, PDF-ben küldjük. / Factura vă este trimisă separat, în format PDF."
+                    ...vissza,
+                    teszt ? "Plată de test – nu se emite factură. / Próbafizetés – számla nem készül." : !autoSzamla || !melyik ? "Factura vă va fi trimisă în curând. / A számlát hamarosan küldjük." : "Factura vă este trimisă de sistemul de facturare. / A számlát a számlázó rendszer küldi."
                 ].filter(Boolean),
-                gomb: "Csomagom és számláim",
+                gomb: "Contul meu / Fiókom",
                 link: mail.oldalCim() + "/#fiok/csomag"
             });
-            await mail.kuld({ to: f.email, subject: tesztJel + "A csomagod aktív / Pachetul este activ", html: t.html, text: t.text });
+            await mail.kuld({ to, subject: tesztJel + `Confirmare comandă / Rendelés visszaigazolása – ${(s && s.sorszam) || "#" + x.id}`, html: t.html, text: t.text });
+            await db.query("UPDATE penzugy_rendelesek SET visszaigazolva = NOW() WHERE id = $1", [x.id]).catch(() => { });
         }
     }
 
-    // Te (admin) – csak kártyás fizetésnél (az átutalást te magad jelölöd kifizetettnek).
-    // Ha a számla magától elkészül, a levelet a számlázó küldi (a számla PDF-jével
-    // együtt – services/szamlazo.js); itt csak akkor, ha számla nem készül
-    // (próbafizetés, vagy kikapcsoltad az automatikus számlát).
-    const szamlaLesz = !teszt && (await pu.beallitas()).auto_szamla !== false && !!(await require("../services/szamlazo").melyik());
-    if (s && s.fizetesi_mod === "kartya" && !szamlaLesz) {
+    // Te (admin): csak ha teendőd van – kártyás fizetés után a számlát neked kell
+    // kiállítanod (az átutalást te jelölöd kifizetettnek, arról tudsz)
+    if (s && !teszt && (!autoSzamla || !melyik) && ["kartya", "online"].includes(s.fizetesi_mod)) {
         const u = await oldalAdatok.nyilvanos();
         if (u.email) {
             const t = mail.sablon({
-                cim: tesztJel + "Fizetett rendelés az IngatlanPro-n",
+                cim: "Fizetett rendelés – állíts ki számlát",
                 sorok: [
                     `${(s.vevo && s.vevo.nev) || "Valaki"} kifizette: ${(s.tetelek || []).map(t => t.megnevezes).join(", ")}`,
                     `${s.brutto} ${s.penznem} · kártyával · ${s.sorszam}`,
-                    teszt ? "Próbafizetés (Stripe teszt mód) – valódi pénz nem érkezett, számla nem készült." : "A csomag aktív. Az automatikus számla ki van kapcsolva – a számlát neked kell kiállítanod."
+                    "A csomag aktív. Az automatikus számla ki van kapcsolva – a számlát neked kell kiállítanod (Admin → Pénzügy → Számlák)."
                 ],
-                gomb: "Rendelések",
-                link: mail.oldalCim() + "/#admin/rendelesek",
+                gomb: "Számlák",
+                link: mail.oldalCim() + "/#admin/szamlak",
                 lablec: "Admin értesítés."
             });
-            await mail.kuld({ to: u.email, subject: `${tesztJel}Fizetett rendelés: ${s.sorszam}`, html: t.html, text: t.text });
+            await mail.kuld({ to: u.email, subject: `Állíts ki számlát: ${s.sorszam}`, html: t.html, text: t.text });
         }
     }
 });
@@ -148,7 +158,24 @@ router.post("/api/sajat-csomag/rendeles/:id/visszavon", csakBelepve, async (req,
     try { res.json({ siker: true, ...(await rendeles.visszavon(req.user, req.params.id)) }); } catch (err) { hiba(res, err); }
 });
 
+// Elállás a szerződéstől (14 nap, fogyasztóknak) – a fiókban két lépésben
+// (gomb + megerősítés); azonnal visszaigazoló e-mail megy (services/rendeles.js)
+router.post("/api/sajat-csomag/rendeles/:id/elallas", csakBelepve, async (req, res) => {
+    try {
+        if (!req.body || req.body.megerosit !== true) return res.status(400).json({ error: "confirm_required" });
+        res.json({ siker: true, ...(await rendeles.elall(req.user, req.params.id, req.body.indok)) });
+    } catch (err) { hiba(res, err); }
+});
+
 // ===================== ADMIN =====================
+
+router.get("/api/admin/penzugy/elallasok", csapat.csakResz("penzugy"), async (req, res) => {
+    try { res.json(await rendeles.elallasLista()); } catch (err) { hiba(res, err); }
+});
+
+router.post("/api/admin/penzugy/elallasok/:id/rendez", csapat.csakResz("penzugy"), async (req, res) => {
+    try { res.json(await rendeles.elallasRendez(req.params.id, req.body || {})); } catch (err) { hiba(res, err); }
+});
 
 router.get("/api/admin/penzugy/rendelesek", csapat.csakResz("penzugy"), async (req, res) => {
     try {

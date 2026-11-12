@@ -152,6 +152,38 @@ class AccountBilling {
                                 </div>
                             </div>
                         </div>`).join("") : ""}
+
+                    ${(d.elallhato || []).length || (d.elallasok || []).length ? `
+                        <div class="card mt-3 abWithdraw" id="abWithdraw">
+                            <div class="card-body">
+                                <h6 class="mb-1"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ${I18n.t("abWdTitle")}</h6>
+                                <p class="small text-body-secondary mb-2">${I18n.t("abWdNote")}</p>
+                                ${(d.elallhato || []).map(r => `
+                                    <div class="abWdRow" data-wd-row="${r.id}">
+                                        <div class="d-flex justify-content-between gap-2 flex-wrap">
+                                            <div class="min-w-0">
+                                                <b class="small">${esc(r.megnevezes || "")}</b>
+                                                <div class="small text-body-secondary">${I18n.f("abWdUntil", { d: esc(Svc.nap(String(new Date(r.hatarido).toISOString()).slice(0, 10))) })}${r.fizetett ? ` · ${I18n.f("abWdRefund", { v: esc(Svc.penz(r.visszajar, r.penznem)) })}` : ""}</div>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" data-wd-start="${r.id}">${I18n.t("abWdBtn")}</button>
+                                        </div>
+                                        <div class="abWdConfirm" hidden>
+                                            <p class="small mb-2">${I18n.f("abWdStatement", { nev: esc(r.megnevezes || "") })}</p>
+                                            <label class="form-label small mb-1" for="abWdNote${r.id}">${I18n.t("abWdComment")}</label>
+                                            <textarea class="form-control form-control-sm mb-2" id="abWdNote${r.id}" rows="2" maxlength="500"></textarea>
+                                            <div class="d-flex gap-2 justify-content-end">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-wd-cancel="${r.id}">${I18n.t("adsCancel")}</button>
+                                                <button type="button" class="btn btn-sm btn-danger" data-wd-confirm="${r.id}">${I18n.t("abWdConfirm")}</button>
+                                            </div>
+                                        </div>
+                                    </div>`).join("")}
+                                ${(d.elallasok || []).map(x => `
+                                    <div class="small d-flex justify-content-between gap-2 border-top pt-2 mt-2">
+                                        <span>${esc(x.megnevezes || "")} · ${esc(new Date(x.created_at).toLocaleString())}</span>
+                                        <span class="badge text-bg-${x.statusz === "rendezve" ? "success" : "warning"}">${I18n.t(x.statusz === "rendezve" ? "abWdDone" : "abWdReceived")}</span>
+                                    </div>`).join("")}
+                            </div>
+                        </div>` : ""}
                 </div>
 
                 <div class="col-lg-7">
@@ -241,6 +273,34 @@ class AccountBilling {
             </div>`;
 
         Svc.kartyaKot(el);
+
+        // Elállás: 1. gomb → 2. megerősítés (a nyilatkozat szövegével) → visszaigazoló e-mail
+        el.querySelectorAll("[data-wd-start]").forEach(b => {
+            b.onclick = () => {
+                const sor = el.querySelector(`[data-wd-row="${b.dataset.wdStart}"]`);
+                sor.querySelector(".abWdConfirm").hidden = false;
+                b.hidden = true;
+            };
+        });
+        el.querySelectorAll("[data-wd-cancel]").forEach(b => {
+            b.onclick = () => {
+                const sor = el.querySelector(`[data-wd-row="${b.dataset.wdCancel}"]`);
+                sor.querySelector(".abWdConfirm").hidden = true;
+                sor.querySelector("[data-wd-start]").hidden = false;
+            };
+        });
+        el.querySelectorAll("[data-wd-confirm]").forEach(b => {
+            b.onclick = () => {
+                const id = b.dataset.wdConfirm;
+                b.disabled = true;
+                Svc.api(`/api/sajat-csomag/rendeles/${id}/elallas`, { method: "POST", body: { megerosit: true, indok: (document.getElementById("abWdNote" + id) || {}).value || "" } })
+                    .then(v => {
+                        alert(I18n.f("abWdOk", { ido: new Date(v.ido || Date.now()).toLocaleString() }));
+                        AccountBilling.render ? AccountBilling.render(el) : location.reload();
+                    })
+                    .catch(e => { b.disabled = false; alert(Svc.hiba(e)); });
+            };
+        });
 
         el.querySelectorAll("[data-lemond]").forEach(b => {
             b.onclick = () => {

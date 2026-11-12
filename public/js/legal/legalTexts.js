@@ -41,7 +41,7 @@ A kapcsolattartás nyelve: <b>magyar, román, angol</b>. A kapcsolattartás nem 
 <p>Ha az oldalon jogellenes, megtévesztő vagy a jogaidat sértő tartalmat látsz (pl. a te fotóidat vagy adataidat), jelentsd a ${c.link("bejelentes", "Tartalom bejelentése")} űrlapon, vagy e-mailben.</p>
 
 <h3>A szolgáltatás díja</h3>
-<p>Az IngatlanPro használata jelenleg <b>ingyenes</b>. Ha ez változik, a díjakat (ÁFA-val együtt) előre, jól láthatóan közöljük.</p>
+<p>Az IngatlanPro alapszolgáltatásai <b>ingyenesek</b>. A díjas csomagok árát (ÁFA-val együtt) a Csomagok és árak oldalon, a megrendelés előtt jól láthatóan közöljük.</p>
 
 ${c.ceg ? `<h3>Fogyasztóvédelem</h3>
 <p>Nemzeti Fogyasztóvédelmi Hatóság (ANPC): <a href="https://anpc.ro" target="_blank" rel="noopener">anpc.ro</a> ·
@@ -64,9 +64,18 @@ Alternatív vitarendezés (SAL): <a href="https://anpc.ro/ce-este-sal/" target="
 <ul>
 <li>Az IngatlanPro egy romániai ingatlanhirdetéseket összegyűjtő, kereshető és elemezhető felület: keresés, térkép, piaci elemzés, értékbecslés, saját hirdetések feladása, keresési igények, üzenetek, ingatlanirodák kezelése.</li>
 <li>Az Oldalon a felhasználók által feladott hirdetések mellett <b>más, nyilvánosan elérhető hirdetési oldalakról átvett hirdetések</b> is megjelennek, a forrás megjelölésével és linkjével.</li>
-<li>A szolgáltatás jelenleg <b>ingyenes</b>.</li>
+<li>Az alapszolgáltatás <b>ingyenes</b>; a díjas csomagokra a 2/A. pont vonatkozik.</li>
 <li><b>Az Üzemeltető nem ingatlanközvetítő</b>, nem képviseli egyik felet sem, és nem fél az adásvételi vagy bérleti szerződésekben. A felek közötti ügyletekért, a fizetésért és az ingatlan állapotáért nem vállalunk felelősséget.</li>
 <li>A böngészéshez nem kell fiók. Hirdetésfeladáshoz, kedvencekhez, mentett kereséshez és üzenetküldéshez regisztrálni kell.</li>
+</ul>
+
+<h3>2/A. Díjas csomagok, fizetés, elállás</h3>
+<ul>
+<li>A csomagok tartalmát, árát és időtartamát a Csomagok és árak oldal mutatja. A szerződés a megrendeléssel jön létre; a csomag a díjbekérő kifizetésekor indul. A kifizetés után e-mailben megkapod a számlát és a szerződés visszaigazolását.</li>
+<li>Az ismétlődő (havi, negyedéves, éves) csomag az időszak végén megújul: előtte díjbekérőt küldünk, magától nem terhelünk. A fiókodban (Fiókom → Csomagom és számláim) bármikor lemondhatod; a kifizetett időszak végéig él.</li>
+<li><b>Elállási jog (fogyasztóknak)</b>: magánszemélyként a megrendeléstől számított <b>14 napon belül indoklás nélkül elállhatsz</b> a szerződéstől (OUG 34/2014). Ehhez a fiókodban az „Elállás a szerződéstől” gombot használd (vagy írj nekünk az 1. pontban megadott címre). A nyilatkozatod beérkezését azonnal, e-mailben visszaigazoljuk.</li>
+<li>Ha kérted, hogy a szolgáltatás a fizetés után azonnal induljon, elálláskor az addig igénybe vett időszak arányos díját kell megfizetned; a többit legkésőbb 14 napon belül, ugyanazzal a fizetési móddal visszatérítjük.</li>
+<li>Cégként vagy egyéni vállalkozóként (PFA) rendelve a fogyasztói elállási jog nem illeti meg a megrendelőt.</li>
 </ul>
 
 <h3>3. Regisztráció és fiók</h3>
@@ -283,7 +292,7 @@ Limbi de comunicare: <b>română, maghiară, engleză</b>. Comunicarea nu se baz
 <p>Dacă observați pe site conținut ilegal, înșelător sau care vă încalcă drepturile (de ex. fotografiile sau datele dvs.), semnalați-l prin formularul ${c.link("bejelentes", "Semnalează conținut")} sau prin e-mail.</p>
 
 <h3>Tarife</h3>
-<p>Utilizarea IngatlanPro este în prezent <b>gratuită</b>. Dacă acest lucru se schimbă, tarifele (inclusiv TVA) vor fi comunicate în prealabil, în mod vizibil.</p>
+<p>Serviciile de bază IngatlanPro sunt <b>gratuite</b>. Prețul pachetelor plătite (inclusiv TVA) este afișat vizibil pe pagina Pachete și prețuri, înainte de comandă.</p>
 
 ${c.ceg ? `<h3>Protecția consumatorilor</h3>
 <p>Autoritatea Națională pentru Protecția Consumatorilor (ANPC): <a href="https://anpc.ro" target="_blank" rel="noopener">anpc.ro</a> ·
@@ -306,9 +315,18 @@ Soluționarea alternativă a litigiilor (SAL): <a href="https://anpc.ro/ce-este-
 <ul>
 <li>IngatlanPro este o platformă care reunește, face căutabile și analizează anunțuri imobiliare din România: căutare, hartă, analiză de piață, estimare de preț, publicarea propriilor anunțuri, cereri de căutare, mesaje, gestionarea agențiilor imobiliare.</li>
 <li>Pe lângă anunțurile publicate de utilizatori, pe Site apar și <b>anunțuri preluate de pe alte site-uri de anunțuri accesibile public</b>, cu indicarea sursei și link către anunțul original.</li>
-<li>Serviciul este în prezent <b>gratuit</b>.</li>
+<li>Serviciul de bază este <b>gratuit</b>; pentru pachetele plătite se aplică punctul 2/A.</li>
 <li><b>Operatorul nu este agent imobiliar</b>, nu reprezintă niciuna dintre părți și nu este parte în contractele de vânzare-cumpărare sau de închiriere. Nu răspundem pentru tranzacțiile dintre părți, plăți sau starea imobilelor.</li>
 <li>Pentru navigare nu este nevoie de cont. Pentru publicarea anunțurilor, favorite, căutări salvate și mesaje este necesară înregistrarea.</li>
+</ul>
+
+<h3>2/A. Pachete plătite, plată, retragere</h3>
+<ul>
+<li>Conținutul, prețul și durata pachetelor sunt afișate pe pagina Pachete și prețuri. Contractul se încheie la plasarea comenzii; pachetul începe la plata facturii proforme. După plată primiți prin e-mail factura și confirmarea contractului.</li>
+<li>Pachetele recurente (lunare, trimestriale, anuale) se reînnoiesc la sfârșitul perioadei: vă trimitem în prealabil o factură proformă, nu debităm automat. Le puteți anula oricând din cont (Contul meu → Pachetul meu și facturi); rămân active până la finalul perioadei plătite.</li>
+<li><b>Dreptul de retragere (pentru consumatori)</b>: ca persoană fizică vă puteți <b>retrage din contract în 14 zile</b> de la comandă, fără a invoca vreun motiv (OUG 34/2014), folosind butonul „Retragere din contract” din cont (sau scriindu-ne la adresa de la punctul 1). Confirmăm imediat, prin e-mail, primirea declarației.</li>
+<li>Dacă ați solicitat începerea imediată a serviciului, la retragere plătiți proporțional perioada deja folosită; restul îl rambursăm în cel mult 14 zile, prin aceeași metodă de plată.</li>
+<li>Comenzile plasate ca persoană juridică sau PFA nu beneficiază de dreptul de retragere al consumatorilor.</li>
 </ul>
 
 <h3>3. Înregistrare și cont</h3>
@@ -525,7 +543,7 @@ Languages: <b>English, Romanian, Hungarian</b>. Communication does not rely sole
 <p>If you see content on the site that is illegal, misleading or infringes your rights (e.g. your photos or personal data), report it using the ${c.link("bejelentes", "Report content")} form or by e-mail.</p>
 
 <h3>Prices</h3>
-<p>Using IngatlanPro is currently <b>free of charge</b>. If this changes, prices (including VAT) will be shown clearly in advance.</p>
+<p>IngatlanPro's basic services are <b>free of charge</b>. Prices of paid packages (including VAT) are shown clearly on the Packages and prices page before you order.</p>
 
 ${c.ceg ? `<h3>Consumer protection</h3>
 <p>Romanian National Authority for Consumer Protection (ANPC): <a href="https://anpc.ro" target="_blank" rel="noopener">anpc.ro</a> ·
@@ -548,9 +566,18 @@ Alternative dispute resolution (SAL): <a href="https://anpc.ro/ce-este-sal/" tar
 <ul>
 <li>IngatlanPro is a platform that collects, makes searchable and analyses real estate listings in Romania: search, map, market analysis, price estimates, publishing your own listings, search requests, messages and real estate agency management.</li>
 <li>Besides listings published by users, the Site also shows <b>listings taken from other publicly available listing websites</b>, with the source indicated and a link to the original.</li>
-<li>The service is currently <b>free of charge</b>.</li>
+<li>The basic service is <b>free of charge</b>; paid packages are covered by section 2/A.</li>
 <li><b>The Operator is not a real estate agent</b>, does not represent either party and is not a party to any sale or rental agreement. We are not responsible for transactions between parties, payments or the condition of properties.</li>
 <li>No account is needed for browsing. Publishing listings, favourites, saved searches and messages require registration.</li>
+</ul>
+
+<h3>2/A. Paid packages, payment, withdrawal</h3>
+<ul>
+<li>The content, price and duration of each package are shown on the Packages and prices page. The contract is concluded when you place the order; the package starts when the proforma invoice is paid. After payment you receive the invoice and the contract confirmation by e-mail.</li>
+<li>Recurring (monthly, quarterly, yearly) packages renew at the end of the period: we send a proforma invoice beforehand and never charge automatically. You can cancel at any time in your account (My account → My package and invoices); the package stays active until the end of the paid period.</li>
+<li><b>Right of withdrawal (consumers)</b>: as a private person you can <b>withdraw from the contract within 14 days</b> of ordering, without giving a reason (EU Directive 2011/83, Romanian OUG 34/2014), using the “Withdraw from contract” button in your account (or by writing to the address in section 1). We confirm receipt of your statement immediately by e-mail.</li>
+<li>If you asked for the service to start immediately, on withdrawal you pay a proportionate amount for the period already used; the rest is refunded within 14 days using the same payment method.</li>
+<li>Orders placed as a company or sole trader (PFA) do not carry the consumer right of withdrawal.</li>
 </ul>
 
 <h3>3. Registration and account</h3>

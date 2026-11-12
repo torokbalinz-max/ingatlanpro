@@ -54,6 +54,8 @@ async function arlista() {
     return {
         csomagok: r.rows.map(nyilvanosCsomag),
         ingyenes: { maganszemely: b.ingyenes_hirdetes, iroda: b.iroda_ingyenes_hirdetes, korlatok_be: !!b.korlatok_be },
+        iroda_csomag_kell: !!b.iroda_csomag_kell,
+        stat_fizetos: !!b.stat_fizetos,
         afa_fizeto: !!b.afa_fizeto,
         afa_kulcs: b.afa_kulcs,
         fizetesi_hatarido: b.fizetesi_hatarido
@@ -196,6 +198,12 @@ async function rendel(user, b) {
 
     const szamlazas = szamlazasTisztit(b.szamlazas || {});
 
+    // Fogyasztó (magánszemély): kifejezetten kérnie kell, hogy a szolgáltatás a fizetés
+    // után azonnal induljon, és tudomásul vennie, hogy elálláskor az addig igénybe vett
+    // rész arányos díját fizeti (OUG 34/2014 – 2011/83/EU irányelv 7. cikk (3), 14. cikk (3))
+    const fogyaszto = szamlazas.tipus === "maganszemely";
+    if (fogyaszto && Number(csomag.ar) > 0 && !b.azonnal) throw hibaKod("must_accept_start");
+
     // Hirdetés kiemeléséhez: a saját (vagy az irodája) hirdetése
     let ingatlanId = Number(b.ingatlan_id) || null;
     let ingatlanCim = null;
@@ -260,6 +268,10 @@ async function rendel(user, b) {
     }
 
     const tetelNev = `${nev}${tol ? ` (${tol} – ${ig})` : ""}${ingatlanId ? ` – #${ingatlanId}${ingatlanCim ? " " + String(ingatlanCim).slice(0, 60) : ""}` : ""}`;
+    // A számla hivatalos (román) megnevezése: a csomag román neve + az időszak
+    const utotag = `${tol ? ` (${tol} – ${ig})` : ""}${ingatlanId ? ` – #${ingatlanId}${ingatlanCim ? " " + String(ingatlanCim).slice(0, 60) : ""}` : ""}`;
+    const tetelNevRo = csomag.nev_ro ? csomag.nev_ro + utotag : null;
+    const tetelNevEn = csomag.nev_en ? csomag.nev_en + utotag : null;
 
     const szamlaId = await pu.szamlaMent(null, {
         tipus: "dijbekero",
@@ -271,17 +283,17 @@ async function rendel(user, b) {
         idoszak_ig: ig,
         penznem: csomag.penznem,
         megjegyzes: sz(b.megjegyzes, 600),
-        tetelek: [{ megnevezes: tetelNev, csomag_id: csomag.id, mennyiseg, egysegar: Number(csomag.ar) }]
+        tetelek: [{ megnevezes: tetelNev, megnevezes_ro: tetelNevRo, megnevezes_en: tetelNevEn, csomag_id: csomag.id, mennyiseg, egysegar: Number(csomag.ar) }]
     });
 
     const szamla = await pu.szamla(szamlaId);
 
     const r = await db.query(`
         INSERT INTO penzugy_rendelesek (user_id, iroda_id, csomag_id, ugyfel_id, elofizetes_id, szamla_id, ingatlan_id, celcsoport,
-               megnevezes, ar, penznem, idoszak, statusz, megjegyzes)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'fizetesre_var',$13) RETURNING id`,
+               megnevezes, ar, penznem, idoszak, statusz, megjegyzes, fogyaszto, azonnali_kezdes)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'fizetesre_var',$13,$14,CASE WHEN $15::boolean THEN NOW() END) RETURNING id`,
         [user.id, irodaId, csomag.id, ugyfelId, elofizetesId, szamlaId, ingatlanId, irodaId ? "iroda" : "maganszemely",
-         nev, szamla.brutto, csomag.penznem, csomag.idoszak, sz(b.megjegyzes, 600)]);
+         nev, szamla.brutto, csomag.penznem, csomag.idoszak, sz(b.megjegyzes, 600), fogyaszto, !!(fogyaszto && b.azonnal)]);
 
     // Ingyenes csomag (0 Ft): azonnal teljesül
     if (Number(szamla.brutto) === 0) {
@@ -371,9 +383,15 @@ async function sajat(user) {
         turelem = t.rows.map(x => ({ ...x, vege: pu.pgDatum(x.vege) }));
     } catch (e) { /* még nincs tábla */ }
 
+    const elallhato = await elallhatoRendelesek(user.id).catch(() => []);
+    const elallasok = await db.query(
+        "SELECT id, megnevezes, created_at, statusz, visszajar, penznem FROM penzugy_elallasok WHERE user_id = $1 ORDER BY id DESC LIMIT 20", [user.id]).catch(() => ({ rows: [] }));
+
     return {
         jog,
         turelem,
+        elallhato,
+        elallasok: elallasok.rows.map(x => pu.szamosit(x, ["visszajar"])),
         hasznalat: { db: hasz.rows[0].n, limit: jog ? jog.hirdetes_limit : b.ingyenes_hirdetes, korlatok_be: !!b.korlatok_be },
         irodak: irodaHasznalat,
         elofizetesek,
@@ -453,6 +471,156 @@ async function visszavon(user, rendelesId) {
         await db.query("UPDATE penzugy_elofizetesek SET statusz = 'lemondva', vege = COALESCE(vege, $2::date), updated_at = NOW() WHERE id = $1 AND statusz = 'fuggo'", [x.elofizetes_id, pu.ma()]);
     }
     return { visszavonva: true };
+}
+
+// ===================== ELÁLLÁS A SZERZŐDÉSTŐL (14 nap) =====================
+//
+// Távollévők között kötött szerződésnél a fogyasztó (magánszemély) 14 napon belül
+// indoklás nélkül elállhat (OUG 34/2014 – 2011/83/EU irányelv 9. cikk). Ha kérte az
+// azonnali kezdést, az addig igénybe vett időszak arányos díját fizeti (14. cikk (3)),
+// a többit 14 napon belül visszatérítjük (13. cikk). A nyilatkozatról azonnal
+// visszaigazolást küldünk (11a. cikk – „Elállás a szerződéstől” gomb, 2026. június 19-től).
+
+const ELALLAS_NAP = 14;
+
+function napKulonbseg(a, b) {
+    return Math.round((new Date(String(b).slice(0, 10)) - new Date(String(a).slice(0, 10))) / 86400000);
+}
+
+// A rendelésből: mennyit fizetett, és mennyi jár vissza (becslés – a pontos összeget az admin rögzíti)
+async function elallasOsszeg(x) {
+    const fizetett = Number(x.ar) || 0;
+    if (!x.fizetve || !fizetett) return { fizetett: 0, visszajar: 0 };
+    if (!x.azonnali_kezdes) return { fizetett, visszajar: fizetett };      // nem kérte az azonnali kezdést: teljes összeg
+    const s = x.szamla_id ? await pu.szamla(x.szamla_id) : null;
+    const tol = (s && s.idoszak_tol) || String(x.fizetve).slice(0, 10);
+    const ig = s && s.idoszak_ig;
+    const ma = pu.ma();
+    if (!ig) {
+        // egyszeri szolgáltatás (pl. kiemelés): a napokkal arányosan (alapból 7 nap)
+        const hossz = Math.max(1, Number((await pu.beallitas()).kiemeles_nap) || 7);
+        const eltelt = Math.min(hossz, Math.max(0, napKulonbseg(tol, ma)));
+        return { fizetett, visszajar: pu.kerek(fizetett * (hossz - eltelt) / hossz) };
+    }
+    const hossz = Math.max(1, napKulonbseg(tol, ig) + 1);
+    const eltelt = Math.min(hossz, Math.max(0, napKulonbseg(tol, ma)));
+    return { fizetett, visszajar: pu.kerek(fizetett * (hossz - eltelt) / hossz) };
+}
+
+async function elallhatoRendelesek(userId) {
+    const r = await db.query(`
+        SELECT r.* FROM penzugy_rendelesek r
+        WHERE r.user_id = $1 AND COALESCE(r.fogyaszto, false) AND r.statusz IN ('aktiv', 'teljesitve')
+          AND r.created_at >= NOW() - INTERVAL '${ELALLAS_NAP} days'
+          AND NOT EXISTS (SELECT 1 FROM penzugy_elallasok e WHERE e.rendeles_id = r.id)
+        ORDER BY r.id DESC`, [userId]);
+    const ki = [];
+    for (const x of r.rows) {
+        const o = await elallasOsszeg(x);
+        const hatarido = new Date(new Date(x.created_at).getTime() + ELALLAS_NAP * 86400000);
+        ki.push({ id: x.id, megnevezes: x.megnevezes, created_at: x.created_at, hatarido, penznem: x.penznem, ...o });
+    }
+    return ki;
+}
+
+async function elall(user, rendelesId, indok) {
+    const r = await db.query("SELECT * FROM penzugy_rendelesek WHERE id = $1 AND user_id = $2", [Number(rendelesId) || 0, user.id]);
+    const x = r.rows[0];
+    if (!x) throw hibaKod("not_found");
+    if (!x.fogyaszto) throw hibaKod("not_consumer");
+    if (Date.now() - new Date(x.created_at).getTime() > ELALLAS_NAP * 86400000) throw hibaKod("withdrawal_expired");
+    const mar = await db.query("SELECT id FROM penzugy_elallasok WHERE rendeles_id = $1", [x.id]);
+    if (mar.rowCount) throw hibaKod("already_withdrawn");
+    // Még nem fizette ki: elég visszavonni (a díjbekérő sztornó)
+    if (x.statusz === "fizetesre_var") return visszavon(user, x.id);
+    if (!["aktiv", "teljesitve"].includes(x.statusz)) throw hibaKod("not_active");
+
+    const o = await elallasOsszeg(x);
+    const u = await db.query("SELECT email, COALESCE(nev, felhasznalonev) AS nev FROM users WHERE id = $1", [user.id]);
+    const f = u.rows[0] || {};
+    const most = new Date();
+    const nyilatkozat = `Elállok a(z) „${x.megnevezes}” szolgáltatásra kötött szerződéstől (rendelés #${x.id}, ${String(x.created_at.toISOString ? x.created_at.toISOString() : x.created_at).slice(0, 10)}).`
+        + (indok ? ` Megjegyzés: ${String(indok).slice(0, 500)}` : "");
+
+    const e = await db.query(`
+        INSERT INTO penzugy_elallasok (user_id, rendeles_id, elofizetes_id, nev, email, megnevezes, nyilatkozat, fizetett, visszajar, penznem)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [user.id, x.id, x.elofizetes_id, f.nev || null, f.email || null, x.megnevezes, nyilatkozat, o.fizetett, o.visszajar, x.penznem]);
+
+    // A szolgáltatás azonnal megszűnik (a jogai is)
+    await db.query("UPDATE penzugy_rendelesek SET statusz = 'lemondva', updated_at = NOW(), megjegyzes = TRIM(COALESCE(megjegyzes, '') || E'\n' || $2) WHERE id = $1",
+        [x.id, `Elállás (${most.toISOString().slice(0, 16).replace("T", " ")})`]);
+    if (x.elofizetes_id) {
+        await db.query(`UPDATE penzugy_elofizetesek SET statusz = 'lemondva', vege = $2::date, updated_at = NOW(),
+                               jegyzet = TRIM(COALESCE(jegyzet, '') || E'\n' || $3) WHERE id = $1`,
+            [x.elofizetes_id, pu.ma(), `Elállás a szerződéstől (${pu.ma()}).`]);
+        const nyitott = await db.query("SELECT id FROM penzugy_szamlak WHERE elofizetes_id = $1 AND statusz = 'kiallitva'", [x.elofizetes_id]);
+        for (const s of nyitott.rows) await pu.szamlaAllapotValt(s.id, { statusz: "sztorno" });
+    }
+
+    const elallas = e.rows[0];
+    await elallasLevel(elallas).catch(err => console.error("Elállás e-mail:", err.message));
+    return { elallva: true, id: elallas.id, ido: elallas.created_at, visszajar: Number(elallas.visszajar), penznem: elallas.penznem };
+}
+
+// A visszaigazolás (tartós adathordozón – e-mail): a nyilatkozat tartalma, dátuma és
+// időpontja; és egy levél neked (admin), mert a visszatérítést 14 napon belül intézni kell
+async function elallasLevel(e) {
+    const mail = require("./mail");
+    if (!mail.elerheto()) return;
+    const ido = new Date(e.created_at).toLocaleString("ro-RO", { timeZone: "Europe/Bucharest" });
+    const osszeg = `${Number(e.visszajar).toFixed(2)} ${e.penznem || "RON"}`;
+    if (e.email) {
+        const t = mail.sablon({
+            cim: "Confirmare primire retragere / Elállási nyilatkozat visszaigazolása",
+            sorok: [
+                `Am primit declarația dvs. de retragere din contract la data și ora: ${ido}.`,
+                `Conținutul declarației: ${e.nyilatkozat}`,
+                Number(e.visszajar) > 0 ? `Suma de rambursat estimată: ${osszeg}. Rambursarea se face în cel mult 14 zile, prin aceeași metodă de plată (dacă nu ați convenit altfel).` : "",
+                "———",
+                `Megkaptuk az elállási nyilatkozatodat. Időpontja: ${ido}.`,
+                `A nyilatkozat tartalma: ${e.nyilatkozat}`,
+                Number(e.visszajar) > 0 ? `A visszajáró összeg (becslés): ${osszeg}. A visszatérítés legkésőbb 14 napon belül megtörténik, ugyanazzal a fizetési móddal (ha másban nem állapodtunk meg).` : "",
+                "Ez a levél a nyilatkozat beérkezését igazolja. / Acest e-mail confirmă primirea declarației."
+            ].filter(Boolean),
+            gomb: "Contul meu / Fiókom",
+            link: mail.oldalCim() + "/#fiok/csomag"
+        });
+        if (await mail.kuld({ to: e.email, subject: `Retragere din contract / Elállás – #${e.rendeles_id}`, html: t.html, text: t.text })) {
+            await db.query("UPDATE penzugy_elallasok SET visszaigazolva = NOW() WHERE id = $1", [e.id]);
+        }
+    }
+    const u = await require("./oldalAdatok").nyilvanos();
+    if (u.email) {
+        const t = mail.sablon({
+            cim: `Elállás a szerződéstől – rendelés #${e.rendeles_id}`,
+            sorok: [
+                `${e.nev || "Egy felhasználó"} (${e.email || "–"}) elállt: ${e.megnevezes}.`,
+                `Időpont: ${ido}. Fizetett: ${Number(e.fizetett).toFixed(2)} ${e.penznem || "RON"} · visszajár (becslés): ${osszeg}.`,
+                "Teendő: 14 napon belül utald vissza az összeget, és állíts ki sztornó számlát (Admin → Pénzügy → Rendelések → Elállások)."
+            ],
+            gomb: "Rendelések",
+            link: mail.oldalCim() + "/#admin/rendelesek",
+            lablec: "Admin értesítés."
+        });
+        await mail.kuld({ to: u.email, subject: `Elállás: #${e.rendeles_id} – ${e.megnevezes}`, html: t.html, text: t.text });
+    }
+}
+
+async function elallasLista() {
+    const r = await db.query(`
+        SELECT e.*, r.szamla_id FROM penzugy_elallasok e LEFT JOIN penzugy_rendelesek r ON r.id = e.rendeles_id
+        ORDER BY (e.statusz = 'beerkezett') DESC, e.id DESC LIMIT 200`);
+    return r.rows.map(x => pu.szamosit(x, ["fizetett", "visszajar"]));
+}
+
+async function elallasRendez(id, b) {
+    const r = await db.query(`
+        UPDATE penzugy_elallasok SET statusz = 'rendezve', rendezve = NOW(), visszajar = COALESCE($2, visszajar),
+               jegyzet = $3 WHERE id = $1 RETURNING *`,
+        [Number(id) || 0, Number.isFinite(Number(b && b.visszajar)) && b.visszajar !== "" && b.visszajar !== null ? pu.kerek(b.visszajar) : null, sz(b && b.jegyzet, 600)]);
+    if (!r.rowCount) throw hibaKod("not_found");
+    return r.rows[0];
 }
 
 // ===================== ADMIN: RENDELÉSEK, ELADÁSOK CSOMAGONKÉNT =====================
@@ -567,5 +735,6 @@ async function adminLista(f = {}) {
 
 module.exports = {
     RENDELES_STATUSZOK,
-    arlista, rendel, sajat, sajatSzamla, lemond, visszavon, adminLista, vezetettIrodak, fizetesiAdatok
+    arlista, rendel, sajat, sajatSzamla, lemond, visszavon, adminLista, vezetettIrodak, fizetesiAdatok,
+    elall, elallhatoRendelesek, elallasLista, elallasRendez, elallasOsszeg
 };

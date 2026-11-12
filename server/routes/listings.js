@@ -240,8 +240,9 @@ router.get("/api/sajat-hirdetesek/statisztika", csakBelepve, async (req, res) =>
     try {
 
         const napok = [7, 30, 90].includes(Number(req.query.napok)) ? Number(req.query.napok) : 30;
-        const j = await require("../services/penzugy").jogosultsag(req.user.id).catch(() => null);
-        const pro = req.szerep === "admin" || !!(j && (!j.korlatok_be || j.pro_statisztika));
+        // Részletes rész: amíg a „Részletes statisztika csak csomaggal” nincs bekapcsolva, mindenkinek
+        const sj = await require("../services/penzugy").statJog(req).catch(() => ({ fizetos: false, pro: true }));
+        const pro = sj.pro;
 
         const h = await db.query(`
             SELECT i.id, i.cim, i.tipus, i.ugylet, i.varos, i.kerulet, i.ar, i.nm, i.statusz, i.created_at, i.forras_tipus,
@@ -250,7 +251,7 @@ router.get("/api/sajat-hirdetesek/statisztika", csakBelepve, async (req, res) =>
             FROM ingatlanok i WHERE i.owner_id = $1 ORDER BY i.id DESC`, [req.user.id]);
 
         const ids = h.rows.map(r => r.id);
-        const ures = { pro, napok, osszesen: { megtekintes: 0, megtekintes_ossz: 0, het: 0, ma: 0, latogato: pro ? 0 : null, kedvenc: 0, erdeklodo: 0 }, napi: pro ? [] : null, hirdetesek: [], forrasok: pro ? [] : null, eszkozok: pro ? [] : null };
+        const ures = { pro, fizetos: sj.fizetos, napok, osszesen: { megtekintes: 0, megtekintes_ossz: 0, het: 0, ma: 0, latogato: pro ? 0 : null, kedvenc: 0, erdeklodo: 0 }, napi: pro ? [] : null, hirdetesek: [], forrasok: pro ? [] : null, eszkozok: pro ? [] : null };
         if (!ids.length) return res.json(ures);
 
         const idoszak = `NOW() - INTERVAL '${napok} days'`;
@@ -330,7 +331,7 @@ router.get("/api/sajat-hirdetesek/statisztika", csakBelepve, async (req, res) =>
         const sum = k => hirdetesek.reduce((s, x) => s + (x[k] || 0), 0);
 
         res.json({
-            pro, napok,
+            pro, fizetos: sj.fizetos, napok,
             osszesen: {
                 megtekintes: sum("megtekintes"), megtekintes_ossz: sum("megtekintes_ossz"), het: sum("het"), ma: sum("ma"),
                 latogato: pro ? sum("latogato") : null, kedvenc: sum("kedvenc"), erdeklodo: sum("erdeklodo")
@@ -403,6 +404,12 @@ router.post("/api/ingatlanok", csakBelepve, async (req, res) => {
         // be van kapcsolva a díjak érvényesítése – Admin → Pénzügyek → Beállítások)
         const korlat = await require("../services/penzugy").hirdetesKorlat(req, iroda && iroda.iroda_id).catch(() => null);
         if (korlat) return res.status(402).json({ error: "listing_limit", ...korlat });
+
+        // Csomaghoz kötött iroda: kifizetett irodai csomag nélkül az iroda nevében nem lehet feltölteni
+        if (iroda && iroda.iroda_id && req.szerep !== "admin") {
+            const ia = await require("../services/penzugy").irodaAktiv(iroda.iroda_id).catch(() => ({ aktiv: true }));
+            if (!ia.aktiv) return res.status(402).json({ error: "agency_inactive" });
+        }
 
         // Ha a város egy faluja (pl. Uzon) van megadva, a "<város> és környéke" városba kerül
         d.forras_tipus = "kezi";

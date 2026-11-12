@@ -154,6 +154,14 @@ class CurrentStatistics {
 
         html += CurrentStatistics.renderKpis(lista);
 
+        // Alap nézet (ha a részletes statisztika csomaghoz kötött és nincs joga):
+        // a fő számok látszanak, a bontások helyén a lakatos ajánló
+        if (!StatPro.pro()) {
+            container.innerHTML = html + StatPro.zar("spLockTitle_current", "spLockText");
+            StatPro.zarKot(container);
+            return;
+        }
+
         const kategoriak = CurrentStatistics.kategoriak(FilterManager.tipus);
         const csoportok = {};
 

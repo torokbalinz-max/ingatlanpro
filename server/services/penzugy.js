@@ -134,6 +134,13 @@ function alapBeallitas() {
         arfolyam_datum: null,
         // Díjak érvényesítése (hirdetésszám-korlát). Kikapcsolva: minden a régi.
         korlatok_be: false,
+        // Fizetős funkciók (az indulásnál minden ingyenes – ezeket később kapcsolod be):
+        //  stat_fizetos      a részletes statisztika (piaci elemzés részletei, ártrend,
+        //                    előzmények, PDF-export, a hirdetések részletes statisztikája)
+        //                    csak a „Részletes statisztika” joggal járó csomaggal
+        //  iroda_csomag_kell az iroda csak irodai csomaggal lesz aktív (nyilvános, kezelhető)
+        stat_fizetos: false,
+        iroda_csomag_kell: false,
         ingyenes_hirdetes: 2,       // magánszemély ennyi aktív hirdetést tehet fel ingyen
         iroda_ingyenes_hirdetes: 2, // iroda előfizetés nélkül
         turelmi_nap: 10,            // lejárt díjbekérő után ennyi napig még él a csomag
@@ -211,6 +218,8 @@ async function beallitasMent(b) {
     if ("eur_arfolyam" in b) a.eur_arfolyam = n(b.eur_arfolyam, 0.5, 50, 5);
     if ("arfolyam_datum" in b) a.arfolyam_datum = datum(b.arfolyam_datum);
     if ("korlatok_be" in b) a.korlatok_be = !!b.korlatok_be;
+    if ("stat_fizetos" in b) a.stat_fizetos = !!b.stat_fizetos;
+    if ("iroda_csomag_kell" in b) a.iroda_csomag_kell = !!b.iroda_csomag_kell;
     if ("ingyenes_hirdetes" in b) a.ingyenes_hirdetes = Math.round(n(b.ingyenes_hirdetes, 0, 1000, 2));
     if ("iroda_ingyenes_hirdetes" in b) a.iroda_ingyenes_hirdetes = Math.round(n(b.iroda_ingyenes_hirdetes, 0, 1000, 2));
     if ("turelmi_nap" in b) a.turelmi_nap = Math.round(n(b.turelmi_nap, 0, 90, 10));
@@ -1342,7 +1351,7 @@ async function aktivJogok(feltetel, param) {
 }
 
 function jogOsszevon(lista, alapLimit) {
-    const j = { hirdetes_limit: alapLimit, korlatlan_hirdetes: false, reklammentes: false, pro_statisztika: false, kiemeles: 0, profil_kiemeles: 0, csomagok: lista.length };
+    const j = { hirdetes_limit: alapLimit, korlatlan_hirdetes: false, reklammentes: false, pro_statisztika: false, iroda_profil: false, kiemeles: 0, profil_kiemeles: 0, csomagok: lista.length };
     let plusz = 0;
     lista.forEach(({ j: c, db }) => {
         if (c.korlatlan_hirdetes) j.korlatlan_hirdetes = true;
@@ -1350,6 +1359,7 @@ function jogOsszevon(lista, alapLimit) {
         if (c.hirdetes_plusz) plusz += Number(c.hirdetes_plusz) * db;
         if (c.reklammentes) j.reklammentes = true;
         if (c.pro_statisztika) j.pro_statisztika = true;
+        if (c.iroda_profil) j.iroda_profil = true;
         if (c.kiemeles) j.kiemeles += Number(c.kiemeles) * db;
         if (c.profil_kiemeles) j.profil_kiemeles += Number(c.profil_kiemeles) * db;
     });
@@ -1371,10 +1381,31 @@ async function jogosultsag(userId) {
         j.reklammentes = j.reklammentes || ji.reklammentes;
         j.pro_statisztika = j.pro_statisztika || ji.pro_statisztika;
         j.korlatok_be = !!b.korlatok_be;
+        j.stat_fizetos = !!b.stat_fizetos;
         return j;
     } catch (e) {
         return null;
     }
+}
+
+// Részletes statisztika: { fizetos: be van-e kapcsolva a díj, pro: láthatja-e }
+//  - amíg a díj nincs bekapcsolva, mindenki (vendég is) mindent lát
+//  - bekapcsolva: az admin, és akinek (vagy az irodájának) a csomagja ad rá jogot
+async function statJog(req) {
+    const b = await beallitas();
+    if (!b.stat_fizetos) return { fizetos: false, pro: true };
+    if (req && req.szerep === "admin") return { fizetos: true, pro: true };
+    const j = req && req.user ? await jogosultsag(req.user.id) : null;
+    return { fizetos: true, pro: !!(j && j.pro_statisztika) };
+}
+
+// Aktív-e az iroda: ha a beállítás kéri (iroda_csomag_kell), csak irodai csomaggal
+// (amíg nincs kifizetve, nem látszik nyilvánosan, és a kezelése zárolva)
+async function irodaAktiv(irodaId) {
+    const b = await beallitas();
+    if (!b.iroda_csomag_kell) return { kell: false, aktiv: true };
+    const j = await irodaJogosultsag(irodaId);
+    return { kell: true, aktiv: j.csomagok > 0 };
 }
 
 async function irodaJogosultsag(irodaId) {
@@ -1483,7 +1514,7 @@ module.exports = {
     szamlak, szamla, szamlaMent, szamlaAllapotValt, szamlaTorol,
     kiadasok, kiadasMent, kiadasTorol,
     attekintes, szamlalok,
-    jogosultsag, irodaJogosultsag, hirdetesKorlat, korlatElonezet,
+    jogosultsag, irodaJogosultsag, statJog, irodaAktiv, hirdetesKorlat, korlatElonezet,
     exportSzamlak, exportKiadasok, napi, webesLejart,
     rendelesSzinkron, rendelesFigyelo, fizetveFigyelo, sztornoz, zarolt, szamlaAllapot, honapHozzaad, napHozzaad, ma, kerek, pgDatum, szamosit,
     // tesztekhez

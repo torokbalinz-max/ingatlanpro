@@ -757,6 +757,10 @@ class NewPropertyManager {
                     alert(I18n.f(v.iroda ? "finLimitReachedAgency" : "finLimitReached", { n: v.limit, db: v.db }));
                     return;
                 }
+                if (v.error === "agency_inactive") {
+                    alert(I18n.t("agInactiveAlert"));
+                    return;
+                }
                 if (status === 403) {
                     alert(I18n.t("alertAdminOnly"));
                     return;

@@ -1,0 +1,119 @@
+/* ============================================================
+   26. változat: fizetős statisztika (lakat), PDF-nyomtatás, piaci
+   elemzés bevezető, iroda áttekintés, csomagkezelés, elállás
+   ============================================================ */
+
+/* ---------- Részletes statisztika: lakatos ajánló ---------- */
+.statLock {
+    display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap;
+    padding: 1.1rem 1.25rem; margin: 0.5rem 0 1.5rem;
+    border: 1px dashed var(--ip-accent); border-radius: var(--ip-radius);
+    background: var(--ip-accent-soft);
+}
+.statLockIcon {
+    flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--ip-accent); color: var(--ip-accent-contrast); font-size: 1.1rem;
+}
+.statLock .flex-fill { min-width: 220px; }
+.statLockList { padding-left: 1.1rem; color: var(--ip-muted); }
+.spTabLock { font-size: 0.75em; opacity: 0.7; }
+
+/* ---------- Bevezető és eszközsor ---------- */
+.spIntro {
+    border: 1px solid var(--ip-border); border-radius: var(--ip-radius);
+    background: var(--ip-surface); box-shadow: var(--ip-shadow);
+    padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+}
+.spIntroHead { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
+.spIntroSteps {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;
+}
+.spIntroSteps li {
+    display: flex; flex-direction: column; gap: 0.25rem;
+    padding: 0.75rem 0.9rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg);
+}
+.spIntroSteps li span { font-size: 0.875rem; color: var(--ip-muted); }
+.spGloss { margin-top: 0.75rem; font-size: 0.875rem; }
+.spGloss summary { cursor: pointer; font-weight: 600; color: var(--ip-accent); }
+.spGloss dl { margin: 0.5rem 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; }
+.spGloss dt { font-weight: 600; }
+.spGloss dd { margin: 0; color: var(--ip-muted); }
+@media (max-width: 575.98px) { .spGloss dl { grid-template-columns: 1fr; } .spGloss dd { margin-bottom: 0.4rem; } }
+
+.spToolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+    padding: 0.6rem 0.9rem; margin-bottom: 1rem;
+    border-radius: var(--ip-radius-sm); background: var(--ip-accent-soft);
+}
+
+/* ---------- PDF (nyomtatás) ---------- */
+#spPrint { display: none; }
+@media print {
+    body.spPrinting > *:not(#spPrint) { display: none !important; }
+    body.spPrinting { background: #fff !important; }
+    body.spPrinting #spPrint { display: block; color: #111; font-size: 11pt; }
+    #spPrint .spPrintHead {
+        display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem;
+        border-bottom: 2px solid #1f6f5c; padding-bottom: 8px; margin-bottom: 14px;
+    }
+    #spPrint .spPrintBrand { font-weight: 700; color: #1f6f5c; letter-spacing: 0.02em; }
+    #spPrint h1 { font-size: 17pt; margin: 2px 0; }
+    #spPrint .spPrintHead p { margin: 0; color: #555; font-size: 9.5pt; }
+    #spPrint .spPrintMeta { text-align: right; color: #555; font-size: 9pt; }
+    #spPrint .spPrintFoot { margin-top: 16px; border-top: 1px solid #ccc; padding-top: 6px; color: #666; font-size: 8.5pt; }
+    #spPrint .spChartImg { max-width: 100%; height: auto; }
+    #spPrint .card, #spPrint .statCard, #spPrint .lsCard, #spPrint .statKpi, #spPrint table, #spPrint tr { break-inside: avoid; }
+    #spPrint a { color: inherit; text-decoration: none; }
+    #spPrint .statGrid { display: block; }
+    #spPrint .statGrid > * { margin-bottom: 12px; }
+}
+
+/* ---------- Iroda: áttekintés ---------- */
+.agTabHelp { margin: -0.5rem 0 1rem; }
+.agTiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
+.agTile {
+    display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 0.65rem;
+    align-items: center; text-align: left;
+    padding: 0.75rem 0.9rem; border: 1px solid var(--ip-border); border-radius: var(--ip-radius-sm);
+    background: var(--ip-surface); color: inherit; transition: border-color .15s, box-shadow .15s;
+}
+.agTile:hover { border-color: var(--ip-accent); box-shadow: var(--ip-shadow); }
+.agTile:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+.agTileIcon {
+    grid-row: 1 / 3; width: 36px; height: 36px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--ip-bg); color: var(--ip-muted);
+}
+.agTile.green .agTileIcon { background: var(--ip-accent-soft); color: var(--ip-accent); }
+.agTile.amber .agTileIcon { background: var(--ip-warn-soft); color: var(--ip-warn); }
+.agTile.red .agTileIcon { background: rgba(180, 35, 24, 0.10); color: var(--ip-danger); }
+.agTile.blue .agTileIcon { background: rgba(37, 99, 235, 0.10); color: #2563eb; }
+.agTile b { font-size: 1.3rem; line-height: 1.1; }
+.agTile span:last-child { font-size: 0.8rem; color: var(--ip-muted); }
+.agStart .agStepIcon { font-size: 1.05rem; }
+.agFigChip {
+    display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0.75rem;
+    padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 0.85rem;
+    background: var(--ip-warn-soft); color: var(--ip-warn);
+}
+
+/* ---------- Admin: csomagok ---------- */
+.finPkgHelp {
+    display: flex; gap: 1rem; flex-wrap: wrap; padding: 0.9rem 1.1rem;
+    border-radius: var(--ip-radius); background: var(--ip-accent-soft);
+}
+.finPkgHelp ol { padding-left: 1.1rem; }
+.finPkgGroup { margin-bottom: 1.5rem; }
+.finPkgGroupHead { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; color: var(--ip-muted); text-transform: uppercase; letter-spacing: .04em; font-size: 0.8rem; }
+.finPkgInvoice {
+    padding: 0.4rem 0.6rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg);
+    color: var(--ip-muted); overflow-wrap: anywhere;
+}
+.finPkgInvoicePreview { padding: 0.7rem 0.9rem; border: 1px dashed var(--ip-border); border-radius: var(--ip-radius-sm); }
+
+/* ---------- Fiókom: elállás ---------- */
+.abWdRow { padding: 0.6rem 0; border-top: 1px solid var(--ip-border); }
+.abWdRow:first-of-type { border-top: 0; }
+.abWdConfirm { margin-top: 0.6rem; padding: 0.75rem; border-radius: var(--ip-radius-sm); background: rgba(180, 35, 24, 0.06); }

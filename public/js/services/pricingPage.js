@@ -503,6 +503,12 @@ class PricingPage {
                         <input class="form-check-input" type="checkbox" id="prElfogad">
                         <label class="form-check-label small" for="prElfogad">${I18n.t("prAccept")} <a href="#jogi/aszf" target="_blank">${I18n.t("prTerms")}</a></label>
                     </div>
+                    ${Number(c.ar) > 0 ? `
+                    <div class="form-check mt-2 prMaganMezo" id="prAzonnalBox">
+                        <input class="form-check-input" type="checkbox" id="prAzonnal">
+                        <label class="form-check-label small" for="prAzonnal">${I18n.t("prStartNow")}</label>
+                    </div>
+                    <p class="small text-body-secondary mt-1 mb-0 prMaganMezo"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ${I18n.t("prWithdrawInfo")}</p>` : ""}
                     <p class="small text-body-secondary mt-2 mb-0"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${I18n.t("prPayInfo")}</p>
                     <div class="alert alert-danger small py-2 mt-3 mb-0" id="prHiba" hidden></div>
                 </div>
@@ -578,12 +584,19 @@ class PricingPage {
                     hibaEl.hidden = false;
                     return;
                 }
+                const tipus = (tartalom.querySelector("input[name=prTipus]:checked") || {}).value || "maganszemely";
+                if (tipus === "maganszemely" && $("#prAzonnal") && !$("#prAzonnal").checked) {
+                    hibaEl.textContent = I18n.t("svcErr_must_accept_start");
+                    hibaEl.hidden = false;
+                    return;
+                }
                 const body = {
                     csomag_id: c.id,
                     iroda_id: kinek ? Number(kinek.value) || null : null,
                     ingatlan_id: $("#prHirdetes") ? Number($("#prHirdetes").value) || null : null,
                     megjegyzes: $("#prMegj").value,
                     elfogad: true,
+                    azonnal: !!($("#prAzonnal") && $("#prAzonnal").checked),
                     szamlazas: {
                         tipus: (tartalom.querySelector("input[name=prTipus]:checked") || {}).value || "maganszemely",
                         nev: $("#prNev").value, cui: $("#prCui").value, reg_com: $("#prRegCom").value,

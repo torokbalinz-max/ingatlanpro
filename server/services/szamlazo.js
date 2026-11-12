@@ -255,16 +255,61 @@ pu.fizetveFigyelo(async id => {
     if (v && v.szam && !v.mar_volt) {
         // 1) a vevő megkapja a számlát PDF-ben, 2) te (admin) egy másolatot – ha kártyával fizetett
         await kuldes(id).catch(e => console.error("Számla e-mail:", e.message));
-        if (s.fizetesi_mod === "kartya") adminMasolat(id).catch(e => console.error("Számla admin e-mail:", e.message));
+        // Neked (admin) csak akkor megy levél, ha teendőd van: kártyás fizetésnél, ha az
+        // e-Factura feltöltés nincs automatikusan bekapcsolva (5 munkanapod van rá)
+        if (["kartya", "online"].includes(s.fizetesi_mod) && !be.efactura_auto) adminMasolat(id).catch(e => console.error("Számla admin e-mail:", e.message));
         // e-Factura: ha az automatikus feltöltés be van kapcsolva, rögtön megy az ANAF-hoz
         if (be.efactura_auto) setTimeout(() => require("./efacturaSpv").futtat().catch(() => { }), 3000);
     }
 });
 
+// ---------- A szerződés visszaigazolása (a számla levelében) ----------
+// OUG 34/2014 (2011/83/EU irányelv 8. cikk (7)): a megkötött szerződést tartós
+// adathordozón (e-mail) vissza kell igazolni, a 6. cikk (1) szerinti adatokkal és –
+// ha a fogyasztó az azonnali kezdést kérte – ennek rögzítésével. Egy levélben a
+// számlával: nem kell külön „a csomagod aktív” levél.
+// r: a rendelés; s: a díjbekérő (az időszakkal)
+async function visszaigazolasSorok(r, s) {
+    if (!r) return [];
+    const { penz, nap: nap0 } = require("./bizonylat");
+    const nap = v => nap0(v instanceof Date ? v.toISOString() : v);
+    const c = r.csomag_id ? (await db.query("SELECT nev, nev_ro, idoszak FROM penzugy_csomagok WHERE id = $1", [r.csomag_id])).rows[0] : null;
+    const nevRo = (c && c.nev_ro) || r.megnevezes;
+    const nevHu = (c && c.nev) || r.megnevezes;
+    const ar = penz(s ? s.brutto : r.ar, r.penznem);
+    const ismetlodo = r.idoszak && r.idoszak !== "egyszeri";
+    const tol = s && s.idoszak_tol ? nap(s.idoszak_tol) : null;
+    const ig = s && s.idoszak_ig ? nap(s.idoszak_ig) : null;
+    const idoRo = tol && ig ? ` Perioada: ${tol} – ${ig}.` : "";
+    const idoHu = tol && ig ? ` Időszak: ${tol} – ${ig}.` : "";
+    const elallasHatar = nap(new Date(new Date(r.created_at || Date.now()).getTime() + 14 * 86400000));
+    const sorok = [
+        `Confirmăm contractul: „${nevRo}”, ${ar}.${idoRo} Serviciul este activ.`,
+        ismetlodo ? `Abonamentul se reînnoiește la sfârșitul perioadei; vă trimitem factura proformă înainte (plata nu se face automat). Îl puteți anula oricând în cont, la „Pachetul meu și facturi” – rămâne activ până la finalul perioadei plătite.` : "",
+        r.fogyaszto
+            ? (r.azonnali_kezdes
+                ? `Ați solicitat începerea imediată a serviciului (${nap(r.azonnali_kezdes)}). Aveți dreptul de retragere în 14 zile (până la ${elallasHatar}), fără motiv, din cont („Retragere din contract”); în acest caz plătiți proporțional perioada deja folosită (OUG 34/2014, art. 14).`
+                : `Aveți dreptul de retragere în 14 zile (până la ${elallasHatar}), fără motiv, din cont („Retragere din contract”).`)
+            : "",
+        "———",
+        `A szerződést visszaigazoljuk: „${nevHu}”, ${ar}.${idoHu} A szolgáltatás aktív.`,
+        ismetlodo ? `Az időszak végén megújul; előtte díjbekérőt küldünk (magától nem terhelünk). A fiókodban, a „Csomagom és számláim” oldalon bármikor lemondhatod – a kifizetett időszak végéig él.` : "",
+        r.fogyaszto
+            ? (r.azonnali_kezdes
+                ? `Kérted, hogy a szolgáltatás azonnal induljon (${nap(r.azonnali_kezdes)}). 14 napon belül (${elallasHatar}-ig) indoklás nélkül elállhatsz a fiókodban („Elállás a szerződéstől”); ilyenkor az addig igénybe vett időszak arányos díját fizeted.`
+                : `14 napon belül (${elallasHatar}-ig) indoklás nélkül elállhatsz a fiókodban („Elállás a szerződéstől”).`)
+            : "",
+        `Termeni și condiții / ÁSZF: ${mail().oldalCim()}/#jogi/aszf`
+    ].filter(Boolean);
+    return sorok;
+}
+
+function mail() { return require("./mail"); }
+
 // ---------- A számlát kísérő levél ----------
 // s: a bizonylat (számla, sztornó számla vagy díjbekérő)
 // → { subject, html, text, csatolmanyok: [PDF] }
-async function szamlaLevel(s, { pdf: pdfKell = true } = {}) {
+async function szamlaLevel(s, { pdf: pdfKell = true, visszaigazolas = [] } = {}) {
     const mail = require("./mail");
     const u = await require("./oldalAdatok").nyilvanos();
     const { penz, nap } = require("./bizonylat");
@@ -299,6 +344,7 @@ async function szamlaLevel(s, { pdf: pdfKell = true } = {}) {
                 ? `Csatoltan küldjük a(z) ${s.sorszam} számú ${hu.mi} (kelte: ${nap(s.kiallitva)}, összeg: ${osszeg}).`
                 : `Köszönjük a befizetést! Csatoltan küldjük a(z) ${s.sorszam} számú ${hu.mi} (kelte: ${nap(s.kiallitva)}, összeg: ${osszeg}, kifizetve).`,
         tetelekHu && tetelekHu !== tetelek ? `Szolgáltatás: ${tetelekHu}` : "",
+        ...(visszaigazolas.length ? ["———", ...visszaigazolas, "———"] : []),
         "Factura este și în contul dvs. IngatlanPro, la „Pachetul meu și facturi”. / A számla a fiókodban, a „Csomagom és számláim” oldalon is mindig elérhető.",
         `Cu stimă / Üdvözlettel,\n${ceg}`
     ].filter(Boolean);
@@ -339,9 +385,13 @@ async function kuldes(dijbekeroId) {
     const to = s && s.vevo && s.vevo.email;
     if (!to || s.emailezve) return;
     const u = await require("./oldalAdatok").nyilvanos();
-    const level = await szamlaLevel(s, { pdf: true });
+    // Ha weboldalon rendelt csomag: a számla levele egyben a szerződés visszaigazolása
+    const r = (await db.query("SELECT * FROM penzugy_rendelesek WHERE szamla_id = $1 ORDER BY id DESC LIMIT 1", [dijbekeroId])).rows[0];
+    const visszaigazolas = r ? await visszaigazolasSorok(r, d).catch(() => []) : [];
+    const level = await szamlaLevel(s, { pdf: true, visszaigazolas });
     if (await mail.kuld({ to, ...level, replyTo: u.email || undefined })) {
         await db.query("UPDATE penzugy_szamlak SET emailezve = NOW() WHERE id = $1", [s.id]);
+        if (r) await db.query("UPDATE penzugy_rendelesek SET visszaigazolva = NOW() WHERE id = $1", [r.id]).catch(() => { });
     }
 }
 
@@ -363,6 +413,7 @@ async function adminMasolat(dijbekeroId) {
             `${(d.vevo && d.vevo.nev) || "Valaki"} kártyával kifizette: ${(d.tetelek || []).map(t => t.megnevezes).join(", ")}`,
             `${penz(d.brutto, d.penznem)} · díjbekérő ${d.sorszam}${belso ? ` → számla ${belso.sorszam}` : d.kulso_szam ? ` → számla ${d.kulso_szam} (${d.hivatalos_szamlazo})` : ""}`,
             "A csomag aktív, a számla elment a vevőnek e-mailben (PDF – csatolva ennek a levélnek is).",
+            "Ezt a levelet azért kapod, mert teendőd van: az e-Factura automatikus feltöltése nincs bekapcsolva.",
             belso
                 ? (be.efactura_auto
                     ? "e-Factura: az automatikus feltöltés be van kapcsolva – a számla magától megy az ANAF-hoz (az állapota: Admin → Pénzügy → e-Factura)."
@@ -389,4 +440,4 @@ async function pdf(s) {
     return null;
 }
 
-module.exports = { allapot, kiallit, pdf, melyik, kulso, szamlaLevel };
+module.exports = { allapot, kiallit, pdf, melyik, kulso, szamlaLevel, visszaigazolasSorok };

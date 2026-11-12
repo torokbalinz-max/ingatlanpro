@@ -12,6 +12,7 @@
 //  jóvá); addig is kezelhető, de nyilvánosan nem látszik.
 //
 //  Kezelés fülei:
+//   Áttekintés  a fő számok, mire kell figyelni, első lépések, gyors műveletek
 //   Hirdetések  mappák, szűrők, tömeges műveletek, belső adatok
 //   Ügynökök    a hirdetéseken megjelenő kapcsolattartók
 //   Tagok       kik kezelhetik az iroda hirdetéseit (fiókkal)
@@ -22,12 +23,13 @@ class AgencyPage {
 
     static iroda = null;          // a kezelt iroda (nyilvános adatokkal, ügynökökkel)
     static hirdetesek = [];
-    static tab = "hirdetesek";
+    static tab = "attekintes";
     static kijelolt = new Set();
-    static szuro = { q: "", statusz: "", ugynok: "", mappa: null, tipus: "" };
+    static szuro = { q: "", statusz: "", ugynok: "", mappa: null, tipus: "", figyelem: "" };
     static rendezes = "uj";
 
     static TABS = [
+        { key: "attekintes", icon: "fa-solid fa-gauge-high", label: "agTabOverview" },
         { key: "hirdetesek", icon: "fa-solid fa-house-user", label: "agTabListings" },
         { key: "ugynokok", icon: "fa-solid fa-id-badge", label: "agTabAgents" },
         { key: "tagok", icon: "fa-solid fa-users", label: "agTabMembers" },
@@ -84,7 +86,7 @@ class AgencyPage {
 
         if (!AgencyPage.iroda || AgencyPage.iroda.id !== id) {
             AgencyPage.kijelolt.clear();
-            AgencyPage.szuro = { q: "", statusz: "", ugynok: "", mappa: null, tipus: "" };
+            AgencyPage.szuro = { q: "", statusz: "", ugynok: "", mappa: null, tipus: "", figyelem: "" };
         }
 
         AgencyPage.spinner();
@@ -189,6 +191,10 @@ class AgencyPage {
                                 <div class="stepHead"><span class="stepNo">2</span> ${I18n.t("agCreateStep2")}</div>
                                 ${AgencyPage.adatUrlap({}, true)}
                             </div>
+                            <div class="stepBlock" id="agStep3" hidden>
+                                <div class="stepHead"><span class="stepNo">3</span> ${I18n.t("agCreateStep3")}</div>
+                                <p class="small text-body-secondary mb-0">${I18n.t("agCreateStep3Help")}</p>
+                            </div>
                             <div class="accMsg alert alert-danger small py-2 mt-3" hidden></div>
                             <div class="d-flex gap-2 justify-content-end mt-3">
                                 ${AuthManager.irodak.length ? `<a class="btn btn-outline-secondary" href="#iroda">${I18n.t("cancel")}</a>` : ""}
@@ -224,6 +230,12 @@ class AgencyPage {
             </div>`;
 
         AgencyPage.meghivasKotes(AgencyPage.box());
+
+        // Ha az iroda csak irodai csomaggal lesz aktív: a 3. lépés (fizetés)
+        fetch("/api/csomagok").then(r => r.json()).then(v => {
+            const el = document.getElementById("agStep3");
+            if (el && v && v.iroda_csomag_kell) el.hidden = false;
+        }).catch(() => { });
 
         const form = document.getElementById("agCreate");
         const msg = form.querySelector(".accMsg");
@@ -336,8 +348,19 @@ class AgencyPage {
 
         const statusz = ir.statusz || "fuggo";
 
+        const zarolt = AgencyPage.zarolt();
+
         AgencyPage.box().innerHTML = `
             ${AgencyPage.meghivasHtml(AuthManager.irodaMeghivasok)}
+            ${zarolt ? `
+            <div class="alert alert-info agStatusBar d-flex gap-3 align-items-start">
+                <i class="fa-solid fa-key fs-4" aria-hidden="true"></i>
+                <div class="flex-fill">
+                    <b>${I18n.t("agActivateTitle")}</b>
+                    <div class="small">${I18n.t(szerep === "vezeto" ? "agActivateText" : "agActivateTextMember")}</div>
+                </div>
+                ${szerep === "vezeto" ? `<a class="btn btn-primary btn-sm text-nowrap" href="#csomagok/iroda">${I18n.t("agActivateBtn")}</a>` : ""}
+            </div>` : ""}
             ${statusz !== "jovahagyva" ? `
             <div class="alert ${statusz === "fuggo" ? "alert-warning" : "alert-danger"} agStatusBar d-flex gap-3 align-items-start">
                 <i class="fa-solid ${statusz === "fuggo" ? "fa-hourglass-half" : "fa-ban"} fs-4" aria-hidden="true"></i>
@@ -363,7 +386,7 @@ class AgencyPage {
                         ${tobb ? `<select class="form-select form-select-sm w-auto" id="agSwitch" aria-label="${esc(I18n.t("agSwitch"))}">
                             ${AuthManager.irodak.map(x => `<option value="${x.id}" ${x.id === ir.id ? "selected" : ""}>${esc(x.nev)}</option>`).join("")}
                         </select>` : ""}
-                        <button class="btn btn-primary btn-sm" id="agNewListing"><i class="fa-solid fa-plus"></i> ${I18n.t("navPost")}</button>
+                        <button class="btn btn-primary btn-sm" id="agNewListing" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-plus"></i> ${I18n.t("navPost")}</button>
                     </div>
                 </div>
             </div>
@@ -376,6 +399,8 @@ class AgencyPage {
                         ${t.key === "ugynokok" ? `<span class="badge rounded-pill text-bg-light">${ir.ugynokok.length}</span>` : ""}
                     </a>`).join("")}
             </div>
+
+            <p class="agTabHelp small text-body-secondary"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${I18n.t("agHelp_" + AgencyPage.tab)}</p>
 
             <div id="agBody"></div>`;
 
@@ -392,12 +417,171 @@ class AgencyPage {
 
         const body = document.getElementById("agBody");
 
+        // Csomaghoz kötött, még nem aktív iroda: csak az áttekintés és az adatok
+        if (zarolt && ["hirdetesek", "ugynokok", "tagok"].includes(AgencyPage.tab)) {
+            body.innerHTML = `
+                <div class="emptyState">
+                    <i class="fa-solid fa-lock"></i>
+                    <h5>${I18n.t("agActivateTitle")}</h5>
+                    <p>${I18n.t("agLockedTab")}</p>
+                    ${szerep === "vezeto" ? `<a class="btn btn-primary btn-sm" href="#csomagok/iroda">${I18n.t("agActivateBtn")}</a>` : ""}
+                </div>`;
+            return;
+        }
+
         ({
+            attekintes: () => AgencyPage.attekintesTab(body, szerep === "vezeto"),
             hirdetesek: () => AgencyPage.hirdetesTab(body),
             ugynokok: () => AgencyPage.ugynokTab(body, szerep === "vezeto"),
             tagok: () => AgencyPage.tagTab(body, szerep === "vezeto"),
             adatok: () => AgencyPage.adatTab(body, szerep === "vezeto")
         })[AgencyPage.tab]();
+
+    }
+
+    // Csomaghoz kötött iroda, amelynek még nincs kifizetett csomagja
+    static zarolt() {
+        const c = AgencyPage.iroda && AgencyPage.iroda.csomag;
+        return !!(c && c.kell && !c.aktiv) && !AuthManager.isAdmin();
+    }
+
+    // ---------- áttekintés ----------
+
+    // Mire kell figyelni (a Hirdetések fül szűrője is ezt használja)
+    static FIGYELEM = {
+        fuggo: i => AgencyPage.statuszOf(i) === "fuggo",
+        ugynok: i => AgencyPage.statuszOf(i) === "aktiv" && !i.ugynok_id,
+        foto: i => AgencyPage.statuszOf(i) === "aktiv" && !Utils.photoUrl(i),
+        ar: i => AgencyPage.statuszOf(i) === "aktiv" && !(Number(i.ar) > 0),
+        regi: i => AgencyPage.statuszOf(i) === "aktiv" && (Date.now() - new Date(i.updated_at || i.created_at || 0).getTime()) > 60 * 86400000
+    };
+
+    static attekintesTab(el, vezeto) {
+
+        const esc = Utils.escape;
+        const ir = AgencyPage.iroda;
+        const L = AgencyPage.hirdetesek;
+        const zarolt = AgencyPage.zarolt();
+        const szam = s => L.filter(i => AgencyPage.statuszOf(i) === s).length;
+        const fig = Object.fromEntries(Object.entries(AgencyPage.FIGYELEM).map(([k, f]) => [k, L.filter(f).length]));
+        const figOssz = Object.values(fig).reduce((a, b) => a + b, 0);
+
+        const lepesek = [
+            { ok: !!(ir.telefon && (ir.email || ir.weboldal) && ir.leiras), cim: "agStep_details", tab: "adatok" },
+            { ok: !!ir.van_logo, cim: "agStep_logo", tab: "adatok" },
+            { ok: ir.ugynokok.some(u => u.telefon || u.email), cim: "agStep_agents", tab: "ugynokok" },
+            { ok: null, cim: "agStep_members", tab: "tagok", id: "agStepTagok" },
+            { ok: L.length > 0, cim: "agStep_listing", tab: "hirdetesek" }
+        ];
+        if (ir.csomag && ir.csomag.kell) lepesek.unshift({ ok: !!ir.csomag.aktiv, cim: "agStep_package", link: "#csomagok/iroda" });
+        if (!vezeto) lepesek.splice(0, lepesek.length, ...lepesek.filter(l => l.tab === "hirdetesek"));
+
+        const top = [...L].filter(i => AgencyPage.statuszOf(i) === "aktiv")
+            .sort((a, b) => ((b.uzenet_db || 0) * 3 + (b.kedvenc_db || 0)) - ((a.uzenet_db || 0) * 3 + (a.kedvenc_db || 0)))
+            .slice(0, 5);
+
+        const csempe = (ikon, szin, n, cimKulcs, adat) => `
+            <button type="button" class="agTile ${szin}" ${adat}>
+                <span class="agTileIcon" aria-hidden="true"><i class="${ikon}"></i></span>
+                <b>${n}</b><span>${I18n.t(cimKulcs)}</span>
+            </button>`;
+
+        el.innerHTML = `
+            <div class="agTiles mb-4">
+                ${csempe("fa-solid fa-circle-check", "green", szam("aktiv"), "agStatus_aktiv", `data-go-stat="aktiv"`)}
+                ${csempe("fa-solid fa-hourglass-half", "amber", szam("fuggo"), "agStatus_fuggo", `data-go-stat="fuggo"`)}
+                ${csempe("fa-solid fa-handshake", "red", szam("eladva"), "agStatus_eladva", `data-go-stat="eladva"`)}
+                ${csempe("fa-solid fa-box-archive", "", szam("archiv"), "agStatus_archiv", `data-go-stat="archiv"`)}
+                ${csempe("fa-regular fa-envelope", "blue", L.reduce((t, i) => t + (i.uzenet_db || 0), 0), "agStatMessages", `data-go-tab="hirdetesek" data-go-sort="erdeklodes"`)}
+                ${csempe("fa-regular fa-star", "blue", L.reduce((t, i) => t + (i.kedvenc_db || 0), 0), "agStatFavs", `data-go-tab="hirdetesek" data-go-sort="erdeklodes"`)}
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h6 class="mb-0"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${I18n.t("agAttnTitle")}</h6>
+                            ${figOssz ? `<span class="badge text-bg-warning">${figOssz}</span>` : ""}
+                        </div>
+                        ${figOssz ? `
+                        <div class="list-group list-group-flush">
+                            ${Object.entries(fig).filter(([, n]) => n).map(([k, n]) => `
+                                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2" data-go-fig="${k}">
+                                    <span><b>${I18n.t("agAttn_" + k)}</b><span class="d-block small text-body-secondary">${I18n.t("agAttnHint_" + k)}</span></span>
+                                    <span class="badge rounded-pill text-bg-warning">${n}</span>
+                                </button>`).join("")}
+                        </div>` : `<div class="card-body small text-success"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> ${I18n.t("agAttnNone")}</div>`}
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-fire" aria-hidden="true"></i> ${I18n.t("agTopTitle")}</h6></div>
+                        ${top.length ? `
+                        <ul class="list-group list-group-flush">
+                            ${top.map(i => `
+                                <li class="list-group-item d-flex align-items-center gap-2">
+                                    <a class="agThumb" href="#listing/${i.id}">${Utils.photoUrl(i) ? `<img src="${esc(Utils.photoUrl(i))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : `<i class="${Types.get(i.tipus).icon}"></i>`}</a>
+                                    <a class="flex-fill min-w-0 text-truncate" href="#listing/${i.id}">${esc(i.cim || Types.label(i.tipus))}</a>
+                                    <span class="small text-body-secondary text-nowrap"><i class="fa-regular fa-envelope" aria-hidden="true"></i> ${i.uzenet_db || 0} · <i class="fa-regular fa-star" aria-hidden="true"></i> ${i.kedvenc_db || 0}</span>
+                                </li>`).join("")}
+                        </ul>` : `<div class="card-body small text-body-secondary">${I18n.t("agTopEmpty")}</div>`}
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="card mb-4">
+                        <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-bolt" aria-hidden="true"></i> ${I18n.t("agQuickTitle")}</h6></div>
+                        <div class="card-body d-grid gap-2">
+                            <button type="button" class="btn btn-primary btn-sm text-start" id="agQNew" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> ${I18n.t("navPost")}</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm text-start" id="agQTake" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-right-to-bracket fa-fw" aria-hidden="true"></i> ${I18n.t("agTakeOver")}</button>
+                            ${vezeto ? `
+                            <a class="btn btn-outline-secondary btn-sm text-start" href="#iroda/${ir.id}:ugynokok"><i class="fa-solid fa-id-badge fa-fw" aria-hidden="true"></i> ${I18n.t("agQAgent")}</a>
+                            <a class="btn btn-outline-secondary btn-sm text-start" href="#iroda/${ir.id}:tagok"><i class="fa-solid fa-user-plus fa-fw" aria-hidden="true"></i> ${I18n.t("agQMember")}</a>` : ""}
+                            <a class="btn btn-outline-secondary btn-sm text-start" href="#irodak/${ir.id}"><i class="fa-solid fa-arrow-up-right-from-square fa-fw" aria-hidden="true"></i> ${I18n.t("agPublicPage")}</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${I18n.t("agStepsTitle")}</h6></div>
+                        <ul class="list-group list-group-flush agStart">
+                            ${lepesek.map(l => `
+                                <li class="list-group-item d-flex align-items-center gap-2" ${l.id ? `id="${l.id}"` : ""}>
+                                    <i class="fa-${l.ok ? "solid fa-circle-check text-success" : "regular fa-circle text-body-secondary"} agStepIcon" aria-hidden="true"></i>
+                                    <span class="flex-fill small">${I18n.t(l.cim)}</span>
+                                    ${l.ok ? "" : `<a class="btn btn-link btn-sm p-0" href="${l.link || `#iroda/${ir.id}:${l.tab}`}">${I18n.t("agStepGo")}</a>`}
+                                </li>`).join("")}
+                        </ul>
+                    </div>
+                </div>
+            </div>`;
+
+        // Tagok: van-e meghívott / aktív kolléga (a vezetőnek)
+        const tl = el.querySelector("#agStepTagok");
+        if (tl && vezeto) {
+            AgencyPage.api(`/api/irodak/${ir.id}/tagok`).then(tagok => {
+                const ok = (tagok || []).length > 1;
+                tl.querySelector(".agStepIcon").className = `fa-${ok ? "solid fa-circle-check text-success" : "regular fa-circle text-body-secondary"} agStepIcon`;
+                if (ok) { const a = tl.querySelector("a"); if (a) a.remove(); }
+            }).catch(() => { });
+        }
+
+        const hirdetesekre = () => { location.hash = `#iroda/${ir.id}:hirdetesek`; };
+        el.querySelectorAll("[data-go-stat]").forEach(b => b.onclick = () => {
+            Object.assign(AgencyPage.szuro, { statusz: b.dataset.goStat, figyelem: "" });
+            hirdetesekre();
+        });
+        el.querySelectorAll("[data-go-sort]").forEach(b => b.onclick = () => {
+            AgencyPage.rendezes = b.dataset.goSort;
+            Object.assign(AgencyPage.szuro, { statusz: "", figyelem: "" });
+            hirdetesekre();
+        });
+        el.querySelectorAll("[data-go-fig]").forEach(b => b.onclick = () => {
+            Object.assign(AgencyPage.szuro, { statusz: "", figyelem: b.dataset.goFig });
+            hirdetesekre();
+        });
+        const qn = document.getElementById("agQNew");
+        if (qn) qn.onclick = () => document.getElementById("agNewListing").click();
+        const qt = document.getElementById("agQTake");
+        if (qt) qt.onclick = () => AgencyPage.atvetel();
 
     }
 
@@ -433,6 +617,7 @@ class AgencyPage {
 
         const lista = AgencyPage.hirdetesek.filter(i => {
             if (f.statusz && AgencyPage.statuszOf(i) !== f.statusz) return false;
+            if (f.figyelem && AgencyPage.FIGYELEM[f.figyelem] && !AgencyPage.FIGYELEM[f.figyelem](i)) return false;
             if (f.ugynok === "nincs" && i.ugynok_id) return false;
             if (f.ugynok && f.ugynok !== "nincs" && String(i.ugynok_id) !== f.ugynok) return false;
             if (f.mappa !== null && (i.iroda_mappa || "") !== f.mappa) return false;
@@ -525,6 +710,12 @@ class AgencyPage {
                         </select>
                     </div>
 
+                    ${f.figyelem ? `
+                    <div class="agFigChip">
+                        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${I18n.t("agAttn_" + f.figyelem)}
+                        <button type="button" class="btn btn-sm btn-link p-0 ms-2" id="agFigClear">${I18n.t("agFilterClear")}</button>
+                    </div>` : ""}
+
                     <div class="agBulk" id="agBulk" hidden></div>
 
                     <div id="agList"></div>
@@ -533,7 +724,9 @@ class AgencyPage {
 
         // Események
         if (typeof AgencyFeatured !== "undefined") AgencyFeatured.kot(el);
-        el.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { f.statusz = b.dataset.stat; AgencyPage.hirdetesTab(el); });
+        el.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { f.statusz = b.dataset.stat; f.figyelem = ""; AgencyPage.hirdetesTab(el); });
+        const figClear = document.getElementById("agFigClear");
+        if (figClear) figClear.onclick = () => { f.figyelem = ""; AgencyPage.hirdetesTab(el); };
         el.querySelectorAll("[data-folder]").forEach(b => b.onclick = () => {
             f.mappa = b.dataset.folder === "__all" ? null : b.dataset.folder;
             AgencyPage.hirdetesTab(el);

@@ -35,6 +35,12 @@ const { parseKepek } = require("../services/listing");
 const { hiba, csakAdmin, csakBelepve } = require("../lib/http");
 const csapat = require("../services/csapat");
 const { LISTA_MEZOK } = require("../lib/sql");
+const penzugy = require("../services/penzugy");
+
+// Ha az admin bekapcsolta, hogy az iroda csak irodai csomaggal aktív
+// (Admin → Pénzügy → Beállítások → Fizetős funkciók): az aktív előfizetés feltétele
+const AKTIV_CSOMAG_SQL = `EXISTS (SELECT 1 FROM penzugy_elofizetesek e JOIN penzugy_ugyfelek u ON u.id = e.ugyfel_id
+    WHERE u.iroda_id = i.id AND e.statusz = 'aktiv' AND e.kezdet <= CURRENT_DATE AND (e.vege IS NULL OR e.vege >= CURRENT_DATE))`;
 
 const router = express.Router();
 
@@ -261,6 +267,7 @@ router.get("/api/irodak", async (req, res) => {
 
         const felt = ["i.statusz = 'jovahagyva'"];
         const p = [];
+        if ((await penzugy.beallitas()).iroda_csomag_kell) felt.push(AKTIV_CSOMAG_SQL);
 
         if (req.query.varos) {
             p.push(String(req.query.varos));
@@ -396,6 +403,10 @@ router.get("/api/irodak/:id", async (req, res) => {
 
         if (iroda.statusz !== "jovahagyva" && !j.tag) return res.status(404).json({ error: "not_found" });
 
+        // Csomaghoz kötött iroda: amíg nincs kifizetve, nyilvánosan nem látszik
+        const csomag = await penzugy.irodaAktiv(iroda.id).catch(() => ({ kell: false, aktiv: true }));
+        if (!csomag.aktiv && !j.tag) return res.status(404).json({ error: "not_found" });
+
         const ugynokok = await db.query(
             `SELECT a.id, a.nev, a.telefon, a.email, a.aktiv, a.user_id IS NOT NULL AS van_fiok ${j.tag ? ", a.user_id" : ""},
                     (SELECT COUNT(*)::int FROM ingatlanok x WHERE x.ugynok_id = a.id AND x.statusz = 'aktiv') AS aktiv_db
@@ -422,7 +433,7 @@ router.get("/api/irodak/:id", async (req, res) => {
             hirdetesek: hirdetesek.rows,
             kiemelt_hirdetesek: pk.lathato,
             // a tagoknak: mennyit emelhet ki, és mit választott (a kezelő felülethez)
-            ...(j.tag ? { profil_kiemeles: { keret: pk.keret, ids: pk.ids } } : {}),
+            ...(j.tag ? { profil_kiemeles: { keret: pk.keret, ids: pk.ids }, csomag } : {}),
             jog: j
         });
 
