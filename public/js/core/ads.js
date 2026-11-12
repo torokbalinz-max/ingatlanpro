@@ -97,7 +97,10 @@ class AdSlots {
 
     // Az adott helyre szánt futó hirdetések
     static hirdetesek(hely) {
-        return (AdSlots.beallitas().hirdetesek || []).filter(a => Array.isArray(a.helyek) && a.helyek.includes(hely));
+        // csak az adott város(ok)ra szóló reklám: azokban a városokban (üres = mindenhol)
+        const varos = typeof DataManager !== "undefined" ? DataManager.currentCity : null;
+        return (AdSlots.beallitas().hirdetesek || []).filter(a => Array.isArray(a.helyek) && a.helyek.includes(hely) &&
+            (!Array.isArray(a.varosok) || !a.varosok.length || !varos || a.varosok.includes(varos)));
     }
 
     // Több hirdetés egy helyen: a súlyuk szerint, véletlenszerűen

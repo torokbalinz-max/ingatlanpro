@@ -68,7 +68,9 @@ AdminManager.adsDraw = function () {
     const box = AdminManager.box();
     const v = AdminManager.ads.adat || {};
     const esc = Utils.escape;
-    const lista = Array.isArray(v.hirdetesek) ? v.hirdetesek : [];
+    // A kiválasztott város (Admin → Város): csak az ott megjelenő reklámok (a minden városra szólók is)
+    const mv = AdminManager.munkaVaros;
+    const lista = (Array.isArray(v.hirdetesek) ? v.hirdetesek : []).filter(h => !mv || !Array.isArray(h.varosok) || !h.varosok.length || h.varosok.includes(mv));
     const ossz = v.osszesites || { megjelenes: 0, kattintas: 0 };
     const b = { mutat: true, helyorzo: true, email: "", helyek: {}, ...(v.beallitas || {}) };
     const napok = v.napok || AdminManager.ads.napok;
@@ -632,6 +634,17 @@ AdminManager.adsEditor = function (h) {
                     </div>
 
                     <div class="mb-3 mt-3">
+                        <span class="form-label d-block">${I18n.t("adsFCities")}</span>
+                        <div class="d-flex flex-wrap gap-2" id="adsEdVarosok">
+                            ${(CityManager.varosok || []).filter(v => !v.anyavaros).map(v => {
+                                const be = Array.isArray(h.varosok) && h.varosok.length ? h.varosok.includes(v.nev) : (uj && AdminManager.munkaVaros === v.nev);
+                                return `<label class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" value="${esc(v.nev)}" ${be ? "checked" : ""}> <span class="form-check-label">${esc(CityManager.displayName(v.nev))}</span></label>`;
+                            }).join("")}
+                        </div>
+                        <div class="form-text mt-0">${I18n.t("adsFCitiesHelp")}</div>
+                    </div>
+
+                    <div class="mb-3 mt-3">
                         <label class="form-label" for="adsEdAlt">${I18n.t("adsFAlt")}</label>
                         <input type="text" class="form-control" id="adsEdAlt" maxlength="200" value="${esc(h.alt || "")}" placeholder="${esc(I18n.t("adsFAltPh"))}">
                     </div>
@@ -864,6 +877,7 @@ AdminManager.adsEditor = function (h) {
         cel_url: $("adsEdUrl").value.trim(),
         alt: $("adsEdAlt").value.trim(),
         helyek: valasztott(),
+        varosok: [...document.querySelectorAll("#adsEdVarosok input:checked")].map(c => c.value),
         kezdet: $("adsEdKezdet").value || null,
         vege: $("adsEdVege").value || null,
         suly: Number($("adsEdSuly").value) || 1,

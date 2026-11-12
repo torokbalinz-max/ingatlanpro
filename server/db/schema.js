@@ -145,6 +145,16 @@ async function createSchema(db) {
         )
     `);
 
+    // A város forrásai (Admin → Város → Források, services/forrasLista.js): melyik oldal,
+    // magától létrehozott-e, be van-e kapcsolva, kerület (saját linknél), a legutóbbi futás
+    for (const oszlop of [
+        "forras TEXT", "auto BOOLEAN DEFAULT false", "aktiv BOOLEAN DEFAULT true", "kerulet TEXT",
+        "allapot TEXT", "uzenet TEXT", "utolso_db INTEGER", "regi_url TEXT"
+    ]) {
+        await db.query(`ALTER TABLE figyelt_oldalak ADD COLUMN IF NOT EXISTS ${oszlop}`);
+    }
+    await db.query(`CREATE INDEX IF NOT EXISTS figyelt_oldalak_varos ON figyelt_oldalak (varos)`);
+
     // Felhasználók – egyelőre üres, a bejelentkezés a 2. verzióban jön
     // (e-mail vagy Google fiók). Az ingatlanok owner_id mezője ide mutat.
     await db.query(`
@@ -689,6 +699,9 @@ async function createSchema(db) {
             updated_at TIMESTAMP DEFAULT NOW()
         )
     `);
+
+    // Melyik város(ok) oldalain jelenjen meg a reklám (üres = minden városban) – Admin → Város → Reklámfelületek
+    await db.query(`ALTER TABLE reklamok ADD COLUMN IF NOT EXISTS varosok JSONB DEFAULT '[]'::jsonb`);
 
     await db.query(`
         CREATE TABLE IF NOT EXISTS reklam_stat (

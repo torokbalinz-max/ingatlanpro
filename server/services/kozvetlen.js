@@ -208,9 +208,40 @@ async function olxVarosAzon(varosRo) {
     return j && j.data && j.data.city_id ? Number(j.data.city_id) : null;
 }
 
+// Az OLX város-azonosítója: a megadott (a figyelt link végéről vett) slug, utána a
+// város román nevéből képzett változatok. -> { cityId, slug } | null
+async function olxVarosKeres(hely) {
+    const jeloltek = [...new Set([hely.olxSlug, ...olxSlugValtozatok(hely.varosRo)].filter(Boolean))];
+    for (const sl of jeloltek) {
+        let id = null;
+        // csak a "nincs ilyen" (404) jelent rossz nevet – a hálózati hiba / letiltás nem
+        try { id = await olxVarosAzon(sl); } catch (e) { if (!/HTTP 404/.test(e.message)) throw e; id = null; }
+        if (id) return { cityId: id, slug: sl };
+    }
+    return null;
+}
+
+function olxSlugValtozatok(varosRo) {
+    const a = forrasHely.slug(varosRo);
+    if (!a) return [];
+    return [a, a.replace(/^municipiul-/, ""), a.replace(/^sfantu-/, "sfantul-"), a.replace(/^sfantul-/, "sfantu-"), a.replace(/^sfintu-/, "sfantu-")];
+}
+
+// Az OLX találati oldal címe (a figyelt oldalak listájában – kattintásra ezt nyitja meg)
+const OLX_UTVONAL = { "lakas|elado": "apartamente-garsoniere-de-vanzare", "lakas|kiado": "apartamente-garsoniere-de-inchiriat", "haz|elado": "case-de-vanzare", "haz|kiado": "case-de-inchiriat", "telek|elado": "terenuri", "telek|kiado": "terenuri", "kereskedelmi|elado": "birouri-spatii-comerciale", "kereskedelmi|kiado": "birouri-spatii-comerciale", "iroda|elado": "birouri-spatii-comerciale", "iroda|kiado": "birouri-spatii-comerciale" };
+function olxWebUrl(slug, tipus, ugylet) {
+    const ut = OLX_UTVONAL[`${tipus}|${ugylet}`] || "";
+    return `https://www.olx.ro/imobiliare/${ut ? ut + "/" : ""}${slug}/`;
+}
+// A figyelt OLX link végéről a város slugja (pl. .../apartamente-garsoniere-de-vanzare/sfantu-gheorghe/)
+function olxSlugLinkbol(url) {
+    try { const r = new URL(url).pathname.split("/").filter(Boolean); return r.length ? r[r.length - 1] : null; } catch (e) { return null; }
+}
+
 async function olxVaros(hely, tipus = null, ugylet = null) {
-    const cityId = await olxVarosAzon(hely.varosRo);
-    if (!cityId) return { elemek: [], csoportok: [], hiba: "olx_city_not_found" };
+    const talalt = await olxVarosKeres(hely);
+    if (!talalt) return { elemek: [], csoportok: [], hiba: "olx_city_not_found" };
+    const cityId = talalt.cityId;
     const elemek = [];
     const csoport = new Map();      // "tipus|ugylet" -> teljes
     for (const katId of olxKategoriak(tipus, ugylet)) {
@@ -231,6 +262,7 @@ async function olxVaros(hely, tipus = null, ugylet = null) {
         .filter(e => (!tipus || e.tipus === tipus) && (!ugylet || e.ugylet === ugylet));
     return {
         elemek: egyedi,
+        olxSlug: talalt.slug,
         csoportok: [...csoport.entries()].map(([k, teljes]) => { const [t, u] = k.split("|"); return { tipus: t, ugylet: u, teljes }; })
             .filter(c => (!tipus || c.tipus === tipus) && (!ugylet || c.ugylet === ugylet))
     };
@@ -256,7 +288,11 @@ async function storiaCsoport(hely, tipus, ugylet) {
     const elemek = new Map();
     let ossz = null, oldalak = 1;
     for (let page = 1; page <= Math.min(oldalak, 40); page++) {
-        const url = forrasHely.storiaListaUrl({ megye: hely.megye, varosRo: hely.varosRo, tipus, ugylet }, { limit: 72, page });
+        // a figyelt (az admin által javítható) Storia link, vagy a város neve alapján képzett
+        let url = forrasHely.storiaListaUrl({ megye: hely.megye, varosRo: hely.varosRo, tipus, ugylet }, { limit: 72, page });
+        if (hely.storiaAlap) {
+            try { const u = new URL(hely.storiaAlap); u.searchParams.set("limit", "72"); u.searchParams.set("page", String(page)); url = u.toString(); } catch (e) { /* a képzett link marad */ }
+        }
         if (!url) break;
         const l = storiaLapbol(await getHtml(url, "storia.ro"));
         if (!l) break;
@@ -285,7 +321,7 @@ async function storiaCsoport(hely, tipus, ugylet) {
 }
 
 async function storiaVaros(hely, tipus = null, ugylet = null) {
-    if (!hely.megye || !hely.varosRo) return { elemek: [], csoportok: [], hiba: "storia_no_county" };
+    if (!hely.storiaAlap && (!hely.megye || !hely.varosRo)) return { elemek: [], csoportok: [], hiba: "storia_no_county" };
     const elemek = [];
     const csoportok = [];
     for (const t of Object.keys(STORIA_TIPUSOK)) {
@@ -343,4 +379,4 @@ async function fentVan(link) {
     }
 }
 
-module.exports = { varos, olxVaros, storiaVaros, olxElem, olxKategoriak, fentVan, FORRASOK, OLX_KAT, _teszt: { storiaLapbol } };
+module.exports = { varos, olxVaros, storiaVaros, olxElem, olxKategoriak, fentVan, olxWebUrl, olxSlugLinkbol, olxVarosKeres, FORRASOK, OLX_KAT, _teszt: { storiaLapbol, olxSlugValtozatok } };

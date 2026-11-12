@@ -43,7 +43,7 @@ AdminManager.maTeendok = function (c) {
     todo(c.kornyek_javaslat, 2, "fa-solid fa-tree-city", "cyan", I18n.f("ovTodoKornyek", { n: c.kornyek_javaslat }), "kornyek");
     todo(c.hely_athelyezett, 2, "fa-solid fa-location-crosshairs", "blue", I18n.f("ovTodoLocations", { n: c.hely_athelyezett }), "helyek~athelyezett");
     todo(c.hely_nincs, 2, "fa-solid fa-map-pin", "blue", I18n.f("ovTodoNoLocation", { n: c.hely_nincs }), "helyek~pontatlan");
-    todo(c.figyelt === 0, 2, "fa-solid fa-binoculars", "cyan", I18n.t("ovTodoWatch"), "watch");
+    todo(c.figyelt === 0, 2, "fa-solid fa-binoculars", "cyan", I18n.t("ovTodoWatch"), "forrasok");
     return t;
 };
 

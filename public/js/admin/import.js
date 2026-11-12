@@ -161,7 +161,8 @@ AdminManager.pollJob = function (jobId, boxId) {
             egyenkent: I18n.t("importResOneByOne"),
             egyenkent_kesz: I18n.t("importResOneByOneDone"),
             nem_teljes: I18n.t("importResIncomplete"),
-            kozvetlen_ki: I18n.t("importResDirectOff")
+            kozvetlen_ki: I18n.t("importResDirectOff"),
+            link_csere: I18n.t("importResLinkSwap")
         };
 
         box.innerHTML = `

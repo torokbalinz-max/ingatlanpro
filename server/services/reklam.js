@@ -189,7 +189,7 @@ function allapotSql() {
 
 const MEZOK = `r.id, r.nev, r.hirdeto, r.kapcsolat, r.cel_url, r.alt, r.kep_mime, r.kep_w, r.kep_h,
     (r.kep_mobil IS NOT NULL) AS van_mobil, r.kep_mobil_w, r.kep_mobil_h,
-    r.helyek, r.kezdet::text AS kezdet, r.vege::text AS vege, r.aktiv, r.suly, r.ar, r.megjegyzes,
+    r.helyek, COALESCE(r.varosok, '[]'::jsonb) AS varosok, r.kezdet::text AS kezdet, r.vege::text AS vege, r.aktiv, r.suly, r.ar, r.megjegyzes,
     r.megjelenes, r.kattintas, r.created_at, r.updated_at, r.anyag_feltoltve,
     r.ugyfel_id, r.penznem, r.szamlazas, r.fizetes_utan, COALESCE(r.szerzodes_kell, true) AS szerzodes_kell, r.szerzodes_szam, r.szerzodes_kuldve, r.szerzodes_elfogadva,
     (SELECT u.nev FROM penzugy_ugyfelek u WHERE u.id = r.ugyfel_id) AS ugyfel_nev,
@@ -238,6 +238,8 @@ function tisztit(b) {
     }
 
     const helyek = Array.isArray(b.helyek) ? [...new Set(b.helyek.filter(h => HELYEK[h]))] : [];
+    // városok (üres = minden városban)
+    const varosok = Array.isArray(b.varosok) ? [...new Set(b.varosok.map(v => String(v || "").trim().slice(0, 80)).filter(Boolean))].slice(0, 50) : [];
     const kezdet = datum(b.kezdet), vege = datum(b.vege);
     if (kezdet && vege && vege < kezdet) throw kodHiba("bad_dates");
 
@@ -251,6 +253,7 @@ function tisztit(b) {
         cel_url: cel,
         alt: sz(b.alt, 200),
         helyek,
+        varosok,
         kezdet, vege,
         aktiv: b.aktiv !== false,
         suly,
@@ -325,8 +328,8 @@ async function modosit(id, b) {
 }
 
 async function szamlazasMent(id, d) {
-    await db.query("UPDATE reklamok SET ugyfel_id = $2, penznem = $3, szamlazas = $4, fizetes_utan = $5, szerzodes_kell = $6 WHERE id = $1",
-        [id, d.ugyfel_id, d.penznem, d.szamlazas, d.fizetes_utan, d.szerzodes_kell]);
+    await db.query("UPDATE reklamok SET ugyfel_id = $2, penznem = $3, szamlazas = $4, fizetes_utan = $5, szerzodes_kell = $6, varosok = $7::jsonb WHERE id = $1",
+        [id, d.ugyfel_id, d.penznem, d.szamlazas, d.fizetes_utan, d.szerzodes_kell, JSON.stringify(d.varosok || [])]);
 }
 
 async function torol(id) {
@@ -351,7 +354,7 @@ async function aktivak() {
 
     try {
         const r = await db.query(`
-            SELECT r.id, r.hirdeto, r.alt, r.helyek, r.suly, r.kep_w, r.kep_h, (r.kep_mobil IS NOT NULL) AS van_mobil,
+            SELECT r.id, r.hirdeto, r.alt, r.helyek, COALESCE(r.varosok, '[]'::jsonb) AS varosok, r.suly, r.kep_w, r.kep_h, (r.kep_mobil IS NOT NULL) AS van_mobil,
                    (r.cel_url IS NOT NULL) AS van_cel, EXTRACT(EPOCH FROM r.updated_at)::bigint AS v
             FROM reklamok r
             WHERE r.aktiv AND r.kep IS NOT NULL
@@ -368,6 +371,7 @@ async function aktivak() {
             hirdeto: x.hirdeto || "",
             alt: x.alt || x.hirdeto || "",
             helyek: Array.isArray(x.helyek) ? x.helyek : [],
+            varosok: Array.isArray(x.varosok) ? x.varosok : [],
             suly: x.suly || 1,
             w: x.kep_w, h: x.kep_h,
             kep: `/api/reklam/${x.id}/kep?v=${x.v}`,

@@ -20,12 +20,14 @@ router.post("/api/cron/run", async (req, res) => {
     // Azonnal válaszolunk, a munka a háttérben fut
     res.json({ elindult: true });
 
-    // 1) a figyelt oldalak városainak közvetlen beolvasása (OLX, Storia), majd a figyelt
-    //    találati listák (új hirdetések), 2) meglévők elérhetősége,
+    // 1) minden város forrásai (OLX, Storia közvetlenül, majd az Imoradar24 / saját linkek:
+    //    új hirdetések, frissítés, a levettek le), 2) meglévők elérhetősége,
     // 3) az új hirdetések képeinek ujjlenyomata (duplikátumokhoz),
     // 4) értesítések (mentett keresések, vevői igények, kedvencek ára) – a
     //    felhasználó beállítása szerint azonnal / naponta / hetente (services/ertesitesek.js)
-    importer.figyeltFuttat()
+    // A városok forrásai (OLX, Storia közvetlenül, utána az Imoradar24 és a saját linkek) –
+    // Admin → Város → Források; a régi figyelt oldalak ezek közé kerültek
+    require("../services/forrasLista").futtat({ mind: true }).promise
         .then(() => importer.figyelesIndit({ limit: 150 }).promise)
         .then(() => { const j = imagehash.indit(400); return j && j.promise; })
         .then(() => require("../services/duplicates").autoOsszevon().catch(e => console.error("Duplikátumok:", e.message)))

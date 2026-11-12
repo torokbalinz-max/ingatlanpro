@@ -308,6 +308,8 @@ async function listaOldalak(url, job, maxOldal = MAX_OLDAL, maxHirdetes = MAX_HI
     const elemek = new Map();
     const linkek = new Set();
     let teljes = false;
+    // az első oldal: válaszkód, a tényleges cím (átirányítás), találatok – a link-ellenőrzéshez
+    let elso = null;
 
     for (let oldal = 1; oldal <= maxOldal; oldal++) {
 
@@ -319,8 +321,11 @@ async function listaOldalak(url, job, maxOldal = MAX_OLDAL, maxHirdetes = MAX_HI
             p = await fetchPage(u);
         } catch (e) {
             naplo(job, { url: u, eredmeny: "hiba", uzenet: e.message });
+            if (oldal === 1) elso = { status: 0, vegso: null, db: 0, hiba: e.message };
             break;
         }
+
+        if (oldal === 1) elso = { status: p.status, vegso: p.finalUrl || u, db: 0 };
 
         if (p.status >= 400) {
             // A lista vége: az Imoradar24 az utolsó utáni oldalra 404-et ad (élőben ellenőrizve
@@ -344,6 +349,7 @@ async function listaOldalak(url, job, maxOldal = MAX_OLDAL, maxHirdetes = MAX_HI
         }
 
         const ujDb = elemek.size + linkek.size - elotte;
+        if (oldal === 1 && elso) elso.db = ujDb;
 
         naplo(job, { url: u, eredmeny: "lista", db: talalt.length || ujDb });
 
@@ -356,7 +362,7 @@ async function listaOldalak(url, job, maxOldal = MAX_OLDAL, maxHirdetes = MAX_HI
 
     }
 
-    return { elemek: [...elemek.values()], linkek: [...linkek], teljes };
+    return { elemek: [...elemek.values()], linkek: [...linkek], teljes, elso };
 
 }
 
@@ -364,8 +370,11 @@ function tiltasUzenet(url, status) {
     if (status === 403 && /imobiliare\.ro/i.test(url)) {
         return "HTTP 403 – az imobiliare.ro letiltja a szervert. Használd ugyanennek a keresésnek az Imoradar24-es linkjét (ott minden imobiliare hirdetés benne van).";
     }
-    if ((status === 403 || status === 429) && /(olx|storia|imobiliare|publi24)\.ro/i.test(url)) {
-        return `HTTP ${status} – a forrásoldal bot-védelme letiltja a szervert. A hirdetés változatlan marad. Futtasd a gépedről (Git Bash): npm run ellenorzes -- --varos <város>  (beolvasáshoz: npm run beolvasas -- <link> --varos <város>)`;
+    if ((status === 403 || status === 429) && /storia\.ro/i.test(url)) {
+        return `HTTP ${status} – a Storia letiltja a szervert. A Storia hirdetései az Imoradar24 listájából jönnek (ott is benne vannak), ehhez nem kell semmit tenned.`;
+    }
+    if ((status === 403 || status === 429) && /(olx|imobiliare|publi24)\.ro/i.test(url)) {
+        return `HTTP ${status} – a forrásoldal bot-védelme letiltja a szervert. A hirdetés változatlan marad; ezek a hirdetések az Imoradar24 listájából frissülnek.`;
     }
     return `HTTP ${status}`;
 }
@@ -501,6 +510,8 @@ async function futtat(job, urls, alap, opts = {}) {
             l.linkek.forEach(x => feladatok.push({ url: x, alap: la }));
 
             if (l.teljes && l.elemek.length) listak.push({ alap: la, elemek: l.elemek });
+            job.listaInfo = job.listaInfo || {};
+            job.listaInfo[u] = { ...(l.elso || {}), osszes: l.elemek.length + l.linkek.length, teljes: l.teljes };
 
         }
 
@@ -546,7 +557,7 @@ async function futtat(job, urls, alap, opts = {}) {
             await hianyzokJelol(kulcsok, l.alap, job, l.elemek, opts);
         }
 
-        await utoMunka(job);
+        if (!opts.utoMunkaNelkul) await utoMunka(job);
 
         job.allapot = "kesz";
 
@@ -578,18 +589,19 @@ async function utoMunka(job) {
 
 // Az Imoradar24 listájából melyik oldalak hirdetéseit ne vegyük fel újként: amelyeket ebben
 // a városban az elmúlt 36 órában közvetlenül (a saját oldalukról) végigolvastunk
-async function kihagyBeallit(job, varos) {
-    job.kihagy = varos ? await forrasSorrend.frissKozvetlen(varos).catch(() => new Set()) : new Set();
+async function kihagyBeallit(job, varos, tipus, ugylet) {
+    job.kihagy = varos ? await forrasSorrend.frissKozvetlen(varos, tipus, ugylet).catch(() => new Set()) : new Set();
     // a "<város> és környéke" város hirdetései az anyaváros listájában vannak
     if (varos && !job.kihagy.size) {
         const anya = await kornyek.anyaVarosa(varos).catch(() => null);
-        if (anya && anya !== varos) job.kihagy = await forrasSorrend.frissKozvetlen(anya).catch(() => new Set());
+        if (anya && anya !== varos) job.kihagy = await forrasSorrend.frissKozvetlen(anya, tipus, ugylet).catch(() => new Set());
     }
 }
 
 function indit(urls, alap) {
     const job = ujJob("import");
-    job.promise = kihagyBeallit(job, alap && alap.varos).then(() => futtat(job, urls, alap));
+    const la = urls.length === 1 && !isListingUrl(urls[0]) ? listaAlap(urls[0], alap || {}) : (alap || {});
+    job.promise = kihagyBeallit(job, la.varos, la.tipus, la.ugylet).then(() => futtat(job, urls, alap));
     return job;
 }
 
@@ -604,7 +616,7 @@ async function kozvetlenFuttat(job, varos, opts = {}) {
     const forrasok = (opts.forrasok || beall.kozvetlen).filter(f => kozvetlen.FORRASOK.includes(f));
     if (!forrasok.length) { naplo(job, { eredmeny: "kozvetlen_ki", uzenet: "A közvetlen beolvasás ki van kapcsolva (Admin → Hirdetések → Források)." }); return; }
 
-    const hely = await forrasHelyAdat(varos);
+    const hely = { ...(await forrasHelyAdat(varos)), ...(opts.hely || {}) };
     const meglevo = await meglevoLinkek();
     job.kozvetlen = job.kozvetlen || {};
     if (!job.kozvetlenOk) job.kozvetlenOk = new Set();
@@ -622,11 +634,11 @@ async function kozvetlenFuttat(job, varos, opts = {}) {
     for (const f of forrasok) {
 
         const e = ered[f] || { elemek: [], csoportok: [] };
-        job.kozvetlen[f] = { varos, db: e.elemek.length, hiba: e.hiba || null, tiltva: !!e.tiltva, csoportok: e.csoportok };
+        job.kozvetlen[f] = { varos, db: e.elemek.length, hiba: e.hiba || null, tiltva: !!e.tiltva, csoportok: e.csoportok, olxSlug: e.olxSlug || null };
 
         if (e.hiba) {
             naplo(job, { url: f, eredmeny: e.tiltva ? "letiltva" : "hiba", uzenet: e.tiltva
-                ? `${f}: a forrásoldal letiltja a szervert (${e.hiba}) – ennél a városnál marad az Imoradar24. A gépedről futtatva működik: npm run kozvetlen -- --varos ${varos}`
+                ? `${f}: a forrásoldal letiltja a szervert (${e.hiba}) – ezek a hirdetések az Imoradar24 listájából jönnek.`
                 : `${f}: ${e.hiba}` });
             continue;
         }
@@ -677,7 +689,8 @@ async function kozvetlenFuttat(job, varos, opts = {}) {
             else naplo(job, { eredmeny: "nem_teljes", uzenet: `${f} – ${c.tipus} / ${c.ugylet}: a lista nem teljes (${c.kapott || "?"} / ${c.ossz || "?"}), a hiányzókat most nem veszem le.` });
         }
 
-        if (e.csoportok.length && !e.hiba) await forrasSorrend.keszJelol(f, varos).catch(() => null);
+        // sikeres olvasás listánként (az Imoradar24 ezeket az oldalakat ott már nem veszi fel újként)
+        if (!e.hiba) for (const c of e.csoportok) await forrasSorrend.keszJelol(f, varos, c.tipus, c.ugylet).catch(() => null);
 
     }
 
@@ -1263,4 +1276,5 @@ async function figyeltFuttat(ids, opts = {}) {
 
 }
 
-module.exports = { indit, allapot, figyeltFuttat, figyelesIndit, frissitForrasbol, ujJob, imoradarLink, varosCsoport, kozvetlenIndit, _teszt: { linkKulcsok, elemKulcsok, listaAlap, imoradarAdatlap } };
+module.exports = { indit, allapot, figyeltFuttat, figyelesIndit, frissitForrasbol, ujJob, imoradarLink, varosCsoport, kozvetlenIndit,
+    kozvetlenFuttat, futtat, kihagyBeallit, utoMunka, naplo, forrasHelyAdat, IMORADAR_VAROS, IMORADAR_TIPUS, _teszt: { linkKulcsok, elemKulcsok, listaAlap, imoradarAdatlap } };

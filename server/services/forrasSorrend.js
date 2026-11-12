@@ -85,9 +85,10 @@ function legjobb(linkek, sorrend) {
 
 // ---------- Közvetlen beolvasás: mikor sikerült utoljára (városonként, oldalanként) ----------
 
-async function keszJelol(forras, varos) {
+//  tipus / ugylet: melyik lista (pl. eladó lakások) – a kulcs: "olx|Sepsiszentgyorgy|lakas|elado"
+async function keszJelol(forras, varos, tipus, ugylet) {
     const v = (await olvasKulcs(KESZ_KULCS).catch(() => null)) || {};
-    v[`${forras}|${varos}`] = new Date().toISOString();
+    v[`${forras}|${varos}|${tipus || "*"}|${ugylet || "*"}`] = new Date().toISOString();
     await irKulcs(KESZ_KULCS, v);
 }
 
@@ -95,16 +96,23 @@ async function keszIdok() {
     return (await olvasKulcs(KESZ_KULCS).catch(() => null)) || {};
 }
 
-// Mely oldalakat olvastuk közvetlenül ebben a városban az elmúlt 36 órában -> Set("olx", "storia")
-async function frissKozvetlen(varos) {
+// Mely oldalak ugyanezen listáját (város + típus + ügylet) olvastuk közvetlenül az elmúlt
+// 36 órában -> Set("olx", "storia")
+async function frissKozvetlen(varos, tipus, ugylet) {
     const b = await olvas();
     const v = await keszIdok();
     const ki = new Set();
+    const friss = t => t && Date.now() - new Date(t).getTime() < FRISS_ORA * 3600 * 1000;
     b.kozvetlen.forEach(f => {
-        const t = v[`${f}|${varos}`];
-        if (t && Date.now() - new Date(t).getTime() < FRISS_ORA * 3600 * 1000) ki.add(f);
+        if (friss(v[`${f}|${varos}|${tipus || "*"}|${ugylet || "*"}`])) ki.add(f);
     });
     return ki;
+}
+
+// Egy forrás + város legutóbbi sikeres közvetlen olvasása (bármelyik listája) – a kijelzéshez
+function utolsoIdo(idok, forras, varos) {
+    return Object.entries(idok || {}).filter(([k]) => k.startsWith(`${forras}|${varos}|`) || k === `${forras}|${varos}`)
+        .map(([, t]) => t).sort().pop() || null;
 }
 
 // ---------- A fő link a sorrend szerint (a meglévő hirdetéseken) ----------
@@ -143,4 +151,4 @@ async function alkalmaz(opts = {}) {
     return n;
 }
 
-module.exports = { olvas, ment, legjobb, oldal, alkalmaz, keszJelol, keszIdok, frissKozvetlen, OLDALAK, KOZVETLEN_LEHET, FRISS_ORA };
+module.exports = { olvas, ment, legjobb, oldal, alkalmaz, keszJelol, keszIdok, frissKozvetlen, utolsoIdo, OLDALAK, KOZVETLEN_LEHET, FRISS_ORA };

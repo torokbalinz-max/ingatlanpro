@@ -359,7 +359,12 @@ router.post("/api/admin/forraslinkek", csapat.csakVarosra("ellenorzes", "beolvas
 router.get("/api/admin/duplicates", csapat.csakGlobalis("ellenorzes"), async (req, res) => {
 
     try {
-        res.json(await duplikatumok.keres());
+        const v = await duplikatumok.keres();
+        // a felül kiválasztott város (Admin → Város): csak az ottani csoportok
+        const mv = (await csapat.kontextus(req)).munkaVaros;
+        if (!mv) return res.json(v);
+        const nevek = new Set([mv, ...(await db.query("SELECT nev FROM varosok WHERE anyavaros = $1", [mv])).rows.map(x => x.nev)]);
+        res.json({ ...v, valoszinu: (v.valoszinu || []).filter(g => (g.tagok || []).some(t => nevek.has(t.varos))) });
     } catch (err) {
         hiba(res, err);
     }
@@ -502,6 +507,77 @@ router.put("/api/admin/forrasok", csapat.csakGlobalis("beolvasas"), async (req, 
     } catch (err) {
         hiba(res, err);
     }
+});
+
+// ===================== A VÁROS FORRÁSAI (figyelt oldalak) =====================
+//  services/forrasLista.js – típusonként az OLX, Storia, Imoradar24 (+ saját) linkek,
+//  futtatás soronként / városra / mindenre, link-ellenőrzés és -javítás
+
+const forrasLista = require("../services/forrasLista");
+
+// A sor városára van-e joga (városra kapott beolvasási joggal csak a sajátjain)
+async function sorJog(req, res, next) {
+    try {
+        const r = await db.query("SELECT varos FROM figyelt_oldalak WHERE id = $1", [Number(req.params.id) || 0]);
+        if (!r.rowCount) return res.status(404).json({ error: "not_found" });
+        if (await csapat.varosJog(req, "beolvasas", r.rows[0].varos)) return next();
+        res.status(403).json({ error: "not_in_scope" });
+    } catch (err) { next(err); }
+}
+
+router.get("/api/admin/forraslista", csapat.csakVarosra("beolvasas"), async (req, res) => {
+    try {
+        const varos = String(req.query.varos || "").trim();
+        if (!varos) return res.status(400).json({ error: "no_city" });
+        const forrasSorrend = require("../services/forrasSorrend");
+        const idok = await forrasSorrend.keszIdok();
+        res.json({
+            varos,
+            sorok: await forrasLista.lista(varos),
+            csoportok: forrasLista.CSOPORTOK,
+            futo: forrasLista.futoJob(),
+            beallitas: await forrasSorrend.olvas(),
+            utolsoKozvetlen: { olx: forrasSorrend.utolsoIdo(idok, "olx", varos), storia: forrasSorrend.utolsoIdo(idok, "storia", varos) },
+            modosithat: req.szerep === "admin" || csapat.globalis(await csapat.kontextus(req), "beolvasas")
+        });
+    } catch (err) { hiba(res, err); }
+});
+
+router.post("/api/admin/forraslista", csapat.csakVarosra("beolvasas"), async (req, res) => {
+    try { res.json(await forrasLista.hozzaad(req.body || {})); }
+    catch (err) { if (err.kod) return res.status(400).json({ error: err.kod }); hiba(res, err); }
+});
+
+router.put("/api/admin/forraslista/:id", csapat.csakResz("beolvasas"), sorJog, async (req, res) => {
+    try { res.json(await forrasLista.modosit(req.params.id, req.body || {})); }
+    catch (err) { if (err.kod) return res.status(400).json({ error: err.kod }); hiba(res, err); }
+});
+
+router.post("/api/admin/forraslista/:id/alap", csapat.csakResz("beolvasas"), sorJog, async (req, res) => {
+    try { res.json(await forrasLista.alapra(req.params.id)); } catch (err) { hiba(res, err); }
+});
+
+router.delete("/api/admin/forraslista/:id", csapat.csakResz("beolvasas"), sorJog, async (req, res) => {
+    try { await forrasLista.torol(req.params.id); res.json({ siker: true }); } catch (err) { hiba(res, err); }
+});
+
+// Futtatás: { ids } egy-egy sor, { varos[, tipus, ugylet] } egy város (csoport), { mind: true } minden város
+router.post("/api/admin/forraslista/futtat", csapat.csakResz("beolvasas"), async (req, res) => {
+    try {
+        const b = req.body || {};
+        const k = await csapat.kontextus(req);
+        const globalis = req.szerep === "admin" || csapat.globalis(k, "beolvasas");
+        if (b.mind && !globalis) return res.status(403).json({ error: "admin_only" });
+        if (b.varos && !(await csapat.varosJog(req, "beolvasas", b.varos))) return res.status(403).json({ error: "not_in_scope" });
+        const ids = Array.isArray(b.ids) ? b.ids.map(Number).filter(Boolean) : null;
+        if (ids && !globalis) {
+            const r = await db.query("SELECT DISTINCT varos FROM figyelt_oldalak WHERE id = ANY($1::int[])", [ids]);
+            for (const x of r.rows) if (!(await csapat.varosJog(req, "beolvasas", x.varos))) return res.status(403).json({ error: "not_in_scope" });
+        }
+        if (!ids && !b.varos && !b.mind) return res.status(400).json({ error: "bad_request" });
+        const job = forrasLista.futtat({ ids, varos: b.varos || null, tipus: b.tipus || null, ugylet: b.ugylet || null, mind: !!b.mind });
+        res.json({ jobId: job.id });
+    } catch (err) { hiba(res, err); }
 });
 
 // Egy (vagy több) város közvetlen beolvasása most: OLX + Storia (háttérben, a napló az

@@ -33,23 +33,14 @@ AdminManager.renderMaintenance = function () {
                 </div>
             </div>`;
 
-        // Melyik városra fussanak az eszközök (megjegyezzük; üres = minden város)
-        let valasztott = null;
-        try { valasztott = localStorage.getItem("ip_mt_varos"); } catch (e) { valasztott = null; }
-        if (valasztott === null) valasztott = DataManager.currentCity || "";
+        // A város a felső városválasztóból jön (Admin → Város); üres = minden város
+        const mv = AdminManager.munkaVaros || "";
 
         AdminManager.box().innerHTML = `
-            <div class="card mb-4 toolCard">
-                <div class="card-body d-flex flex-wrap align-items-end gap-3">
-                    <div style="min-width:220px">
-                        <label class="form-label small fw-semibold mb-1" for="mtCity"><i class="fa-solid fa-city" aria-hidden="true"></i> ${I18n.t("mtCityLabel")}</label>
-                        <select class="form-select" id="mtCity">
-                            <option value="">${I18n.t("mtCityAll")}</option>
-                            ${AdminManager.cityOptions(valasztott)}
-                        </select>
-                    </div>
-                    <p class="sectionNote mb-0 flex-fill" style="min-width:220px">${I18n.t("mtCityNote")}</p>
-                </div>
+            <div class="alert alert-light d-flex flex-wrap align-items-center gap-2 mb-4">
+                <i class="fa-solid fa-city" aria-hidden="true"></i>
+                <span>${mv ? I18n.f("mtForCity", { v: Utils.escape(CityManager.displayName(mv)) }) : I18n.t("mtForAll")}</span>
+                <small class="text-body-secondary">${I18n.t("mtCitySwitchHint")}</small>
             </div>
 
             ${eszkoz("mtAutofix", "fa-solid fa-wand-magic-sparkles", I18n.t("autofixTitle"), I18n.t("autofixDesc") + " " + I18n.t("mtAutofixPlaces"),
@@ -64,10 +55,7 @@ AdminManager.renderMaintenance = function () {
                 `<button class="btn btn-outline-primary text-nowrap" id="mtValTest"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> ${I18n.t("valTestBtn")}</button>`)}`;
 
         const box = AdminManager.box();
-        const varos = () => document.getElementById("mtCity").value || null;
-        document.getElementById("mtCity").onchange = () => {
-            try { localStorage.setItem("ip_mt_varos", document.getElementById("mtCity").value); } catch (e) { /* nem baj */ }
-        };
+        const varos = () => mv || null;
         box.querySelectorAll("[data-go-tab]").forEach(a => a.onclick = e => { e.preventDefault(); AdminManager.open(a.dataset.goTab); });
 
         document.getElementById("mtAutofix").onclick = () => {

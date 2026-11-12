@@ -31,36 +31,52 @@
 
 (() => {
 
+    // Két rész (2026-11):
+    //   VÁROS  – felül a városválasztó, és ami egy városhoz tartozik: a hirdetések kezelése,
+    //            a források (beolvasás), a karbantartás, a reklámfelületek, az értékesítés
+    //   ÁLTALÁNOS – ami az egész oldalé: teendők, pénzügy, irattár, ingatlanirodák, beállítások
+    //            (állapotok, városok és kerületek, webhely, csapat, látogatottság)
     AdminManager.GROUPS = [
-        { key: "ma", label: "adminModToday", icon: "fa-solid fa-sun" },
-        { key: "hird", label: "adminModListings", icon: "fa-solid fa-house" },
-        { key: "ert", label: "adminModSales", icon: "fa-solid fa-key" },
-        { key: "penz", label: "adminModFinance", icon: "fa-solid fa-coins" },
-        { key: "irat", label: "adminModArchive", icon: "fa-solid fa-box-archive" },
-        { key: "partner", label: "adminModPartners", icon: "fa-solid fa-handshake" },
-        { key: "rendszer", label: "adminModSystem", icon: "fa-solid fa-gear" }
+        { key: "hird", label: "adminModListings", icon: "fa-solid fa-house", szekcio: "varos" },
+        { key: "forras", label: "fsTab", icon: "fa-solid fa-diagram-project", szekcio: "varos" },
+        { key: "karb", label: "adminTabTools", icon: "fa-solid fa-toolbox", szekcio: "varos" },
+        { key: "reklam", label: "adminModAds", icon: "fa-solid fa-rectangle-ad", szekcio: "varos" },
+        { key: "ert", label: "adminModSales", icon: "fa-solid fa-key", szekcio: "varos" },
+        { key: "ma", label: "adminModToday", icon: "fa-solid fa-sun", szekcio: "altalanos" },
+        { key: "penz", label: "adminModFinance", icon: "fa-solid fa-coins", szekcio: "altalanos" },
+        { key: "irat", label: "adminModArchive", icon: "fa-solid fa-box-archive", szekcio: "altalanos" },
+        { key: "partner", label: "adminModAgencies", icon: "fa-solid fa-briefcase", szekcio: "altalanos" },
+        { key: "beall", label: "adminModSettings", icon: "fa-solid fa-gear", szekcio: "altalanos" }
     ];
 
-    // Modulonként az oldalak sorrendben ("|" = elválasztó a fülek között)
+    // Modulonként az oldalak sorrendben ("|" = elválasztó a fülek között).
+    // Minden oldal pontosan egy helyen van. A régi „Beolvasás” és „Figyelt oldalak” a
+    // Források oldalba olvadt (a régi címek oda visznek).
     AdminManager.REND = {
+        hird: ["review", "helyek", "allapot", "reports", "|", "dups", "unavailable"],
+        forras: ["forrasok"],
+        karb: ["tools"],
+        reklam: ["reklam"],
+        ert: ["megbizasok", "naptar", "hirdetesek"],
         ma: ["overview"],
-        hird: ["review", "helyek", "allapot", "import", "reports", "|", "dups", "unavailable", "watch", "forrasok"],
-        ert: ["megbizasok", "naptar", "hirdetesek", "|", "megbizasBeall"],
         // gyakran: áttekintés, számlák, vásárlások, kiadások, e-Factura | ritkábban | beállítás jellegű a végén
         penz: ["penzugy", "szamlak", "rendelesek", "kiadasok", "efactura", "|", "ugyfelek", "elofizetesek", "kiemelesek", "|", "csomagok", "penzugyBeall"],
         irat: ["irattarSzamla", "irattarSzerzodes"],
-        partner: ["irodak", "reklam"],
-        rendszer: ["places", "kornyek", "allapotok", "|", "webhely", "csapat", "tools", "sitestats"]
+        partner: ["irodak"],
+        beall: ["allapotok", "places", "kornyek", "megbizasBeall", "|", "webhely", "csapat", "sitestats"]
     };
+
+    // Megszűnt külön oldalak (a funkciójuk a Források oldalon van)
+    const MEGSZUNT = { import: "forrasok", watch: "forrasok" };
 
     const regi = AdminManager.TABS;
     const uj = {};
     for (const [g, kulcsok] of Object.entries(AdminManager.REND)) {
         kulcsok.forEach(k => { if (k !== "|" && regi[k]) uj[k] = { ...regi[k], group: g }; });
     }
-    // Ami még nincs besorolva (egy később hozzáadott rész): a Rendszer végére
+    // Ami még nincs besorolva (egy később hozzáadott rész): a Beállítások végére – így semmi nem vész el
     for (const [k, t] of Object.entries(regi)) {
-        if (!uj[k]) { uj[k] = { ...t, group: "rendszer" }; AdminManager.REND.rendszer.push(k); }
+        if (!uj[k] && !MEGSZUNT[k]) { uj[k] = { ...t, group: "beall" }; AdminManager.REND.beall.push(k); }
     }
 
     // A használathoz igazított nevek
@@ -70,13 +86,11 @@
     if (uj.helyek) Object.assign(uj.helyek, { title: "adminTabLocCheck", desc: "adminDescLocCheck2", warn: false });
     if (uj.megbizasBeall) uj.megbizasBeall.title = "adminTabSalesSettings";
     if (uj.penzugyBeall) Object.assign(uj.penzugyBeall, { title: "adminTabFinSettings2", desc: "adminDescFinSettings2", icon: "fa-solid fa-gear", render: () => AdminManager.renderFinBeall() });
-    // A linkről beolvasás és a figyelt oldalak az egész oldalra szólnak; városra kapott
-    // beolvasási joggal a Források (a város beolvasása) és a Karbantartás látszik
-    if (uj.import) uj.import.jog = "beolvasas_mind";
-    if (uj.watch) uj.watch.jog = "beolvasas_mind";
+    // A karbantartás városra is adható (a város beolvasási jogával)
+    if (uj.tools) Object.assign(uj.tools, { desc: "mtDescCity" });
 
     AdminManager.TABS = uj;
-    Object.assign(AdminManager.ALIASES, { ma: "overview", today: "overview", hirdeteseim: "hirdetesek" });
+    Object.assign(AdminManager.ALIASES, { ma: "overview", today: "overview", hirdeteseim: "hirdetesek", import: "forrasok", watch: "forrasok", beolvasas: "forrasok", figyelt: "forrasok" });
 
     // „panel” jog: bárki, aki az admin felületet látja
     const lathato = AdminManager.lathato;
@@ -118,6 +132,14 @@ AdminManager.sajatVarosok = function () {
 
 AdminManager.munkaVaros = (() => { try { return localStorage.getItem("ip_adm_varos") || ""; } catch (e) { return ""; } })();
 
+// A Város részben vagyunk-e (Hirdetések, Források, Karbantartás, Reklám, Értékesítés) – csak ott szűr
+// a városválasztó; az Általános rész (teendők, pénzügy…) mindig az egész oldalt mutatja
+AdminManager.varosSzekcio = function () {
+    const t = AdminManager.TABS && AdminManager.TABS[AdminManager.tab];
+    const g = t && (AdminManager.GROUPS || []).find(x => x.key === t.group);
+    return !!(g && g.szekcio === "varos");
+};
+
 AdminManager.munkaVarosBeallit = function (v) {
     AdminManager.munkaVaros = v || "";
     try { localStorage.setItem("ip_adm_varos", AdminManager.munkaVaros); } catch (e) { /* nem baj */ }
@@ -132,6 +154,12 @@ AdminManager.munkaVarosEllenoriz = function () {
     if (AdminManager.munkaVaros && (!van(AdminManager.munkaVaros) || (sajat && !sajat.includes(AdminManager.munkaVaros)))) AdminManager.munkaVarosBeallit("");
     // egy városra kapott munkatárs: az az egy város
     if (!AdminManager.munkaVaros && sajat && sajat.length === 1) AdminManager.munkaVarosBeallit(sajat[0]);
+    // első alkalommal: az oldal mostani városa legyen kiválasztva (utána a választás megmarad)
+    let volt = null;
+    try { volt = localStorage.getItem("ip_adm_varos"); } catch (e) { volt = ""; }
+    if (volt === null && !AdminManager.munkaVaros && typeof DataManager !== "undefined" && DataManager.currentCity && (!sajat || sajat.includes(DataManager.currentCity))) {
+        AdminManager.munkaVarosBeallit(DataManager.currentCity);
+    }
 };
 
 AdminManager.varosValaszto = function () {
@@ -170,7 +198,7 @@ AdminManager.varosValaszto = function () {
     window.fetch = function (input, init) {
         try {
             const url = typeof input === "string" ? input : (input && input.url) || "";
-            if (AdminManager.munkaVaros && /^(\/|https?:\/\/[^/]*\/)api\/admin\//.test(url) && (url.startsWith("/") || url.startsWith(location.origin))) {
+            if (AdminManager.munkaVaros && AdminManager.varosSzekcio() && /^(\/|https?:\/\/[^/]*\/)api\/(admin\/|jogi\/bejelentesek)/.test(url) && (url.startsWith("/") || url.startsWith(location.origin))) {
                 const h = new Headers((init && init.headers) || (typeof input !== "string" && input.headers) || {});
                 if (!h.has("X-Admin-Varos")) h.set("X-Admin-Varos", encodeURIComponent(AdminManager.munkaVaros));
                 init = { ...(init || {}), headers: h };
@@ -200,18 +228,23 @@ AdminManager.renderNav = function () {
 
     top.innerHTML = `
         <div class="admTop">
-            <nav class="admModulok" aria-label="${esc(I18n.t("adminTitle"))}">
-                ${modulok.map(g => {
-                    const elso = oldalak(g).find(k => k !== "|");
-                    const db = AdminManager.modulDb(g);
-                    return `
+            ${["varos", "altalanos"].map(sz => {
+                const ms = modulok.filter(g => g.szekcio === sz);
+                if (!ms.length) return "";
+                return `
+                <nav class="admModulok admSzekcio sz-${sz} ${(AdminManager.GROUPS.find(g => g.key === aktivModul) || {}).szekcio === sz ? "aktiv" : ""}" aria-label="${esc(I18n.t(sz === "varos" ? "admSecCity" : "admSecGeneral"))}">
+                    ${sz === "varos" ? AdminManager.varosValaszto() : `<span class="admSzekcioCim">${esc(I18n.t("admSecGeneral"))}</span>`}
+                    ${ms.map(g => {
+                        const elso = oldalak(g).find(k => k !== "|");
+                        const db = AdminManager.modulDb(g);
+                        return `
                         <button type="button" class="admModul ${g.key === aktivModul ? "active" : ""}" data-modul="${elso}" ${g.key === aktivModul ? 'aria-current="page"' : ""}>
                             <i class="${g.icon}" aria-hidden="true"></i><span>${esc(I18n.t(g.label))}</span>
                             ${g.key === "ma" ? `<span class="admModulDb" id="todayCount" hidden></span>` : db ? `<span class="admModulDb">${db > 99 ? "99+" : db}</span>` : ""}
                         </button>`;
-                }).join("")}
-            </nav>
-            ${["hird", "ma"].includes(aktivModul) ? AdminManager.varosValaszto() : ""}
+                    }).join("")}
+                </nav>`;
+            }).join("")}
             <button type="button" class="admUgras" id="admUgras" aria-keyshortcuts="Control+K">
                 <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>${esc(I18n.t("adminJump"))}</span><kbd>Ctrl K</kbd>
             </button>
@@ -252,8 +285,11 @@ AdminManager.renderNav = function () {
     // Részváltáskor a felső sáv is frissül (más modul → más fülek)
     const open = AdminManager.open;
     AdminManager.open = function (tab, opts) {
+        const elotte = AdminManager.varosSzekcio();
         const r = open.call(this, tab, opts);
         AdminManager.renderNav();
+        // Város ↔ Általános váltáskor a számlálók is (a városra szűrt / az egész oldal)
+        if (elotte !== AdminManager.varosSzekcio() && AdminManager.refreshPendingCount) AdminManager.refreshPendingCount();
         return r;
     };
 
