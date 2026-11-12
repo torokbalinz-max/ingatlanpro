@@ -102,7 +102,6 @@
                         <div class="navPanelList">
                             <a class="navPanelItem nvKozep" role="menuitem" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot"></i><span><b data-i18n="mapTitle">Térkép</b><small data-i18n="menuMapDesc">Az ingatlanok a térképen</small></span></a>
                             <a class="navPanelItem" role="menuitem" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Add fel, mit keresel – az eladók ajánlanak neked</small></span></a>
-            <a class="navPanelItem" role="menuitem" href="#ajanlat" data-page="ajanlat"><i class="fa-regular fa-calendar-plus"></i><span><b data-i18n="ofPageTitle">Megtekintés más oldalon látott ingatlanra</b><small data-i18n="ofNavDesc">Más oldalon láttad? Kérj megtekintést a regisztrált irodától</small></span></a>
                         </div>
                     </div>
                     <div class="navTobbOszlop">
@@ -139,7 +138,6 @@
                     <a class="dropdown-item" href="#properties" data-page="properties"><i class="fa-solid fa-house"></i><span><b data-i18n="menuIngatlanok">Ingatlanok</b><small data-i18n="menuIngatlanokDesc">Keresés, táblázat, térkép</small></span></a>
                     <a class="dropdown-item" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot"></i><span><b data-i18n="mapTitle">Térkép</b><small data-i18n="menuMapDesc">Az ingatlanok a térképen</small></span></a>
                     <a class="dropdown-item" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Add fel, mit keresel – az eladók ajánlanak neked</small></span></a>
-            <a class="dropdown-item" href="#ajanlat" data-page="ajanlat"><i class="fa-regular fa-calendar-plus"></i><span><b data-i18n="ofPageTitle">Megtekintés más oldalon látott ingatlanra</b><small data-i18n="ofNavDesc">Más oldalon láttad? Kérj megtekintést a regisztrált irodától</small></span></a>
                     <a class="dropdown-item navMenuFeature" href="#eladjuk" data-page="eladjuk"><i class="fa-solid fa-key"></i><span><b data-i18n="menuEladjuk">Eladjuk helyetted</b><small data-i18n="menuEladjukDesc">Megbízás: fotózás, hirdetés, vevők, szerződés – mi intézzük</small></span></a>
                 </div>
                 <div class="navMenuCol">
@@ -154,6 +152,12 @@
         </div>
 
         <div class="navRight">
+
+            <!-- Ingatlanosoknak (iroda tagja): váltás a munkaterület és a böngészés között (js/agency/workspace.js) -->
+            <a class="btn btn-sm navWorkBtn agency-only" hidden href="#iroda" id="navWorkBtn">
+                <span class="nwIn"><i class="fa-solid fa-briefcase" aria-hidden="true"></i><span data-i18n="wsEnter">Munkaterület</span></span>
+                <span class="nwOut"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span data-i18n="wsExitShort">Böngészés</span></span>
+            </a>
 
             <a class="btn btn-primary btn-sm navPostBtn" href="#new" data-page="new">
                 <i class="fa-solid fa-plus"></i><span data-i18n="navPost">Hirdetés feladása</span>
@@ -200,20 +204,27 @@
                 <ul class="dropdown-menu dropdown-menu-end shadow navUserMenu">
                     <li class="px-3 pt-2 pb-1"><b id="navUserName"></b></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><h6 class="dropdown-header" data-i18n="navUserBuyer">Vásárlóként</h6></li>
+                    <!-- Ugyanazok a csoportok, mint a Fiókom oldalon (js/account/accountPage.js) -->
+                    <li class="agency-only" hidden><a class="dropdown-item fw-semibold" href="#iroda"><i class="fa-solid fa-briefcase"></i> <span data-i18n="wsEnter">Munkaterület</span> <span class="badge text-bg-danger ms-1 navInviteCount" hidden></span></a></li>
+                    <li><a class="dropdown-item" href="#fiok/attekintes"><i class="fa-solid fa-house"></i> <span data-i18n="acNav_fiok">Fiókom áttekintése</span></a></li>
+                    <li><h6 class="dropdown-header" data-i18n="acGrp_deals">Ügyeim</h6></li>
+                    <li><a class="dropdown-item" href="#fiok/megtekintesek"><i class="fa-regular fa-calendar-check"></i> <span data-i18n="acNav_megtekintesek">Megtekintéseim</span></a></li>
+                    <li><a class="dropdown-item" href="#fiok/ajanlatok"><i class="fa-solid fa-hand-holding-dollar"></i> <span data-i18n="acNav_ajanlatok">Ajánlataim</span></a></li>
                     <li><a class="dropdown-item" href="#erdeklodes"><i class="fa-solid fa-house-circle-check"></i> <span data-i18n="by_cim">Érdeklődéseim</span> <span class="badge text-bg-danger ms-1 navBuyCount" hidden></span></a></li>
+                    <li><a class="dropdown-item" href="#fiok/uzenetek"><i class="fa-solid fa-envelope"></i> <span data-i18n="accTabMessages">Üzenetek</span> <span class="badge text-bg-danger ms-1 navMsgCount2" hidden></span></a></li>
+                    <li><a class="dropdown-item" href="#fiok/ertesitesek"><i class="fa-solid fa-bell"></i> <span data-i18n="accTabNotifications">Értesítések</span> <span class="badge text-bg-danger ms-1 navBellCount" hidden></span></a></li>
+                    <li><h6 class="dropdown-header" data-i18n="acGrp_search">Keresés</h6></li>
                     <li><a class="dropdown-item" href="#favorites"><i class="fa-solid fa-star"></i> <span data-i18n="menuKedvencek">Kedvencek</span></a></li>
                     <li><a class="dropdown-item" href="#fiok/keresesek"><i class="fa-solid fa-bookmark"></i> <span data-i18n="accTabSearches">Mentett keresések</span></a></li>
                     <li><a class="dropdown-item" href="#fiok/igenyek"><i class="fa-solid fa-bullhorn"></i> <span data-i18n="accTabRequests">Keresési igényeim</span></a></li>
-                    <li><h6 class="dropdown-header" data-i18n="navUserSeller">Eladóként</h6></li>
-                    <li class="seller-only" hidden><a class="dropdown-item fw-semibold" href="#eladas"><i class="fa-solid fa-key"></i> <span data-i18n="el_menu">Ingatlanom eladása</span> <span class="badge text-bg-danger ms-1 navSellCount" hidden></span></a></li>
+                    <li><h6 class="dropdown-header" data-i18n="acGrp_sell">Eladás</h6></li>
                     <li><a class="dropdown-item" href="#fiok/hirdetesek"><i class="fa-solid fa-house-user"></i> <span data-i18n="accTabListings">Hirdetéseim</span></a></li>
+                    <li class="seller-only" hidden><a class="dropdown-item" href="#eladas"><i class="fa-solid fa-key"></i> <span data-i18n="el_menu">Ingatlanom eladása</span> <span class="badge text-bg-danger ms-1 navSellCount" hidden></span></a></li>
+                    <li><h6 class="dropdown-header" data-i18n="acGrp_settings">Beállítások</h6></li>
+                    <li><a class="dropdown-item" href="#fiok/profil"><i class="fa-solid fa-id-card"></i> <span data-i18n="acNav_profil">Profil és jelszó</span></a></li>
+                    <li><a class="dropdown-item" href="#fiok/ertesitesBeall"><i class="fa-solid fa-sliders"></i> <span data-i18n="acNav_ertesitesBeall">Értesítési beállítások</span></a></li>
                     <li><a class="dropdown-item" href="#fiok/csomag"><i class="fa-solid fa-receipt"></i> <span data-i18n="accTabBilling">Csomagom és számláim</span></a></li>
-                    <li class="agency-only" hidden><a class="dropdown-item" href="#iroda"><i class="fa-solid fa-briefcase"></i> <span data-i18n="agMyAgency">Irodám kezelése</span> <span class="badge text-bg-danger ms-1 navInviteCount" hidden></span></a></li>
-                    <li><h6 class="dropdown-header" data-i18n="navUserAccount">Fiók</h6></li>
-                    <li><a class="dropdown-item" href="#fiok/uzenetek"><i class="fa-solid fa-envelope"></i> <span data-i18n="accTabMessages">Üzenetek</span> <span class="badge text-bg-danger ms-1 navMsgCount2" hidden></span></a></li>
-                    <li><a class="dropdown-item" href="#fiok/ertesitesek"><i class="fa-solid fa-bell"></i> <span data-i18n="accTabNotifications">Értesítések</span> <span class="badge text-bg-danger ms-1 navBellCount" hidden></span></a></li>
-                    <li><a class="dropdown-item" href="#fiok/profil"><i class="fa-solid fa-id-card"></i> <span data-i18n="accTabProfil">Profil</span></a></li>
+                    <li><hr class="dropdown-divider"></li>
                     <li class="panel-only" hidden><a class="dropdown-item" href="#admin"><i class="fa-solid fa-user-shield"></i> <span data-i18n="menuAdmin">Admin</span></a></li>
                     <li class="adminView-only" hidden><hr class="dropdown-divider"></li>
                     <li class="adminView-only" hidden><button class="dropdown-item" type="button" id="navViewToggle"><i class="fa-solid fa-eye"></i> <span id="navViewLabel" data-i18n="viewAsUser">Felhasználói nézet</span></button></li>
@@ -249,7 +260,6 @@
         <div class="mobSheetLista">
             <h6 class="navMenuHead" data-i18n="navHeadBuyers">Vevőknek</h6>
             <a href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Add fel, mit keresel – az eladók ajánlanak neked</small></span></a>
-            <a href="#ajanlat" data-page="ajanlat"><i class="fa-regular fa-calendar-plus"></i><span><b data-i18n="ofPageTitle">Megtekintés más oldalon látott ingatlanra</b><small data-i18n="ofNavDesc">Más oldalon láttad? Kérj megtekintést a regisztrált irodától</small></span></a>
             <h6 class="navMenuHead" data-i18n="navHeadMarket">Piac</h6>
             <a href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a>
             <a href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
@@ -510,7 +520,6 @@
      ===================================================================== -->
 
 <!-- Vételi ajánlat más oldalon látott ingatlanra (js/offers/offers.js) -->
-<section id="page-ajanlat" class="page" style="display:none;"><div id="ofPage"></div></section>
 
 <!-- Ügyfélportál: iratok titkos linkkel (js/crm/docPortal.js) -->
 <section id="page-iratok" class="page" style="display:none;"><div id="ptPage"></div></section>
@@ -1573,6 +1582,8 @@
 <script src="js/core/i18n-offers.js"></script>
 <script src="js/core/i18n-teszt.js"></script>
 <script src="js/core/i18n-viewings.js"></script>
+<script src="js/core/i18n-workspace.js"></script>
+<script src="js/core/i18n-account.js"></script>
 <script src="js/core/dokumentum.js"></script>
 <script src="js/core/gridLocale.js"></script>
 <script src="js/core/telepulesek.js"></script>
@@ -1656,6 +1667,7 @@
 <script src="js/offers/offers.js"></script>
 <script src="js/offers/viewings.js"></script>
 <script src="js/agency/agencyPage.js"></script>
+<script src="js/agency/workspace.js"></script>
 <script src="js/agency/agencyDirectory.js"></script>
 <script src="js/agency/profileFeature.js"></script>
 <script src="js/core/homePage.js"></script>

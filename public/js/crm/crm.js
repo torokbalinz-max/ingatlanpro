@@ -166,6 +166,9 @@ class Crm {
 
     // ===================== KERET =====================
 
+    // opts: { ter, nezet, beagyazott }
+    //  beagyazott: az iroda munkaterületén egy nézet (saját menü nélkül – a munkaterület
+    //  bal oldali menüje vált); a nézetek közti ugrás a munkaterület címére visz
     static mount(el, opts = {}) {
         Crm.el = el;
         if (Crm.ter !== Number(opts.ter || 0)) {
@@ -174,6 +177,8 @@ class Crm {
             Crm.fSzuro = { felelos: "", kesz: false };
             Crm.nezet = "attekintes";
         }
+        Crm.beagyazott = !!opts.beagyazott;
+        if (opts.nezet) { Crm.nezet = opts.nezet; Crm.beagyNezet = opts.nezet; }
         el.innerHTML = `<div class="text-center py-5"><span class="spinner-border text-primary" role="status"></span></div>`;
         Crm.api("/tagok").then(v => {
             Crm.tagok = v.tagok || [];
@@ -185,8 +190,38 @@ class Crm {
         });
     }
 
+    // A CRM nézet → a munkaterület oldala (beágyazott módban)
+    static WS_OLDAL = { attekintes: "attekintes", ugyfelek: "ugyfelek", megtekintesek: "naptar", feladatok: "feladatok", beerkezo: "beerkezo",
+        beerkezoKomb: "beerkezo", keresek: "beerkezo", ajanlatok: "ajanlatok", ingatlanok: "hirdetesek", csapat: "csapat" };
+
     static keret() {
         const el = Crm.el;
+        if (Crm.beagyazott) {
+            if (Crm.nezet !== Crm.beagyNezet) {
+                const cel = Crm.WS_OLDAL[Crm.nezet] || "attekintes";
+                Crm.nezet = Crm.beagyNezet;
+                location.hash = `#iroda/${Crm.ter}:${cel}`;
+                return;
+            }
+            const muvelet = ["attekintes", "ugyfelek", "megtekintesek", "feladatok"].includes(Crm.nezet);
+            el.innerHTML = `
+                <div class="crm crmEmbed">
+                    ${muvelet ? `
+                    <div class="crmActions">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="crmUjMegt"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${Crm.t("crmNewViewing")}</button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="crmUjFeladat"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmNewTask")}</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="crmUjUgyfel"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> ${Crm.t("crmNewContact")}</button>
+                    </div>` : ""}
+                    <div id="crmBody"></div>
+                </div>`;
+            if (muvelet) {
+                el.querySelector("#crmUjUgyfel").onclick = () => Crm.ugyfelSzerk(null);
+                el.querySelector("#crmUjFeladat").onclick = () => Crm.feladatSzerk(null);
+                el.querySelector("#crmUjMegt").onclick = () => Crm.megtSzerk(null);
+            }
+            Crm.frissit();
+            return;
+        }
         el.innerHTML = `
             <div class="crm">
                 <div class="crmTop">
@@ -227,14 +262,21 @@ class Crm {
             megtekintesek: () => Crm.megtekintesek(body),
             csapat: () => Crm.csapat(body),
             ajanlatok: () => Crm.ajanlatok(body),
-            keresek: () => CrmReq.nezet(body)
+            keresek: () => CrmReq.nezet(body),
+            // A munkaterület „Beérkező” oldala: kérések + hívás-jelzések, alatta az üzenetek
+            beerkezoKomb: () => {
+                body.innerHTML = `<div id="crmKombKer"></div>
+                    <h6 class="crmKombHead"><i class="fa-regular fa-envelope" aria-hidden="true"></i> ${Crm.t("wsInboxMessages")}</h6>
+                    <div id="crmKombUz"></div>`;
+                CrmReq.nezet(body.querySelector("#crmKombKer"));
+                Crm.beerkezo(body.querySelector("#crmKombUz"));
+            }
         })[Crm.nezet]();
     }
 
     static badge(n) {
         Crm.beerkezoDb = n;
-        const b = Crm.el && Crm.el.querySelector(".crmInboxBadge");
-        if (b) { b.textContent = n; b.hidden = !n; }
+        document.querySelectorAll(".crmInboxBadge").forEach(b => { b.textContent = n; b.hidden = !n; });
     }
 
     static betolt(body) {
@@ -248,8 +290,7 @@ class Crm {
         Crm.api("/attekintes").then(a => {
             Crm.badge(a.beerkezett);
             Crm.ajanlatDb = a.uj_ajanlat || 0;
-            const ob = Crm.el && Crm.el.querySelector(".crmOfferBadge");
-            if (ob) { ob.textContent = Crm.ajanlatDb; ob.hidden = !Crm.ajanlatDb; }
+            document.querySelectorAll(".crmOfferBadge").forEach(ob => { ob.textContent = Crm.ajanlatDb; ob.hidden = !Crm.ajanlatDb; });
             if (typeof CrmReq !== "undefined") CrmReq.badge(a.uj_keres || 0);
             const most = new Date();
             const vege = new Date(); vege.setHours(23, 59, 59, 999);

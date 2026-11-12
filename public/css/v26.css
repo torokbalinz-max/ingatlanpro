@@ -363,3 +363,78 @@ body.tdBarOn { padding-bottom: 70px; }
 .crmQuickRes:not(:empty) { margin-top: .6rem; display: flex; flex-direction: column; gap: .4rem; }
 .crmQuickItem { display: flex; align-items: center; gap: .7rem; padding: .5rem .6rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }
 @media (max-width: 575.98px) { .mkSlotRow { grid-template-columns: 1.6rem 1fr 5.8rem; } }
+
+/* ===================== Munkaterület (ingatlanosoknak) – js/agency/agencyPage.js, workspace.js ===================== */
+.navWorkBtn { border: 1px solid var(--ip-accent); color: var(--ip-accent); background: var(--ip-accent-soft); font-weight: 600; display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; }
+.navWorkBtn:hover { background: var(--ip-accent); color: #fff; }
+.navWorkBtn i { margin-right: .35rem; }
+.navWorkBtn .nwOut { display: none; }
+body.wsMode .navWorkBtn .nwIn { display: none; }
+body.wsMode .navWorkBtn .nwOut { display: inline; }
+body.wsMode .navLinks, body.wsMode .navPostBtn, body.wsMode .mobBar { display: none !important; }
+body.wsMode .appNav { box-shadow: none; border-bottom: 1px solid var(--ip-border); }
+@media (max-width: 575.98px) { .navWorkBtn span span { display: none; } .navWorkBtn i { margin-right: 0; } }
+
+.ws { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 1.75rem; align-items: start; }
+.wsSide { position: sticky; top: calc(var(--ip-nav-h) + 1rem); display: flex; flex-direction: column; gap: .75rem; padding: 1rem; border: 1px solid var(--ip-border); border-radius: var(--ip-radius); background: var(--ip-surface); max-height: calc(100vh - var(--ip-nav-h) - 2rem); overflow-y: auto; }
+.wsAgency { display: flex; align-items: center; gap: .65rem; padding-bottom: .75rem; border-bottom: 1px solid var(--ip-border-soft); }
+.wsNav { display: flex; flex-direction: column; gap: .9rem; }
+.wsNavGroup { display: flex; flex-direction: column; gap: .15rem; }
+.wsNavHead { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--ip-muted); padding: 0 .6rem .2rem; }
+.wsNavItem { display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; border-radius: var(--ip-radius-sm); color: var(--ip-text); text-decoration: none; font-weight: 500; min-height: 40px; }
+.wsNavItem:hover { background: var(--ip-bg); color: var(--ip-text); }
+.wsNavItem.active { background: var(--ip-accent-soft); color: var(--ip-accent-strong); font-weight: 650; }
+.wsNavItem i { color: var(--ip-muted); }
+.wsNavItem.active i { color: var(--ip-accent); }
+.wsNavItem span:not(.badge):not(.wsNavCount) { flex: 1; }
+.wsNavCount { font-size: .75rem; color: var(--ip-muted); font-variant-numeric: tabular-nums; }
+.wsSideFoot { display: flex; flex-direction: column; gap: .35rem; padding-top: .75rem; border-top: 1px solid var(--ip-border-soft); font-size: .85rem; }
+.wsSideFoot a { color: var(--ip-muted); text-decoration: none; }
+.wsSideFoot a:hover { color: var(--ip-accent); }
+.wsMain { min-width: 0; }
+.wsHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
+.wsTitle { font-family: var(--ip-display); font-size: 1.6rem; font-weight: 700; margin: 0 0 .2rem; }
+.wsHelp { color: var(--ip-muted); font-size: .9rem; margin: 0; max-width: 70ch; }
+.wsActions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.crmEmbed .crmActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; margin-bottom: 1rem; }
+.crmKombHead { margin: 2rem 0 .75rem; font-weight: 700; }
+.wsSetup .wsSteps { display: flex; flex-wrap: wrap; gap: .5rem; }
+.wsStep { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .75rem; border: 1px solid var(--ip-border); border-radius: 999px; color: var(--ip-text); text-decoration: none; font-size: .875rem; }
+.wsStep i { color: var(--ip-muted); }
+.wsStep.done { color: var(--ip-muted); text-decoration: line-through; border-style: dashed; }
+.wsStep.done i { color: #15803d; }
+.wsStep:not(.done):hover { border-color: var(--ip-accent); color: var(--ip-accent); }
+.wsMini { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+.wsMiniItem { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; padding: .6rem .75rem; border: 1px solid var(--ip-border); border-radius: var(--ip-radius-sm); background: var(--ip-surface); color: inherit; text-align: left; }
+.wsMiniItem b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.wsMiniItem span { font-size: .8rem; color: var(--ip-muted); }
+.wsMiniItem i { color: var(--ip-muted); }
+.wsMiniItem.green i { color: #15803d; } .wsMiniItem.amber i { color: var(--ip-warn); } .wsMiniItem.red i { color: var(--ip-danger); }
+.wsMiniItem:hover { border-color: var(--ip-accent); }
+.wsAgentStats { display: flex; flex-wrap: wrap; gap: .9rem; }
+@media (max-width: 991.98px) {
+    .ws { grid-template-columns: 1fr; gap: 1rem; }
+    .wsSide { position: static; max-height: none; padding: .6rem; flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .wsAgency { border: 0; padding: 0; flex: 1 1 auto; }
+    .wsSide #agSwitch { flex: 0 0 auto; width: auto; margin: 0 !important; }
+    .wsNav { flex: 1 1 100%; flex-direction: row; gap: .25rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .wsNav::-webkit-scrollbar { display: none; }
+    .wsNavGroup { flex-direction: row; gap: .25rem; }
+    .wsNavHead { display: none; }
+    .wsNavItem { white-space: nowrap; padding: .45rem .7rem; border: 1px solid var(--ip-border); }
+    .wsSideFoot { display: none; }
+    .wsMini { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .wsTitle { font-size: 1.35rem; }
+}
+
+/* ===================== Fiókom – témák szerint (js/account/accountPage.js) ===================== */
+.accHello { margin-bottom: 1.25rem; }
+.accSection + .accSection { margin-top: 1.6rem; }
+.accSectionHead { font-size: 1.05rem; font-weight: 700; margin: 0 0 .15rem; }
+.accCards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .6rem; }
+.accCard { display: flex; align-items: center; gap: .8rem; padding: .85rem 1rem; border: 1px solid var(--ip-border); border-radius: var(--ip-radius); background: var(--ip-surface); color: var(--ip-text); text-decoration: none; min-height: 72px; }
+.accCard:hover, .accCard:focus-visible { border-color: var(--ip-accent); box-shadow: var(--ip-shadow); color: var(--ip-text); }
+.accCardIcon { flex: 0 0 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--ip-accent-soft); color: var(--ip-accent); }
+.accCardBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .1rem; }
+.accCardBody > span { font-size: .82rem; color: var(--ip-muted); line-height: 1.35; }
+.accCardGo { color: var(--ip-muted); font-size: .8rem; }

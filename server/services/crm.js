@@ -402,6 +402,7 @@ async function illeszkedo(ctx, u) {
     if (i.szoba_min) { p.push(i.szoba_min); felt.push(`COALESCE(i.szobak, 0) >= $${p.length}`); }
     if (i.nm_min) { p.push(i.nm_min); felt.push(`COALESCE(i.nm, 0) >= $${p.length}`); }
     if (p.length < 2 + (ctx.irodaId !== null ? 1 : 0)) return [];      // üres igény: nincs mit keresni
+    felt.push(sajatHirdetesSql(ctx, "i", p));
     const r = await db.query(`
         SELECT i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.kulso_kepek, i.created_at
         FROM ingatlanok i WHERE ${felt.join(" AND ")} ORDER BY i.created_at DESC LIMIT 12`, p);
@@ -435,6 +436,13 @@ async function tevekenysegTorol(ctx, id, tid) {
 }
 
 // ---------- Kapcsolódó ingatlanok ----------
+
+// Az ügynök (nem vezető) csak a saját hirdetéseit látja: a rá bízottakat és amit ő töltött fel
+function sajatHirdetesSql(ctx, alias, p) {
+    if (ctx.vezeto || ctx.irodaId === null) return "TRUE";
+    p.push(ctx.userId);
+    return `(${alias}.owner_id = $${p.length} OR ${alias}.ugynok_id IN (SELECT a.id FROM iroda_ugynokok a WHERE a.user_id = $${p.length}))`;
+}
 
 async function ingatlanJog(ctx, ingatlanId) {
     const r = await db.query("SELECT id, iroda_id, cim FROM ingatlanok WHERE id = $1", [Number(ingatlanId) || 0]);
@@ -472,7 +480,7 @@ async function ingatlanKeres(ctx, q) {
     if (/^#?\d+$/.test(t)) { p.push(Number(t.replace("#", ""))); felt.push(`i.id = $${p.length}`); }
     else if (t) { p.push(`%${t.toLowerCase()}%`); felt.push(`(LOWER(COALESCE(i.cim,'')) LIKE $${p.length} OR LOWER(COALESCE(i.kerulet,'')) LIKE $${p.length} OR LOWER(COALESCE(i.iroda_ref,'')) LIKE $${p.length})`); }
     let sajat = "FALSE";
-    if (ctx.irodaId !== null) { p.push(ctx.irodaId); sajat = `i.iroda_id = $${p.length}`; if (!t) felt.push(sajat); }
+    if (ctx.irodaId !== null) { p.push(ctx.irodaId); sajat = `(i.iroda_id = $${p.length} AND ${sajatHirdetesSql(ctx, "i", p)})`; if (!t) felt.push(sajat); }
     const r = await db.query(`
         SELECT i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.statusz, (${sajat}) AS sajat
         FROM ingatlanok i WHERE ${felt.join(" AND ")}
@@ -791,6 +799,7 @@ async function ingatlanLista(ctx, q = {}) {
     const felt = [];
     if (ctx.irodaId !== null) { p.push(ctx.irodaId); felt.push(`i.iroda_id = $${p.length}`); }
     else felt.push(`EXISTS (SELECT 1 FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id WHERE k.ingatlan_id = i.id AND cu.iroda_id IS NULL)`);
+    felt.push(sajatHirdetesSql(ctx, "i", p));
     if (q.statusz === "aktiv") felt.push("i.statusz = 'aktiv' AND COALESCE(i.eladva, false) = false");
     else if (q.statusz === "eladva") felt.push("COALESCE(i.eladva, false) = true");
     else felt.push("i.statusz <> 'torolve'");
@@ -823,6 +832,11 @@ async function ingatlanReszlet(ctx, ingatlanId) {
         FROM ingatlanok i LEFT JOIN iroda_ugynokok ag ON ag.id = i.ugynok_id WHERE i.id = $1`, [Number(ingatlanId) || 0])).rows[0];
     if (!i) throw hibaKod("listing_not_found", 404);
     if (ctx.irodaId !== null && i.iroda_id !== ctx.irodaId) throw hibaKod("not_found", 404);
+    if (!ctx.vezeto && ctx.irodaId !== null) {
+        const sp = [i.id];
+        const ok = await db.query(`SELECT 1 FROM ingatlanok x WHERE x.id = $1 AND ${sajatHirdetesSql(ctx, "x", sp)}`, sp);
+        if (!ok.rowCount) throw hibaKod("not_found", 404);
+    }
     const p = [i.id];
     const t = terSql(ctx, "u", p);
     const l = lathatoSql(ctx, "u", p);

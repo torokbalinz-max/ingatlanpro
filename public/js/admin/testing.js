@@ -24,10 +24,10 @@ class TesztAdmin {
     // A forgatókönyv: témánként lépések – [fiók kulcsa, szöveg kulcsa]
     static FORGATOKONYV = [
         { k: "crm", lepesek: [["vezeto_a", "tdS_crm1"], ["ugynok_a1", "tdS_crm2"], ["ugynok_a2", "tdS_crm3"], ["vezeto_a", "tdS_crm4"], ["ugynok_a1", "tdS_crm5"], ["vezeto_b", "tdS_crm6"]] },
-        { k: "ajanlat", lepesek: [["vevo3", "tdS_of1"], ["ugynok_a1", "tdS_of2"], ["vevo3", "tdS_of3"], ["ugynok_a1", "tdS_of4"], ["vevo3", "tdS_of5"], ["magan", "tdS_of6"], ["vevo4", "tdS_of7"], ["vevo6", "tdS_of8"], ["vezeto_a", "tdS_of9"], ["ugynok_a2", "tdS_of10"]] },
+        { k: "ajanlat", lepesek: [["vevo3", "tdS_of1"], ["ugynok_a1", "tdS_of2"], ["vevo3", "tdS_of3"], ["ugynok_a1", "tdS_of4"], ["vevo3", "tdS_of5"], ["magan", "tdS_of6"], ["vevo4", "tdS_of7"], ["ugynok_a1", "tdS_of8"], ["vevo1", "tdS_of9"], ["ugynok_a2", "tdS_of10"]] },
         { k: "iratok", lepesek: [["ugynok_a1", "tdS_doc1"], ["ugynok_a1", "tdS_doc2"], ["", "tdS_doc3"], ["ugynok_a1", "tdS_doc4"]] },
         { k: "uzenet", lepesek: [["vevo1", "tdS_msg1"], ["ugynok_a1", "tdS_msg2"], ["vevo6", "tdS_msg3"], ["vezeto_b", "tdS_msg4"]] },
-        { k: "iroda", lepesek: [["iroda_uj", "tdS_ag1"], ["", "tdS_ag2"], ["iroda_uj", "tdS_ag3"], ["vezeto_a", "tdS_ag4"]] },
+        { k: "iroda", lepesek: [["iroda_uj", "tdS_ag1"], ["", "tdS_ag2"], ["vezeto_a", "tdS_ag3"], ["vezeto_a", "tdS_ag4"]] },
         { k: "hirdetes", lepesek: [["magan", "tdS_li1"], ["ugynok_a2", "tdS_li2"], ["vevo2", "tdS_li3"], ["vevo2", "tdS_li4"]] },
         { k: "megbizas", lepesek: [["megbizo", "tdS_md1"], ["", "tdS_md2"], ["megbizo", "tdS_md3"]] },
         { k: "csapat", lepesek: [["", "tdS_tm1"], ["munkatars", "tdS_tm2"]] }

@@ -1,12 +1,9 @@
 // ============================================================
 //  Vételi ajánlatok – a vevő oldala
 //
-//   - a hirdetés oldalán „Ajánlatot teszek”: irodai hirdetésnél az irodának,
-//     magánhirdetésnél a tulajdonosnak (beolvasott hirdetésnél: „Egy
-//     regisztrált iroda hirdeti?” → a külső ajánlat oldalára)
-//   - #ajanlat: más oldalon látott ingatlanra – a link bemásolása után vagy
-//     felismerjük (ha az appon van), vagy a vevő kiválasztja a regisztrált
-//     irodát, amelyik hirdeti
+//   - a hirdetés oldalán „Ajánlatot teszek” (js/offers/viewings.js doboza): irodai
+//     hirdetésnél az irodának, magánhirdetésnél a tulajdonosnak – csak ha a vevő már
+//     kapcsolatban van a hirdetővel (elfogadott megtekintés, válasz, meghívó)
 //   - Fiókom → Ajánlatok: a saját ajánlatok állapota (visszavonás, az
 //     ellenajánlat elfogadása), és – magánhirdetőnek – a beérkezett ajánlatok
 //  Az ajánlat nem kötelező érvényű: az adásvétel közjegyzői szerződéssel jön létre.
@@ -151,110 +148,6 @@ class Offers {
         };
     }
 
-    // ---------- #ajanlat: más oldalon látott ingatlanra ----------
-
-    static kulsoOldal(param) {
-        const el = document.getElementById("ofPage");
-        if (!el) return;
-        const esc = Utils.escape;
-        el.innerHTML = `
-            <div class="ofExt">
-                <h1 class="h3">${I18n.t("ofPageTitle")}</h1>
-                <p class="text-body-secondary">${I18n.t("ofPageIntro")}</p>
-                <ol class="ofSteps small">
-                    <li>${I18n.t("ofStep1")}</li><li>${I18n.t("ofStep2")}</li><li>${I18n.t("ofStep3")}</li>
-                </ol>
-                <label class="form-label fw-semibold" for="ofLink">${I18n.t("ofLinkLabel")}</label>
-                <div class="input-group mb-2">
-                    <input type="url" class="form-control" id="ofLink" placeholder="https://…" inputmode="url">
-                    <button type="button" class="btn btn-primary" id="ofLinkOk">${I18n.t("ofCheck")}</button>
-                </div>
-                <div id="ofExtBody"></div>
-            </div>`;
-        const $ = q => el.querySelector(q);
-        const ellenoriz = () => {
-            const link = $("#ofLink").value.trim();
-            if (!/^https?:\/\/.+\..+/.test(link)) { $("#ofLink").classList.add("is-invalid"); return; }
-            $("#ofLink").classList.remove("is-invalid");
-            $("#ofExtBody").innerHTML = `<div class="py-3"><span class="spinner-border spinner-border-sm text-primary" role="status"></span></div>`;
-            Offers.api("/api/ajanlatok/info?" + new URLSearchParams({ link })).then(v => {
-                if (v.hirdetes && v.ajanlhato) {
-                    $("#ofExtBody").innerHTML = `
-                        <div class="alert alert-success">
-                            <b>${I18n.t("ofFoundOnApp")}</b>
-                            <div class="small">${esc(v.hirdetes.cim || "")} · ${I18n.f("ofGoesTo", { kinek: esc(v.iroda ? v.iroda.nev : I18n.t("lpSeller")) })}</div>
-                            <div class="d-flex gap-2 mt-2">
-                                <a class="btn btn-sm btn-outline-secondary" href="#listing/${v.hirdetes.id}">${I18n.t("ofOpenListing")}</a>
-                                <button type="button" class="btn btn-sm btn-primary" id="ofGo"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${I18n.t("mkRequest")}</button>
-                            </div>
-                        </div>`;
-                    $("#ofGo").onclick = () => AuthManager.kell().then(() => Viewings.urlap({ ingatlan_id: v.hirdetes.id, cim: v.hirdetes.cim, cimzett: v.iroda ? v.iroda.nev : I18n.t("lpSeller") })).catch(() => { });
-                    return;
-                }
-                Offers.irodaValaszto($("#ofExtBody"), link, v.hirdetes);
-            }).catch(e => { $("#ofExtBody").innerHTML = `<div class="alert alert-danger">${Offers.hiba(e)}</div>`; });
-        };
-        $("#ofLinkOk").onclick = ellenoriz;
-        $("#ofLink").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); ellenoriz(); } };
-        // #ajanlat/<hirdetés id>: a beolvasott hirdetés linkjével indul
-        if (param && /^\d+$/.test(param)) {
-            fetch(`/api/ingatlanok/${param}`).then(r => r.ok ? r.json() : null).then(i => {
-                const h = i && (i.ingatlan || i);
-                if (h && h.link) { $("#ofLink").value = h.link; ellenoriz(); }
-            }).catch(() => { });
-        }
-    }
-
-    // A link nincs az appon (vagy beolvasott): a vevő választja ki a regisztrált irodát
-    static irodaValaszto(box, link, hirdetes) {
-        const esc = Utils.escape;
-        box.innerHTML = `
-            <div class="card">
-                <div class="card-body">
-                    <p class="small">${I18n.t("ofPickAgencyHelp")}</p>
-                    <label class="form-label small mb-1" for="ofIrQ">${I18n.t("ofAgency")} *</label>
-                    <input type="search" class="form-control mb-2" id="ofIrQ" placeholder="${esc(I18n.t("ofAgencySearch"))}" autocomplete="off">
-                    <div id="ofIrLista" class="ofAgencyList" role="listbox" aria-label="${esc(I18n.t("ofAgency"))}"></div>
-                    <div class="row g-2 mt-2">
-                        <div class="col-sm-8"><label class="form-label small mb-1" for="ofKCim">${I18n.t("ofExtAddress")}</label><input class="form-control" id="ofKCim" maxlength="200" value="${esc((hirdetes && hirdetes.cim) || "")}"></div>
-                        <div class="col-sm-4"><label class="form-label small mb-1" for="ofKAr">${I18n.t("ofExtPrice")} (€)</label><input type="number" class="form-control" id="ofKAr" min="0" value="${hirdetes && hirdetes.ar ? Math.round(hirdetes.ar) : ""}"></div>
-                    </div>
-                    <div class="d-flex justify-content-end mt-3"><button type="button" class="btn btn-primary" id="ofKTovabb" disabled>${I18n.t("ofNext")}</button></div>
-                    <div class="ofNoAgency small mt-3">
-                        <b>${I18n.t("ofNoAgencyTitle")}</b>
-                        <p class="mb-1 text-body-secondary">${I18n.t("ofNoAgencyText")}</p>
-                        <button type="button" class="btn btn-link btn-sm p-0" id="ofMeghiv"><i class="fa-regular fa-copy" aria-hidden="true"></i> ${I18n.t("ofInviteCopy")}</button>
-                    </div>
-                </div>
-            </div>`;
-        const $ = q => box.querySelector(q);
-        let valasztott = null;
-        const keres = q => Offers.api("/api/ajanlatok/irodak?" + new URLSearchParams({ q })).then(L => {
-            $("#ofIrLista").innerHTML = L.length ? L.map(ir => `
-                <button type="button" class="ofAgency ${valasztott && valasztott.id === ir.id ? "active" : ""}" data-ir="${ir.id}" role="option" aria-selected="${valasztott && valasztott.id === ir.id}">
-                    ${ir.van_logo ? `<img src="/api/irodak/${ir.id}/logo" alt="">` : `<span class="ofAgencyIcon"><i class="fa-solid fa-briefcase" aria-hidden="true"></i></span>`}
-                    <span class="text-truncate">${esc(ir.nev)}${ir.varos ? ` <span class="text-body-secondary small">· ${esc(ir.varos)}</span>` : ""}</span>
-                </button>`).join("") : `<p class="small text-body-secondary mb-0">${I18n.t("ofNoAgencyFound")}</p>`;
-            $("#ofIrLista").querySelectorAll("[data-ir]").forEach(b => b.onclick = () => {
-                valasztott = L.find(x => String(x.id) === b.dataset.ir);
-                $("#ofKTovabb").disabled = false;
-                keres($("#ofIrQ").value);
-            });
-        });
-        let t = null;
-        $("#ofIrQ").oninput = e => { clearTimeout(t); t = setTimeout(() => keres(e.target.value), 250); };
-        keres("");
-        // Előbb kapcsolatfelvétel (megtekintés-kérés) – ajánlatot az iroda válasza után tehet
-        $("#ofKTovabb").onclick = () => AuthManager.kell().then(() => Viewings.urlap({
-            kulso_link: link, iroda_id: valasztott.id, kulso_cim: $("#ofKCim").value, kulso_ar: $("#ofKAr").value,
-            cim: $("#ofKCim").value || link, cimzett: valasztott.nev
-        })).catch(() => { });
-        $("#ofMeghiv").onclick = () => {
-            const szoveg = I18n.f("ofInviteText", { link: location.origin });
-            (navigator.clipboard ? navigator.clipboard.writeText(szoveg) : Promise.reject()).then(() => alert(I18n.t("dcCopied"))).catch(() => prompt("", szoveg));
-        };
-    }
-
     // ---------- Fiókom → Ajánlatok ----------
 
     static fiok(el) {
@@ -280,10 +173,7 @@ class Offers {
                     </div>
                 </article>`;
             el.innerHTML = `
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <p class="small text-body-secondary mb-0">${I18n.t("ofAccountHelp")}</p>
-                    <a class="btn btn-sm btn-outline-primary" href="#ajanlat"><i class="fa-solid fa-link" aria-hidden="true"></i> ${I18n.t("ofPageTitle")}</a>
-                </div>
+
                 ${be.length ? `<h5 class="mt-2">${I18n.t("ofIncoming")}</h5>${be.map(a => sor(a, true)).join("")}<h5 class="mt-4">${I18n.t("ofMyOffers")}</h5>` : ""}
                 ${sajat.length ? sajat.map(a => sor(a, false)).join("") : `<div class="emptyState"><i class="fa-solid fa-hand-holding-dollar"></i><h5>${I18n.t("ofMyNone")}</h5><p>${I18n.t("ofMyNoneHint")}</p></div>`}`;
             el.querySelectorAll("[data-ofv]").forEach(b => b.onclick = () => {

@@ -11,8 +11,6 @@
 //       Elfogadáskor: a vevő az iroda ügyfele lesz (vagy a meglévő ügyfélhez kerül),
 //       a megtekintés bekerül a CRM-naptárba, a vevő értesítést kap.
 //     - magánhirdetés: a tulajdonos a Fiókom → Megtekintések oldalon válaszol.
-//     - más oldalon látott ingatlan (link): a vevő kiválasztja a regisztrált irodát,
-//       a kérés a linkkel együtt az irodához megy (ugyanígy kezelik).
 //     A vevő lemondhatja; a javasolt másik időpontot elfogadhatja. Naptárba
 //     (.ics) letölthető.
 //  2. „Hívom” jelzés: ha a belépett érdeklődő a hirdetésen a telefonszámra koppint,
@@ -151,24 +149,17 @@ async function kerTesz(user, b) {
     const telefon = sz(b.telefon, 40) || v.telefon;
     if (!telefon) throw hibaKod("phone_required");
 
-    let h = null, c = null, kulso = null, link = null;
-    if (b.ingatlan_id) {
+    let h = null, c = null;
+    const kulso = null, link = null;
+    if (!b.ingatlan_id) throw hibaKod("listing_required");
+    {
         h = (await db.query("SELECT * FROM ingatlanok WHERE id = $1 AND statusz = 'aktiv'", [Number(b.ingatlan_id) || 0])).rows[0];
         if (!h) throw hibaKod("listing_not_found", 404);
         if (h.owner_id === user.id) throw hibaKod("own_listing");
         c = await cimzett(h);
         if (c && c.irodaId && (await db.query("SELECT 1 FROM iroda_tagok WHERE iroda_id = $1 AND user_id = $2", [c.irodaId, user.id])).rowCount) throw hibaKod("own_listing");
     }
-    if (!c) {
-        // Más oldalon látott (vagy beolvasott) hirdetés: a vevő által választott regisztrált iroda kapja
-        link = sz(b.kulso_link, 600) || (h && h.link) || null;
-        if (!link || !/^https?:\/\/[^\s]+\.[^\s]+/.test(link)) throw hibaKod("listing_required");
-        const irodaId = Number(b.iroda_id) || 0;
-        const elerheto = (await require("./ajanlat").irodak(null, true)).some(x => x.id === irodaId);
-        if (!elerheto) throw hibaKod("agency_required");
-        c = { irodaId, felelosId: null, cimzettId: null };
-        kulso = { cim: sz(b.kulso_cim, 200) || (h && h.cim) || null, ar: Number(b.kulso_ar) || (h && h.ar) || null };
-    }
+    if (!c) throw hibaKod("not_offerable");
 
     // Már van nyitott kérése ugyanerre
     const nyitott = await db.query(`

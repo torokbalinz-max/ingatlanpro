@@ -92,6 +92,24 @@ async function jog(req, irodaId) {
 
 }
 
+// Az ügynök saját kártyája az irodában (ha nincs, létrehozzuk a fiók adataival)
+async function sajatUgynok(irodaId, user) {
+    const r = await db.query("SELECT id FROM iroda_ugynokok WHERE iroda_id = $1 AND user_id = $2 ORDER BY aktiv DESC, id LIMIT 1", [irodaId, user.id]);
+    if (r.rows[0]) return r.rows[0].id;
+    const u = await db.query("INSERT INTO iroda_ugynokok (iroda_id, nev, telefon, email, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+        [irodaId, user.nev || user.felhasznalonev || user.email || "Ügynök", user.telefon || null, user.email || null, user.id]);
+    return u.rows[0].id;
+}
+
+// Az ügynök (nem vezető) csak a saját hirdetéseit látja / kezeli: a rá bízottakat
+// (ügynök-kártyája) és amit ő töltött fel. A vezető (és az admin) mindet.
+//  -> SQL-feltétel az alias. táblára (a p tömbbe teszi a paramétert), vagy "TRUE"
+function sajatHirdetesSql(req, j, alias, p) {
+    if (j.vezeto || !req.user) return "TRUE";
+    p.push(req.user.id);
+    return `(${alias}.owner_id = $${p.length} OR ${alias}.ugynok_id IN (SELECT a.id FROM iroda_ugynokok a WHERE a.user_id = $${p.length}))`;
+}
+
 // A felhasználó irodái (a /api/me is ezt adja vissza)
 async function sajatIrodak(userId) {
     if (!userId) return [];
@@ -105,12 +123,34 @@ async function sajatIrodak(userId) {
 // A felhasználó függő meghívásai (a /api/me is ezt adja vissza)
 async function meghivasok(userId) {
     if (!userId) return [];
+    // A régi (tag-) meghívók és az ügynök-kártyán élő meghívók (a fiókra vagy az e-mail címre)
     const r = await db.query(`
         SELECT i.id, i.nev, t.szerep, i.statusz, i.varos, COALESCE(u.nev, u.felhasznalonev) AS meghivta_nev, t.created_at
         FROM iroda_tagok t JOIN irodak i ON i.id = t.iroda_id
         LEFT JOIN users u ON u.id = t.meghivta
-        WHERE t.user_id = $1 AND t.statusz = 'meghivott' ORDER BY t.created_at DESC`, [userId]);
-    return r.rows;
+        WHERE t.user_id = $1 AND t.statusz = 'meghivott'
+        UNION
+        SELECT i.id, i.nev, COALESCE(a.meghivo_szerep, 'tag'), i.statusz, i.varos, COALESCE(u.nev, u.felhasznalonev), a.meghivo_ido
+        FROM iroda_ugynokok a JOIN irodak i ON i.id = a.iroda_id
+        LEFT JOIN users u ON u.id = a.meghivta
+        WHERE a.meghivo AND a.aktiv AND a.user_id IS NULL
+          AND (a.meghivo_user = $1 OR (a.meghivo_user IS NULL AND a.email IS NOT NULL
+               AND LOWER(a.email) = (SELECT LOWER(email) FROM users WHERE id = $1)))
+          AND NOT EXISTS (SELECT 1 FROM iroda_tagok x WHERE x.iroda_id = a.iroda_id AND x.user_id = $1 AND COALESCE(x.statusz, 'aktiv') = 'aktiv')
+        ORDER BY 7 DESC NULLS LAST`, [userId]);
+    // egy irodától egy meghívó
+    const latott = new Set();
+    return r.rows.filter(x => !latott.has(x.id) && latott.add(x.id));
+}
+
+// Az ügynök-kártyán élő meghívó a felhasználónak (fiók vagy e-mail alapján)
+async function kartyaMeghivo(irodaId, user) {
+    const r = await db.query(`
+        SELECT * FROM iroda_ugynokok
+        WHERE iroda_id = $1 AND meghivo AND aktiv AND user_id IS NULL
+          AND (meghivo_user = $2 OR (meghivo_user IS NULL AND email IS NOT NULL AND LOWER(email) = LOWER($3)))
+        ORDER BY id LIMIT 1`, [irodaId, user.id, user.email || ""]);
+    return r.rows[0] || null;
 }
 
 const irodaMezok = b => ({
@@ -626,6 +666,8 @@ router.post("/api/irodak/:id/tagok", csakBelepve, async (req, res) => {
             return res.json({ siker: true, mar_tag: true });
         }
 
+        try { await helyEllenoriz(req, id); } catch (e) { return res.status(402).json({ error: "seat_limit", limit: e.limit, foglalt: e.foglalt }); }
+
         await db.query(
             `INSERT INTO iroda_tagok (iroda_id, user_id, szerep, statusz, meghivta) VALUES ($1, $2, $3, 'meghivott', $4)
              ON CONFLICT (iroda_id, user_id) DO UPDATE SET szerep = EXCLUDED.szerep, statusz = 'meghivott', meghivta = EXCLUDED.meghivta, created_at = NOW()`,
@@ -661,6 +703,23 @@ router.post("/api/irodak/:id/meghivas", csakBelepve, async (req, res) => {
     try {
 
         const id = Number(req.params.id);
+
+        // Új fajta meghívó: az ügynök-kártyán (Csapat)
+        const kartya = await kartyaMeghivo(id, req.user);
+        if (kartya) {
+            if (!req.body.elfogad) {
+                await db.query("UPDATE iroda_ugynokok SET meghivo = false, meghivo_user = NULL WHERE id = $1", [kartya.id]);
+                return res.json({ siker: true, elutasitva: true });
+            }
+            await db.query(`
+                INSERT INTO iroda_tagok (iroda_id, user_id, szerep, statusz, meghivta) VALUES ($1, $2, $3, 'aktiv', $4)
+                ON CONFLICT (iroda_id, user_id) DO UPDATE SET statusz = 'aktiv', szerep = EXCLUDED.szerep, created_at = NOW()`,
+                [id, req.user.id, kartya.meghivo_szerep === "vezeto" ? "vezeto" : "tag", kartya.meghivta]);
+            await db.query(`UPDATE iroda_ugynokok SET user_id = $2, meghivo = false, meghivo_user = NULL,
+                                   telefon = COALESCE(telefon, $3), email = COALESCE(email, $4) WHERE id = $1`,
+                [kartya.id, req.user.id, req.user.telefon || null, req.user.email || null]);
+            return res.json({ siker: true, elfogadva: true });
+        }
 
         const t = await db.query("SELECT * FROM iroda_tagok WHERE iroda_id = $1 AND user_id = $2 AND statusz = 'meghivott'", [id, req.user.id]);
         if (!t.rowCount) return res.status(404).json({ error: "not_found" });
@@ -714,7 +773,216 @@ router.delete("/api/irodak/:id/tagok/:userId", csakBelepve, async (req, res) => 
 
 });
 
-// ===================== ÜGYNÖKÖK =====================
+// ===================== CSAPAT (ügynökök + belépés egy listában) =====================
+//
+//  Minden ügynöknek egy kártyája van (név, telefon, e-mail – ez látszik a hirdetésen).
+//  Belépést is kaphat: meghívót küldünk az e-mail címére (ha még nincs fiókja, a
+//  regisztráció után a meghívó vár rá). Belépéssel a saját hirdetéseit és ügyfeleit
+//  kezeli; a vezető mindent lát. A belépők száma az iroda csomagjától függ
+//  (penzugy.irodaHely – Admin → Csomagok: „Ügynökök száma”).
+
+const csapatSor = `
+    SELECT a.id, a.nev, a.telefon, a.email, a.aktiv, a.user_id, a.meghivo, a.meghivo_szerep, a.meghivo_ido,
+           COALESCE(t.szerep, NULL) AS szerep, COALESCE(t.statusz, NULL) AS tag_statusz,
+           COALESCE(u.nev, u.felhasznalonev) AS fiok_nev, u.email AS fiok_email, u.utolso_belepes,
+           (SELECT COUNT(*)::int FROM ingatlanok x WHERE x.ugynok_id = a.id AND x.statusz IN ('aktiv', 'fuggo')) AS hirdetes_db,
+           (SELECT COUNT(*)::int FROM crm_ugyfelek c WHERE c.iroda_id = a.iroda_id AND a.user_id IS NOT NULL AND c.felelos_id = a.user_id
+                AND c.allapot NOT IN ('nyert', 'elvesztett', 'inaktiv')) AS ugyfel_db
+    FROM iroda_ugynokok a
+    LEFT JOIN iroda_tagok t ON t.iroda_id = a.iroda_id AND t.user_id = a.user_id
+    LEFT JOIN users u ON u.id = a.user_id`;
+
+function csapatAllapot(a) {
+    if (a.user_id && a.tag_statusz && a.tag_statusz !== "meghivott") return "belepes";
+    if (a.meghivo) return "meghivott";
+    return "kapcsolattarto";
+}
+
+async function meghivoLevel(req, irodaId, cimzett, regisztralt) {
+    if (!mail.elerheto() || !cimzett) return;
+    const ir = await db.query("SELECT nev FROM irodak WHERE id = $1", [irodaId]);
+    const nev = ir.rows[0] ? ir.rows[0].nev : "";
+    const { html, text } = mail.sablon({
+        cim: `Meghívás: ${nev}`,
+        sorok: [
+            `${req.user.nev || req.user.felhasznalonev || "Egy kolléga"} meghívott a(z) ${nev} csapatába az IngatlanPro-n: itt kezelheted a hirdetéseidet, az ügyfeleidet és a megtekintéseket.`,
+            regisztralt ? "Lépj be, és fogadd el a meghívót (Munkaterület)." : "Regisztrálj ezzel az e-mail címmel – a meghívó a belépés után vár rád.",
+            "Ha nem ismered a meghívót, hagyd figyelmen kívül ezt a levelet."
+        ],
+        gomb: "Megnyitás",
+        link: `${mail.oldalCim(req)}/#iroda`
+    });
+    mail.kuld({ to: cimzett, subject: `IngatlanPro – meghívás: ${nev}`, html, text }).catch(() => { });
+}
+
+// Van-e szabad hely a csomagban (402 seat_limit, ha nincs)
+async function helyEllenoriz(req, irodaId) {
+    if (req.szerep === "admin") return;
+    const h = await require("../services/penzugy").irodaHely(irodaId);
+    if (h.limit !== null && h.foglalt >= h.limit) throw hibaKod("seat_limit", { limit: h.limit, foglalt: h.foglalt });
+}
+
+router.get("/api/irodak/:id/csapat", csakBelepve, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const j = await jog(req, id);
+        if (!j.tag) return res.status(403).json({ error: "not_member" });
+        // Akinek belépése van, de még nincs kártyája (régi tagok): pótoljuk
+        await db.query(`
+            INSERT INTO iroda_ugynokok (iroda_id, nev, telefon, email, user_id)
+            SELECT t.iroda_id, COALESCE(u.nev, u.felhasznalonev, u.email), u.telefon, u.email, u.id
+            FROM iroda_tagok t JOIN users u ON u.id = t.user_id
+            WHERE t.iroda_id = $1 AND COALESCE(t.statusz, 'aktiv') = 'aktiv'
+              AND NOT EXISTS (SELECT 1 FROM iroda_ugynokok a WHERE a.iroda_id = t.iroda_id AND a.user_id = t.user_id)`, [id]);
+        const r = await db.query(`${csapatSor} WHERE a.iroda_id = $1 ${j.vezeto ? "" : "AND a.user_id = $2"}
+            ORDER BY (t.szerep = 'vezeto') DESC NULLS LAST, a.aktiv DESC, (a.user_id IS NOT NULL) DESC, a.meghivo DESC, a.nev`,
+            j.vezeto ? [id] : [id, req.user.id]);
+        // régi, még el nem fogadott tag-meghívók (kártya nélkül)
+        const regi = j.vezeto ? (await db.query(`
+            SELECT u.id AS user_id, COALESCE(u.nev, u.felhasznalonev) AS nev, u.email, t.szerep, t.created_at
+            FROM iroda_tagok t JOIN users u ON u.id = t.user_id WHERE t.iroda_id = $1 AND t.statusz = 'meghivott'`, [id])).rows : [];
+        const hely = await require("../services/penzugy").irodaHely(id);
+        res.json({ csapat: r.rows.map(a => ({ ...a, allapot: csapatAllapot(a) })), regi_meghivok: regi, hely, vezeto: j.vezeto });
+    } catch (err) {
+        if (err.kod) return res.status(400).json({ error: err.kod });
+        hiba(res, err);
+    }
+});
+
+// Új ügynök: { nev, telefon, email, belepes: true|false, szerep: tag|vezeto }
+router.post("/api/irodak/:id/csapat", csakBelepve, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (!(await jog(req, id)).vezeto) return res.status(403).json({ error: "not_manager" });
+        const b = req.body || {};
+        const nev = szoveg(b.nev, 100);
+        const email = szoveg(b.email, 160);
+        if (!nev) return res.status(400).json({ error: "missing_name" });
+        if (email && !EMAIL_RE.test(email)) return res.status(400).json({ error: "bad_email" });
+        const belepes = !!b.belepes;
+        let meghivoUser = null;
+        if (belepes) {
+            if (!email) return res.status(400).json({ error: "email_required" });
+            const u = await db.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [email]);
+            meghivoUser = u.rows[0] ? u.rows[0].id : null;
+            if (meghivoUser && (await db.query("SELECT 1 FROM iroda_tagok WHERE iroda_id = $1 AND user_id = $2 AND COALESCE(statusz, 'aktiv') = 'aktiv'", [id, meghivoUser])).rowCount) {
+                return res.status(400).json({ error: "already_member" });
+            }
+            await helyEllenoriz(req, id);
+        }
+        const r = await db.query(`
+            INSERT INTO iroda_ugynokok (iroda_id, nev, telefon, email, meghivo, meghivo_szerep, meghivo_user, meghivo_ido, meghivta)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $5 THEN NOW() END, $8) RETURNING id`,
+            [id, nev, szoveg(b.telefon, 40), email, belepes, b.szerep === "vezeto" ? "vezeto" : "tag", meghivoUser, req.user.id]);
+        if (belepes) await meghivoLevel(req, id, email, !!meghivoUser);
+        res.json({ siker: true, id: r.rows[0].id, regisztralt: !!meghivoUser });
+    } catch (err) {
+        if (err.kod) return res.status(err.kod === "seat_limit" ? 402 : 400).json({ error: err.kod, limit: err.limit, foglalt: err.foglalt });
+        hiba(res, err);
+    }
+});
+
+// Szerkesztés: { nev, telefon, email, aktiv, szerep } – a szerepet csak a vezető, a saját kártyát bárki
+router.put("/api/irodak/:id/csapat/:uid", csakBelepve, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const j = await jog(req, id);
+        const a = (await db.query("SELECT * FROM iroda_ugynokok WHERE id = $1 AND iroda_id = $2", [Number(req.params.uid) || 0, id])).rows[0];
+        if (!a) return res.status(404).json({ error: "not_found" });
+        const sajat = req.user && a.user_id === req.user.id;
+        if (!j.vezeto && !(j.tag && sajat)) return res.status(403).json({ error: "not_manager" });
+        const b = req.body || {};
+        const email = szoveg(b.email, 160);
+        if (email && !EMAIL_RE.test(email)) return res.status(400).json({ error: "bad_email" });
+        await db.query("UPDATE iroda_ugynokok SET nev = $2, telefon = $3, email = $4, aktiv = $5 WHERE id = $1",
+            [a.id, szoveg(b.nev, 100) || a.nev, szoveg(b.telefon, 40), email, j.vezeto ? b.aktiv !== false : a.aktiv]);
+        if (j.vezeto && a.user_id && (b.szerep === "vezeto" || b.szerep === "tag")) {
+            if (b.szerep === "tag") {
+                const v = await db.query("SELECT user_id FROM iroda_tagok WHERE iroda_id = $1 AND szerep = 'vezeto' AND COALESCE(statusz, 'aktiv') = 'aktiv'", [id]);
+                if (v.rows.length === 1 && v.rows[0].user_id === a.user_id) return res.status(400).json({ error: "last_manager" });
+            }
+            await db.query("UPDATE iroda_tagok SET szerep = $3 WHERE iroda_id = $1 AND user_id = $2", [id, a.user_id, b.szerep]);
+        }
+        if (j.vezeto && a.meghivo && (b.szerep === "vezeto" || b.szerep === "tag")) {
+            await db.query("UPDATE iroda_ugynokok SET meghivo_szerep = $2 WHERE id = $1", [a.id, b.szerep]);
+        }
+        res.json({ siker: true });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
+// Belépés adása / meghívó újraküldése: { szerep }
+router.post("/api/irodak/:id/csapat/:uid/meghivo", csakBelepve, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (!(await jog(req, id)).vezeto) return res.status(403).json({ error: "not_manager" });
+        const a = (await db.query("SELECT * FROM iroda_ugynokok WHERE id = $1 AND iroda_id = $2", [Number(req.params.uid) || 0, id])).rows[0];
+        if (!a) return res.status(404).json({ error: "not_found" });
+        if (a.user_id) return res.status(400).json({ error: "already_member" });
+        if (!a.email) return res.status(400).json({ error: "email_required" });
+        if (!a.meghivo) await helyEllenoriz(req, id);
+        const u = await db.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [a.email]);
+        const meghivoUser = u.rows[0] ? u.rows[0].id : null;
+        await db.query(`UPDATE iroda_ugynokok SET meghivo = true, meghivo_user = $2, meghivo_ido = NOW(), meghivta = $3,
+                               meghivo_szerep = COALESCE($4, meghivo_szerep), aktiv = true WHERE id = $1`,
+            [a.id, meghivoUser, req.user.id, ["vezeto", "tag"].includes((req.body || {}).szerep) ? req.body.szerep : null]);
+        await meghivoLevel(req, id, a.email, !!meghivoUser);
+        res.json({ siker: true, regisztralt: !!meghivoUser });
+    } catch (err) {
+        if (err.kod) return res.status(err.kod === "seat_limit" ? 402 : 400).json({ error: err.kod, limit: err.limit, foglalt: err.foglalt });
+        hiba(res, err);
+    }
+});
+
+// A belépés megvonása (a kártya marad kapcsolattartóként) – a hely felszabadul.
+// Az ügyfelei és feladatai gazdátlanok lesznek (a vezető kiosztja őket).
+async function belepesMegvon(irodaId, a) {
+    if (a.user_id) {
+        const v = await db.query("SELECT user_id FROM iroda_tagok WHERE iroda_id = $1 AND szerep = 'vezeto' AND COALESCE(statusz, 'aktiv') = 'aktiv'", [irodaId]);
+        if (v.rows.length === 1 && v.rows[0].user_id === a.user_id) throw hibaKod("last_manager");
+        await db.query("DELETE FROM iroda_tagok WHERE iroda_id = $1 AND user_id = $2", [irodaId, a.user_id]);
+        await db.query("UPDATE crm_ugyfelek SET felelos_id = NULL WHERE iroda_id = $1 AND felelos_id = $2", [irodaId, a.user_id]).catch(() => { });
+        await db.query("UPDATE crm_feladatok SET felelos_id = NULL WHERE iroda_id = $1 AND felelos_id = $2 AND kesz IS NULL", [irodaId, a.user_id]).catch(() => { });
+        await db.query("UPDATE megtekintes_keresek SET felelos_id = NULL WHERE iroda_id = $1 AND felelos_id = $2", [irodaId, a.user_id]).catch(() => { });
+    }
+    await db.query("UPDATE iroda_ugynokok SET user_id = NULL, meghivo = false, meghivo_user = NULL WHERE id = $1", [a.id]);
+}
+
+router.post("/api/irodak/:id/csapat/:uid/megvon", csakBelepve, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const j = await jog(req, id);
+        const a = (await db.query("SELECT * FROM iroda_ugynokok WHERE id = $1 AND iroda_id = $2", [Number(req.params.uid) || 0, id])).rows[0];
+        if (!a) return res.status(404).json({ error: "not_found" });
+        // a vezető bárkitől, az ügynök magától (kilépés)
+        if (!j.vezeto && !(req.user && a.user_id === req.user.id)) return res.status(403).json({ error: "not_manager" });
+        await belepesMegvon(id, a);
+        res.json({ siker: true });
+    } catch (err) {
+        if (err.kod) return res.status(400).json({ error: err.kod });
+        hiba(res, err);
+    }
+});
+
+// Az ügynök törlése: a hirdetései ügynök nélkül maradnak (a vezető kiosztja)
+router.delete("/api/irodak/:id/csapat/:uid", csakBelepve, async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (!(await jog(req, id)).vezeto) return res.status(403).json({ error: "not_manager" });
+        const a = (await db.query("SELECT * FROM iroda_ugynokok WHERE id = $1 AND iroda_id = $2", [Number(req.params.uid) || 0, id])).rows[0];
+        if (!a) return res.status(404).json({ error: "not_found" });
+        await belepesMegvon(id, a);
+        await db.query("UPDATE ingatlanok SET ugynok_id = NULL WHERE iroda_id = $1 AND ugynok_id = $2", [id, a.id]);
+        await db.query("DELETE FROM iroda_ugynokok WHERE id = $1", [a.id]);
+        res.json({ siker: true });
+    } catch (err) {
+        if (err.kod) return res.status(400).json({ error: err.kod });
+        hiba(res, err);
+    }
+});
+
+// ===================== ÜGYNÖKÖK (régi végpontok – a Csapat oldal a fentieket használja) =====================
 
 router.post("/api/irodak/:id/ugynokok", csakBelepve, async (req, res) => {
 
@@ -794,13 +1062,18 @@ router.get("/api/irodak/:id/hirdetesek", csakBelepve, async (req, res) => {
     try {
 
         const id = Number(req.params.id);
-        if (!(await jog(req, id)).tag) return res.status(403).json({ error: "not_member" });
+        const j = await jog(req, id);
+        if (!j.tag) return res.status(403).json({ error: "not_member" });
 
+        const p = [id];
+        const sajat = sajatHirdetesSql(req, j, "i", p);
         const r = await db.query(`
             SELECT ${LISTA_MEZOK}, i.iroda_mappa, i.iroda_megjegyzes,
                    (SELECT COUNT(*)::int FROM favorites f WHERE f.property_id = i.id) AS kedvenc_db,
-                   (SELECT COUNT(*)::int FROM uzenetek m WHERE m.ingatlan_id = i.id) AS uzenet_db
-            FROM ingatlanok i WHERE i.iroda_id = $1 ORDER BY i.id DESC`, [id]);
+                   (SELECT COUNT(*)::int FROM uzenetek m WHERE m.ingatlan_id = i.id) AS uzenet_db,
+                   (SELECT COUNT(*)::int FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek c ON c.id = k.ugyfel_id
+                     WHERE k.ingatlan_id = i.id AND k.szerep = 'erdeklodik' AND k.allapot <> 'elvetve' AND c.iroda_id = $1) AS erdeklodo_db
+            FROM ingatlanok i WHERE i.iroda_id = $1 AND ${sajat} ORDER BY i.id DESC`, p);
 
         res.json(r.rows);
 
@@ -817,9 +1090,17 @@ router.patch("/api/irodak/:id/hirdetesek", csakBelepve, async (req, res) => {
     try {
 
         const id = Number(req.params.id);
-        if (!(await jog(req, id)).tag) return res.status(403).json({ error: "not_member" });
+        const j = await jog(req, id);
+        if (!j.tag) return res.status(403).json({ error: "not_member" });
 
-        const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+        let ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+        // Az ügynök csak a saját hirdetésein dolgozhat, és nem adhatja át másnak
+        if (!j.vezeto) {
+            if (req.body.muvelet === "ugynok") return res.status(403).json({ error: "not_manager" });
+            const p = [id, ids];
+            const sajat = await db.query(`SELECT id FROM ingatlanok i WHERE i.iroda_id = $1 AND i.id = ANY($2::int[]) AND ${sajatHirdetesSql(req, j, "i", p)}`, p);
+            ids = sajat.rows.map(x => x.id);
+        }
         if (!ids.length) return res.status(400).json({ error: "no_selection" });
 
         const ertek = req.body.ertek;
@@ -895,10 +1176,17 @@ router.put("/api/irodak/:id/hirdetesek/:hid", csakBelepve, async (req, res) => {
     try {
 
         const id = Number(req.params.id);
-        if (!(await jog(req, id)).tag) return res.status(403).json({ error: "not_member" });
+        const j = await jog(req, id);
+        if (!j.tag) return res.status(403).json({ error: "not_member" });
 
         const b = req.body || {};
-        const uid = b.ugynok_id ? Number(b.ugynok_id) : null;
+        let uid = b.ugynok_id ? Number(b.ugynok_id) : null;
+        if (!j.vezeto) {
+            const p = [id, Number(req.params.hid) || 0];
+            const ok = await db.query(`SELECT 1 FROM ingatlanok i WHERE i.iroda_id = $1 AND i.id = $2 AND ${sajatHirdetesSql(req, j, "i", p)}`, p);
+            if (!ok.rowCount) return res.status(404).json({ error: "not_found" });
+            uid = await sajatUgynok(id, req.user);
+        }
 
         if (uid) {
             const van = await db.query("SELECT 1 FROM iroda_ugynokok WHERE id = $1 AND iroda_id = $2", [uid, id]);
@@ -1060,5 +1348,7 @@ router.put("/api/irodak/:id/profil-kiemeles", csakBelepve, async (req, res) => {
 
 module.exports = router;
 module.exports.jog = jog;
+module.exports.sajatUgynok = sajatUgynok;
+module.exports.sajatHirdetesSql = sajatHirdetesSql;
 module.exports.sajatIrodak = sajatIrodak;
 module.exports.meghivasok = meghivasok;

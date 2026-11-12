@@ -448,6 +448,15 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE iroda_tagok ADD COLUMN IF NOT EXISTS statusz TEXT DEFAULT 'aktiv'`);
     await db.query(`ALTER TABLE iroda_tagok ADD COLUMN IF NOT EXISTS meghivta INTEGER`);
 
+    // Csapat (2026-11): a „tagok” és az „ügynökök” egy lista – minden ügynöknek kártyája van,
+    // és kaphat belépést. A meghívó a kártyán él (akár még nem regisztrált e-mail címre is):
+    // meghivo = vár elfogadásra, meghivo_user = a már regisztrált meghívott fiókja
+    await db.query(`ALTER TABLE iroda_ugynokok ADD COLUMN IF NOT EXISTS meghivo BOOLEAN DEFAULT false`);
+    await db.query(`ALTER TABLE iroda_ugynokok ADD COLUMN IF NOT EXISTS meghivo_szerep TEXT DEFAULT 'tag'`);
+    await db.query(`ALTER TABLE iroda_ugynokok ADD COLUMN IF NOT EXISTS meghivo_user INTEGER`);
+    await db.query(`ALTER TABLE iroda_ugynokok ADD COLUMN IF NOT EXISTS meghivo_ido TIMESTAMP`);
+    await db.query(`ALTER TABLE iroda_ugynokok ADD COLUMN IF NOT EXISTS meghivta INTEGER`);
+
     // ===================== ÁLLAPOTOK =====================
     // Az ingatlanok állapotai (felújítandó, jó, újépítésű...) – az admin
     // bővítheti, átnevezheti, átrendezheti (Admin → Állapotok).

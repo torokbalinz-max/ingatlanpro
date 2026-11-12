@@ -9,14 +9,9 @@
 //      - magánhirdetés (fiókkal feltöltve) → a tulajdonosnak (Fiókom → Ajánlatok)
 //      - beolvasott (más oldalról átvett) hirdetésre nem lehet: nincs kinek
 //        továbbítani – ott a forrásoldalon kell jelentkezni
-//   2. Más oldalon látott ingatlanra: a vevő bemásolja a linket.
-//      - ha a link egy appon lévő hirdetésé, annak a hirdetőjéhez megy (1.)
-//      - különben kiválasztja a regisztrált irodát, amelyik hirdeti; az iroda
-//        CRM-jébe kerül „külső hirdetés” jelöléssel, a linkkel és a vevő által
-//        megadott adatokkal; az iroda hozzárendelheti a saját hirdetéséhez
-//        (vagy feltöltheti az appra)
-//      - ha az iroda nincs regisztrálva, nem tárolunk semmit (nincs, aki
-//        megkapja) – a vevő meghívhatja az irodát
+//   2. Ajánlatot csak az tehet, aki már kapcsolatban van a hirdetővel
+//      (services/megtekintes.js ajanlatJog). A régi „más oldalon látott ingatlan”
+//      (link) funkció megszűnt; a korábbi ilyen ajánlatok kezelhetők maradnak.
 //
 //  Az ajánlat nem kötelező érvényű szándéknyilatkozat (az ingatlan adásvétele
 //  közjegyzői szerződéssel jön létre). Az iroda / tulajdonos válaszolhat:

@@ -34,7 +34,6 @@ class PageManager {
         sugo: { icon: "fa-solid fa-circle-question", label: "menuSugo" },
         csomagok: { icon: "fa-solid fa-tags", label: "menuCsomagok" },
         eladjuk: { icon: "fa-solid fa-key", label: "menuEladjuk" },
-        ajanlat: { icon: "fa-solid fa-hand-holding-dollar", label: "ofPageTitle" },
         iratok: { icon: "fa-solid fa-folder-open", label: "ptTitle" }
     };
 
@@ -65,7 +64,7 @@ class PageManager {
             const uj = !sessionStorage.getItem("ip_munkamenet");
             sessionStorage.setItem("ip_munkamenet", "1");
             const h = location.hash.replace("#", "");
-            const megosztott = /^(listing\/\d+|irodak\/\d+|jogi(\/|$)|sugo(\/|$)|csomagok|eladjuk|reset|uj-jelszo|iratok\/|ajanlat)/.test(h) || /[?&](token|reset)=/.test(location.search);
+            const megosztott = /^(listing\/\d+|irodak\/\d+|jogi(\/|$)|sugo(\/|$)|csomagok|eladjuk|reset|uj-jelszo|iratok\/)/.test(h) || /[?&](token|reset)=/.test(location.search);
             if (uj && !AuthManager.loggedIn() && h && h !== "home" && !megosztott) history.replaceState(null, "", "#home");
         } catch (e) { /* sessionStorage nélkül marad a régi viselkedés */ }
 
@@ -227,9 +226,6 @@ class PageManager {
             RequestsPage.show(param);
         }
 
-        if (page === "ajanlat" && typeof Offers !== "undefined") {
-            Offers.kulsoOldal(param);
-        }
         if (page === "iratok" && typeof DocPortal !== "undefined") {
             DocPortal.show(param);
         }

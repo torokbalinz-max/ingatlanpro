@@ -64,8 +64,10 @@ class Notifications {
 
     // ---------- az oldal ----------
 
-    static render(el) {
+    // mod: "lista" (csak az értesítések), "beallitas" (csak a beállítás), üres = mindkettő
+    static render(el, mod) {
 
+        Notifications.mod = mod || "";
         AccountPage.spinner(el);
 
         fetch("/api/ertesitesek", { cache: "no-store" })
@@ -74,7 +76,7 @@ class Notifications {
                 Notifications.adat = v;
                 Notifications.rajzol(el);
                 // megnyitva = elolvasva (ebben a nézetben még kiemelve látszanak)
-                if (v.olvasatlan) {
+                if (v.olvasatlan && Notifications.mod !== "beallitas") {
                     fetch("/api/ertesitesek/olvasva", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mind: true }) })
                         .then(r => r.json()).then(x => Notifications.jelvenyFrissit(x.olvasatlan || 0)).catch(() => { });
                 }
@@ -89,12 +91,14 @@ class Notifications {
         const esc = Utils.escape;
         const lista = v.lista || [];
 
+        const mod = Notifications.mod;
         el.innerHTML = `
             <div class="row g-4">
-                <div class="col-xl-7">
+                <div class="${mod ? "col-xl-9" : "col-xl-7"}" ${mod === "beallitas" ? "hidden" : ""}>
                     <div class="card">
                         <div class="card-header d-flex flex-wrap align-items-center gap-2">
                             <h5 class="mb-0 flex-fill"><i class="fa-regular fa-bell" aria-hidden="true"></i> ${I18n.t("ntfTitle")}</h5>
+                            ${mod === "lista" ? `<a class="btn btn-sm btn-link" href="#fiok/ertesitesBeall"><i class="fa-solid fa-sliders" aria-hidden="true"></i> ${I18n.t("acNav_ertesitesBeall")}</a>` : ""}
                             ${lista.length ? `<button type="button" class="btn btn-sm btn-link text-body-secondary" id="ntfClear"><i class="fa-solid fa-trash" aria-hidden="true"></i> ${I18n.t("ntfClearAll")}</button>` : ""}
                         </div>
                         <div class="card-body p-0">
@@ -107,7 +111,7 @@ class Notifications {
                         </div>
                     </div>
                 </div>
-                <div class="col-xl-5">
+                <div class="${mod ? "col-xl-9" : "col-xl-5"}" ${mod === "lista" ? "hidden" : ""}>
                     ${Notifications.beallitasHtml(v)}
                 </div>
             </div>`;
@@ -267,7 +271,8 @@ class Notifications {
         const igazit = () => el.querySelectorAll("[data-ntf-email]").forEach(s => { s.disabled = !mind.checked || mind.disabled; });
         if (mind) { mind.onchange = igazit; igazit(); }
 
-        document.getElementById("ntfForm").onsubmit = e => {
+        const form = document.getElementById("ntfForm");
+        if (form) form.onsubmit = e => {
             e.preventDefault();
             const tipusok = {};
             Notifications.TIPUSOK.forEach(k => {

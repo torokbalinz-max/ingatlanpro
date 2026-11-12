@@ -11,12 +11,16 @@
 //  Az új iroda jóváhagyásra vár (az admin az ANAF-adatok alapján hagyja
 //  jóvá); addig is kezelhető, de nyilvánosan nem látszik.
 //
-//  Kezelés fülei:
-//   Áttekintés  a fő számok, mire kell figyelni, első lépések, gyors műveletek
-//   Hirdetések  mappák, szűrők, tömeges műveletek, belső adatok
-//   Ügynökök    a hirdetéseken megjelenő kapcsolattartók
-//   Tagok       kik kezelhetik az iroda hirdetéseit (fiókkal)
-//   Adatok      név, elérhetőség, leírás; törlés
+//  MUNKATERÜLET (2026-11): az iroda minden munkája egy helyen, bal oldali menüvel
+//  (telefonon felül görgethető sávval). Egy szint, nincs fül a fülben:
+//   Munka      Áttekintés (teendők, gyorskereső, megtekintések, a hirdetések gondjai)
+//              Beérkező (megtekintés-kérések, „hívom” jelzések, üzenetek)
+//              Naptár (megtekintések) · Feladatok
+//   Ügyfelek   Ügyfelek (lista / tábla) · Ajánlatok
+//   Hirdetések az iroda hirdetései – az ügynök csak a sajátjait látja
+//   Iroda      Csapat (ügynökök + belépés, a csomag létszáma) · Iroda és csomag
+//              (csak a vezetőnek; az ügynök a saját kártyáját látja: „Profilom”)
+//  A régi címek (…:crm, …:ugynokok, …:tagok, …:adatok) a megfelelő oldalra visznek.
 // ============================================================
 
 class AgencyPage {
@@ -28,14 +32,35 @@ class AgencyPage {
     static szuro = { q: "", statusz: "", ugynok: "", mappa: null, tipus: "", figyelem: "" };
     static rendezes = "uj";
 
-    static TABS = [
-        { key: "attekintes", icon: "fa-solid fa-gauge-high", label: "agTabOverview" },
-        { key: "hirdetesek", icon: "fa-solid fa-house-user", label: "agTabListings" },
-        { key: "crm", icon: "fa-solid fa-address-book", label: "agTabCrm" },
-        { key: "ugynokok", icon: "fa-solid fa-id-badge", label: "agTabAgents" },
-        { key: "tagok", icon: "fa-solid fa-users", label: "agTabMembers" },
-        { key: "adatok", icon: "fa-solid fa-building", label: "agTabDetails" }
+    // A munkaterület menüje (vezeto: csak a vezetőnek; ugynok: csak az ügynöknek)
+    static NAV = [
+        { cim: "wsGrp_work", elemek: [
+            { key: "attekintes", icon: "fa-solid fa-gauge-high" },
+            { key: "beerkezo", icon: "fa-solid fa-inbox" },
+            { key: "naptar", icon: "fa-regular fa-calendar" },
+            { key: "feladatok", icon: "fa-solid fa-list-check" }] },
+        { cim: "wsGrp_clients", elemek: [
+            { key: "ugyfelek", icon: "fa-solid fa-address-book" },
+            { key: "ajanlatok", icon: "fa-solid fa-hand-holding-dollar" }] },
+        { cim: "wsGrp_listings", elemek: [
+            { key: "hirdetesek", icon: "fa-solid fa-house-user" }] },
+        { cim: "wsGrp_agency", elemek: [
+            { key: "csapat", icon: "fa-solid fa-people-group", vezeto: true },
+            { key: "iroda", icon: "fa-solid fa-building", vezeto: true },
+            { key: "csapat", icon: "fa-solid fa-id-badge", ugynok: true, label: "wsNav_profil" }] }
     ];
+
+    // Régi fül-nevek → az új oldalak
+    static REGI = { crm: "attekintes", ugynokok: "csapat", tagok: "csapat", adatok: "iroda", keresek: "beerkezo", megtekintesek: "naptar" };
+    static KULCSOK = ["attekintes", "beerkezo", "naptar", "feladatok", "ugyfelek", "ajanlatok", "hirdetesek", "csapat", "iroda"];
+
+    // A CRM nézetei ↔ a munkaterület oldalai
+    static CRM_NEZET = { attekintes: "attekintes", beerkezo: "beerkezoKomb", naptar: "megtekintesek", feladatok: "feladatok", ugyfelek: "ugyfelek", ajanlatok: "ajanlatok" };
+
+    static vezeto() {
+        const ir = AgencyPage.iroda;
+        return AuthManager.isAdmin() || !!(ir && (AuthManager.irodak.find(x => x.id === ir.id) || {}).szerep === "vezeto");
+    }
 
     static box() {
         return document.getElementById("irodaContent");
@@ -83,7 +108,8 @@ class AgencyPage {
 
         const id = Number(elso) || (AuthManager.irodak[0] && AuthManager.irodak[0].id);
 
-        if (masodik && AgencyPage.TABS.some(t => t.key === masodik)) AgencyPage.tab = masodik;
+        const kulcs = AgencyPage.REGI[masodik] || masodik;
+        if (kulcs && AgencyPage.KULCSOK.includes(kulcs)) AgencyPage.tab = kulcs;
 
         if (!AgencyPage.iroda || AgencyPage.iroda.id !== id) {
             AgencyPage.kijelolt.clear();
@@ -159,6 +185,8 @@ class AgencyPage {
     // ---------- új iroda ----------
 
     static letrehozas() {
+
+        document.body.classList.remove("wsMode");
 
         AgencyPage.iroda = null;
         const esc = Utils.escape;
@@ -345,68 +373,89 @@ class AgencyPage {
         const ir = AgencyPage.iroda;
         const esc = Utils.escape;
         const tobb = AuthManager.irodak.length > 1;
-        const szerep = (AuthManager.irodak.find(x => x.id === ir.id) || {}).szerep || (AuthManager.isAdmin() ? "vezeto" : "tag");
-
+        const vezeto = AgencyPage.vezeto();
         const statusz = ir.statusz || "fuggo";
-
         const zarolt = AgencyPage.zarolt();
+        if (!vezeto && AgencyPage.tab === "iroda") AgencyPage.tab = "attekintes";
+        const tab = AgencyPage.tab;
+        const navCim = e => I18n.t(e.label || "wsNav_" + e.key);
+
+        document.body.classList.add("wsMode");
+        try { localStorage.setItem("ip_mod", "munka"); } catch (e) { /* nem baj */ }
+
+        const aktivElem = AgencyPage.NAV.flatMap(g => g.elemek).find(e => e.key === tab && (!e.vezeto || vezeto) && (!e.ugynok || !vezeto)) || {};
 
         AgencyPage.box().innerHTML = `
-            ${AgencyPage.meghivasHtml(AuthManager.irodaMeghivasok)}
-            ${zarolt ? `
-            <div class="alert alert-info agStatusBar d-flex gap-3 align-items-start">
-                <i class="fa-solid fa-key fs-4" aria-hidden="true"></i>
-                <div class="flex-fill">
-                    <b>${I18n.t("agActivateTitle")}</b>
-                    <div class="small">${I18n.t(szerep === "vezeto" ? "agActivateText" : "agActivateTextMember")}</div>
-                </div>
-                ${szerep === "vezeto" ? `<a class="btn btn-primary btn-sm text-nowrap" href="#csomagok/iroda">${I18n.t("agActivateBtn")}</a>` : ""}
-            </div>` : ""}
-            ${statusz !== "jovahagyva" ? `
-            <div class="alert ${statusz === "fuggo" ? "alert-warning" : "alert-danger"} agStatusBar d-flex gap-3 align-items-start">
-                <i class="fa-solid ${statusz === "fuggo" ? "fa-hourglass-half" : "fa-ban"} fs-4" aria-hidden="true"></i>
-                <div>
-                    <b>${I18n.t("agStatusTitle_" + statusz)}</b>
-                    <div class="small">${I18n.t("agStatusText_" + statusz)}</div>
-                    ${ir.dontes_ok ? `<div class="small mt-1"><b>${I18n.t("agReason")}:</b> ${esc(ir.dontes_ok)}</div>` : ""}
-                </div>
-            </div>` : ""}
-            <div class="pageHeader">
-                <div class="pageHeaderRow">
-                    <div class="d-flex align-items-center gap-3 min-w-0">
-                        ${AgencyUI.logo(ir)}
+            <div class="ws">
+                <aside class="wsSide" aria-label="${esc(I18n.t("wsTitle"))}">
+                    <div class="wsAgency">
+                        ${AgencyUI.logo(ir, "sm")}
                         <div class="min-w-0">
-                            <h2 class="mb-0 text-truncate">${esc(ir.nev)} ${AgencyUI.verifiedBadge(ir)}</h2>
-                            <p class="text-body-secondary mb-0 small">
-                                ${I18n.t(szerep === "vezeto" ? "agRoleManager" : "agRoleMember")}
-                                · <a href="#irodak/${ir.id}">${I18n.t("agPublicPage")} <i class="fa-solid fa-arrow-up-right-from-square small"></i></a>
-                            </p>
+                            <b class="d-block text-truncate">${esc(ir.nev)} ${AgencyUI.verifiedBadge(ir)}</b>
+                            <span class="small text-body-secondary">${I18n.t(vezeto ? "agRoleManager" : "wsRoleAgent")}</span>
                         </div>
                     </div>
-                    <div class="d-flex gap-2 flex-wrap agHeadActions">
-                        ${tobb ? `<select class="form-select form-select-sm w-auto" id="agSwitch" aria-label="${esc(I18n.t("agSwitch"))}">
-                            ${AuthManager.irodak.map(x => `<option value="${x.id}" ${x.id === ir.id ? "selected" : ""}>${esc(x.nev)}</option>`).join("")}
-                        </select>` : ""}
-                        <button class="btn btn-primary btn-sm" id="agNewListing" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-plus"></i> ${I18n.t("navPost")}</button>
+                    ${tobb ? `<select class="form-select form-select-sm mb-2" id="agSwitch" aria-label="${esc(I18n.t("agSwitch"))}">
+                        ${AuthManager.irodak.map(x => `<option value="${x.id}" ${x.id === ir.id ? "selected" : ""}>${esc(x.nev)}</option>`).join("")}
+                    </select>` : ""}
+                    <nav class="wsNav">
+                        ${AgencyPage.NAV.map(g => {
+                            const el = g.elemek.filter(e => (!e.vezeto || vezeto) && (!e.ugynok || !vezeto));
+                            if (!el.length) return "";
+                            return `<div class="wsNavGroup"><span class="wsNavHead">${I18n.t(g.cim)}</span>
+                                ${el.map(e => `
+                                    <a class="wsNavItem ${e.key === tab ? "active" : ""}" href="#iroda/${ir.id}:${e.key}" ${e.key === tab ? 'aria-current="page"' : ""}>
+                                        <i class="${e.icon} fa-fw" aria-hidden="true"></i><span>${navCim(e)}</span>
+                                        ${e.key === "beerkezo" ? `<span class="badge rounded-pill text-bg-danger crmReqBadge" hidden></span><span class="badge rounded-pill text-bg-warning crmInboxBadge" hidden></span>` : ""}
+                                        ${e.key === "ajanlatok" ? `<span class="badge rounded-pill text-bg-danger crmOfferBadge" hidden></span>` : ""}
+                                        ${e.key === "hirdetesek" ? `<span class="wsNavCount">${AgencyPage.hirdetesek.length}</span>` : ""}
+                                    </a>`).join("")}
+                            </div>`;
+                        }).join("")}
+                    </nav>
+                    <div class="wsSideFoot">
+                        <a href="#irodak/${ir.id}"><i class="fa-solid fa-arrow-up-right-from-square fa-fw" aria-hidden="true"></i> ${I18n.t("agPublicPage")}</a>
+                        <a href="#home" data-wsexit><i class="fa-solid fa-magnifying-glass fa-fw" aria-hidden="true"></i> ${I18n.t("wsExit")}</a>
                     </div>
-                </div>
-            </div>
+                </aside>
 
-            <div class="typeTabs mb-4" role="tablist">
-                ${AgencyPage.TABS.map(t => `
-                    <a class="typeTab ${t.key === AgencyPage.tab ? "active" : ""}" href="#iroda/${ir.id}:${t.key}" role="tab" aria-selected="${t.key === AgencyPage.tab}">
-                        <i class="${t.icon}" aria-hidden="true"></i> ${I18n.t(t.label)}
-                        ${t.key === "hirdetesek" ? `<span class="badge rounded-pill text-bg-light">${AgencyPage.hirdetesek.length}</span>` : ""}
-                        ${t.key === "ugynokok" ? `<span class="badge rounded-pill text-bg-light">${ir.ugynokok.length}</span>` : ""}
-                    </a>`).join("")}
-            </div>
-
-            <p class="agTabHelp small text-body-secondary"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${I18n.t("agHelp_" + AgencyPage.tab)}</p>
-
-            <div id="agBody"></div>`;
+                <main class="wsMain">
+                    ${AgencyPage.meghivasHtml(AuthManager.irodaMeghivasok)}
+                    ${zarolt ? `
+                    <div class="alert alert-info agStatusBar d-flex gap-3 align-items-start">
+                        <i class="fa-solid fa-key fs-4" aria-hidden="true"></i>
+                        <div class="flex-fill">
+                            <b>${I18n.t("agActivateTitle")}</b>
+                            <div class="small">${I18n.t(vezeto ? "agActivateText" : "agActivateTextMember")}</div>
+                        </div>
+                        ${vezeto ? `<a class="btn btn-primary btn-sm text-nowrap" href="#csomagok/iroda">${I18n.t("agActivateBtn")}</a>` : ""}
+                    </div>` : ""}
+                    ${statusz !== "jovahagyva" ? `
+                    <div class="alert ${statusz === "fuggo" ? "alert-warning" : "alert-danger"} agStatusBar d-flex gap-3 align-items-start">
+                        <i class="fa-solid ${statusz === "fuggo" ? "fa-hourglass-half" : "fa-ban"} fs-4" aria-hidden="true"></i>
+                        <div>
+                            <b>${I18n.t("agStatusTitle_" + statusz)}</b>
+                            <div class="small">${I18n.t("agStatusText_" + statusz)}</div>
+                            ${ir.dontes_ok ? `<div class="small mt-1"><b>${I18n.t("agReason")}:</b> ${esc(ir.dontes_ok)}</div>` : ""}
+                        </div>
+                    </div>` : ""}
+                    <div class="wsHead">
+                        <div class="min-w-0">
+                            <h1 class="wsTitle">${esc(navCim(aktivElem.key ? aktivElem : { key: tab }))}</h1>
+                            <p class="wsHelp">${I18n.t((vezeto ? "wsHelp_" : "wsHelpA_") + (aktivElem.label === "wsNav_profil" ? "profil" : tab))}</p>
+                        </div>
+                        <div class="wsActions">
+                            <button class="btn btn-primary btn-sm" id="agNewListing" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("navPost")}</button>
+                        </div>
+                    </div>
+                    <div id="agBody"></div>
+                </main>
+            </div>`;
 
         const sw = document.getElementById("agSwitch");
-        if (sw) sw.onchange = () => { location.hash = "#iroda/" + sw.value; };
+        if (sw) sw.onchange = () => { location.hash = `#iroda/${sw.value}:${AgencyPage.tab}`; };
+        const exit = AgencyPage.box().querySelector("[data-wsexit]");
+        if (exit) exit.onclick = () => { try { localStorage.setItem("ip_mod", "bongesz"); } catch (e) { /* nem baj */ } };
 
         AgencyPage.meghivasKotes(AgencyPage.box());
 
@@ -418,26 +467,36 @@ class AgencyPage {
 
         const body = document.getElementById("agBody");
 
-        // Csomaghoz kötött, még nem aktív iroda: csak az áttekintés és az adatok
-        if (zarolt && ["hirdetesek", "crm", "ugynokok", "tagok"].includes(AgencyPage.tab)) {
+        // Csomaghoz kötött, még nem aktív iroda: csak az áttekintés és az iroda adatai
+        if (zarolt && !["attekintes", "iroda"].includes(tab)) {
             body.innerHTML = `
                 <div class="emptyState">
                     <i class="fa-solid fa-lock"></i>
                     <h5>${I18n.t("agActivateTitle")}</h5>
                     <p>${I18n.t("agLockedTab")}</p>
-                    ${szerep === "vezeto" ? `<a class="btn btn-primary btn-sm" href="#csomagok/iroda">${I18n.t("agActivateBtn")}</a>` : ""}
+                    ${vezeto ? `<a class="btn btn-primary btn-sm" href="#csomagok/iroda">${I18n.t("agActivateBtn")}</a>` : ""}
                 </div>`;
             return;
         }
 
+        // A számlálók a menüben (új kérések, üzenetek, ajánlatok)
+        if (!zarolt) fetch(`/api/crm/${ir.id}/attekintes`).then(r => r.ok ? r.json() : null).then(a => {
+            if (!a) return;
+            const jel = (sel, n) => { const b = AgencyPage.box().querySelector(sel); if (b) { b.textContent = n; b.hidden = !n; } };
+            jel(".wsNav .crmReqBadge", (a.uj_keres || 0) + (a.hivas_jelzes || 0));
+            jel(".wsNav .crmInboxBadge", a.beerkezett || 0);
+            jel(".wsNav .crmOfferBadge", a.uj_ajanlat || 0);
+        }).catch(() => { });
+
+        if (AgencyPage.CRM_NEZET[tab]) {
+            if (tab === "attekintes") return AgencyPage.attekintesTab(body, vezeto);
+            return Crm.mount(body, { ter: ir.id, nezet: AgencyPage.CRM_NEZET[tab], beagyazott: true });
+        }
         ({
-            attekintes: () => AgencyPage.attekintesTab(body, szerep === "vezeto"),
             hirdetesek: () => AgencyPage.hirdetesTab(body),
-            crm: () => Crm.mount(body, { ter: ir.id }),
-            ugynokok: () => AgencyPage.ugynokTab(body, szerep === "vezeto"),
-            tagok: () => AgencyPage.tagTab(body, szerep === "vezeto"),
-            adatok: () => AgencyPage.adatTab(body, szerep === "vezeto")
-        })[AgencyPage.tab]();
+            csapat: () => AgencyPage.csapatTab(body, vezeto),
+            iroda: () => AgencyPage.irodaTab(body)
+        })[tab]();
 
     }
 
@@ -458,133 +517,75 @@ class AgencyPage {
         regi: i => AgencyPage.statuszOf(i) === "aktiv" && (Date.now() - new Date(i.updated_at || i.created_at || 0).getTime()) > 60 * 86400000
     };
 
+    // Áttekintés: az első lépések (a vezetőnek, amíg nincs kész), a CRM teendői
+    // (gyorskereső, kérések, megtekintések, feladatok), és a hirdetések gondjai
     static attekintesTab(el, vezeto) {
 
-        const esc = Utils.escape;
         const ir = AgencyPage.iroda;
         const L = AgencyPage.hirdetesek;
-        const zarolt = AgencyPage.zarolt();
         const szam = s => L.filter(i => AgencyPage.statuszOf(i) === s).length;
         const fig = Object.fromEntries(Object.entries(AgencyPage.FIGYELEM).map(([k, f]) => [k, L.filter(f).length]));
         const figOssz = Object.values(fig).reduce((a, b) => a + b, 0);
 
-        const lepesek = [
-            { ok: !!(ir.telefon && (ir.email || ir.weboldal) && ir.leiras), cim: "agStep_details", tab: "adatok" },
-            { ok: !!ir.van_logo, cim: "agStep_logo", tab: "adatok" },
-            { ok: ir.ugynokok.some(u => u.telefon || u.email), cim: "agStep_agents", tab: "ugynokok" },
-            { ok: null, cim: "agStep_members", tab: "tagok", id: "agStepTagok" },
-            { ok: L.length > 0, cim: "agStep_listing", tab: "hirdetesek" }
-        ];
-        if (ir.csomag && ir.csomag.kell) lepesek.unshift({ ok: !!ir.csomag.aktiv, cim: "agStep_package", link: "#csomagok/iroda" });
-        if (!vezeto) lepesek.splice(0, lepesek.length, ...lepesek.filter(l => l.tab === "hirdetesek"));
-
-        const top = [...L].filter(i => AgencyPage.statuszOf(i) === "aktiv")
-            .sort((a, b) => ((b.uzenet_db || 0) * 3 + (b.kedvenc_db || 0)) - ((a.uzenet_db || 0) * 3 + (a.kedvenc_db || 0)))
-            .slice(0, 5);
-
-        const csempe = (ikon, szin, n, cimKulcs, adat) => `
-            <button type="button" class="agTile ${szin}" ${adat}>
-                <span class="agTileIcon" aria-hidden="true"><i class="${ikon}"></i></span>
-                <b>${n}</b><span>${I18n.t(cimKulcs)}</span>
-            </button>`;
-
         el.innerHTML = `
-            <div class="agTiles mb-4">
-                ${csempe("fa-solid fa-circle-check", "green", szam("aktiv"), "agStatus_aktiv", `data-go-stat="aktiv"`)}
-                ${csempe("fa-solid fa-hourglass-half", "amber", szam("fuggo"), "agStatus_fuggo", `data-go-stat="fuggo"`)}
-                ${csempe("fa-solid fa-handshake", "red", szam("eladva"), "agStatus_eladva", `data-go-stat="eladva"`)}
-                ${csempe("fa-solid fa-box-archive", "", szam("archiv"), "agStatus_archiv", `data-go-stat="archiv"`)}
-                ${csempe("fa-regular fa-envelope", "blue", L.reduce((t, i) => t + (i.uzenet_db || 0), 0), "agStatMessages", `data-go-tab="hirdetesek" data-go-sort="erdeklodes"`)}
-                ${csempe("fa-regular fa-star", "blue", L.reduce((t, i) => t + (i.kedvenc_db || 0), 0), "agStatFavs", `data-go-tab="hirdetesek" data-go-sort="erdeklodes"`)}
-            </div>
-
-            <div class="row g-4">
-                <div class="col-lg-7">
-                    <div class="card mb-4">
-                        <div class="card-header d-flex align-items-center justify-content-between">
-                            <h6 class="mb-0"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${I18n.t("agAttnTitle")}</h6>
-                            ${figOssz ? `<span class="badge text-bg-warning">${figOssz}</span>` : ""}
-                        </div>
-                        ${figOssz ? `
-                        <div class="list-group list-group-flush">
-                            ${Object.entries(fig).filter(([, n]) => n).map(([k, n]) => `
-                                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2" data-go-fig="${k}">
-                                    <span><b>${I18n.t("agAttn_" + k)}</b><span class="d-block small text-body-secondary">${I18n.t("agAttnHint_" + k)}</span></span>
-                                    <span class="badge rounded-pill text-bg-warning">${n}</span>
-                                </button>`).join("")}
-                        </div>` : `<div class="card-body small text-success"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> ${I18n.t("agAttnNone")}</div>`}
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-fire" aria-hidden="true"></i> ${I18n.t("agTopTitle")}</h6></div>
-                        ${top.length ? `
-                        <ul class="list-group list-group-flush">
-                            ${top.map(i => `
-                                <li class="list-group-item d-flex align-items-center gap-2">
-                                    <a class="agThumb" href="#listing/${i.id}">${Utils.photoUrl(i) ? `<img src="${esc(Utils.photoUrl(i))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : `<i class="${Types.get(i.tipus).icon}"></i>`}</a>
-                                    <a class="flex-fill min-w-0 text-truncate" href="#listing/${i.id}">${esc(i.cim || Types.label(i.tipus))}</a>
-                                    <span class="small text-body-secondary text-nowrap"><i class="fa-regular fa-envelope" aria-hidden="true"></i> ${i.uzenet_db || 0} · <i class="fa-regular fa-star" aria-hidden="true"></i> ${i.kedvenc_db || 0}</span>
-                                </li>`).join("")}
-                        </ul>` : `<div class="card-body small text-body-secondary">${I18n.t("agTopEmpty")}</div>`}
-                    </div>
+            <div id="wsSetup"></div>
+            <div id="wsCrm"></div>
+            <div class="card mt-4">
+                <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <h6 class="mb-0"><i class="fa-solid fa-house-user" aria-hidden="true"></i> ${I18n.t(vezeto ? "wsListingsAgency" : "wsListingsMine")}</h6>
+                    <a class="btn btn-link btn-sm p-0" href="#iroda/${ir.id}:hirdetesek">${I18n.t("crmAll")}</a>
                 </div>
-
-                <div class="col-lg-5">
-                    <div class="card mb-4">
-                        <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-bolt" aria-hidden="true"></i> ${I18n.t("agQuickTitle")}</h6></div>
-                        <div class="card-body d-grid gap-2">
-                            <button type="button" class="btn btn-primary btn-sm text-start" id="agQNew" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> ${I18n.t("navPost")}</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm text-start" id="agQTake" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-right-to-bracket fa-fw" aria-hidden="true"></i> ${I18n.t("agTakeOver")}</button>
-                            <a class="btn btn-outline-primary btn-sm text-start ${zarolt ? "disabled" : ""}" href="#iroda/${ir.id}:crm"><i class="fa-solid fa-address-book fa-fw" aria-hidden="true"></i> ${I18n.t("agQCrm")}</a>
-                            ${vezeto ? `
-                            <a class="btn btn-outline-secondary btn-sm text-start" href="#iroda/${ir.id}:ugynokok"><i class="fa-solid fa-id-badge fa-fw" aria-hidden="true"></i> ${I18n.t("agQAgent")}</a>
-                            <a class="btn btn-outline-secondary btn-sm text-start" href="#iroda/${ir.id}:tagok"><i class="fa-solid fa-user-plus fa-fw" aria-hidden="true"></i> ${I18n.t("agQMember")}</a>` : ""}
-                            <a class="btn btn-outline-secondary btn-sm text-start" href="#irodak/${ir.id}"><i class="fa-solid fa-arrow-up-right-from-square fa-fw" aria-hidden="true"></i> ${I18n.t("agPublicPage")}</a>
-                        </div>
+                <div class="card-body">
+                    <div class="wsMini">
+                        ${[["aktiv", "fa-circle-check", "green"], ["fuggo", "fa-hourglass-half", "amber"], ["eladva", "fa-handshake", "red"], ["archiv", "fa-box-archive", ""]].map(([k, i, c]) => `
+                            <button type="button" class="wsMiniItem ${c}" data-go-stat="${k}"><i class="fa-solid ${i}" aria-hidden="true"></i><b>${szam(k)}</b><span>${I18n.t("agStatus_" + k)}</span></button>`).join("")}
                     </div>
-
-                    <div class="card">
-                        <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${I18n.t("agStepsTitle")}</h6></div>
-                        <ul class="list-group list-group-flush agStart">
-                            ${lepesek.map(l => `
-                                <li class="list-group-item d-flex align-items-center gap-2" ${l.id ? `id="${l.id}"` : ""}>
-                                    <i class="fa-${l.ok ? "solid fa-circle-check text-success" : "regular fa-circle text-body-secondary"} agStepIcon" aria-hidden="true"></i>
-                                    <span class="flex-fill small">${I18n.t(l.cim)}</span>
-                                    ${l.ok ? "" : `<a class="btn btn-link btn-sm p-0" href="${l.link || `#iroda/${ir.id}:${l.tab}`}">${I18n.t("agStepGo")}</a>`}
-                                </li>`).join("")}
-                        </ul>
-                    </div>
+                    ${figOssz ? `
+                    <div class="list-group list-group-flush mt-3">
+                        ${Object.entries(fig).filter(([, n]) => n).map(([k, n]) => `
+                            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2 px-0" data-go-fig="${k}">
+                                <span><b>${I18n.t("agAttn_" + k)}</b><span class="d-block small text-body-secondary">${I18n.t("agAttnHint_" + k)}</span></span>
+                                <span class="badge rounded-pill text-bg-warning">${n}</span>
+                            </button>`).join("")}
+                    </div>` : `<div class="small text-success mt-3"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> ${I18n.t("agAttnNone")}</div>`}
                 </div>
             </div>`;
 
-        // Tagok: van-e meghívott / aktív kolléga (a vezetőnek)
-        const tl = el.querySelector("#agStepTagok");
-        if (tl && vezeto) {
-            AgencyPage.api(`/api/irodak/${ir.id}/tagok`).then(tagok => {
-                const ok = (tagok || []).length > 1;
-                tl.querySelector(".agStepIcon").className = `fa-${ok ? "solid fa-circle-check text-success" : "regular fa-circle text-body-secondary"} agStepIcon`;
-                if (ok) { const a = tl.querySelector("a"); if (a) a.remove(); }
-            }).catch(() => { });
-        }
-
         const hirdetesekre = () => { location.hash = `#iroda/${ir.id}:hirdetesek`; };
-        el.querySelectorAll("[data-go-stat]").forEach(b => b.onclick = () => {
-            Object.assign(AgencyPage.szuro, { statusz: b.dataset.goStat, figyelem: "" });
-            hirdetesekre();
+        el.querySelectorAll("[data-go-stat]").forEach(b => b.onclick = () => { Object.assign(AgencyPage.szuro, { statusz: b.dataset.goStat, figyelem: "" }); hirdetesekre(); });
+        el.querySelectorAll("[data-go-fig]").forEach(b => b.onclick = () => { Object.assign(AgencyPage.szuro, { statusz: "", figyelem: b.dataset.goFig }); hirdetesekre(); });
+
+        if (!AgencyPage.zarolt()) Crm.mount(el.querySelector("#wsCrm"), { ter: ir.id, nezet: "attekintes", beagyazott: true });
+
+        // Első lépések (a vezetőnek): ami kész, kipipálva; ha minden kész, eltűnik
+        if (!vezeto) return;
+        AgencyPage.api(`/api/irodak/${ir.id}/csapat`).catch(() => null).then(cs => {
+            const lepesek = [
+                { ok: !!(ir.telefon && (ir.email || ir.weboldal) && ir.leiras), cim: "agStep_details", tab: "iroda" },
+                { ok: !!ir.van_logo, cim: "agStep_logo", tab: "iroda" },
+                { ok: !!(cs && cs.csapat.filter(a => a.allapot !== "kapcsolattarto").length > 1), cim: "wsStep_team", tab: "csapat" },
+                { ok: L.length > 0, cim: "agStep_listing", tab: "hirdetesek" }
+            ];
+            if (ir.csomag && ir.csomag.kell) lepesek.unshift({ ok: !!ir.csomag.aktiv, cim: "agStep_package", link: "#csomagok/iroda" });
+            const hatra = lepesek.filter(l => !l.ok).length;
+            const box = el.querySelector("#wsSetup");
+            if (!hatra || !box) return;
+            box.innerHTML = `
+                <div class="card wsSetup mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${I18n.t("agStepsTitle")}</h6>
+                            <span class="small text-body-secondary">${I18n.f("wsStepsLeft", { n: hatra })}</span>
+                        </div>
+                        <div class="wsSteps">
+                            ${lepesek.map(l => `
+                                <a class="wsStep ${l.ok ? "done" : ""}" href="${l.link || `#iroda/${ir.id}:${l.tab}`}">
+                                    <i class="fa-${l.ok ? "solid fa-circle-check" : "regular fa-circle"}" aria-hidden="true"></i> ${I18n.t(l.cim)}
+                                </a>`).join("")}
+                        </div>
+                    </div>
+                </div>`;
         });
-        el.querySelectorAll("[data-go-sort]").forEach(b => b.onclick = () => {
-            AgencyPage.rendezes = b.dataset.goSort;
-            Object.assign(AgencyPage.szuro, { statusz: "", figyelem: "" });
-            hirdetesekre();
-        });
-        el.querySelectorAll("[data-go-fig]").forEach(b => b.onclick = () => {
-            Object.assign(AgencyPage.szuro, { statusz: "", figyelem: b.dataset.goFig });
-            hirdetesekre();
-        });
-        const qn = document.getElementById("agQNew");
-        if (qn) qn.onclick = () => document.getElementById("agNewListing").click();
-        const qt = document.getElementById("agQTake");
-        if (qt) qt.onclick = () => AgencyPage.atvetel();
 
     }
 
@@ -660,7 +661,7 @@ class AgencyPage {
             return u ? u.nev : "";
         };
 
-        const vezeto = AuthManager.isAdmin() || (AuthManager.irodak.find(x => x.id === ir.id) || {}).szerep === "vezeto";
+        const vezeto = AgencyPage.vezeto();
 
         el.innerHTML = `
             ${typeof AgencyFeatured !== "undefined" ? AgencyFeatured.kezeloHtml(ir, L, vezeto) : ""}
@@ -699,11 +700,11 @@ class AgencyPage {
                             <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
                             <input type="search" class="form-control" id="agQ" placeholder="${esc(I18n.t("agSearchPh"))}" value="${esc(f.q)}" aria-label="${esc(I18n.t("agSearchPh"))}">
                         </div>
-                        <select class="form-select form-select-sm" id="agFAgent" aria-label="${esc(I18n.t("agAgent"))}">
+                        ${vezeto ? `<select class="form-select form-select-sm" id="agFAgent" aria-label="${esc(I18n.t("agAgent"))}">
                             <option value="">${I18n.t("agAnyAgent")}</option>
                             ${ir.ugynokok.map(u => `<option value="${u.id}" ${f.ugynok === String(u.id) ? "selected" : ""}>${esc(u.nev)}</option>`).join("")}
                             <option value="nincs" ${f.ugynok === "nincs" ? "selected" : ""}>${I18n.t("agNoAgent")}</option>
-                        </select>
+                        </select>` : ""}
                         <select class="form-select form-select-sm" id="agFType" aria-label="${esc(I18n.t("agType"))}">
                             <option value="">${I18n.t("agAnyType")}</option>
                             ${Types.LIST.map(t => `<option value="${t.key}" ${f.tipus === t.key ? "selected" : ""}>${I18n.t(t.label)}</option>`).join("")}
@@ -740,7 +741,8 @@ class AgencyPage {
             clearTimeout(t);
             t = setTimeout(() => { f.q = e.target.value; AgencyPage.lista(ugynokNev); }, 200);
         };
-        document.getElementById("agFAgent").onchange = e => { f.ugynok = e.target.value; AgencyPage.lista(ugynokNev); };
+        const fa = document.getElementById("agFAgent");
+        if (fa) fa.onchange = e => { f.ugynok = e.target.value; AgencyPage.lista(ugynokNev); };
         document.getElementById("agFType").onchange = e => { f.tipus = e.target.value; AgencyPage.lista(ugynokNev); };
         document.getElementById("agSort").onchange = e => { AgencyPage.rendezes = e.target.value; AgencyPage.lista(ugynokNev); };
 
@@ -786,7 +788,7 @@ class AgencyPage {
                         <tr>
                             <th class="agChk"><input class="form-check-input" type="checkbox" id="agAll" ${mind ? "checked" : ""} aria-label="${esc(I18n.t("agSelectAll"))}"></th>
                             <th>${I18n.t("agColListing")}</th>
-                            <th class="d-none d-md-table-cell">${I18n.t("agAgent")}</th>
+                            ${AgencyPage.vezeto() ? `<th class="d-none d-md-table-cell">${I18n.t("agAgent")}</th>` : ""}
                             <th class="d-none d-xl-table-cell">${I18n.t("agFolder")}</th>
                             <th class="text-end">${I18n.t("detailAr")}</th>
                             <th>${I18n.t("agColStatus")}</th>
@@ -811,7 +813,7 @@ class AgencyPage {
                                         </div>
                                     </div>
                                 </td>
-                                <td class="d-none d-md-table-cell small">${i.ugynok_id ? esc(ugynokNev(i.ugynok_id)) : `<span class="text-body-secondary">—</span>`}</td>
+                                ${AgencyPage.vezeto() ? `<td class="d-none d-md-table-cell small">${i.ugynok_id ? esc(ugynokNev(i.ugynok_id)) : `<span class="text-body-secondary">—</span>`}</td>` : ""}
                                 <td class="d-none d-xl-table-cell">${i.iroda_mappa ? `<span class="agFolderChip"><i class="fa-regular fa-folder"></i> ${esc(i.iroda_mappa)}</span>` : ""}</td>
                                 <td class="text-end text-nowrap fw-semibold">${Utils.price(i)}</td>
                                 <td>
@@ -819,6 +821,7 @@ class AgencyPage {
                                     <div class="small text-body-secondary text-nowrap mt-1" title="${esc(I18n.t("agInterestHint"))}">
                                         <i class="fa-regular fa-star"></i> ${i.kedvenc_db || 0} · <i class="fa-regular fa-envelope"></i> ${i.uzenet_db || 0}
                                     </div>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-nowrap" data-erd="${i.id}"><i class="fa-solid fa-user-group" aria-hidden="true"></i> ${I18n.f("wsInterested", { n: i.erdeklodo_db || 0 })}</button>
                                 </td>
                                 <td class="text-end text-nowrap">
                                     <button class="btn btn-sm btn-outline-secondary" data-internal="${i.id}" title="${esc(I18n.t("agInternal"))}" aria-label="${esc(I18n.t("agInternal"))}"><i class="fa-regular fa-note-sticky"></i></button>
@@ -850,6 +853,15 @@ class AgencyPage {
             b.onclick = () => NewPropertyManager.startEdit({ id: Number(b.dataset.edit) });
         });
 
+        // Érdeklődők: kik érdeklődnek, ki a tulajdonos, megtekintések (CRM)
+        box.querySelectorAll("[data-erd]").forEach(b => {
+            b.onclick = () => {
+                Crm.ter = AgencyPage.iroda.id;
+                Crm.api("/tagok").then(v => { Crm.tagok = v.tagok || []; Crm.en = v.en; Crm.vezeto = !!v.vezeto; Crm.ingatlanNyit(Number(b.dataset.erd)); })
+                    .catch(e => alert(Crm.hiba(e)));
+            };
+        });
+
         box.querySelectorAll("[data-internal]").forEach(b => {
             b.onclick = () => AgencyPage.belsoAdatok(AgencyPage.hirdetesek.find(i => i.id === Number(b.dataset.internal)));
         });
@@ -873,13 +885,13 @@ class AgencyPage {
 
         bar.innerHTML = `
             <b>${I18n.f("agSelected", { n })}</b>
-            <div class="agBulkGroup">
+            ${AgencyPage.vezeto() ? `<div class="agBulkGroup">
                 <select class="form-select form-select-sm" id="agBulkAgent" aria-label="${esc(I18n.t("agAssignAgent"))}">
                     <option value="">${I18n.t("agAssignAgent")}…</option>
                     ${ir.ugynokok.map(u => `<option value="${u.id}">${esc(u.nev)}</option>`).join("")}
                     <option value="0">— ${I18n.t("agNoAgent")}</option>
                 </select>
-            </div>
+            </div>` : ""}
             <div class="agBulkGroup">
                 <input class="form-control form-control-sm" id="agBulkFolder" list="agFolderList" placeholder="${esc(I18n.t("agMoveToFolder"))}" aria-label="${esc(I18n.t("agMoveToFolder"))}">
                 <datalist id="agFolderList">${AgencyPage.mappak().map(([m]) => `<option value="${esc(m)}">`).join("")}</datalist>
@@ -906,7 +918,8 @@ class AgencyPage {
                 .catch(e => alert(AgencyPage.hibaSzoveg(e)));
         };
 
-        document.getElementById("agBulkAgent").onchange = e => { if (e.target.value !== "") futtat("ugynok", Number(e.target.value) || null); };
+        const ba = document.getElementById("agBulkAgent");
+        if (ba) ba.onchange = e => { if (e.target.value !== "") futtat("ugynok", Number(e.target.value) || null); };
         document.getElementById("agBulkFolderGo").onclick = () => futtat("mappa", document.getElementById("agBulkFolder").value.trim());
         document.getElementById("agBulkFolder").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); futtat("mappa", e.target.value.trim()); } };
         bar.querySelectorAll("[data-bulk]").forEach(b => b.onclick = () => futtat(b.dataset.bulk));
@@ -950,7 +963,7 @@ class AgencyPage {
                         <input class="form-control" id="aiFolder" maxlength="60" list="aiFolderList" value="${esc(i.iroda_mappa || "")}">
                         <datalist id="aiFolderList">${AgencyPage.mappak().map(([m]) => `<option value="${esc(m)}">`).join("")}</datalist>
                     </div>
-                    <div class="col-12">
+                    <div class="col-12" ${AgencyPage.vezeto() ? "" : "hidden"}>
                         <label class="form-label" for="aiAgent">${I18n.t("agAgent")}</label>
                         <select class="form-select" id="aiAgent">
                             <option value="">— ${I18n.t("agNoAgent")}</option>
@@ -1003,161 +1016,226 @@ class AgencyPage {
 
     // ---------- ügynökök ----------
 
-    static ugynokTab(el, vezeto) {
+    // ---------- csapat (ügynökök + belépés) ----------
+    //  Egy lista: minden ügynöknek kártyája van (ez látszik a hirdetésen), és kaphat
+    //  belépést (meghívó e-mailben – akkor is, ha még nincs fiókja). A belépők száma a
+    //  csomagtól függ. Az ügynök itt csak a saját kártyáját látja (Profilom).
+
+    static csapatTab(el, vezeto) {
 
         const esc = Utils.escape;
         const ir = AgencyPage.iroda;
-        const db = id => AgencyPage.hirdetesek.filter(i => i.ugynok_id === id && AgencyPage.statuszOf(i) !== "archiv").length;
-        const en = AuthManager.user.id;
-
-        el.innerHTML = `
-            <p class="sectionNote">${I18n.t("agAgentsHelp")}</p>
-            <div class="row g-3 mb-4">
-                ${ir.ugynokok.map(u => `
-                    <div class="col-md-6 col-xl-4">
-                        <div class="card h-100 agAgentCard ${u.aktiv ? "" : "opacity-50"}" data-uid="${u.id}">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center gap-3 mb-2">
-                                    <span class="accAvatar small">${esc((u.nev || "?").slice(0, 1).toUpperCase())}</span>
-                                    <div class="min-w-0">
-                                        <b class="d-block text-truncate">${esc(u.nev)}</b>
-                                        <span class="small text-body-secondary">${I18n.f("agAgentListings", { n: db(u.id) })}${u.van_fiok ? ` · <i class="fa-solid fa-user-check" title="${esc(I18n.t("agHasAccount"))}"></i>` : ""}${u.aktiv ? "" : ` · ${I18n.t("agInactive")}`}</span>
-                                    </div>
-                                </div>
-                                <div class="small">${u.telefon ? `<div><i class="fa-solid fa-phone"></i> ${esc(u.telefon)}</div>` : ""}${u.email ? `<div class="text-truncate"><i class="fa-regular fa-envelope"></i> ${esc(u.email)}</div>` : ""}</div>
-                                ${vezeto || u.user_id === en ? `
-                                <div class="d-flex gap-2 mt-3">
-                                    <button class="btn btn-sm btn-outline-secondary" data-aedit="${u.id}"><i class="fa-solid fa-pen"></i> ${I18n.t("detailEdit")}</button>
-                                    ${vezeto ? `<button class="btn btn-sm btn-outline-danger" data-adel="${u.id}" aria-label="${esc(I18n.t("detailDelete"))}"><i class="fa-solid fa-trash"></i></button>` : ""}
-                                </div>` : ""}
-                            </div>
-                        </div>
-                    </div>`).join("")}
-            </div>
-
-            ${vezeto ? `
-            <form class="card" id="agAgentAdd">
-                <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-user-plus"></i> ${I18n.t("agAddAgent")}</h6></div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <div class="col-md-4"><input class="form-control" name="nev" required maxlength="100" placeholder="${esc(I18n.t("authName"))}" aria-label="${esc(I18n.t("authName"))}"></div>
-                        <div class="col-md-3"><input class="form-control" name="telefon" type="tel" maxlength="40" placeholder="${esc(I18n.t("accPhone"))}" aria-label="${esc(I18n.t("accPhone"))}"></div>
-                        <div class="col-md-3"><input class="form-control" name="email" type="email" maxlength="160" placeholder="${esc(I18n.t("authEmail"))}" aria-label="${esc(I18n.t("authEmail"))}"></div>
-                        <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit">${I18n.t("agAdd")}</button></div>
-                    </div>
-                    <div class="form-text">${I18n.t("agAddAgentHelp")}</div>
-                </div>
-            </form>` : ""}`;
-
-        const add = document.getElementById("agAgentAdd");
-        if (add) add.onsubmit = e => {
-            e.preventDefault();
-            const f = e.target;
-            AgencyPage.api(`/api/irodak/${ir.id}/ugynokok`, "POST", { nev: f.nev.value, telefon: f.telefon.value, email: f.email.value })
-                .then(() => AgencyPage.show(String(ir.id)))
-                .catch(err => alert(AgencyPage.hibaSzoveg(err)));
-        };
-
-        el.querySelectorAll("[data-adel]").forEach(b => b.onclick = () => {
-            const u = ir.ugynokok.find(x => x.id === Number(b.dataset.adel));
-            if (!confirm(I18n.f("agAgentDeleteConfirm", { nev: u.nev }))) return;
-            AgencyPage.api(`/api/irodak/${ir.id}/ugynokok/${u.id}`, "DELETE").then(() => AgencyPage.show(String(ir.id)));
-        });
-
-        el.querySelectorAll("[data-aedit]").forEach(b => b.onclick = () => {
-            const u = ir.ugynokok.find(x => x.id === Number(b.dataset.aedit));
-            const kartya = b.closest(".card-body");
-            kartya.innerHTML = `
-                <input class="form-control form-control-sm mb-2" data-f="nev" value="${esc(u.nev)}" aria-label="${esc(I18n.t("authName"))}">
-                <input class="form-control form-control-sm mb-2" data-f="telefon" value="${esc(u.telefon || "")}" placeholder="${esc(I18n.t("accPhone"))}" aria-label="${esc(I18n.t("accPhone"))}">
-                <input class="form-control form-control-sm mb-2" data-f="email" value="${esc(u.email || "")}" placeholder="${esc(I18n.t("authEmail"))}" aria-label="${esc(I18n.t("authEmail"))}">
-                <div class="form-check form-switch mb-2">
-                    <input class="form-check-input" type="checkbox" data-f="aktiv" id="agAktiv${u.id}" ${u.aktiv ? "checked" : ""}>
-                    <label class="form-check-label small" for="agAktiv${u.id}">${I18n.t("agActiveAgent")}</label>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-primary" data-save>${I18n.t("save")}</button>
-                    <button class="btn btn-sm btn-outline-secondary" data-cancel>${I18n.t("cancel")}</button>
-                </div>`;
-            const v = f => kartya.querySelector(`[data-f="${f}"]`);
-            kartya.querySelector("[data-cancel]").onclick = () => AgencyPage.ugynokTab(el, vezeto);
-            kartya.querySelector("[data-save]").onclick = () => {
-                AgencyPage.api(`/api/irodak/${ir.id}/ugynokok/${u.id}`, "PUT", {
-                    nev: v("nev").value, telefon: v("telefon").value, email: v("email").value, aktiv: v("aktiv").checked
-                }).then(() => AgencyPage.show(String(ir.id))).catch(err => alert(AgencyPage.hibaSzoveg(err)));
-            };
-        });
-
-    }
-
-    // ---------- tagok ----------
-
-    static tagTab(el, vezeto) {
-
-        const esc = Utils.escape;
-        const ir = AgencyPage.iroda;
-
         el.innerHTML = `<div class="emptyState"><div class="spinner-border text-primary"></div></div>`;
 
-        AgencyPage.api(`/api/irodak/${ir.id}/tagok`).then(tagok => {
+        AgencyPage.api(`/api/irodak/${ir.id}/csapat`).then(d => {
+
+            const h = d.hely || {};
+            const tele = h.limit !== null && h.limit !== undefined && h.foglalt >= h.limit;
+            const allapot = a => ({
+                belepes: `<span class="badge ${a.szerep === "vezeto" ? "text-bg-primary" : "text-bg-success"}">${I18n.t(a.szerep === "vezeto" ? "agRoleManager" : "wsRoleAgent")}</span>`,
+                meghivott: `<span class="badge text-bg-warning">${I18n.t("wsInvited")}</span>`,
+                kapcsolattarto: `<span class="badge text-bg-light">${I18n.t("wsContactOnly")}</span>`
+            })[a.allapot];
+
+            const kartya = a => `
+                <div class="col-md-6 col-xl-4">
+                    <div class="card h-100 wsAgent ${a.aktiv ? "" : "opacity-50"}">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start gap-3">
+                                <span class="accAvatar small">${esc((a.nev || "?").slice(0, 1).toUpperCase())}</span>
+                                <div class="min-w-0 flex-fill">
+                                    <b class="d-block text-truncate">${esc(a.nev)}</b>
+                                    <div class="mt-1">${allapot(a)}${a.aktiv ? "" : ` <span class="badge text-bg-secondary">${I18n.t("agInactive")}</span>`}</div>
+                                </div>
+                            </div>
+                            <div class="small mt-2">
+                                ${a.telefon ? `<div><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> ${esc(a.telefon)}</div>` : ""}
+                                ${a.email ? `<div class="text-truncate"><i class="fa-regular fa-envelope fa-fw" aria-hidden="true"></i> ${esc(a.email)}</div>` : ""}
+                            </div>
+                            <div class="wsAgentStats small text-body-secondary mt-2">
+                                <span><i class="fa-solid fa-house-user" aria-hidden="true"></i> ${I18n.f("wsAgentListings", { n: a.hirdetes_db || 0 })}</span>
+                                ${a.user_id ? `<span><i class="fa-solid fa-address-book" aria-hidden="true"></i> ${I18n.f("wsAgentClients", { n: a.ugyfel_db || 0 })}</span>` : ""}
+                            </div>
+                            ${a.allapot === "kapcsolattarto" && vezeto ? `<p class="small text-body-secondary mt-2 mb-0">${I18n.t("wsContactOnlyHint")}</p>` : ""}
+                            ${a.allapot === "meghivott" ? `<p class="small text-body-secondary mt-2 mb-0">${I18n.t("wsInvitedHint")}</p>` : ""}
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                <button class="btn btn-sm btn-outline-secondary" data-cedit="${a.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${I18n.t("detailEdit")}</button>
+                                ${vezeto && a.allapot === "kapcsolattarto" ? `<button class="btn btn-sm btn-outline-primary" data-cinv="${a.id}" ${tele ? `title="${esc(I18n.t("wsSeatFull"))}"` : ""}><i class="fa-solid fa-key" aria-hidden="true"></i> ${I18n.t("wsGiveAccess")}</button>` : ""}
+                                ${vezeto && a.allapot === "meghivott" ? `<button class="btn btn-sm btn-outline-primary" data-cinv="${a.id}"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t("wsResend")}</button>` : ""}
+                                ${vezeto && a.allapot !== "kapcsolattarto" && a.user_id !== AuthManager.user.id ? `<button class="btn btn-sm btn-outline-secondary" data-crevoke="${a.id}">${I18n.t("wsRevoke")}</button>` : ""}
+                                ${vezeto && a.user_id !== AuthManager.user.id ? `<button class="btn btn-sm btn-outline-danger" data-cdel="${a.id}" aria-label="${esc(I18n.t("detailDelete"))}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
+                                ${!vezeto && a.user_id === AuthManager.user.id ? `<button class="btn btn-sm btn-outline-danger" data-cleave="${a.id}"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> ${I18n.t("agLeave")}</button>` : ""}
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
 
             el.innerHTML = `
-                <p class="sectionNote">${I18n.t("agMembersHelp")}</p>
+                ${vezeto ? `
+                <div class="card wsSeats mb-4">
+                    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                        <i class="fa-solid fa-users fs-3 text-primary" aria-hidden="true"></i>
+                        <div class="flex-fill">
+                            <b>${h.limit === null || h.limit === undefined ? I18n.f("wsSeatsUnlimited", { n: h.foglalt || 0 }) : I18n.f("wsSeatsUsed", { n: h.foglalt, m: h.limit })}</b>
+                            ${h.limit !== null && h.limit !== undefined ? `<div class="progress mt-2" role="progressbar" aria-valuenow="${h.foglalt}" aria-valuemin="0" aria-valuemax="${h.limit}" style="height:6px"><div class="progress-bar ${tele ? "bg-warning" : ""}" style="width:${Math.min(100, Math.round(h.foglalt / Math.max(1, h.limit) * 100))}%"></div></div>` : ""}
+                            <div class="small text-body-secondary mt-1">${I18n.t("wsSeatsHelp")}</div>
+                        </div>
+                        ${h.limit !== null && h.limit !== undefined ? `<a class="btn btn-sm ${tele ? "btn-primary" : "btn-outline-primary"}" href="#csomagok/iroda"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> ${I18n.t("wsSeatsExpand")}</a>` : ""}
+                    </div>
+                </div>` : ""}
+
+                <div class="row g-3 mb-4">${d.csapat.map(kartya).join("")}</div>
+
+                ${d.regi_meghivok && d.regi_meghivok.length ? `
                 <div class="card mb-4">
+                    <div class="card-header"><h6 class="mb-0">${I18n.t("wsOldInvites")}</h6></div>
                     <ul class="list-group list-group-flush">
-                        ${tagok.map(t => `
-                            <li class="list-group-item d-flex align-items-center gap-3">
-                                <span class="accAvatar small">${esc((t.nev || "?").slice(0, 1).toUpperCase())}</span>
-                                <div class="flex-fill min-w-0">
-                                    <b class="d-block text-truncate">${esc(t.nev || "")}</b>
-                                    <span class="small text-body-secondary text-truncate d-block">${esc(t.email || "")}</span>
-                                </div>
-                                ${t.statusz === "meghivott" ? `<span class="badge text-bg-warning">${I18n.t("agInvitedBadge")}</span>` : ""}
-                                <span class="badge ${t.szerep === "vezeto" ? "text-bg-primary" : "text-bg-light"}">${I18n.t(t.szerep === "vezeto" ? "agRoleManager" : "agRoleMember")}</span>
-                                ${vezeto || t.id === AuthManager.user.id ? `<button class="btn btn-sm btn-outline-danger" data-mdel="${t.id}" data-meghivott="${t.statusz === "meghivott" ? 1 : 0}" title="${esc(I18n.t(t.statusz === "meghivott" ? "agInviteCancel" : t.id === AuthManager.user.id ? "agLeave" : "agRemove"))}" aria-label="${esc(I18n.t(t.statusz === "meghivott" ? "agInviteCancel" : t.id === AuthManager.user.id ? "agLeave" : "agRemove"))}"><i class="fa-solid ${t.statusz === "meghivott" ? "fa-xmark" : t.id === AuthManager.user.id ? "fa-right-from-bracket" : "fa-user-minus"}"></i></button>` : ""}
-                            </li>`).join("")}
+                        ${d.regi_meghivok.map(m => `<li class="list-group-item d-flex align-items-center gap-2"><span class="flex-fill">${esc(m.nev || "")} <span class="small text-body-secondary">${esc(m.email || "")}</span></span>
+                            <button class="btn btn-sm btn-outline-danger" data-oldinv="${m.user_id}">${I18n.t("agInviteCancel")}</button></li>`).join("")}
                     </ul>
-                </div>
+                </div>` : ""}
 
                 ${vezeto ? `
-                <form class="card" id="agMemberAdd">
-                    <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-user-plus"></i> ${I18n.t("agAddMember")}</h6></div>
+                <form class="card" id="wsAddAgent" novalidate>
+                    <div class="card-header"><h6 class="mb-0"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> ${I18n.t("agAddAgent")}</h6></div>
                     <div class="card-body">
                         <div class="row g-2">
-                            <div class="col-md-6"><input class="form-control" name="email" required placeholder="${esc(I18n.t("authEmail"))}" aria-label="${esc(I18n.t("authEmail"))}"></div>
-                            <div class="col-md-3">
-                                <select class="form-select" name="szerep" aria-label="${esc(I18n.t("agRole"))}">
-                                    <option value="tag">${I18n.t("agRoleMember")}</option>
-                                    <option value="vezeto">${I18n.t("agRoleManager")}</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 d-grid"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> ${I18n.t("agInviteBtn")}</button></div>
+                            <div class="col-md-4"><label class="form-label small mb-1" for="waNev">${I18n.t("authName")} *</label><input class="form-control" id="waNev" required maxlength="100"></div>
+                            <div class="col-md-3"><label class="form-label small mb-1" for="waTel">${I18n.t("accPhone")}</label><input class="form-control" id="waTel" type="tel" maxlength="40"></div>
+                            <div class="col-md-5"><label class="form-label small mb-1" for="waEmail">${I18n.t("authEmail")}</label><input class="form-control" id="waEmail" type="email" maxlength="160"></div>
                         </div>
-                        <div class="form-text">${I18n.t("agAddMemberHelp2")}</div>
-                        <div class="accMsg alert alert-danger small py-2 mt-2" hidden></div>
+                        <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="waBelep" ${tele ? "" : "checked"}>
+                                <label class="form-check-label" for="waBelep">${I18n.t("wsGetsAccess")}</label>
+                            </div>
+                            <select class="form-select form-select-sm w-auto" id="waSzerep" aria-label="${esc(I18n.t("agRole"))}">
+                                <option value="tag">${I18n.t("wsRoleAgent")}</option>
+                                <option value="vezeto">${I18n.t("agRoleManager")}</option>
+                            </select>
+                            <button class="btn btn-primary ms-auto" type="submit">${I18n.t("agAdd")}</button>
+                        </div>
+                        <div class="form-text">${I18n.t("wsAddHelp")}</div>
+                        <div class="alert alert-danger small py-2 mt-2" id="waHiba" hidden></div>
                     </div>
                 </form>` : ""}`;
 
-            const add = document.getElementById("agMemberAdd");
+            const ujra = () => AgencyPage.csapatTab(el, vezeto);
+            const hibaUzenet = e => e.kod === "seat_limit" ? I18n.f("wsErrSeat", { m: e.limit || "?" }) : AgencyPage.hibaSzoveg(e);
+            const add = el.querySelector("#wsAddAgent");
             if (add) add.onsubmit = e => {
                 e.preventDefault();
-                const msg = add.querySelector(".accMsg");
-                AgencyPage.api(`/api/irodak/${ir.id}/tagok`, "POST", { email: add.email.value, szerep: add.szerep.value })
-                    .then(v => { Utils.toast(I18n.t(v.mar_tag ? "alertSaveSuccess" : "agInviteSent")); AgencyPage.tagTab(el, vezeto); })
-                    .catch(err => { msg.hidden = false; msg.innerText = AgencyPage.hibaSzoveg(err); });
+                const $ = q => add.querySelector(q);
+                const hiba = $("#waHiba"); hiba.hidden = true;
+                if (!$("#waNev").value.trim()) { $("#waNev").classList.add("is-invalid"); return; }
+                if ($("#waBelep").checked && !$("#waEmail").value.trim()) { hiba.textContent = I18n.t("wsErrEmail"); hiba.hidden = false; return; }
+                AgencyPage.api(`/api/irodak/${ir.id}/csapat`, "POST", { nev: $("#waNev").value, telefon: $("#waTel").value, email: $("#waEmail").value, belepes: $("#waBelep").checked, szerep: $("#waSzerep").value })
+                    .then(v => { Utils.toast(I18n.t($("#waBelep").checked ? (v.regisztralt ? "wsInviteSentReg" : "wsInviteSentNew") : "alertSaveSuccess")); ujra(); })
+                    .catch(err => { hiba.textContent = hibaUzenet(err); hiba.hidden = false; });
             };
-
-            el.querySelectorAll("[data-mdel]").forEach(b => b.onclick = () => {
-                const sajat = Number(b.dataset.mdel) === AuthManager.user.id;
-                const meghivott = b.dataset.meghivott === "1";
-                if (!confirm(I18n.t(meghivott ? "agInviteCancelConfirm" : sajat ? "agLeaveConfirm" : "agRemoveConfirm"))) return;
-                AgencyPage.api(`/api/irodak/${ir.id}/tagok/${b.dataset.mdel}`, "DELETE")
-                    .then(() => sajat ? AuthManager.refresh().then(() => { location.hash = "#fiok"; }) : AgencyPage.tagTab(el, vezeto))
+            const a = id => d.csapat.find(x => x.id === Number(id));
+            el.querySelectorAll("[data-cinv]").forEach(b => b.onclick = () => {
+                const x = a(b.dataset.cinv);
+                if (!x.email) { alert(I18n.t("wsErrEmail")); return AgencyPage.csapatSzerk(x, vezeto, ujra); }
+                AgencyPage.api(`/api/irodak/${ir.id}/csapat/${x.id}/meghivo`, "POST", {})
+                    .then(v => { Utils.toast(I18n.t(v.regisztralt ? "wsInviteSentReg" : "wsInviteSentNew")); ujra(); })
+                    .catch(err => alert(hibaUzenet(err)));
+            });
+            el.querySelectorAll("[data-crevoke]").forEach(b => b.onclick = () => {
+                const x = a(b.dataset.crevoke);
+                if (!confirm(I18n.f("wsRevokeConfirm", { nev: x.nev }))) return;
+                AgencyPage.api(`/api/irodak/${ir.id}/csapat/${x.id}/megvon`, "POST", {}).then(ujra).catch(err => alert(AgencyPage.hibaSzoveg(err)));
+            });
+            el.querySelectorAll("[data-cdel]").forEach(b => b.onclick = () => {
+                const x = a(b.dataset.cdel);
+                if (!confirm(I18n.f("wsDeleteConfirm", { nev: x.nev }))) return;
+                AgencyPage.api(`/api/irodak/${ir.id}/csapat/${x.id}`, "DELETE").then(() => AgencyPage.show(`${ir.id}:csapat`)).catch(err => alert(AgencyPage.hibaSzoveg(err)));
+            });
+            el.querySelectorAll("[data-cleave]").forEach(b => b.onclick = () => {
+                if (!confirm(I18n.t("agLeaveConfirm"))) return;
+                AgencyPage.api(`/api/irodak/${ir.id}/csapat/${b.dataset.cleave}/megvon`, "POST", {})
+                    .then(() => AuthManager.refresh()).then(() => { document.body.classList.remove("wsMode"); location.hash = "#fiok"; })
                     .catch(err => alert(AgencyPage.hibaSzoveg(err)));
+            });
+            el.querySelectorAll("[data-cedit]").forEach(b => b.onclick = () => AgencyPage.csapatSzerk(a(b.dataset.cedit), vezeto, ujra));
+            el.querySelectorAll("[data-oldinv]").forEach(b => b.onclick = () => {
+                if (!confirm(I18n.t("agInviteCancelConfirm"))) return;
+                AgencyPage.api(`/api/irodak/${ir.id}/tagok/${b.dataset.oldinv}`, "DELETE").then(ujra).catch(err => alert(AgencyPage.hibaSzoveg(err)));
             });
 
         }).catch(err => { el.innerHTML = `<div class="alert alert-danger">${AgencyPage.hibaSzoveg(err)}</div>`; });
 
+    }
+
+    static csapatSzerk(a, vezeto, utana) {
+        const ir = AgencyPage.iroda;
+        const esc = Utils.escape;
+        const { tartalom, modal } = Svc.modal("wsAgentEdit", "");
+        tartalom.innerHTML = `
+            <div class="modal-header">
+                <h5 class="modal-title">${esc(a.nev)}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${esc(I18n.t("close"))}"></button>
+            </div>
+            <form class="modal-body" id="wsAeF" novalidate>
+                <p class="small text-body-secondary">${I18n.t("wsEditHelp")}</p>
+                <label class="form-label small mb-1" for="weNev">${I18n.t("authName")}</label>
+                <input class="form-control mb-2" id="weNev" maxlength="100" value="${esc(a.nev)}">
+                <label class="form-label small mb-1" for="weTel">${I18n.t("accPhone")}</label>
+                <input class="form-control mb-2" id="weTel" type="tel" maxlength="40" value="${esc(a.telefon || "")}">
+                <label class="form-label small mb-1" for="weEmail">${I18n.t("authEmail")}</label>
+                <input class="form-control mb-3" id="weEmail" type="email" maxlength="160" value="${esc(a.email || "")}">
+                ${vezeto && a.allapot !== "kapcsolattarto" ? `
+                <label class="form-label small mb-1" for="weSzerep">${I18n.t("agRole")}</label>
+                <select class="form-select mb-3" id="weSzerep">
+                    <option value="tag" ${(a.szerep || a.meghivo_szerep) !== "vezeto" ? "selected" : ""}>${I18n.t("wsRoleAgent")}</option>
+                    <option value="vezeto" ${(a.szerep || a.meghivo_szerep) === "vezeto" ? "selected" : ""}>${I18n.t("agRoleManager")}</option>
+                </select>
+                <p class="small text-body-secondary">${I18n.t("wsRoleHelp")}</p>` : ""}
+                ${vezeto ? `
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="weAktiv" ${a.aktiv ? "checked" : ""}>
+                    <label class="form-check-label small" for="weAktiv">${I18n.t("agActiveAgent")}</label>
+                </div>` : ""}
+            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${I18n.t("cancel")}</button>
+                <button type="submit" class="btn btn-primary" form="wsAeF">${I18n.t("save")}</button>
+            </div>`;
+        modal.show();
+        const $ = q => tartalom.querySelector(q);
+        $("#wsAeF").onsubmit = e => {
+            e.preventDefault();
+            AgencyPage.api(`/api/irodak/${ir.id}/csapat/${a.id}`, "PUT", {
+                nev: $("#weNev").value, telefon: $("#weTel").value, email: $("#weEmail").value,
+                aktiv: $("#weAktiv") ? $("#weAktiv").checked : true, szerep: $("#weSzerep") ? $("#weSzerep").value : undefined
+            }).then(() => { modal.hide(); AuthManager.refresh(); utana(); }).catch(err => alert(AgencyPage.hibaSzoveg(err)));
+        };
+    }
+
+    // ---------- iroda és csomag (a vezetőnek) ----------
+
+    static irodaTab(el) {
+        const ir = AgencyPage.iroda;
+        const c = ir.csomag || {};
+        el.innerHTML = `
+            <div class="card wsPlan mb-4">
+                <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                    <i class="fa-solid fa-box fs-3 text-primary" aria-hidden="true"></i>
+                    <div class="flex-fill">
+                        <b>${I18n.t(c.kell ? (c.aktiv ? "wsPlanActive" : "wsPlanNone") : "wsPlanFree")}</b>
+                        <div class="small text-body-secondary" id="wsPlanSeats">${I18n.t("wsPlanHelp")}</div>
+                    </div>
+                    <a class="btn btn-sm btn-outline-secondary" href="#fiok/csomag"><i class="fa-solid fa-receipt" aria-hidden="true"></i> ${I18n.t("wsPlanBilling")}</a>
+                    <a class="btn btn-sm btn-primary" href="#csomagok/iroda"><i class="fa-solid fa-arrow-up-right-dots" aria-hidden="true"></i> ${I18n.t("wsPlanChange")}</a>
+                </div>
+            </div>
+            <div id="wsDetails"></div>`;
+        AgencyPage.api(`/api/irodak/${ir.id}/csapat`).then(d => {
+            const h = d.hely || {};
+            const t = el.querySelector("#wsPlanSeats");
+            if (t) t.textContent = h.limit === null || h.limit === undefined ? I18n.f("wsSeatsUnlimited", { n: h.foglalt || 0 }) : I18n.f("wsSeatsUsed", { n: h.foglalt, m: h.limit });
+        }).catch(() => { });
+        AgencyPage.adatTab(el.querySelector("#wsDetails"), true);
     }
 
     // ---------- adatok ----------

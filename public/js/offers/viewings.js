@@ -87,15 +87,8 @@ class Viewings {
                 <b class="mkCodeVal">IP-${i.id}</b>
             </div>`;
 
-        if (!a.kerheto) {
-            // beolvasott hirdetés: nincs kinek továbbítani – egy regisztrált irodán át
-            body.innerHTML = `
-                ${kod}
-                <b class="d-block mt-2"><i class="fa-regular fa-calendar" aria-hidden="true"></i> ${I18n.t("mkImportedTitle")}</b>
-                <p class="small text-body-secondary mb-2">${I18n.t("mkImportedText")}</p>
-                <a class="btn btn-sm btn-outline-primary" href="#ajanlat/${i.id}">${I18n.t("mkImportedBtn")}</a>`;
-            return;
-        }
+        // Nincs kinek továbbítani (más oldalról átvett hirdetés): itt nincs teendő – a forrásoldalon kell jelentkezni
+        if (!a.kerheto && !a.keres) { el.remove(); return; }
 
         const k = a.keres && !["lemondva", "elutasitva"].includes(a.keres.statusz) ? a.keres : null;
         let allapot = "";
@@ -268,7 +261,6 @@ class Viewings {
                     </div>
                 </article>`;
             el.innerHTML = `
-                <p class="small text-body-secondary">${I18n.t("mkAccountHelp")}</p>
                 ${be.length ? `<h5 class="mt-2">${I18n.t("mkIncoming")}</h5>${be.map(k => sor(k, true)).join("")}<h5 class="mt-4">${I18n.t("mkMine")}</h5>` : ""}
                 ${sajat.length ? sajat.map(k => sor(k, false)).join("") : `<div class="emptyState"><i class="fa-regular fa-calendar"></i><h5>${I18n.t("mkMineNone")}</h5><p>${I18n.t("mkMineNoneHint")}</p></div>`}`;
             const ujra = () => Viewings.fiok(el);

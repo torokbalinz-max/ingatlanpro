@@ -1,75 +1,124 @@
 // ============================================================
-//  Fiókom
-//   #fiok/profil       név, e-mail, telefon, értesítések, jelszó
-//   #fiok/hirdetesek   a saját hirdetéseim (szerkesztés, törlés)
-//   #fiok/keresesek    mentett keresések (új találatok)
-//   #fiok/igenyek      a keresési igényeim és a rájuk jött válaszok
-//   #fiok/uzenetek     üzenetek
-//   #fiok/ertesitesek  értesítések + beállításuk (account/notifications.js)
-//   #fiok/csomag       csomagom, rendeléseim, díjbekérőim (services/accountBilling.js)
+//  Fiókom – témák szerint rendezve (bal oldalt a menü, telefonon felül görgethető sáv)
+//
+//   #fiok              Áttekintés: minden rész egy kártyán, egy mondattal, mire jó
+//   Keresés            Kedvencek (#favorites) · Mentett keresések · Keresési igényeim
+//   Ügyeim             Megtekintéseim · Ajánlataim · Érdeklődéseim (#erdeklodes) ·
+//                      Üzenetek · Értesítések
+//   Eladás             Hirdetéseim (+ látogatottság) · Ingatlanom eladása (#eladas)
+//   Beállítások        Profil és jelszó · Értesítési beállítások · Csomagom és számláim
+//   Ingatlanosoknak    Munkaterület (#iroda) – vagy iroda regisztrálása
+//  A régi címek (#fiok/profil, #fiok/hirdetesek…) ugyanúgy működnek.
 //   #fiok/megbizasok   „Eladjuk helyetted” megbízásaim (services/myMandates.js)
 // ============================================================
 
 class AccountPage {
 
-    static tab = "profil";
+    static tab = "attekintes";
     static nyitando = null;      // egy beszélgetés, amit meg kell nyitni (válasz után)
 
-    static TABS = [
-        { key: "profil", icon: "fa-solid fa-id-card", label: "accTabProfil" },
-        { key: "hirdetesek", icon: "fa-solid fa-house-user", label: "accTabListings" },
-        // A Hirdetéseim alatti második fül (nem külön menüpont): látogatottság
-        { key: "statisztika", icon: "fa-solid fa-chart-simple", label: "lsTab", al: "hirdetesek" },
-        { key: "keresesek", icon: "fa-solid fa-bookmark", label: "accTabSearches" },
-        { key: "igenyek", icon: "fa-solid fa-bullhorn", label: "accTabRequests" },
-        { key: "megtekintesek", icon: "fa-regular fa-calendar-check", label: "mkAccountTab" },
-        { key: "ajanlatok", icon: "fa-solid fa-hand-holding-dollar", label: "ofAccountTab" },
-        { key: "uzenetek", icon: "fa-solid fa-envelope", label: "accTabMessages" },
-        { key: "ertesitesek", icon: "fa-solid fa-bell", label: "accTabNotifications" },
-        { key: "csomag", icon: "fa-solid fa-receipt", label: "accTabBilling" }
+    // Minden rész: kulcs, ikon, cím, rövid leírás (az áttekintéshez); link: másik oldal
+    static RESZEK = {
+        attekintes: { icon: "fa-solid fa-house", label: "acNav_attekintes" },
+        kedvencek: { icon: "fa-solid fa-star", label: "menuKedvencek", desc: "acDesc_kedvencek", link: "#favorites" },
+        keresesek: { icon: "fa-solid fa-bookmark", label: "accTabSearches", desc: "acDesc_keresesek" },
+        igenyek: { icon: "fa-solid fa-bullhorn", label: "accTabRequests", desc: "acDesc_igenyek" },
+        megtekintesek: { icon: "fa-regular fa-calendar-check", label: "acNav_megtekintesek", desc: "acDesc_megtekintesek" },
+        ajanlatok: { icon: "fa-solid fa-hand-holding-dollar", label: "acNav_ajanlatok", desc: "acDesc_ajanlatok" },
+        erdeklodes: { icon: "fa-solid fa-house-circle-check", label: "by_cim", desc: "acDesc_erdeklodes", link: "#erdeklodes" },
+        uzenetek: { icon: "fa-solid fa-envelope", label: "accTabMessages", desc: "acDesc_uzenetek" },
+        ertesitesek: { icon: "fa-solid fa-bell", label: "accTabNotifications", desc: "acDesc_ertesitesek" },
+        hirdetesek: { icon: "fa-solid fa-house-user", label: "accTabListings", desc: "acDesc_hirdetesek" },
+        eladas: { icon: "fa-solid fa-key", label: "el_menu", desc: "acDesc_eladas", link: "#eladas" },
+        profil: { icon: "fa-solid fa-id-card", label: "acNav_profil", desc: "acDesc_profil" },
+        ertesitesBeall: { icon: "fa-solid fa-sliders", label: "acNav_ertesitesBeall", desc: "acDesc_ertesitesBeall" },
+        csomag: { icon: "fa-solid fa-receipt", label: "accTabBilling", desc: "acDesc_csomag" },
+        munkaterulet: { icon: "fa-solid fa-briefcase", label: "wsEnter", desc: "acDesc_munkaterulet", link: "#iroda" },
+        // a Hirdetéseim alatti második oldal (nem külön menüpont)
+        statisztika: { icon: "fa-solid fa-chart-simple", label: "lsTab", al: "hirdetesek" },
+        megbizasok: { icon: "fa-solid fa-key", label: "el_menu", al: "eladas" }
+    };
+
+    static CSOPORTOK = [
+        { cim: null, elemek: ["attekintes"] },
+        { cim: "acGrp_search", elemek: ["kedvencek", "keresesek", "igenyek"] },
+        { cim: "acGrp_deals", elemek: ["megtekintesek", "ajanlatok", "erdeklodes", "uzenetek", "ertesitesek"] },
+        { cim: "acGrp_sell", elemek: ["hirdetesek", "eladas"] },
+        { cim: "acGrp_settings", elemek: ["profil", "ertesitesBeall", "csomag"] },
+        { cim: "acGrp_pro", elemek: ["munkaterulet"] }
     ];
+
+    // A régi kulcsok
+    static REGI = { "ertesites-beallitas": "ertesitesBeall", beallitasok: "profil" };
+
+    static reszCim(k) {
+        if (k === "munkaterulet") return I18n.t(AuthManager.irodak.length ? "wsEnter" : "acNav_irodaUj");
+        return I18n.t(AccountPage.RESZEK[k].label);
+    }
+
+    static jelveny(k) {
+        const n = { uzenetek: AuthManager.olvasatlan, ertesitesek: AuthManager.ertesites, erdeklodes: AuthManager.vevo && AuthManager.vevo.teendo,
+            eladas: AuthManager.megbizas && AuthManager.megbizas.teendo, munkaterulet: (AuthManager.irodaMeghivasok || []).length }[k] || 0;
+        const cls = { uzenetek: "accMsgCount", ertesitesek: "accNotifCount" }[k] || "";
+        return n || cls ? `<span class="badge rounded-pill text-bg-danger ${cls}" ${n ? "" : "hidden"}>${n > 9 ? "9+" : n}</span>` : "";
+    }
 
     static show(param) {
 
         if (!AuthManager.loggedIn()) return;
 
-        AccountPage.tab = AccountPage.TABS.some(t => t.key === param) ? param : (AccountPage.tab || "profil");
+        const kert = AccountPage.REGI[param] || param;
+        AccountPage.tab = AccountPage.RESZEK[kert] && !AccountPage.RESZEK[kert].link ? kert : (param ? AccountPage.tab || "attekintes" : "attekintes");
 
         const box = document.getElementById("fiokContent");
         const u = AuthManager.user;
+        const esc = Utils.escape;
+        const R = AccountPage.RESZEK;
+        const aktiv = R[AccountPage.tab].al || AccountPage.tab;
 
         box.innerHTML = `
-            <div class="pageHeader">
-                <div class="pageHeaderRow">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="accAvatar">${Utils.escape((u.nev || "?").slice(0, 1).toUpperCase())}</span>
-                        <div>
-                            <h2 class="mb-0">${Utils.escape(u.nev)}</h2>
-                            <p class="text-body-secondary mb-0">${Utils.escape(u.email || u.felhasznalonev || "")}${u.szerep === "admin" ? ` · <span class="badge text-bg-dark">Admin</span>` : ""}</p>
+            <div class="ws accWs">
+                <aside class="wsSide" aria-label="${esc(I18n.t("menuFiok"))}">
+                    <div class="wsAgency">
+                        <span class="accAvatar small">${esc((u.nev || "?").slice(0, 1).toUpperCase())}</span>
+                        <div class="min-w-0">
+                            <b class="d-block text-truncate">${esc(u.nev)}</b>
+                            <span class="small text-body-secondary text-truncate d-block">${esc(u.email || u.felhasznalonev || "")}</span>
                         </div>
                     </div>
-                    <button class="btn btn-outline-secondary btn-sm" id="accLogout"><i class="fa-solid fa-right-from-bracket"></i> ${I18n.t("authLogout")}</button>
-                </div>
-            </div>
+                    <nav class="wsNav">
+                        ${AccountPage.CSOPORTOK.map(g => `
+                            <div class="wsNavGroup">
+                                ${g.cim ? `<span class="wsNavHead">${I18n.t(g.cim)}</span>` : ""}
+                                ${g.elemek.map(k => `
+                                    <a class="wsNavItem ${k === aktiv ? "active" : ""}" href="${R[k].link || "#fiok/" + k}" ${k === aktiv ? 'aria-current="page"' : ""}>
+                                        <i class="${R[k].icon} fa-fw" aria-hidden="true"></i><span>${AccountPage.reszCim(k)}</span>${AccountPage.jelveny(k)}
+                                    </a>`).join("")}
+                            </div>`).join("")}
+                    </nav>
+                    <div class="wsSideFoot">
+                        ${u.szerep === "admin" ? `<a href="#admin"><i class="fa-solid fa-user-shield fa-fw" aria-hidden="true"></i> Admin</a>` : ""}
+                        <a href="#" id="accLogout"><i class="fa-solid fa-right-from-bracket fa-fw" aria-hidden="true"></i> ${I18n.t("authLogout")}</a>
+                    </div>
+                </aside>
+                <main class="wsMain">
+                    ${AccountPage.tab === "attekintes" ? "" : `
+                    <div class="wsHead">
+                        <div class="min-w-0">
+                            <h1 class="wsTitle">${esc(AccountPage.reszCim(aktiv))}</h1>
+                            ${R[aktiv].desc ? `<p class="wsHelp">${I18n.t(R[aktiv].desc)}</p>` : ""}
+                        </div>
+                    </div>`}
+                    <div id="accBody"></div>
+                </main>
+            </div>`;
 
-            <div class="typeTabs mb-4" role="tablist">
-                ${AccountPage.TABS.filter(t => !t.al).map(t => `
-                    <a class="typeTab ${t.key === AccountPage.tab || (AccountPage.TABS.find(x => x.key === AccountPage.tab) || {}).al === t.key ? "active" : ""}" href="#fiok/${t.key}" role="tab" aria-selected="${t.key === AccountPage.tab}">
-                        <i class="${t.icon}" aria-hidden="true"></i> ${I18n.t(t.label)}
-                        ${t.key === "uzenetek" ? `<span class="badge rounded-pill text-bg-danger accMsgCount" ${AuthManager.olvasatlan ? "" : "hidden"}>${AuthManager.olvasatlan}</span>` : ""}
-                        ${t.key === "ertesitesek" ? `<span class="badge rounded-pill text-bg-danger accNotifCount" ${AuthManager.ertesites ? "" : "hidden"}>${AuthManager.ertesites > 9 ? "9+" : AuthManager.ertesites}</span>` : ""}
-                    </a>`).join("")}
-                <a class="typeTab" href="#favorites"><i class="fa-solid fa-star" aria-hidden="true"></i> ${I18n.t("menuKedvencek")}</a>
-                <a class="typeTab" href="#iroda"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> ${I18n.t(AuthManager.irodak.length ? "agMenu" : "agCreateShort")}</a>
-            </div>
-
-            <div id="accBody"></div>`;
-
-        document.getElementById("accLogout").onclick = () => AuthManager.logout();
+        document.getElementById("accLogout").onclick = e => { e.preventDefault(); AuthManager.logout(); };
 
         const body = document.getElementById("accBody");
 
         ({
+            attekintes: () => AccountPage.attekintes(body),
             profil: () => AccountPage.profil(body),
             hirdetesek: () => AccountPage.hirdetesek(body),
             statisztika: () => ListingStats.render(body),
@@ -80,13 +129,42 @@ class AccountPage {
                 AccountPage.nyitando = null;
                 Messages.render(body, ny);
             },
-            ertesitesek: () => Notifications.render(body),
+            ertesitesek: () => Notifications.render(body, "lista"),
+            ertesitesBeall: () => Notifications.render(body, "beallitas"),
             ajanlatok: () => Offers.fiok(body),
             megtekintesek: () => Viewings.fiok(body),
             csomag: () => AccountBilling.render(body),
             megbizasok: () => MyMandates.render(body)
         })[AccountPage.tab]();
 
+    }
+
+    // Áttekintés: minden rész egy kártya, témák szerint – egy mondat, mire jó
+    static attekintes(el) {
+        const esc = Utils.escape;
+        const R = AccountPage.RESZEK;
+        const u = AuthManager.user;
+        el.innerHTML = `
+            <div class="accHello">
+                <h1 class="wsTitle">${esc(I18n.f("acHello", { nev: (u.nev || "").split(" ")[0] || "" }))}</h1>
+                <p class="wsHelp">${I18n.t("acHelloText")}</p>
+            </div>
+            ${AccountPage.CSOPORTOK.filter(g => g.cim).map(g => `
+                <section class="accSection">
+                    <h2 class="accSectionHead">${I18n.t(g.cim)}</h2>
+                    <p class="small text-body-secondary mb-2">${I18n.t(g.cim + "_desc")}</p>
+                    <div class="accCards">
+                        ${g.elemek.map(k => `
+                            <a class="accCard" href="${R[k].link || "#fiok/" + k}">
+                                <span class="accCardIcon" aria-hidden="true"><i class="${R[k].icon}"></i></span>
+                                <span class="accCardBody">
+                                    <b>${esc(AccountPage.reszCim(k))} ${AccountPage.jelveny(k)}</b>
+                                    <span>${I18n.t(k === "munkaterulet" && !AuthManager.irodak.length ? "acDesc_irodaUj" : R[k].desc)}</span>
+                                </span>
+                                <i class="fa-solid fa-chevron-right accCardGo" aria-hidden="true"></i>
+                            </a>`).join("")}
+                    </div>
+                </section>`).join("")}`;
     }
 
     static rerender() {
@@ -126,7 +204,7 @@ class AccountPage {
                                     ${!u.email ? `<div class="form-text text-warning">${I18n.t("accNoEmail")}</div>` : ""}
                                 </div>
                                 <div class="col-12">
-                                    <a class="small" href="#fiok/ertesitesek"><i class="fa-regular fa-bell" aria-hidden="true"></i> ${I18n.t("accNotifySettingsLink")}</a>
+                                    <a class="small" href="#fiok/ertesitesBeall"><i class="fa-regular fa-bell" aria-hidden="true"></i> ${I18n.t("accNotifySettingsLink")}</a>
                                 </div>
                             </div>
                             <div class="accMsg alert small py-2 mt-3" hidden></div>

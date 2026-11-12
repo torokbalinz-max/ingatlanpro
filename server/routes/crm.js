@@ -128,8 +128,6 @@ router.get(`${P}/fajl/:fid`, async (req, res) => {
 
 // ===================== VÉTELI AJÁNLATOK (vevő, magánhirdető) =====================
 const belepve = (req) => { if (!req.user) { const e = new Error("login_required"); e.kod = "login_required"; e.status = 401; throw e; } return req.user; };
-router.get("/api/ajanlatok/info", pvp(req => ajanlat.cimzettInfo({ ingatlan_id: req.query.ingatlan_id, link: req.query.link })));
-router.get("/api/ajanlatok/irodak", pvp(req => ajanlat.irodak(req.query.q, require("../services/teszt").lat(req))));
 router.post("/api/ajanlatok", pvp(req => ajanlat.tesz(belepve(req), req.body || {})));
 router.get("/api/ajanlatok/sajat", pvp(req => ajanlat.sajat(belepve(req))));
 router.get("/api/ajanlatok/beerkezett", pvp(req => ajanlat.beerkezett(belepve(req))));

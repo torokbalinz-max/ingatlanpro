@@ -189,7 +189,11 @@ class PricingPage {
     }
 
     static elonyok(c) {
-        return String(Svc.t(c, "elonyok") || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+        const l = String(Svc.t(c, "elonyok") || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+        // A létszám (Admin → Csomagok: „Ügynökök száma”) mindig az első előny
+        const j = c.jogosultsag || {};
+        if (j.ugynok_limit) l.unshift(I18n.f("wsSeatsBenefit", { n: j.ugynok_limit }));
+        return l;
     }
 
     static render() {
@@ -417,6 +421,12 @@ class PricingPage {
                                 ${irodak.map(i => `<option value="${i.id}">${esc(i.nev)}${i.statusz !== "jovahagyva" ? ` (${esc(I18n.t("agPendingLabel"))})` : ""}</option>`).join("")}
                             </select>
                         </div>` : ""}
+                    ${(c.jogosultsag || {}).ugynok_plusz ? `
+                        <div class="mb-3">
+                            <label class="form-label" for="prDb">${I18n.t("wsSeatQty")}</label>
+                            <input type="number" class="form-control w-auto" id="prDb" min="1" max="20" value="${Number(opts.db) || 1}">
+                            <div class="form-text">${I18n.f("wsSeatQtyHint", { n: (c.jogosultsag || {}).ugynok_plusz })}</div>
+                        </div>` : ""}
 
                     ${c.kategoria === "kiemeles" ? `
                         <div class="mb-3">
@@ -594,6 +604,7 @@ class PricingPage {
                     csomag_id: c.id,
                     iroda_id: kinek ? Number(kinek.value) || null : null,
                     ingatlan_id: $("#prHirdetes") ? Number($("#prHirdetes").value) || null : null,
+                    mennyiseg: $("#prDb") ? Number($("#prDb").value) || 1 : 1,
                     megjegyzes: $("#prMegj").value,
                     elfogad: true,
                     azonnal: !!($("#prAzonnal") && $("#prAzonnal").checked),

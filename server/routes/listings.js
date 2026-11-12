@@ -189,7 +189,8 @@ async function irodaMezok(req, b) {
 
     if (!irodaId) return { iroda_id: null, ugynok_id: null, iroda_ref: null, iroda_mappa: null, iroda_megjegyzes: null };
 
-    if (!(await irodak.jog(req, irodaId)).tag) {
+    const ij = await irodak.jog(req, irodaId);
+    if (!ij.tag) {
         const e = new Error("not_member");
         e.kod = "not_member";
         throw e;
@@ -200,6 +201,13 @@ async function irodaMezok(req, b) {
     if (ugynokId) {
         const u = await db.query("SELECT 1 FROM iroda_ugynokok WHERE id = $1 AND iroda_id = $2", [ugynokId, irodaId]);
         if (!u.rowCount) ugynokId = null;
+    }
+
+    // Az ügynök (nem vezető) csak a saját nevére tölthet fel – különben a hirdetés nem
+    // jelenne meg nála (az ügynök csak a saját hirdetéseit látja)
+    if (!ij.vezeto && req.user) {
+        b.ugynok_id = await irodak.sajatUgynok(irodaId, req.user);
+        ugynokId = b.ugynok_id;
     }
 
     // A kérésből hiányzó mező = marad a régi (undefined)

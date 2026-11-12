@@ -28,7 +28,7 @@ const db = require("../db/database");
 const crypto = require("crypto");
 
 // kozvetites: az „Eladjuk helyetted” megbízások sikerdíja, díjas szolgáltatásai
-const KATEGORIAK = ["iroda_elofizetes", "extra_hirdetes", "reklammentes", "pro_statisztika", "kiemeles", "reklamfelulet", "kozvetites", "egyeb"];
+const KATEGORIAK = ["iroda_elofizetes", "extra_ugynok", "extra_hirdetes", "reklammentes", "pro_statisztika", "kiemeles", "reklamfelulet", "kozvetites", "egyeb"];
 const IDOSZAKOK = ["egyszeri", "havi", "negyedeves", "eves"];
 const HONAP = { havi: 1, negyedeves: 3, eves: 12 };
 const PENZNEMEK = ["RON", "EUR"];
@@ -364,6 +364,7 @@ const UJ_CSOMAGOK_V2 = [
 async function kesz() {
     await keszV1();
     await keszV2();
+    await keszV3();
 }
 
 async function keszV1() {
@@ -414,12 +415,48 @@ async function keszV2() {
     }
 }
 
+// 9. változat: ügynök-helyek – az irodai csomagokba a létszám, és egy bővítő csomag (+1 fő).
+// Csak egyszer fut (a már beállított értékeket nem írja felül); utána az adminban szerkeszthető.
+let v3Kesz = false;
+async function keszV3() {
+    if (v3Kesz) return;
+    try {
+        const r = await db.query("SELECT ertek FROM beallitasok WHERE kulcs = 'penzugy_csomagok_v3'");
+        if (r.rowCount) { v3Kesz = true; return; }
+        await db.query(`UPDATE penzugy_csomagok SET jogosultsag = COALESCE(jogosultsag, '{}'::jsonb) || '{"ugynok_limit": 3}'::jsonb
+                        WHERE kod = 'iroda_alap' AND NOT (COALESCE(jogosultsag, '{}'::jsonb) ? 'ugynok_limit')`);
+        await db.query(`UPDATE penzugy_csomagok SET jogosultsag = COALESCE(jogosultsag, '{}'::jsonb) || '{"ugynok_limit": 10}'::jsonb
+                        WHERE kod = 'iroda_pro' AND NOT (COALESCE(jogosultsag, '{}'::jsonb) ? 'ugynok_limit')`);
+        await db.query(`
+            INSERT INTO penzugy_csomagok (kod, nev, nev_ro, nev_en, kategoria, ar, penznem, idoszak, leiras, leiras_ro, leiras_en,
+                   elonyok, elonyok_ro, elonyok_en, jogosultsag, sorrend, celcsoport, kiemelt, nyilvanos)
+            VALUES ('extra_ugynok', '+1 ügynök (havi)', '+1 agent (lunar)', '+1 agent (monthly)', 'extra_ugynok', 29, 'RON', 'havi',
+                    'Még egy fő használhatja az iroda felületét (ügyfelek, hirdetések, naptár).',
+                    'Încă o persoană poate folosi interfața agenției (clienți, anunțuri, calendar).',
+                    'One more person can use the agency workspace (clients, listings, calendar).',
+                    'Saját belépés az iroda felületére
+Saját ügyfelek és hirdetések', 'Acces propriu la interfața agenției
+Clienți și anunțuri proprii',
+                    'Own login to the agency workspace
+Own clients and listings',
+                    '{"ugynok_plusz": 1}'::jsonb, 5, 'iroda', false, true)
+            ON CONFLICT (kod) DO NOTHING`);
+        await db.query("INSERT INTO beallitasok (kulcs, ertek) VALUES ('penzugy_csomagok_v3', '1') ON CONFLICT (kulcs) DO NOTHING");
+        v3Kesz = true;
+    } catch (e) {
+        console.error("Pénzügy csomagok (v3):", e.message);
+    }
+}
+
 function jogTisztit(j) {
     j = j && typeof j === "object" ? j : {};
     const out = {};
     const egesz = v => { const n = szam(v); return n === null ? null : Math.max(0, Math.round(n)); };
     if (egesz(j.hirdetes_limit) !== null) out.hirdetes_limit = egesz(j.hirdetes_limit);
     if (egesz(j.hirdetes_plusz)) out.hirdetes_plusz = egesz(j.hirdetes_plusz);
+    // Az irodai csomagban: hány fő használhatja (a vezetővel együtt); a bővítő csomag: + ennyi fő
+    if (egesz(j.ugynok_limit)) out.ugynok_limit = Math.min(500, egesz(j.ugynok_limit));
+    if (egesz(j.ugynok_plusz)) out.ugynok_plusz = Math.min(500, egesz(j.ugynok_plusz));
     if (egesz(j.kiemeles)) out.kiemeles = egesz(j.kiemeles);
     // A kiemelés hossza napban (az egyszeri kiemelés terméknél és a havi keretnél)
     if (egesz(j.kiemeles_nap)) out.kiemeles_nap = Math.min(365, egesz(j.kiemeles_nap));
@@ -1351,9 +1388,11 @@ async function aktivJogok(feltetel, param) {
 }
 
 function jogOsszevon(lista, alapLimit) {
-    const j = { hirdetes_limit: alapLimit, korlatlan_hirdetes: false, reklammentes: false, pro_statisztika: false, iroda_profil: false, kiemeles: 0, profil_kiemeles: 0, csomagok: lista.length };
-    let plusz = 0;
+    const j = { hirdetes_limit: alapLimit, korlatlan_hirdetes: false, reklammentes: false, pro_statisztika: false, iroda_profil: false, kiemeles: 0, profil_kiemeles: 0, csomagok: lista.length, ugynok_limit: null };
+    let plusz = 0, ugynokPlusz = 0;
     lista.forEach(({ j: c, db }) => {
+        if (Number(c.ugynok_limit) > 0) j.ugynok_limit = Math.max(j.ugynok_limit || 0, Number(c.ugynok_limit));
+        if (c.ugynok_plusz) ugynokPlusz += Number(c.ugynok_plusz) * db;
         if (c.korlatlan_hirdetes) j.korlatlan_hirdetes = true;
         if (Number.isFinite(Number(c.hirdetes_limit))) j.hirdetes_limit = Math.max(j.hirdetes_limit, Number(c.hirdetes_limit));
         if (c.hirdetes_plusz) plusz += Number(c.hirdetes_plusz) * db;
@@ -1365,6 +1404,9 @@ function jogOsszevon(lista, alapLimit) {
     });
     j.hirdetes_limit += plusz;
     if (j.korlatlan_hirdetes) j.hirdetes_limit = null;
+    // Ügynök-helyek: csak ha egy csomag megadja a létszámot (különben nincs korlát)
+    if (j.ugynok_limit !== null) j.ugynok_limit += ugynokPlusz;
+    j.ugynok_plusz = ugynokPlusz;
     return j;
 }
 
@@ -1409,6 +1451,19 @@ async function irodaAktiv(irodaId) {
     if (t.rows[0] && t.rows[0].teszt) return { kell: true, aktiv: true, teszt: true };
     const j = await irodaJogosultsag(irodaId);
     return { kell: true, aktiv: j.csomagok > 0 };
+}
+
+// Az iroda létszáma: hány fő használhatja (vezető + ügynökök fiókkal) és hányan vannak
+//  -> { limit: szám | null (nincs korlát), foglalt, szabad }
+//  Foglalt hely: aktív és meghívott tag, valamint a még nem regisztrált meghívott ügynök.
+async function irodaHely(irodaId) {
+    const j = await irodaJogosultsag(irodaId);
+    const r = await db.query(`
+        SELECT (SELECT COUNT(*) FROM iroda_tagok WHERE iroda_id = $1 AND COALESCE(statusz, 'aktiv') IN ('aktiv', 'meghivott'))
+             + (SELECT COUNT(*) FROM iroda_ugynokok WHERE iroda_id = $1 AND meghivo AND user_id IS NULL AND aktiv) AS n`, [irodaId]);
+    const foglalt = Number(r.rows[0].n) || 0;
+    const limit = j.ugynok_limit;
+    return { limit, foglalt, szabad: limit === null ? null : Math.max(0, limit - foglalt), plusz: j.ugynok_plusz || 0 };
 }
 
 async function irodaJogosultsag(irodaId) {
@@ -1517,7 +1572,7 @@ module.exports = {
     szamlak, szamla, szamlaMent, szamlaAllapotValt, szamlaTorol,
     kiadasok, kiadasMent, kiadasTorol,
     attekintes, szamlalok,
-    jogosultsag, irodaJogosultsag, statJog, irodaAktiv, hirdetesKorlat, korlatElonezet,
+    jogosultsag, irodaJogosultsag, irodaHely, statJog, irodaAktiv, hirdetesKorlat, korlatElonezet,
     exportSzamlak, exportKiadasok, napi, webesLejart,
     rendelesSzinkron, rendelesFigyelo, fizetveFigyelo, sztornoz, zarolt, szamlaAllapot, honapHozzaad, napHozzaad, ma, kerek, pgDatum, szamosit,
     // tesztekhez

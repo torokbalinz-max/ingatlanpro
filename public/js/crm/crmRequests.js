@@ -17,8 +17,7 @@ class CrmReq {
 
     static badge(n) {
         Crm.keresDb = n;
-        const b = Crm.el && Crm.el.querySelector(".crmReqBadge");
-        if (b) { b.textContent = n; b.hidden = !n; }
+        document.querySelectorAll(".crmReqBadge").forEach(b => { b.textContent = n; b.hidden = !n; });
     }
 
     // „csüt., nov. 14. 10:00”

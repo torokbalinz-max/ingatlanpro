@@ -232,8 +232,8 @@ async function rendel(user, b) {
 
     const ugyfelId = await ugyfelKeres(user.id, irodaId, szamlazas);
 
-    // Ismétlődő csomagból egyszerre egy aktív előfizetés
-    if (csomag.idoszak !== "egyszeri") {
+    // Ismétlődő csomagból egyszerre egy aktív előfizetés (a bővítő csomagból – pl. +1 ügynök – több is lehet)
+    if (csomag.idoszak !== "egyszeri" && !(csomag.jogosultsag && csomag.jogosultsag.ugynok_plusz)) {
         const van = await db.query(`
             SELECT id FROM penzugy_elofizetesek
             WHERE ugyfel_id = $1 AND csomag_id = $2 AND statusz = 'aktiv' AND (vege IS NULL OR vege >= $3::date)`,

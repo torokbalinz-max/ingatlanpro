@@ -21,7 +21,7 @@ AdminManager.fin = {
 };
 
 AdminManager.FIN_KAT_IKON = {
-    iroda_elofizetes: "fa-solid fa-briefcase", extra_hirdetes: "fa-solid fa-layer-group", reklammentes: "fa-solid fa-eye-slash",
+    iroda_elofizetes: "fa-solid fa-briefcase", extra_ugynok: "fa-solid fa-user-plus", extra_hirdetes: "fa-solid fa-layer-group", reklammentes: "fa-solid fa-eye-slash",
     pro_statisztika: "fa-solid fa-chart-line", kiemeles: "fa-solid fa-star", reklamfelulet: "fa-solid fa-rectangle-ad", egyeb: "fa-solid fa-circle-dot"
 };
 
@@ -646,6 +646,8 @@ AdminManager.renderFinPackages = function () {
             if (j.korlatlan_hirdetes) r.push(I18n.t("finRightUnlimited"));
             else if (j.hirdetes_limit !== undefined) r.push(I18n.f("finRightLimit", { n: j.hirdetes_limit }));
             if (j.hirdetes_plusz) r.push(I18n.f("finRightPlus", { n: j.hirdetes_plusz }));
+            if (j.ugynok_limit) r.push(I18n.f("wsSeatsBenefit", { n: j.ugynok_limit }));
+            if (j.ugynok_plusz) r.push(I18n.f("finRightSeatPlus", { n: j.ugynok_plusz }));
             if (j.reklammentes) r.push(I18n.t("finRightAdFree"));
             if (j.pro_statisztika) r.push(I18n.t("finRightProStats"));
             if (j.kiemeles) r.push(I18n.f("finRightFeatured", { n: j.kiemeles }));
@@ -879,6 +881,15 @@ AdminManager.finCsomagSzerk = function (c, masolat) {
                     <input type="number" min="0" step="1" class="form-control form-control-sm" id="fcPlusz" value="${j.hirdetes_plusz ?? ""}" placeholder="–">
                 </div>
                 <div class="col-6 col-sm-4">
+                    <label class="form-label small mb-1" for="fcUgynok">${I18n.t("finRightSeatsLabel")}</label>
+                    <input type="number" min="0" step="1" class="form-control form-control-sm" id="fcUgynok" value="${j.ugynok_limit ?? ""}" placeholder="–" title="${esc(I18n.t("finRightSeatsHint"))}">
+                </div>
+                <div class="col-6 col-sm-4">
+                    <label class="form-label small mb-1" for="fcUgynokPlusz">${I18n.t("finRightSeatPlusLabel")}</label>
+                    <input type="number" min="0" step="1" class="form-control form-control-sm" id="fcUgynokPlusz" value="${j.ugynok_plusz ?? ""}" placeholder="–">
+                </div>
+                <div class="col-12 small text-body-secondary">${I18n.t("finRightSeatsHint")}</div>
+                <div class="col-6 col-sm-4">
                     <label class="form-label small mb-1" for="fcKiemeles">${I18n.t("finRightFeaturedLabel")}</label>
                     <input type="number" min="0" step="1" class="form-control form-control-sm" id="fcKiemeles" value="${j.kiemeles ?? ""}" placeholder="–">
                 </div>
@@ -947,7 +958,8 @@ AdminManager.finCsomagSzerk = function (c, masolat) {
                 hirdetes_limit: ures($("#fcLimit").value), hirdetes_plusz: ures($("#fcPlusz").value), kiemeles: ures($("#fcKiemeles").value), kiemeles_nap: ures($("#fcKiemelesNap").value),
                 korlatlan_hirdetes: $("#fcJ_korlatlan_hirdetes").checked, reklammentes: $("#fcJ_reklammentes").checked,
                 pro_statisztika: $("#fcJ_pro_statisztika").checked, iroda_profil: $("#fcJ_iroda_profil").checked,
-                profil_kiemeles: ures($("#fcProfilKiemeles").value)
+                profil_kiemeles: ures($("#fcProfilKiemeles").value),
+                ugynok_limit: ures($("#fcUgynok").value), ugynok_plusz: ures($("#fcUgynokPlusz").value)
             }
         };
         $("#fcMent").disabled = true;
