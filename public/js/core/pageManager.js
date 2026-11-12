@@ -8,7 +8,13 @@
 class PageManager {
 
     static current = null;
+    static currentHash = null;
     static lastListPage = "properties";
+
+    // Görgetési hely oldalanként: ha visszajössz (pl. Ingatlanok → Térkép → Ingatlanok,
+    // vagy egy hirdetésből vissza), ott folytatod, ahol abbahagytad – nem a lista elején
+    static scrollPos = {};
+    static MEGJEGYZETT = ["home", "properties", "map", "market", "favorites", "irodak", "igenyek", "csomagok", "eladjuk", "valuation"];
 
     static PAGES = {
         home: { icon: "fa-solid fa-compass", label: "menuHome" },
@@ -44,9 +50,22 @@ class PageManager {
 
     static init() {
 
+        // a görgetési helyet mi állítjuk vissza (oldalanként) – a böngésző ne ugráljon közbe
+        try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (e) { /* nem baj */ }
+
         window.addEventListener("hashchange", () => {
             PageManager.show(location.hash.replace("#", ""), { fromHash: true });
         });
+
+        // Vendég (nincs bejelentkezve) új látogatása: mindig a Kezdőlappal indul – kivéve, ha
+        // egy konkrét hirdetés / iroda / jogi / súgó oldal linkjével jött (megosztott link)
+        try {
+            const uj = !sessionStorage.getItem("ip_munkamenet");
+            sessionStorage.setItem("ip_munkamenet", "1");
+            const h = location.hash.replace("#", "");
+            const megosztott = /^(listing\/\d+|irodak\/\d+|jogi(\/|$)|sugo(\/|$)|csomagok|eladjuk|reset|uj-jelszo)/.test(h) || /[?&](token|reset)=/.test(location.search);
+            if (uj && !AuthManager.loggedIn() && h && h !== "home" && !megosztott) history.replaceState(null, "", "#home");
+        } catch (e) { /* sessionStorage nélkül marad a régi viselkedés */ }
 
         PageManager.show(location.hash.replace("#", ""), { fromHash: true });
 
@@ -92,7 +111,10 @@ class PageManager {
         }
 
         const elozo = PageManager.current;
+        // a mostani oldal görgetési helye (a visszatéréshez)
+        if (PageManager.currentHash && PageManager.MEGJEGYZETT.includes(elozo)) PageManager.scrollPos[PageManager.currentHash] = window.scrollY;
         PageManager.current = page;
+        PageManager.currentHash = hash;
 
         if (page === "properties" || page === "market" || page === "map") {
             PageManager.lastListPage = page;
@@ -129,7 +151,17 @@ class PageManager {
         // Látogatottsági statisztika (sütik nélkül)
         if (typeof VisitTracker !== "undefined") VisitTracker.pv(page, param);
 
-        window.scrollTo({ top: 0 });
+        // Visszatérés egy már látott oldalra: ugyanoda görgetünk (a tartalom addig megmaradt);
+        // új oldal / hirdetés: a tetejére
+        const vissza = PageManager.MEGJEGYZETT.includes(page) ? PageManager.scrollPos[hash] : undefined;
+        if (vissza !== undefined && vissza > 0) {
+            window.scrollTo({ top: vissza });
+            // a képek / kártyák betöltése után még egyszer (ha közben nőtt az oldal)
+            setTimeout(() => { if (PageManager.currentHash === hash) window.scrollTo({ top: vissza }); }, 120);
+            setTimeout(() => { if (PageManager.currentHash === hash && Math.abs(window.scrollY - vissza) > 40) window.scrollTo({ top: vissza }); }, 450);
+        } else {
+            window.scrollTo({ top: 0 });
+        }
 
         // Oldal-specifikus teendők
         if (page === "home") {
@@ -210,3 +242,26 @@ class PageManager {
     }
 
 }
+
+// A bejelentkezés tényének feljegyzése (a következő betöltéskor már az első rajzolás a
+// jó nyelven: vendégnek román, bejelentkezve a saját nyelve – lásd i18n-v25.js)
+(() => {
+    if (typeof AuthManager === "undefined" || AuthManager.__nyelvHorog) return;
+    AuthManager.__nyelvHorog = true;
+    const eredeti = AuthManager.setMe;
+    AuthManager.setMe = function (me) {
+        const r = eredeti.call(this, me);
+        try {
+            if (me && me.user) {
+                localStorage.setItem("ip_belepve", "1");
+                const sajat = localStorage.getItem("lang");
+                if (sajat && sajat !== I18n.current && I18N_STRINGS[sajat] && !sessionStorage.getItem("ip_lang")) I18n.setLanguage(sajat);
+            } else {
+                localStorage.removeItem("ip_belepve");
+                const cel = sessionStorage.getItem("ip_lang") || "ro";
+                if (I18n.current !== cel && I18N_STRINGS[cel]) I18n.setLanguage(cel);
+            }
+        } catch (e) { /* nem baj */ }
+        return r;
+    };
+})();

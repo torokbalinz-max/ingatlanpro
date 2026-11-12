@@ -186,10 +186,9 @@ app.listen(PORT, () => {
     console.log(`Szerver elindult a ${PORT} porton.`);
     // Értesítések (mentett keresések, igények, kedvencek ára): 15 percenként
     require("./services/ertesitesek").indit();
-    // Az Imoradar24-re mutató régi hirdetések: a valódi forrás keresése (3 perccel indulás után)
-    setTimeout(() => require("./services/forrasHely").javitMind({ limit: 1000, mind: true }).catch(e => console.error("Forráslinkek:", e.message)), 60 * 1000).unref();
-    // …és óránként újra, amíg van olyan, aminek nincs meg az eredeti linkje
-    setInterval(() => require("./services/forrasHely").javitMind({ limit: 1000 }).catch(e => console.error("Forráslinkek:", e.message)), 60 * 60 * 1000).unref();
+    // (2026-11-12 óta nincs) Az Imoradar24-re mutató hirdetések eredeti linkjének keresgélése más
+    // oldalakon – nem kerüljük meg az Imoradar24-et; a közvetlenül olvasható oldalak (OLX, Publi24)
+    // hirdetései a saját listájukból jönnek (Admin → Város → Források).
     // Az állapotok listája (Admin → Állapotok) a gyorstárba
     require("./services/allapotok").kesz();
     // A meglévő hirdetések automatikus javítása – csak egyszer, az első indításkor.

@@ -590,7 +590,12 @@ function keresesiElem(o) {
     //   /link-extern/2368728?source=OLX.ro&source_listing_id=287654321
     // – a forrás és az azonosító alapján az eredeti hirdetés pontos linkje
     // megkereshető (services/forrasHely.js). Ha a forrás közvetlen linket ad, azt vesszük.
-    const forrasLista = forrasok.map(s => forrasElem(s)).filter(Boolean);
+    // Nem kerüljük meg az Imoradar24-et: a hirdetés az Imoradar24 adatlapjára mutat –
+    // kivéve az imobiliare.ro-s hirdetést (az Imoradar24 saját oldala, ugyanaz a cég),
+    // annak a pontos imobiliare linkje marad
+    const forrasLista = forrasok.map(s => forrasElem(s)).filter(Boolean)
+        .map(f => (f.url && f.forras !== "imobiliare") ? { ...f, url: null, kozvetito: f.kozvetito || null } : f)
+        .filter(f => f.url || f.kozvetito || f.forras);
     // Imobiliare.ro: a hirdetés azonosítója (cubeid) + az adatlap címének szavai
     // (az Imoradar24 és az Imobiliare ugyanazt a formát használja):
     //   /oferta/apartament-de-vanzare-sfantu-gheorghe-central-3-camere-<azonosító>

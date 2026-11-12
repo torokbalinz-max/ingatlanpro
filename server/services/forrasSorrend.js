@@ -26,8 +26,8 @@ const KULCS = "forras_beallitas";
 const KESZ_KULCS = "kozvetlen_kesz";
 
 const OLDALAK = ["storia", "olx", "imobiliare", "publi24", "homezz", "lajumate", "anuntul", "romimo", "imoradar24"];
-const KOZVETLEN_LEHET = ["olx", "storia"];
-const ALAP = { kozvetlen: ["olx", "storia"], sorrend: [...OLDALAK] };
+const KOZVETLEN_LEHET = ["olx", "storia", "publi24"];
+const ALAP = { kozvetlen: ["olx", "storia", "publi24"], sorrend: [...OLDALAK] };
 const FRISS_ORA = 36;
 
 let cache = null;
@@ -57,14 +57,21 @@ function tisztit(b) {
 async function olvas() {
     if (cache && Date.now() - cache.ido < CACHE_MS) return cache.adat;
     let adat = tisztit(ALAP);
-    try { const v = await olvasKulcs(KULCS); if (v) adat = tisztit({ ...ALAP, ...v }); } catch (e) { /* első indulás */ }
+    try {
+        const v = await olvasKulcs(KULCS);
+        if (v) {
+            // a Publi24 közvetlen olvasása később jött: a régi mentésekben alapból bekapcsolva
+            if (Array.isArray(v.kozvetlen) && !v.publi24Ismert && !v.kozvetlen.includes("publi24")) v.kozvetlen = [...v.kozvetlen, "publi24"];
+            adat = tisztit({ ...ALAP, ...v });
+        }
+    } catch (e) { /* első indulás */ }
     cache = { ido: Date.now(), adat };
     return adat;
 }
 
 async function ment(b) {
     const adat = tisztit({ ...(await olvas()), ...(b || {}) });
-    await irKulcs(KULCS, adat);
+    await irKulcs(KULCS, { ...adat, publi24Ismert: true });
     cache = null;
     return adat;
 }

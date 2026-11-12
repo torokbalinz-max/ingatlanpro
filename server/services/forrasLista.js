@@ -38,8 +38,8 @@ const CSOPORTOK = [
     { tipus: "kereskedelmi", ugylet: "elado" }, { tipus: "kereskedelmi", ugylet: "kiado" },
     { tipus: "iroda", ugylet: "elado" }, { tipus: "iroda", ugylet: "kiado" }
 ];
-const AUTO_FORRASOK = ["olx", "storia", "imoradar24"];
-const FORRAS_REND = { olx: 0, storia: 1, imoradar24: 2, egyeb: 3 };
+const AUTO_FORRASOK = ["olx", "storia", "publi24", "imoradar24"];
+const FORRAS_REND = { olx: 0, storia: 1, publi24: 2, imoradar24: 3, egyeb: 4 };
 
 let futo = null;      // a futó (várost / mindent) beolvasó feladat
 
@@ -48,6 +48,7 @@ function forrasLinkbol(url) {
     if (s.includes("olx.ro")) return "olx";
     if (s.includes("storia.ro")) return "storia";
     if (s.includes("imoradar24.ro")) return "imoradar24";
+    if (s.includes("publi24.ro")) return "publi24";
     return "egyeb";
 }
 
@@ -61,6 +62,7 @@ async function alapLink(forras, varos, tipus, ugylet) {
     const h = await importer.forrasHelyAdat(varos);
     if (forras === "olx") return kozvetlen.olxWebUrl(forrasHely.slug(h.varosRo), tipus, ugylet);
     if (forras === "storia") return forrasHely.storiaListaUrl({ megye: h.megye, varosRo: h.varosRo, tipus, ugylet });
+    if (forras === "publi24") return kozvetlen.publi24Url(h, tipus, ugylet);
     if (forras === "imoradar24") return importer.imoradarLink(varos, tipus, ugylet);
     return null;
 }
@@ -159,16 +161,14 @@ async function sorFuttat(sor, job) {
     importer.naplo(job, { eredmeny: "lista_szinkron", url: sor.url });
 
     // --- közvetlen: OLX / Storia ---
-    if (sor.forras === "olx" || sor.forras === "storia") {
+    if (sor.forras === "olx" || sor.forras === "storia" || (sor.forras === "publi24" && sor.auto)) {
         const beall = await forrasSorrend.olvas();
         if (!beall.kozvetlen.includes(sor.forras)) return kesz("kikapcsolva", "A közvetlen beolvasás ki van kapcsolva ennél az oldalnál (Beállítások).");
-        const hely = sor.forras === "olx" ? { olxSlug: kozvetlen.olxSlugLinkbol(sor.url) } : { storiaAlap: sor.url };
+        const hely = sor.forras === "olx" ? { olxSlug: kozvetlen.olxSlugLinkbol(sor.url) } : sor.forras === "storia" ? { storiaAlap: sor.url } : { publi24Alap: sor.url };
         job.kozvetlen = {};
         await importer.kozvetlenFuttat(job, sor.varos, { forrasok: [sor.forras], tipus: sor.tipus, ugylet: sor.ugylet, hely });
         const e = job.kozvetlen[sor.forras] || {};
-        if (e.tiltva) return kesz("letiltva", sor.forras === "storia"
-            ? "A Storia letiltja a szervert – a Storia hirdetései az Imoradar24 listájából jönnek."
-            : "Az oldal letiltja a szervert – ezek a hirdetések az Imoradar24 listájából jönnek.", 0);
+        if (e.tiltva) return kesz("letiltva", `${sor.forras === "storia" ? "A Storia" : sor.forras === "olx" ? "Az OLX" : "A Publi24"} letiltja a szervert – a hirdetései az Imoradar24 listájából jönnek (kattintásra az Imoradar24 adatlapja nyílik).`, 0);
         if (e.hiba === "olx_city_not_found") return kesz("link_hiba", "Az OLX nem ismeri ezt a várost ezen a néven – másold be a város OLX-es linkjét (pl. …/apartamente-garsoniere-de-vanzare/sfantu-gheorghe/).", 0);
         if (e.hiba) return kesz(/HTTP 404/.test(e.hiba) ? "link_hiba" : "hiba", e.hiba, 0);
         // az OLX-nél a város más néven volt meg (a régi link már nem jó): a linket kicseréljük

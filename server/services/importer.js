@@ -698,7 +698,7 @@ async function kozvetlenFuttat(job, varos, opts = {}) {
 
 async function kozvetlenHianyzok(forras, varos, c, elemek, job) {
 
-    const host = forras === "olx" ? "olx.ro/" : "storia.ro/";
+    const host = `${forras}.ro/`;
     const r = await db.query(`
         SELECT id, link, tovabbi_linkek, kulso_azon FROM ingatlanok
         WHERE statusz = 'aktiv' AND forras_tipus = 'import'
@@ -1201,9 +1201,10 @@ async function figyelesFuttat(job, opts) {
 
         }
 
-        // 3) Városra indítva: ami még mindig az Imoradar24-re mutat, annak az eredeti
-        //    hirdetése az adatok alapján (OLX / Storia) – forrasHely.javitMind
-        if (teljesVaros && !opts.forraslinkNelkul) {
+        // 3) (2026-11-12 óta kikapcsolva) Az Imoradar24-ről jött hirdetés az Imoradar24-re
+        //    mutat – nem keressük meg más oldalakon (nem kerüljük meg az Imoradar24-et).
+        //    Ami közvetlenül is megvan (OLX / Publi24 saját listájából), az úgyis ott van.
+        if (false && teljesVaros && !opts.forraslinkNelkul) {
             job.allapot = "fut";
             naplo(job, { eredmeny: "forraslinkek" });
             const e = await forrasHely.javitMind({ limit: 5000, varosok: opts.varosok, csakAdat: true }).catch(x => ({ hiba: x.message }));

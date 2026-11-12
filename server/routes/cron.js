@@ -33,7 +33,6 @@ router.post("/api/cron/run", async (req, res) => {
         .then(() => require("../services/duplicates").autoOsszevon().catch(e => console.error("Duplikátumok:", e.message)))
         // ha egy ingatlan több oldalon is fent van: a fő link az admin sorrendje szerint
         .then(() => require("../services/forrasSorrend").alkalmaz().catch(e => console.error("Forrás-sorrend:", e.message)))
-        .then(() => require("../services/forrasHely").javitMind({ limit: 1000 }).catch(e => console.error("Forráslinkek:", e.message)))
         .then(() => require("../services/ertesitesek").futtat({ req }))
         .then(() => require("./statistics").havontaMent())
         .then(() => require("../services/megbizasAuto").futtat())

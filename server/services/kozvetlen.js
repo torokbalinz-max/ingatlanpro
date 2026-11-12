@@ -39,7 +39,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const KESLELTETES = +(process.env.KOZVETLEN_DELAY || 500);
 
 // Melyik oldalt olvassuk közvetlenül
-const FORRASOK = ["olx", "storia"];
+const FORRASOK = ["olx", "storia", "publi24"];
 
 class TiltasHiba extends Error {
     constructor(oldal, status) { super(`HTTP ${status}`); this.oldal = oldal; this.status = status; this.tiltas = true; }
@@ -339,6 +339,78 @@ async function storiaVaros(hely, tipus = null, ugylet = null) {
     return { elemek, csoportok };
 }
 
+// ===================== PUBLI24 =====================
+//  A találati lista JSON-LD ItemList-je (név, link, ár, leírás, kép) – élőben ellenőrizve
+//  2026-11-12: /anunturi/imobiliare/de-vanzare/apartamente/covasna/sfantu-gheorghe/?pag=N,
+//  oldalanként 20 hirdetés; az utolsó utáni oldal ismétli a listát (új nincs → vége)
+
+const PUBLI24_KAT = { lakas: "apartamente", haz: "case", telek: "terenuri", kereskedelmi: "spatii-comerciale", iroda: "birouri" };
+
+function publi24Url(hely, tipus, ugylet) {
+    if (!hely.megye || !hely.varosRo || !PUBLI24_KAT[tipus]) return null;
+    return `https://www.publi24.ro/anunturi/imobiliare/${ugylet === "kiado" ? "de-inchiriat" : "de-vanzare"}/${PUBLI24_KAT[tipus]}/${forrasHely.slug(hely.megye)}/${forrasHely.slug(hely.varosRo)}/`;
+}
+
+async function publi24Csoport(hely, tipus, ugylet) {
+    const alap = hely.publi24Alap || publi24Url(hely, tipus, ugylet);
+    if (!alap) return { elemek: [], teljes: false, ossz: null, kapott: 0 };
+    const elemek = new Map();
+    let teljes = false;
+    for (let pag = 1; pag <= 40; pag++) {
+        let url = alap;
+        if (pag > 1) { try { const u = new URL(alap); u.searchParams.set("pag", String(pag)); url = u.toString(); } catch (e) { break; } }
+        const lista = forrasHely.publi24Listabol(await getHtml(url, "publi24.ro"));
+        let uj = 0;
+        lista.forEach(e => { if (e.link && !elemek.has(e.link) && e.elerheto !== false) { elemek.set(e.link, e); uj++; } });
+        if (!uj) { teljes = pag > 1 || lista.length === 0; break; }
+        await sleep(KESLELTETES);
+    }
+    const ki = [...elemek.values()].map(e => {
+        const cimEsLeiras = `${e.cim || ""} ${e.leiras || ""}`;
+        const em = cimEsLeiras.match(/etaj(?:ul)?\s*(parter|\d{1,2})/i);
+        return {
+            link: e.link,
+            tovabbi_linkek: [],
+            forrasLista: [{ forras: "publi24", forrasNev: "Publi24", id: null, url: e.link, kozvetito: null, ar: e.ar }],
+            forrasNev: "publi24", forrasKulcs: "publi24", reszletUrl: null, elerheto: true,
+            cim: e.cim ? String(e.cim).slice(0, 200) : null,
+            leiras: e.leiras || null,
+            ar: e.ar, penznem: "EUR",
+            nm: tipus === "telek" ? null : (e.nm || null),
+            telek_nm: tipus === "telek" ? (e.nm || null) : null,
+            szobak: tipus === "telek" ? null : (e.szobak || null),
+            emelet: em ? (/parter/i.test(em[1]) ? "0" : em[1]) : null,
+            osszEmelet: null, evszam: null,
+            allapot: guessAllapotSzoveg(cimEsLeiras),
+            tipus, ugylet,
+            x: null, y: null, forrasHely: null, kerulet: null, utca: null, varosForras: null, cimSzoveg: null,
+            kulso_kepek: e.kulso_kepek || [],
+            forrasok: { osszes: "kereses" },
+            forrasSzoveg: [e.cim, e.ar ? e.ar + " €" : null, e.leiras ? e.leiras.slice(0, 1500) : null].filter(Boolean).join("\n\n").slice(0, 4000),
+            kozvetlenForras: "publi24"
+        };
+    });
+    return { elemek: ki, teljes, ossz: null, kapott: ki.length };
+}
+
+async function publi24Varos(hely, tipus = null, ugylet = null) {
+    if (!hely.publi24Alap && (!hely.megye || !hely.varosRo)) return { elemek: [], csoportok: [], hiba: "publi24_no_county" };
+    const elemek = [];
+    const csoportok = [];
+    for (const t of Object.keys(PUBLI24_KAT)) {
+        if (tipus && t !== tipus) continue;
+        for (const u of ["elado", "kiado"]) {
+            if (ugylet && u !== ugylet) continue;
+            if (t === "telek" && u === "kiado") continue;
+            const c = await publi24Csoport(hely, t, u);
+            elemek.push(...c.elemek);
+            csoportok.push({ tipus: t, ugylet: u, teljes: c.teljes, ossz: c.ossz, kapott: c.kapott });
+            await sleep(KESLELTETES);
+        }
+    }
+    return { elemek, csoportok };
+}
+
 // ===================== MINDEN FORRÁS =====================
 
 //  hely: { varosRo, megye }   opts: { forrasok: ["olx","storia"], tipus, ugylet }
@@ -349,6 +421,7 @@ async function varos(hely, opts = {}) {
         try {
             if (f === "olx") ki.olx = await olxVaros(hely, opts.tipus, opts.ugylet);
             else if (f === "storia") ki.storia = await storiaVaros(hely, opts.tipus, opts.ugylet);
+            else if (f === "publi24") ki.publi24 = await publi24Varos(hely, opts.tipus, opts.ugylet);
         } catch (e) {
             ki[f] = { elemek: [], csoportok: [], hiba: e.message, tiltva: !!e.tiltas };
         }
@@ -359,7 +432,7 @@ async function varos(hely, opts = {}) {
 // Egy hirdetés (OLX / Storia link) még fent van-e a saját oldalán: true | false | null (nem tudjuk)
 async function fentVan(link) {
     const l = String(link || "");
-    if (!/(olx|storia)\.ro\//i.test(l)) return null;
+    if (!/(olx|storia|publi24)\.ro\//i.test(l)) return null;
     try {
         const res = await biztonsagosFetch(l, {
             headers: { "User-Agent": UA, "Accept": "text/html,application/xhtml+xml", "Accept-Language": "ro-RO,ro;q=0.9" },
@@ -369,7 +442,8 @@ async function fentVan(link) {
         if (res.status >= 400) return null;
         const vegso = res.vegsoUrl || l;
         // a hirdetésről máshová (keresésre, főoldalra) irányított át: levették
-        if (!/\/oferta\//i.test(vegso)) return false;
+        if (!/\/(oferta|anunt)\//i.test(vegso)) return false;
+        if (/publi24\.ro/i.test(vegso)) return true;
         const html = await res.text();
         const s = /olx\.ro/i.test(vegso) ? forrasHely.olxOldalbol(html) : forrasHely.storiaOldalbol(html);
         if (s && s.aktiv === false) return false;
@@ -379,4 +453,4 @@ async function fentVan(link) {
     }
 }
 
-module.exports = { varos, olxVaros, storiaVaros, olxElem, olxKategoriak, fentVan, olxWebUrl, olxSlugLinkbol, olxVarosKeres, FORRASOK, OLX_KAT, _teszt: { storiaLapbol, olxSlugValtozatok } };
+module.exports = { varos, olxVaros, storiaVaros, publi24Varos, publi24Url, olxElem, olxKategoriak, fentVan, olxWebUrl, olxSlugLinkbol, olxVarosKeres, FORRASOK, OLX_KAT, _teszt: { storiaLapbol, olxSlugValtozatok } };

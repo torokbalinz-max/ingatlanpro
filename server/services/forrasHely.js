@@ -501,7 +501,10 @@ function publi24Listabol(html) {
             if (ar && /ron|lei/i.test(o.priceCurrency || "")) ar = Math.round(ar / 5);
             const szoveg = `${e.name || ""} ${(o.itemOffered && o.itemOffered.description) || e.description || ""}`;
             const nm = (szoveg.match(/(?:suprafa[tț][aă]\s*util[aă][^0-9]{0,25})?(\d{2,4}(?:[.,]\d{1,2})?)\s*(?:mp|m2|m²|metri)/i) || [])[1];
+            const kepek = [].concat(e.image || []).map(k => typeof k === "string" ? k : (k && (k.contentUrl || k.url))).filter(u => /^https?:\/\//.test(String(u || "")));
             ki.push({
+                kulso_kepek: kepek.slice(0, 20),
+                leiras: e.description ? String(e.description).replace(/\s+/g, " ").trim().slice(0, 3000) : null,
                 link: new URL(String(e.url), "https://www.publi24.ro/").toString().split("?")[0],
                 cim: e.name || null,
                 ar,
@@ -692,9 +695,9 @@ async function gazdagit(d, hely) {
         const pontos = await forrasokFeloldasa(d.forrasLista, h2);
         let t = pontos[0] || null;
         if (pontos.length > 1) d.tovabbi_linkek = [...new Set([...(d.tovabbi_linkek || []).filter(l => !kozvetitoOldal(l)), ...pontos.slice(1).map(x => x.link)])];
-        // 1/b) a forrásoldal nyilvános találati listájából, az adatok (ár, alapterület,
-        //      szobák, emelet, cím) alapján – forrásonként a saját árával
-        if (!t) {
+        // 1/b) (2026-11-12 óta kikapcsolva) a forrásoldal találati listájából keresgélni –
+        //      nem kerüljük meg az Imoradar24-et: ami innen jön, az Imoradar24 adatlapjára mutat
+        if (false && !t) {
             const fl = (d.forrasLista || []).filter(f => f && f.forras && !f.url).map(f => ({ forras: f.forras, ar: f.ar }));
             const talaltak = await keresesbolPontos(d, h2, fl.length ? fl : (forras ? [{ forras }] : null)).catch(() => []);
             if (talaltak.length) {
@@ -704,7 +707,7 @@ async function gazdagit(d, hely) {
         }
         const talalt = t ? (t.adat || {}) : null;
 
-        if (talalt) {
+        if (talalt && (t.forras === "imobiliare" || /imobiliare\.ro\//i.test(t.link || ""))) {
             d.kozvetitoLink = d.link;
             d.link = t.link;
             if (talalt.leiras && (!d.leiras || d.leiras.length < talalt.leiras.length)) d.leiras = talalt.leiras;
@@ -726,7 +729,7 @@ async function gazdagit(d, hely) {
                 if (leiras && (!d.leiras || d.leiras.length < leiras.length)) d.leiras = leiras;
             }
             d.kozvetito = "imoradar24";
-            d.forrasKereso = forrasKereso(forras, d, hely);
+            d.forrasKereso = null;
             return d;
         }
         if (!d.storiaReszlet) return d;

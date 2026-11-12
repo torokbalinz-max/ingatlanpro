@@ -338,3 +338,52 @@
     });
 
 })();
+
+// ============================================================
+//  Nyelv: a vendég (nincs bejelentkezve) mindig románul kezd – ha a látogatás
+//  alatt nyelvet vált, az a böngésző bezárásáig megmarad (sessionStorage).
+//  A bejelentkezett felhasználó a saját (utoljára választott) nyelvével.
+//  A bejelentkezés tényét az AuthManager jegyzi fel (ip_belepve – pageManager.js),
+//  hogy már az első rajzolás a jó nyelven történjen.
+// ============================================================
+(() => {
+    try {
+        if (localStorage.getItem("ip_belepve") !== "1") {
+            const s = sessionStorage.getItem("ip_lang");
+            I18n.current = s && I18N_STRINGS[s] ? s : "ro";
+            document.documentElement.lang = I18n.current;
+        }
+    } catch (e) { /* tárhely nélkül marad a régi */ }
+    const eredeti = I18n.setLanguage;
+    I18n.setLanguage = function (lang) {
+        try { if (I18N_STRINGS[lang]) sessionStorage.setItem("ip_lang", lang); } catch (e) { /* nem baj */ }
+        return eredeti.call(I18n, lang);
+    };
+})();
+
+(() => {
+    const V25C = {
+        "hu": {
+                "navPros": "Szakembereknek",
+                "navProsHead": "Irodáknak, ingatlanosoknak",
+                "proAgencyAccount": "Irodai fiók",
+                "proAgencyAccountDesc": "Iroda regisztrálása, ügynökök, az iroda hirdetései",
+                "proAdminDesc": "Hirdetések kezelése, források, pénzügy, beállítások"
+        },
+        "ro": {
+                "navPros": "Pentru profesioniști",
+                "navProsHead": "Pentru agenții și agenți imobiliari",
+                "proAgencyAccount": "Cont de agenție",
+                "proAgencyAccountDesc": "Înregistrarea agenției, agenți, anunțurile agenției",
+                "proAdminDesc": "Gestionarea anunțurilor, surse, finanțe, setări"
+        },
+        "en": {
+                "navPros": "For professionals",
+                "navProsHead": "For agencies and realtors",
+                "proAgencyAccount": "Agency account",
+                "proAgencyAccountDesc": "Register an agency, agents, the agency's listings",
+                "proAdminDesc": "Listings management, sources, finance, settings"
+        }
+};
+    Object.keys(V25C).forEach(nyelv => { I18N_STRINGS[nyelv] = Object.assign(I18N_STRINGS[nyelv] || {}, V25C[nyelv]); });
+})();
