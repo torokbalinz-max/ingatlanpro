@@ -230,12 +230,29 @@ async function ugyfelLista(ctx, q = {}) {
         p.push(`%${String(q.q).trim().toLowerCase()}%`);
         felt.push(`(LOWER(u.nev) LIKE $${p.length} OR LOWER(COALESCE(u.email,'')) LIKE $${p.length} OR REGEXP_REPLACE(COALESCE(u.telefon,''), '[^0-9+]', '', 'g') LIKE REGEXP_REPLACE($${p.length}, '[^0-9+%]', '', 'g') OR LOWER(COALESCE(u.jegyzet,'')) LIKE $${p.length})`);
     }
-    if (q.allapot === "nyitott") { p.push(NYITOTT); felt.push(`u.allapot = ANY($${p.length})`); }
-    else if (ALLAPOTOK.includes(q.allapot)) { p.push(q.allapot); felt.push(`u.allapot = $${p.length}`); }
+    // A gyors szűrők darabszáma (a kereső és a jogosultság szerint)
+    const NYIT = `u.allapot = ANY(ARRAY['uj','kapcsolat','aktiv','targyalas'])`;
+    const fk = await db.query(`
+        SELECT COUNT(*) FILTER (WHERE ${NYIT} AND NOT EXISTS (SELECT 1 FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL)
+                 AND NOT EXISTS (SELECT 1 FROM crm_megtekintesek m WHERE m.ugyfel_id = u.id AND m.statusz = 'tervezett' AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours'))::int AS lepes,
+               COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL AND f.hatarido < (NOW() AT TIME ZONE 'Europe/Bucharest')))::int AS kesik,
+               COUNT(*) FILTER (WHERE ${NYIT} AND COALESCE(u.utolso_kapcsolat, u.created_at) < NOW() - INTERVAL '14 days')::int AS hideg
+        FROM crm_ugyfelek u WHERE ${felt.join(" AND ")}`, p);
+    // Gyors szűrők (a lista fölötti gombok): teendő nélküli, késő feladatú, rég nem keresett
+    if (q.fokusz === "lepes") felt.push(`u.allapot = ANY(ARRAY['uj','kapcsolat','aktiv','targyalas'])
+        AND NOT EXISTS (SELECT 1 FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL)
+        AND NOT EXISTS (SELECT 1 FROM crm_megtekintesek m WHERE m.ugyfel_id = u.id AND m.statusz = 'tervezett' AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours')`);
+    else if (q.fokusz === "kesik") felt.push(`EXISTS (SELECT 1 FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL AND f.hatarido < (NOW() AT TIME ZONE 'Europe/Bucharest'))`);
+    else if (q.fokusz === "hideg") felt.push(`u.allapot = ANY(ARRAY['uj','kapcsolat','aktiv','targyalas']) AND COALESCE(u.utolso_kapcsolat, u.created_at) < NOW() - INTERVAL '14 days'`);
     if (SZEREPEK.includes(q.szerep)) { p.push(JSON.stringify([q.szerep])); felt.push(`u.szerepek @> $${p.length}::jsonb`); }
     if (q.felelos === "nincs") felt.push("u.felelos_id IS NULL");
     else if (szam(q.felelos)) { p.push(Number(q.felelos)); felt.push(`u.felelos_id = $${p.length}`); }
     if (q.cimke) { p.push(JSON.stringify([String(q.cimke)])); felt.push(`u.cimkek @> $${p.length}::jsonb`); }
+    // Fázisonkénti darabszám (a fázis-fülekhez) – minden szűrővel, kivéve magát a fázist
+    const szamok = await db.query(`SELECT u.allapot, COUNT(*)::int AS n FROM crm_ugyfelek u WHERE ${felt.join(" AND ")} GROUP BY 1`, p);
+    if (q.allapot === "nyitott") { p.push(NYITOTT); felt.push(`u.allapot = ANY($${p.length})`); }
+    else if (q.allapot === "lezart") felt.push(`u.allapot IN ('elvesztett', 'inaktiv')`);
+    else if (ALLAPOTOK.includes(q.allapot)) { p.push(q.allapot); felt.push(`u.allapot = $${p.length}`); }
 
     const rend = {
         friss: "u.updated_at DESC",
@@ -249,6 +266,12 @@ async function ugyfelLista(ctx, q = {}) {
                u.felelos_id, COALESCE(us.nev, us.felhasznalonev) AS felelos_nev,
                u.utolso_kapcsolat, u.created_at, u.updated_at,
                (SELECT to_char(MIN(f.hatarido), 'YYYY-MM-DD"T"HH24:MI') FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL) AS kov_feladat,
+               (SELECT f.cim FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL ORDER BY f.hatarido NULLS LAST LIMIT 1) AS kov_feladat_cim,
+               (SELECT to_char(m.kezdet, 'YYYY-MM-DD"T"HH24:MI') FROM crm_megtekintesek m WHERE m.ugyfel_id = u.id AND m.statusz = 'tervezett'
+                  AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours' ORDER BY m.kezdet LIMIT 1) AS kov_megt,
+               (SELECT COALESCE(i.cim, m.hely) FROM crm_megtekintesek m LEFT JOIN ingatlanok i ON i.id = m.ingatlan_id WHERE m.ugyfel_id = u.id AND m.statusz = 'tervezett'
+                  AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours' ORDER BY m.kezdet LIMIT 1) AS kov_megt_cim,
+               (SELECT i.cim FROM crm_ugyfel_ingatlan k JOIN ingatlanok i ON i.id = k.ingatlan_id WHERE k.ugyfel_id = u.id ORDER BY (k.szerep = 'tulajdonos') DESC, k.created_at DESC LIMIT 1) AS elso_ingatlan,
                (SELECT COUNT(*)::int FROM crm_ugyfel_ingatlan k WHERE k.ugyfel_id = u.id) AS ingatlan_db
         FROM crm_ugyfelek u LEFT JOIN users us ON us.id = u.felelos_id
         WHERE ${felt.join(" AND ")}
@@ -258,7 +281,7 @@ async function ugyfelLista(ctx, q = {}) {
     const cp = [];
     const c = await db.query(`SELECT DISTINCT jsonb_array_elements_text(u.cimkek) AS c FROM crm_ugyfelek u WHERE ${terSql(ctx, "u", cp)} AND ${lathatoSql(ctx, "u", cp)} ORDER BY 1 LIMIT 60`, cp);
 
-    return { ugyfelek: r.rows, cimkek: c.rows.map(x => x.c) };
+    return { ugyfelek: r.rows, cimkek: c.rows.map(x => x.c), fazisok: Object.fromEntries(szamok.rows.map(x => [x.allapot, x.n])), fokusz: fk.rows[0] };
 }
 
 // Van-e már ilyen ügyfél (e-mail vagy telefon alapján) – figyelmeztetéshez

@@ -49,7 +49,8 @@ class Crm {
         { k: "beerkezo", ikon: "fa-solid fa-inbox" },
         { k: "csapat", ikon: "fa-solid fa-people-group", vezeto: true }
     ];
-    static ugyfelNezet = "lista";        // lista | tabla
+    static ugyfelNezet = "lista";
+    static adatlapFul = "attekintes";        // az ügyfél-adatlap belső füle        // lista | tabla
     static het = null;                   // a megtekintések naptárának hétfője
     static mSzuro = { felelos: "" };
     static iSzuro = { q: "", statusz: "aktiv" };
@@ -453,82 +454,149 @@ class Crm {
         body.querySelectorAll("[data-unezet]").forEach(b => b.onclick = () => { Crm.ugyfelNezet = b.dataset.unezet; Crm.ugyfelek(body); });
     }
 
+    // Ügyfelek: felül a fázisok (fülek darabszámmal), alatta a kereső és a gyors szűrők
+    // (gombok, nem lenyíló listák), a lista kártyákból áll: ki, milyen fázisban, mi a
+    // következő lépés (megtekintés / feladat), melyik ingatlan, mikor beszéltetek utoljára.
+    static FAZIS_FULEK = ["nyitott", "uj", "kapcsolat", "aktiv", "targyalas", "nyert", "lezart", ""];
+
     static ugyfelek(body) {
         if (Crm.ugyfelNezet === "tabla") return Crm.kanban(body);
         const f = Crm.szuro;
+        if (f.fokusz === undefined) f.fokusz = "";
         Crm.betolt(body);
         const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
         Crm.api("/ugyfelek?" + qs).then(v => {
             const L = v.ugyfelek;
+            const esc = Crm.esc;
+            const fz = v.fazisok || {};
+            const db = k => k === "nyitott" ? Crm.NYITOTT.reduce((s, a) => s + (fz[a] || 0), 0)
+                : k === "lezart" ? (fz.elvesztett || 0) + (fz.inaktiv || 0)
+                : k === "" ? Object.values(fz).reduce((s, n) => s + n, 0) : (fz[k] || 0);
+            const fk = v.fokusz || {};
+            const tobbTag = Crm.vezeto && Crm.tagok.length > 1;
+            const szurt = !!(f.q || f.szerep || f.felelos || f.cimke || f.fokusz);
+
+            const kovetkezo = u => {
+                if (u.kov_megt) return `<span class="crmNext megt"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${Crm.t("crmNextViewing", { ido: Crm.hatarido(u.kov_megt) })}${u.kov_megt_cim ? `<small>${esc(u.kov_megt_cim)}</small>` : ""}</span>`;
+                if (u.kov_feladat) return `<span class="crmNext ${Crm.kesik(u.kov_feladat) ? "late" : "task"}"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${esc(u.kov_feladat_cim || Crm.t("crmTask"))}<small>${Crm.kesik(u.kov_feladat) ? Crm.t("crmLateSince", { ido: Crm.hatarido(u.kov_feladat) }) : Crm.hatarido(u.kov_feladat)}</small></span>`;
+                if (Crm.NYITOTT.includes(u.allapot)) return `<span class="crmNext none"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> ${Crm.t("crmNoNextStep")}</span>`;
+                return `<span class="crmNext done">–</span>`;
+            };
+
             body.innerHTML = `
-                <div class="crmFilters">
-                    ${Crm.nezetValto()}
-                    <input type="search" class="form-control form-control-sm" id="crmQ" placeholder="${Crm.esc(Crm.t("crmSearch"))}" value="${Crm.esc(f.q)}" aria-label="${Crm.esc(Crm.t("crmSearch"))}">
-                    <select class="form-select form-select-sm" id="crmFAllapot" aria-label="${Crm.esc(Crm.t("crmStatus"))}">
-                        <option value="">${Crm.t("crmAllStatuses")}</option>
-                        <option value="nyitott" ${f.allapot === "nyitott" ? "selected" : ""}>${Crm.t("crmOpen")}</option>
-                        ${Crm.ALLAPOTOK.map(a => `<option value="${a}" ${f.allapot === a ? "selected" : ""}>${Crm.t("crmSt_" + a)}</option>`).join("")}
-                    </select>
-                    <select class="form-select form-select-sm" id="crmFSzerep" aria-label="${Crm.esc(Crm.t("crmRoles"))}">
-                        <option value="">${Crm.t("crmAllRoles")}</option>
-                        ${Crm.SZEREPEK.map(s => `<option value="${s}" ${f.szerep === s ? "selected" : ""}>${Crm.t("crmRole_" + s)}</option>`).join("")}
-                    </select>
-                    ${Crm.vezeto && Crm.tagok.length > 1 ? `
-                    <select class="form-select form-select-sm" id="crmFFelelos" aria-label="${Crm.esc(Crm.t("crmOwner"))}">
-                        <option value="">${Crm.t("crmAllOwners")}</option>
-                        <option value="nincs" ${f.felelos === "nincs" ? "selected" : ""}>${Crm.t("crmNoOwner")}</option>
-                        ${Crm.tagok.map(t => `<option value="${t.id}" ${String(f.felelos) === String(t.id) ? "selected" : ""}>${Crm.esc(t.nev)}</option>`).join("")}
-                    </select>` : ""}
+                <div class="crmPhaseTabs" role="tablist" aria-label="${esc(Crm.t("crmStatus"))}">
+                    ${Crm.FAZIS_FULEK.map(k => `
+                        <button type="button" role="tab" class="crmPhaseTab ph-${k || "mind"} ${f.allapot === k ? "active" : ""}" aria-selected="${f.allapot === k}" data-fazis="${k}">
+                            <span>${Crm.t(k === "nyitott" ? "crmOpen" : k === "lezart" ? "crmPhaseClosed" : k === "" ? "crmPhaseAll" : "crmSt_" + k)}</span>
+                            <b>${db(k)}</b>
+                        </button>`).join("")}
+                </div>
+
+                <div class="crmToolbar">
+                    <div class="crmSearchBox">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="search" class="form-control" id="crmQ" placeholder="${esc(Crm.t("crmSearchPh"))}" value="${esc(f.q)}" aria-label="${esc(Crm.t("crmSearch"))}">
+                    </div>
+                    <div class="crmToolRight">
+                        ${Crm.nezetValto()}
+                        <a class="btn btn-sm btn-outline-secondary" href="/api/crm/${Crm.ter}/export.csv" download title="${esc(Crm.t("crmExport"))}" aria-label="${esc(Crm.t("crmExport"))}"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></a>
+                    </div>
+                </div>
+
+                <div class="crmChipRows">
+                    <div class="crmChipRow" role="group" aria-label="${esc(Crm.t("crmFocus"))}">
+                        <span class="crmChipLabel">${Crm.t("crmFocus")}</span>
+                        ${[["lepes", "fa-circle-exclamation"], ["kesik", "fa-clock"], ["hideg", "fa-snowflake"]].map(([k, i]) => `
+                            <button type="button" class="crmChip ${f.fokusz === k ? "active" : ""}" data-fokusz="${k}" aria-pressed="${f.fokusz === k}">
+                                <i class="fa-solid ${i}" aria-hidden="true"></i> ${Crm.t("crmFocus_" + k)} <b>${fk[k] || 0}</b>
+                            </button>`).join("")}
+                    </div>
+                    <div class="crmChipRow" role="group" aria-label="${esc(Crm.t("crmRoles"))}">
+                        <span class="crmChipLabel">${Crm.t("crmWho")}</span>
+                        <button type="button" class="crmChip ${!f.szerep ? "active" : ""}" data-szerep="">${Crm.t("crmAllRoles")}</button>
+                        ${Crm.SZEREPEK.map(r => `<button type="button" class="crmChip ${f.szerep === r ? "active" : ""}" data-szerep="${r}">${Crm.t("crmRole_" + r)}</button>`).join("")}
+                    </div>
+                    ${tobbTag ? `
+                    <div class="crmChipRow" role="group" aria-label="${esc(Crm.t("crmOwner"))}">
+                        <span class="crmChipLabel">${Crm.t("crmOwner")}</span>
+                        <button type="button" class="crmChip ${!f.felelos ? "active" : ""}" data-felelos="">${Crm.t("crmAllOwners")}</button>
+                        ${Crm.tagok.map(t => `<button type="button" class="crmChip ${String(f.felelos) === String(t.id) ? "active" : ""}" data-felelos="${t.id}">${esc(t.id === Crm.en ? Crm.t("crmMeChip") : t.nev)}</button>`).join("")}
+                        <button type="button" class="crmChip warn ${f.felelos === "nincs" ? "active" : ""}" data-felelos="nincs">${Crm.t("crmNoOwner")}</button>
+                    </div>` : ""}
                     ${v.cimkek.length ? `
-                    <select class="form-select form-select-sm" id="crmFCimke" aria-label="${Crm.esc(Crm.t("crmTags"))}">
-                        <option value="">${Crm.t("crmAllTags")}</option>
-                        ${v.cimkek.map(c => `<option ${f.cimke === c ? "selected" : ""}>${Crm.esc(c)}</option>`).join("")}
-                    </select>` : ""}
-                    <select class="form-select form-select-sm" id="crmFRend" aria-label="${Crm.esc(Crm.t("crmSort"))}">
-                        ${["friss", "kapcsolat", "uj", "nev"].map(r => `<option value="${r}" ${f.rend === r ? "selected" : ""}>${Crm.t("crmSort_" + r)}</option>`).join("")}
-                    </select>
-                    <a class="btn btn-sm btn-outline-secondary" href="/api/crm/${Crm.ter}/export.csv" download title="${Crm.esc(Crm.t("crmExport"))}"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> CSV</a>
+                    <div class="crmChipRow" role="group" aria-label="${esc(Crm.t("crmTags"))}">
+                        <span class="crmChipLabel">${Crm.t("crmTags")}</span>
+                        ${v.cimkek.map(c => `<button type="button" class="crmChip tag ${f.cimke === c ? "active" : ""}" data-cimke="${esc(c)}">#${esc(c)}</button>`).join("")}
+                    </div>` : ""}
                 </div>
+
+                <div class="crmListHead">
+                    <span class="small text-body-secondary">${Crm.t("crmCount", { n: L.length })}${szurt ? ` · <button type="button" class="btn btn-link btn-sm p-0" id="crmSzuroTorol">${Crm.t("crmFilterClear")}</button>` : ""}</span>
+                    <label class="small text-body-secondary d-flex align-items-center gap-2">${Crm.t("crmSort")}
+                        <select class="form-select form-select-sm w-auto" id="crmFRend">
+                            ${["friss", "kapcsolat", "uj", "nev"].map(r => `<option value="${r}" ${f.rend === r ? "selected" : ""}>${Crm.t("crmSort_" + r)}</option>`).join("")}
+                        </select>
+                    </label>
+                </div>
+
                 ${L.length ? `
-                <div class="table-responsive crmTableWrap">
-                    <table class="table table-hover align-middle crmTable mb-0">
-                        <thead><tr>
-                            <th>${Crm.t("crmName")}</th><th>${Crm.t("crmContact")}</th><th>${Crm.t("crmStatus")}</th>
-                            <th class="d-none d-lg-table-cell">${Crm.t("crmRoles")}</th>
-                            ${Crm.vezeto && Crm.tagok.length > 1 ? `<th class="d-none d-md-table-cell">${Crm.t("crmOwner")}</th>` : ""}
-                            <th>${Crm.t("crmNextTask")}</th><th class="d-none d-md-table-cell">${Crm.t("crmLastContact")}</th>
-                        </tr></thead>
-                        <tbody>
-                            ${L.map(u => `
-                                <tr data-sor="${u.id}">
-                                    <td><button type="button" class="btn btn-link p-0 fw-semibold text-start" data-ugyfel="${u.id}">${Crm.esc(u.nev)}</button>
-                                        ${(u.cimkek || []).length ? `<div>${u.cimkek.map(c => `<span class="crmTag">${Crm.esc(c)}</span>`).join(" ")}</div>` : ""}</td>
-                                    <td class="small">${u.telefon ? `<a href="tel:${Crm.esc(u.telefon)}">${Crm.esc(u.telefon)}</a>` : ""}${u.email ? `<div class="text-truncate crmMail"><a href="mailto:${Crm.esc(u.email)}">${Crm.esc(u.email)}</a></div>` : ""}</td>
-                                    <td>${Crm.allapotBadge(u.allapot)}</td>
-                                    <td class="d-none d-lg-table-cell">${Crm.szerepek(u.szerepek)}</td>
-                                    ${Crm.vezeto && Crm.tagok.length > 1 ? `<td class="d-none d-md-table-cell small">${Crm.esc(u.felelos_nev || "–")}</td>` : ""}
-                                    <td class="small">${u.kov_feladat ? `<span class="${Crm.kesik(u.kov_feladat) ? "text-danger fw-semibold" : ""}">${Crm.hatarido(u.kov_feladat)}</span>` : `<span class="text-body-secondary">–</span>`}</td>
-                                    <td class="small text-body-secondary d-none d-md-table-cell">${u.utolso_kapcsolat ? Utils.ago(u.utolso_kapcsolat) : "–"}</td>
-                                </tr>`).join("")}
-                        </tbody>
-                    </table>
-                </div>
-                <p class="small text-body-secondary mt-2">${Crm.t("crmCount", { n: L.length })}</p>` : `
+                <div class="crmClientList">
+                    ${L.map(u => `
+                        <article class="crmClient st-${esc(u.allapot)}" data-sor="${u.id}" tabindex="0" aria-label="${esc(u.nev)}">
+                            <div class="crmClientMain">
+                                <span class="crmAvatar" aria-hidden="true">${esc((u.nev || "?").trim().split(/\s+/).map(x => x[0]).slice(0, 2).join("").toUpperCase())}</span>
+                                <div class="min-w-0">
+                                    <button type="button" class="btn btn-link p-0 fw-semibold text-start crmClientName" data-ugyfel="${u.id}">${esc(u.nev)}</button>
+                                    <div class="crmClientMeta">
+                                        ${Crm.allapotBadge(u.allapot)} ${Crm.szerepek(u.szerepek)}
+                                        ${(u.cimkek || []).map(c => `<span class="crmTag">#${esc(c)}</span>`).join(" ")}
+                                    </div>
+                                    <div class="crmClientContact small">
+                                        ${u.telefon ? `<a href="tel:${esc(u.telefon)}"><i class="fa-solid fa-phone" aria-hidden="true"></i> ${esc(u.telefon)}</a>` : ""}
+                                        ${u.email && !/@teszt\.invalid$/.test(u.email) ? `<a href="mailto:${esc(u.email)}" class="text-truncate"><i class="fa-regular fa-envelope" aria-hidden="true"></i> ${esc(u.email)}</a>` : ""}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="crmClientNext">
+                                <span class="crmColLabel">${Crm.t("crmNextStep")}</span>
+                                ${kovetkezo(u)}
+                            </div>
+                            <div class="crmClientProp">
+                                <span class="crmColLabel">${Crm.t("crmProps")}</span>
+                                ${u.elso_ingatlan ? `<span class="text-truncate"><i class="fa-solid fa-house" aria-hidden="true"></i> ${esc(u.elso_ingatlan)}</span>${u.ingatlan_db > 1 ? `<small>+${u.ingatlan_db - 1}</small>` : ""}` : `<span class="text-body-secondary">–</span>`}
+                            </div>
+                            <div class="crmClientLast">
+                                <span class="crmColLabel">${Crm.t("crmLastContact")}</span>
+                                <span class="${u.utolso_kapcsolat && (Date.now() - new Date(u.utolso_kapcsolat).getTime()) > 14 * 86400000 && Crm.NYITOTT.includes(u.allapot) ? "text-warning fw-semibold" : ""}">${u.utolso_kapcsolat ? Utils.ago(u.utolso_kapcsolat) : Crm.t("crmNever")}</span>
+                                ${tobbTag ? `<small>${esc(u.felelos_nev || Crm.t("crmNoOwner"))}</small>` : ""}
+                            </div>
+                        </article>`).join("")}
+                </div>` : `
                 <div class="emptyState">
                     <i class="fa-solid fa-address-book"></i>
-                    <h5>${Crm.t(f.q || f.allapot !== "nyitott" || f.szerep || f.felelos || f.cimke ? "crmNoMatch" : "crmEmpty")}</h5>
+                    <h5>${Crm.t(szurt || f.allapot !== "nyitott" ? "crmNoMatch" : "crmEmpty")}</h5>
                     <p>${Crm.t("crmEmptyHint")}</p>
                     <button type="button" class="btn btn-primary btn-sm" id="crmUres"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> ${Crm.t("crmNewContact")}</button>
                 </div>`}`;
 
+            const ujra = () => Crm.ugyfelek(body);
             let t = null;
-            body.querySelector("#crmQ").oninput = e => { clearTimeout(t); t = setTimeout(() => { f.q = e.target.value; Crm.ugyfelek(body); }, 350); };
-            const sel = (id, k) => { const x = body.querySelector(id); if (x) x.onchange = () => { f[k] = x.value; Crm.ugyfelek(body); }; };
-            sel("#crmFAllapot", "allapot"); sel("#crmFSzerep", "szerep"); sel("#crmFFelelos", "felelos"); sel("#crmFCimke", "cimke"); sel("#crmFRend", "rend");
+            body.querySelector("#crmQ").oninput = e => { clearTimeout(t); t = setTimeout(() => { f.q = e.target.value; ujra(); }, 350); };
+            body.querySelectorAll("[data-fazis]").forEach(b => b.onclick = () => { f.allapot = b.dataset.fazis; ujra(); });
+            body.querySelectorAll("[data-fokusz]").forEach(b => b.onclick = () => { f.fokusz = f.fokusz === b.dataset.fokusz ? "" : b.dataset.fokusz; ujra(); });
+            body.querySelectorAll("[data-szerep]").forEach(b => b.onclick = () => { f.szerep = b.dataset.szerep; ujra(); });
+            body.querySelectorAll("[data-felelos]").forEach(b => b.onclick = () => { f.felelos = b.dataset.felelos; ujra(); });
+            body.querySelectorAll("[data-cimke]").forEach(b => b.onclick = () => { f.cimke = f.cimke === b.dataset.cimke ? "" : b.dataset.cimke; ujra(); });
+            body.querySelector("#crmFRend").onchange = e => { f.rend = e.target.value; ujra(); };
+            const tor = body.querySelector("#crmSzuroTorol");
+            if (tor) tor.onclick = () => { Object.assign(f, { q: "", szerep: "", felelos: "", cimke: "", fokusz: "" }); ujra(); };
             const u = body.querySelector("#crmUres");
             if (u) u.onclick = () => Crm.ugyfelSzerk(null);
             Crm.nezetValtoKot(body);
-            body.querySelectorAll("tr[data-sor]").forEach(tr => tr.onclick = e => { if (e.target.closest("a,button")) return; Crm.ugyfelNyit(tr.dataset.sor); });
+            body.querySelectorAll("[data-sor]").forEach(el => {
+                el.onclick = e => { if (e.target.closest("a,button")) return; Crm.ugyfelNyit(el.dataset.sor); };
+                el.onkeydown = e => { if (e.key === "Enter" && e.target === el) Crm.ugyfelNyit(el.dataset.sor); };
+            });
             Crm.kotesek(body);
             if (f.q) { const q = body.querySelector("#crmQ"); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
         }).catch(e => { body.innerHTML = `<div class="alert alert-danger">${Crm.hiba(e)}</div>`; });
@@ -666,6 +734,7 @@ class Crm {
     // ---------- Adatlap ----------
 
     static ugyfelNyit(id) {
+        Crm.adatlapFul = "attekintes";
         const { tartalom, modal } = Svc.modal("crmUgyfel", "modal-xl");
         tartalom.innerHTML = `<div class="modal-body text-center py-5"><span class="spinner-border text-primary" role="status"></span></div>`;
         modal.show();
@@ -684,142 +753,225 @@ class Crm {
             const nyitottF = u.feladatok.filter(f => !f.kesz);
             const keszF = u.feladatok.filter(f => f.kesz);
 
+            const most = new Date();
+            const tervezett = u.megtekintesek.filter(m => m.statusz === "tervezett" && Crm.helyi(m.kezdet) >= new Date(most.getTime() - 3 * 3600000)).sort((x, y) => String(x.kezdet).localeCompare(String(y.kezdet)));
+            const multbeli = u.megtekintesek.filter(m => !tervezett.includes(m));
+            const kovF = [...nyitottF].sort((x, y) => String(x.hatarido || "9").localeCompare(String(y.hatarido || "9")))[0];
+            const kovM = tervezett[0];
+            const nyitott = Crm.NYITOTT.includes(u.allapot);
+            const lepesSzam = Crm.NYITOTT.concat(["nyert"]);
+            const lepesIdx = lepesSzam.indexOf(u.allapot);
+            const tel = u.telefon ? String(u.telefon).replace(/[^0-9+]/g, "") : "";
+            const wa = u.telefon ? String(u.telefon).replace(/[^0-9]/g, "").replace(/^0/, "40") : "";
+            const fulek = [
+                ["attekintes", "fa-solid fa-user", Crm.t("crmTabOverview"), ""],
+                ["ingatlanok", "fa-solid fa-house", Crm.t("crmProps"), u.ingatlanok.length],
+                ["megtekintesek", "fa-regular fa-calendar", Crm.t("crmViewings"), u.megtekintesek.length],
+                ["feladatok", "fa-solid fa-list-check", Crm.t("crmTasks"), nyitottF.length],
+                ...(Crm.ter ? [["iratok", "fa-solid fa-folder-open", Crm.t("dcTitle"), (u.iratok || []).length]] : []),
+                ["elozmenyek", "fa-solid fa-timeline", Crm.t("crmTimeline"), ""]
+            ];
+            if (!fulek.some(x => x[0] === Crm.adatlapFul)) Crm.adatlapFul = "attekintes";
+            const ful = Crm.adatlapFul;
+
+            const tevLista = lista => `
+                <ol class="crmTimeline">
+                    ${lista.map(t => `
+                        <li class="crmTl crmTl-${esc(t.tipus)}">
+                            <span class="crmTlIcon" aria-hidden="true"><i class="${(Crm.TEV.find(x => x.k === t.tipus) || { ikon: "fa-solid fa-circle-info" }).ikon}"></i></span>
+                            <div class="flex-fill min-w-0">
+                                <div class="small"><b>${Crm.tevCim(t)}</b> <span class="text-body-secondary">· ${Crm.idopont(t.created_at)}${t.user_nev ? ` · ${esc(t.user_nev)}` : ""}</span>
+                                    ${t.tipus !== "rendszer" && (Crm.vezeto || t.user_id === Crm.en) && t.user_id ? `<button type="button" class="btn btn-link btn-sm p-0 ms-1 text-body-secondary" data-tevtorol="${t.id}" aria-label="${esc(Crm.t("crmDelete"))}"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>` : ""}</div>
+                                ${t.tipus !== "rendszer" && t.szoveg ? `<div class="crmTlText">${Crm.tevSzoveg(t)}</div>` : ""}
+                                ${t.ingatlan_id ? `<a class="small" href="#listing/${t.ingatlan_id}"><i class="fa-solid fa-house" aria-hidden="true"></i> ${esc(t.ingatlan_cim || "#" + t.ingatlan_id)}</a>` : ""}
+                            </div>
+                        </li>`).join("")}
+                </ol>`;
+
             tartalom.innerHTML = `
-                <div class="modal-header crmHead">
-                    <div class="min-w-0">
-                        <h5 class="modal-title text-truncate">${esc(u.nev)}</h5>
-                        <div class="d-flex flex-wrap gap-2 align-items-center mt-1">
-                            <select class="form-select form-select-sm w-auto crmStSel crmSt-${esc(u.allapot)}" id="cuAllapot" aria-label="${esc(Crm.t("crmStatus"))}">
-                                ${Crm.ALLAPOTOK.map(a => `<option value="${a}" ${u.allapot === a ? "selected" : ""}>${Crm.t("crmSt_" + a)}</option>`).join("")}
-                            </select>
-                            ${Crm.szerepek(u.szerepek)}
-                            ${(u.cimkek || []).map(c => `<span class="crmTag">${esc(c)}</span>`).join(" ")}
+                <div class="modal-header crmHead crmDetailHead">
+                    <div class="d-flex align-items-center gap-3 min-w-0 flex-fill">
+                        <span class="crmAvatar lg" aria-hidden="true">${esc((u.nev || "?").trim().split(/\s+/).map(x => x[0]).slice(0, 2).join("").toUpperCase())}</span>
+                        <div class="min-w-0">
+                            <h5 class="modal-title text-truncate">${esc(u.nev)}</h5>
+                            <div class="d-flex flex-wrap gap-1 align-items-center mt-1">
+                                ${Crm.szerepek(u.szerepek)} ${(u.cimkek || []).map(c => `<span class="crmTag">#${esc(c)}</span>`).join(" ")}
+                                <span class="small text-body-secondary ms-1"><i class="fa-regular fa-user" aria-hidden="true"></i> ${Crm.vezeto && Crm.tagok.length > 1
+                                    ? `<select class="form-select form-select-sm d-inline-block w-auto py-0" id="cuFelelos" aria-label="${esc(Crm.t("crmOwner"))}">${Crm.tagOpciok(u.felelos_id)}</select>`
+                                    : esc(u.felelos_nev || Crm.t("crmNoOwner"))}</span>
+                            </div>
                         </div>
                     </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${esc(Crm.t("crmClose"))}"></button>
+                    <div class="crmQuickActs">
+                        ${tel ? `<a class="btn btn-sm btn-outline-primary" href="tel:${esc(tel)}" title="${esc(u.telefon)}"><i class="fa-solid fa-phone" aria-hidden="true"></i><span>${Crm.t("crmCall")}</span></a>` : ""}
+                        ${wa ? `<a class="btn btn-sm btn-outline-success" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp</span></a>` : ""}
+                        ${u.email ? `<a class="btn btn-sm btn-outline-secondary" href="mailto:${esc(u.email)}"><i class="fa-regular fa-envelope" aria-hidden="true"></i><span>E-mail</span></a>` : ""}
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="cuSzerk"><i class="fa-solid fa-pen" aria-hidden="true"></i><span>${Crm.t("crmEdit")}</span></button>
+                    </div>
+                    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="${esc(Crm.t("crmClose"))}"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="row g-4">
-                        <div class="col-lg-5">
-                            <div class="crmCard">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div class="small crmFacts">
-                                        ${u.telefon ? `<div><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <a href="tel:${esc(u.telefon)}">${esc(u.telefon)}</a></div>` : ""}
-                                        ${u.telefon2 ? `<div><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <a href="tel:${esc(u.telefon2)}">${esc(u.telefon2)}</a></div>` : ""}
-                                        ${u.telefon ? `<div><i class="fa-brands fa-whatsapp fa-fw" aria-hidden="true"></i> <a href="https://wa.me/${esc(String(u.telefon).replace(/[^0-9]/g, "").replace(/^0/, "40"))}" target="_blank" rel="noopener">WhatsApp</a></div>` : ""}
-                                        ${u.email ? `<div class="text-truncate"><i class="fa-regular fa-envelope fa-fw" aria-hidden="true"></i> <a href="mailto:${esc(u.email)}">${esc(u.email)}</a></div>` : ""}
-                                        ${u.cim ? `<div><i class="fa-solid fa-location-dot fa-fw" aria-hidden="true"></i> ${esc(u.cim)}</div>` : ""}
-                                        ${u.kapcsolat_mod ? `<div><i class="fa-regular fa-comments fa-fw" aria-hidden="true"></i> ${Crm.t("crmPrefContact")}: ${Crm.t("crmMod_" + u.kapcsolat_mod)}</div>` : ""}
-                                        <div class="${u.hozzajarulas ? "text-success" : "text-warning"}"><i class="fa-solid fa-shield-halved fa-fw" aria-hidden="true"></i> ${u.hozzajarulas ? Crm.t("crmConsentYes", { d: Crm.nap(u.hozzajarulas) }) : Crm.t("crmConsentNo")}</div>
-                                        ${u.forras ? `<div><i class="fa-solid fa-route fa-fw" aria-hidden="true"></i> ${Crm.t("crmSrc_" + u.forras)}</div>` : ""}
-                                        <div><i class="fa-regular fa-user fa-fw" aria-hidden="true"></i> ${Crm.vezeto && Crm.tagok.length > 1
-                                            ? `<select class="form-select form-select-sm d-inline-block w-auto py-0" id="cuFelelos" aria-label="${esc(Crm.t("crmOwner"))}">${Crm.tagOpciok(u.felelos_id)}</select>`
-                                            : esc(u.felelos_nev || Crm.t("crmNoOwner"))}</div>
-                                        <div class="text-body-secondary"><i class="fa-regular fa-calendar fa-fw" aria-hidden="true"></i> ${Crm.t("crmCreated")}: ${Crm.nap(u.created_at)}${u.utolso_kapcsolat ? ` · ${Crm.t("crmLastContact")}: ${Utils.ago(u.utolso_kapcsolat)}` : ""}</div>
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="cuSzerk"><i class="fa-solid fa-pen" aria-hidden="true"></i> ${Crm.t("crmEdit")}</button>
-                                </div>
-                                ${u.jegyzet ? `<p class="small mt-2 mb-0 crmNote">${esc(u.jegyzet)}</p>` : ""}
-                            </div>
 
-                            <div class="crmCard">
-                                <h6><i class="fa-solid fa-magnifying-glass-location" aria-hidden="true"></i> ${Crm.t("crmWish")}</h6>
-                                ${igenySzoveg ? `<p class="small mb-2">${esc(igenySzoveg)}</p>` : `<p class="small text-body-secondary mb-2">${Crm.t("crmWishNone")}</p>`}
-                                ${i.megjegyzes ? `<p class="small text-body-secondary">${esc(i.megjegyzes)}</p>` : ""}
-                                ${u.illeszkedo.length ? `
-                                    <div class="small fw-semibold mb-1">${Crm.t("crmMatches", { n: u.illeszkedo.length })}</div>
-                                    ${u.illeszkedo.map(x => Crm.ingatlanSor(x, `<button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-ajanl="${x.id}" title="${esc(Crm.t("crmOfferHint"))}">${Crm.t("crmOffer")}</button>`)).join("")}` : igenySzoveg ? `<p class="small text-body-secondary mb-0">${Crm.t("crmMatchesNone")}</p>` : ""}
-                            </div>
-
-                            <div class="crmCard">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0"><i class="fa-solid fa-house" aria-hidden="true"></i> ${Crm.t("crmProps")}</h6>
-                                    <button type="button" class="btn btn-sm btn-link p-0" id="cuIngUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmLinkProp")}</button>
-                                </div>
-                                <div id="cuIngKereso" hidden class="mb-2">
-                                    <input type="search" class="form-control form-control-sm" id="cuIngQ" placeholder="${esc(Crm.t("crmPropSearch"))}" aria-label="${esc(Crm.t("crmPropSearch"))}">
-                                    <div id="cuIngTalal" class="crmPropResults"></div>
-                                </div>
-                                ${u.ingatlanok.length ? u.ingatlanok.map(x => Crm.ingatlanSor(x, `
-                                    <div class="d-flex flex-column align-items-end gap-1">
-                                        <select class="form-select form-select-sm py-0 crmKapcsSel" data-kapcs="${x.id}" data-szerep="${esc(x.szerep)}" aria-label="${esc(Crm.t("crmStatus"))}">
-                                            ${["uj", "kuldve", "megtekintes", "ajanlat", "elvetve"].map(k => `<option value="${k}" ${x.kapcs_allapot === k ? "selected" : ""}>${Crm.t((x.szerep === "tulajdonos" ? "crmOwnSt_" : "crmLinkSt_") + k)}</option>`).join("")}
-                                        </select>
-                                        <span class="small text-body-secondary">${Crm.t("crmLinkRole_" + x.szerep)} · ${x.szerep !== "tulajdonos" ? `<button type="button" class="btn btn-link btn-sm p-0" data-ujmegtI="${x.id}">${Crm.t("crmViewingShort")}</button> · ` : ""}${x.szerep !== "tulajdonos" && u.user_id && Crm.ter ? `<button type="button" class="btn btn-link btn-sm p-0" data-ajmeghiv="${x.id}" title="${esc(Crm.t("mkInviteOfferHint"))}">${Crm.t("mkInviteOffer")}</button> · ` : ""}<button type="button" class="btn btn-link btn-sm p-0 text-danger" data-levesz="${x.id}">${Crm.t("crmUnlink")}</button></span>
-                                    </div>`)).join("") : `<p class="small text-body-secondary mb-0">${Crm.t("crmPropsNone")}</p>`}
-                            </div>
-
-                            ${u.ajanlatok && u.ajanlatok.length ? `
-                            <div class="crmCard">
-                                <h6><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> ${Crm.t("ofOffers")}</h6>
-                                ${u.ajanlatok.map(o => `
-                                    <div class="d-flex justify-content-between gap-2 small border-top pt-1 mt-1">
-                                        <span class="text-truncate">${esc(o.ingatlan_cim || o.kulso_link || "")}</span>
-                                        <span class="text-nowrap"><b>${esc(Crm.penz(o.osszeg, o.penznem))}</b> ${Crm.ajanlatBadge(o.statusz)}</span>
-                                    </div>`).join("")}
-                            </div>` : ""}
-                            ${Crm.ter ? CrmDocs.kartya(u) : ""}
-                        </div>
-
-                        <div class="col-lg-7">
-                            <div class="crmCard crmLog">
-                                <div class="crmLogTypes" role="group" aria-label="${esc(Crm.t("crmLogType"))}">
-                                    ${Crm.TEV.map((x, n) => `
-                                        <input type="radio" class="btn-check" name="cuTip" id="cuTip_${x.k}" value="${x.k}" ${n === 0 ? "checked" : ""}>
-                                        <label class="btn btn-sm btn-outline-secondary" for="cuTip_${x.k}"><i class="${x.ikon}" aria-hidden="true"></i> ${Crm.t("crmTev_" + x.k)}</label>`).join("")}
-                                </div>
-                                <textarea class="form-control mt-2" id="cuSzoveg" rows="2" maxlength="4000" placeholder="${esc(Crm.t("crmLogPh"))}" aria-label="${esc(Crm.t("crmLogPh"))}"></textarea>
-                                <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
-                                    <div class="form-check form-check-inline small m-0">
-                                        <input class="form-check-input" type="checkbox" id="cuKov">
-                                        <label class="form-check-label" for="cuKov">${Crm.t("crmFollowUp")}</label>
-                                    </div>
-                                    <input type="datetime-local" class="form-control form-control-sm w-auto" id="cuKovIdo" hidden aria-label="${esc(Crm.t("crmDue"))}">
-                                    <button type="button" class="btn btn-primary btn-sm ms-auto" id="cuNaploz"><i class="fa-solid fa-check" aria-hidden="true"></i> ${Crm.t("crmLogSave")}</button>
-                                </div>
-                            </div>
-
-                            <div class="crmCard">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0"><i class="fa-regular fa-calendar" aria-hidden="true"></i> ${Crm.t("crmViewings")}</h6>
-                                    <button type="button" class="btn btn-sm btn-link p-0" id="cuMegtUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmNewViewing")}</button>
-                                </div>
-                                ${u.megtekintesek.length ? `<div class="list-group list-group-flush">${u.megtekintesek.map(m => Crm.megtSor(m, "ugyfel")).join("")}</div>` : `<p class="small text-body-secondary mb-0">${Crm.t("crmNoViewings")}</p>`}
-                            </div>
-
-                            <div class="crmCard">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${Crm.t("crmTasks")}</h6>
-                                    <button type="button" class="btn btn-sm btn-link p-0" id="cuFelUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmNewTask")}</button>
-                                </div>
-                                ${nyitottF.length ? `<div class="list-group list-group-flush">${nyitottF.map(f => Crm.feladatSor(f, true)).join("")}</div>` : `<p class="small text-body-secondary mb-0">${Crm.t("crmNoOpenTasks")}</p>`}
-                                ${keszF.length ? `<details class="mt-2"><summary class="small text-body-secondary">${Crm.t("crmDoneTasks", { n: keszF.length })}</summary><div class="list-group list-group-flush">${keszF.map(f => Crm.feladatSor(f, true)).join("")}</div></details>` : ""}
-                            </div>
-
-                            <div class="crmCard">
-                                <h6><i class="fa-solid fa-timeline" aria-hidden="true"></i> ${Crm.t("crmTimeline")}</h6>
-                                <ol class="crmTimeline">
-                                    ${u.tevekenysegek.map(t => `
-                                        <li class="crmTl crmTl-${esc(t.tipus)}">
-                                            <span class="crmTlIcon" aria-hidden="true"><i class="${(Crm.TEV.find(x => x.k === t.tipus) || { ikon: "fa-solid fa-circle-info" }).ikon}"></i></span>
-                                            <div class="flex-fill min-w-0">
-                                                <div class="small"><b>${Crm.tevCim(t)}</b> <span class="text-body-secondary">· ${Crm.idopont(t.created_at)}${t.user_nev ? ` · ${esc(t.user_nev)}` : ""}</span>
-                                                    ${t.tipus !== "rendszer" && (Crm.vezeto || t.user_id === Crm.en) && t.user_id ? `<button type="button" class="btn btn-link btn-sm p-0 ms-1 text-body-secondary" data-tevtorol="${t.id}" aria-label="${esc(Crm.t("crmDelete"))}"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>` : ""}</div>
-                                                ${t.tipus !== "rendszer" && t.szoveg ? `<div class="crmTlText">${Crm.tevSzoveg(t)}</div>` : ""}
-                                                ${t.ingatlan_id ? `<a class="small" href="#listing/${t.ingatlan_id}"><i class="fa-solid fa-house" aria-hidden="true"></i> ${esc(t.ingatlan_cim || "#" + t.ingatlan_id)}</a>` : ""}
-                                            </div>
-                                        </li>`).join("")}
-                                </ol>
-                            </div>
-                        </div>
+                <div class="crmStageBar">
+                    <ol class="crmStages" aria-label="${esc(Crm.t("crmStatus"))}">
+                        ${lepesSzam.map((a, n) => `
+                            <li><button type="button" class="crmStage ${a === u.allapot ? "current" : lepesIdx > -1 && n < lepesIdx ? "done" : ""}" data-allapot="${a}" ${a === u.allapot ? 'aria-current="step"' : ""}>
+                                <span class="crmStageDot">${lepesIdx > -1 && n < lepesIdx ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : n + 1}</span><span>${Crm.t("crmSt_" + a)}</span>
+                            </button></li>`).join("")}
+                    </ol>
+                    <div class="crmStageSide">
+                        ${["elvesztett", "inaktiv"].map(a => `<button type="button" class="btn btn-sm ${u.allapot === a ? "btn-secondary" : "btn-outline-secondary"}" data-allapot="${a}">${Crm.t("crmSt_" + a)}</button>`).join("")}
                     </div>
+                    <p class="crmStageHint small mb-0"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${Crm.t("crmStHint_" + u.allapot)}</p>
+                </div>
+
+                <div class="crmNextBox ${kovM || kovF ? "" : nyitott ? "warn" : "quiet"}">
+                    <div class="flex-fill min-w-0">
+                        <span class="crmColLabel">${Crm.t("crmNextStep")}</span>
+                        ${kovM ? `<div class="fw-semibold"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${Crm.t("crmNextViewing", { ido: Crm.hatarido(kovM.kezdet) })} ${kovM.ingatlan_cim || kovM.hely ? `<span class="fw-normal text-body-secondary">· ${esc(kovM.ingatlan_cim || kovM.hely)}</span>` : ""}</div>` : ""}
+                        ${kovF ? `<div class="${kovM ? "small" : "fw-semibold"} ${Crm.kesik(kovF.hatarido) ? "text-danger" : ""}"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${esc(kovF.cim)} <span class="fw-normal">· ${kovF.hatarido ? Crm.hatarido(kovF.hatarido) : ""}</span></div>` : ""}
+                        ${!kovM && !kovF ? `<div class="fw-semibold">${Crm.t(nyitott ? "crmNoNextStepLong" : "crmClosedNoStep")}</div>` : ""}
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-primary" id="cuMegtUj"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${Crm.t("crmNewViewing")}</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="cuFelUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmNewTask")}</button>
+                    </div>
+                </div>
+
+                <div class="crmDetailTabs" role="tablist">
+                    ${fulek.map(([k, i, c, n]) => `
+                        <button type="button" role="tab" class="crmDetailTab ${k === ful ? "active" : ""}" data-dful="${k}" aria-selected="${k === ful}">
+                            <i class="${i}" aria-hidden="true"></i> ${c}${n !== "" && n ? ` <span class="badge rounded-pill text-bg-light">${n}</span>` : ""}
+                        </button>`).join("")}
+                </div>
+
+                <div class="modal-body crmDetailBody">
+                    <section data-dpanel="attekintes" ${ful === "attekintes" ? "" : "hidden"}>
+                        <div class="row g-4">
+                            <div class="col-lg-5">
+                                <div class="crmCard">
+                                    <h6><i class="fa-solid fa-id-card" aria-hidden="true"></i> ${Crm.t("crmData")}</h6>
+                                    <dl class="crmDl">
+                                        ${u.telefon ? `<dt>${Crm.t("crmPhone")}</dt><dd><a href="tel:${esc(tel)}">${esc(u.telefon)}</a>${u.telefon2 ? `<br><a href="tel:${esc(u.telefon2)}">${esc(u.telefon2)}</a>` : ""}</dd>` : ""}
+                                        ${u.email ? `<dt>E-mail</dt><dd class="text-truncate"><a href="mailto:${esc(u.email)}">${esc(u.email)}</a></dd>` : ""}
+                                        ${u.cim ? `<dt>${Crm.t("crmAddress")}</dt><dd>${esc(u.cim)}</dd>` : ""}
+                                        ${u.kapcsolat_mod ? `<dt>${Crm.t("crmPrefContact")}</dt><dd>${Crm.t("crmMod_" + u.kapcsolat_mod)}</dd>` : ""}
+                                        ${u.forras ? `<dt>${Crm.t("crmSource")}</dt><dd>${Crm.t("crmSrc_" + u.forras)}</dd>` : ""}
+                                        <dt>${Crm.t("crmCreated")}</dt><dd>${Crm.nap(u.created_at)}</dd>
+                                        <dt>${Crm.t("crmLastContact")}</dt><dd>${u.utolso_kapcsolat ? Utils.ago(u.utolso_kapcsolat) : Crm.t("crmNever")}</dd>
+                                        <dt>GDPR</dt><dd class="${u.hozzajarulas ? "text-success" : "text-warning"}">${u.hozzajarulas ? Crm.t("crmConsentYes", { d: Crm.nap(u.hozzajarulas) }) : Crm.t("crmConsentNo")}</dd>
+                                    </dl>
+                                    ${u.jegyzet ? `<p class="small mt-2 mb-0 crmNote">${esc(u.jegyzet)}</p>` : ""}
+                                </div>
+                                <div class="crmCard">
+                                    <h6><i class="fa-solid fa-magnifying-glass-location" aria-hidden="true"></i> ${Crm.t("crmWish")}</h6>
+                                    ${igenySzoveg ? `<p class="small mb-2">${esc(igenySzoveg)}</p>` : `<p class="small text-body-secondary mb-2">${Crm.t("crmWishNone")}</p>`}
+                                    ${i.megjegyzes ? `<p class="small text-body-secondary">${esc(i.megjegyzes)}</p>` : ""}
+                                    ${u.illeszkedo.length ? `
+                                        <div class="small fw-semibold mb-1">${Crm.t("crmMatches", { n: u.illeszkedo.length })}</div>
+                                        ${u.illeszkedo.map(x => Crm.ingatlanSor(x, `<button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-ajanl="${x.id}" title="${esc(Crm.t("crmOfferHint"))}">${Crm.t("crmOffer")}</button>`)).join("")}` : igenySzoveg ? `<p class="small text-body-secondary mb-0">${Crm.t("crmMatchesNone")}</p>` : ""}
+                                </div>
+                            </div>
+                            <div class="col-lg-7">
+                                <div class="crmCard crmLog">
+                                    <h6><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> ${Crm.t("crmLogTitle")}</h6>
+                                    <div class="crmLogTypes" role="group" aria-label="${esc(Crm.t("crmLogType"))}">
+                                        ${Crm.TEV.map((x, n) => `
+                                            <input type="radio" class="btn-check" name="cuTip" id="cuTip_${x.k}" value="${x.k}" ${n === 0 ? "checked" : ""}>
+                                            <label class="btn btn-sm btn-outline-secondary" for="cuTip_${x.k}"><i class="${x.ikon}" aria-hidden="true"></i> ${Crm.t("crmTev_" + x.k)}</label>`).join("")}
+                                    </div>
+                                    <textarea class="form-control mt-2" id="cuSzoveg" rows="2" maxlength="4000" placeholder="${esc(Crm.t("crmLogPh"))}" aria-label="${esc(Crm.t("crmLogPh"))}"></textarea>
+                                    <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                                        <div class="form-check form-check-inline small m-0">
+                                            <input class="form-check-input" type="checkbox" id="cuKov">
+                                            <label class="form-check-label" for="cuKov">${Crm.t("crmFollowUp")}</label>
+                                        </div>
+                                        <input type="datetime-local" class="form-control form-control-sm w-auto" id="cuKovIdo" hidden aria-label="${esc(Crm.t("crmDue"))}">
+                                        <button type="button" class="btn btn-primary btn-sm ms-auto" id="cuNaploz"><i class="fa-solid fa-check" aria-hidden="true"></i> ${Crm.t("crmLogSave")}</button>
+                                    </div>
+                                </div>
+                                <div class="crmCard">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <h6 class="mb-0"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> ${Crm.t("crmRecentHere")}</h6>
+                                        ${u.tevekenysegek.length > 5 ? `<button type="button" class="btn btn-link btn-sm p-0" data-dful="elozmenyek">${Crm.t("crmAll")}</button>` : ""}
+                                    </div>
+                                    ${u.tevekenysegek.length ? tevLista(u.tevekenysegek.slice(0, 5)) : `<p class="small text-body-secondary mb-0">${Crm.t("crmRecentNone")}</p>`}
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section data-dpanel="ingatlanok" ${ful === "ingatlanok" ? "" : "hidden"}>
+                        <div class="crmCard">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0"><i class="fa-solid fa-house" aria-hidden="true"></i> ${Crm.t("crmProps")}</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="cuIngUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmLinkProp")}</button>
+                            </div>
+                            <div id="cuIngKereso" hidden class="mb-2">
+                                <input type="search" class="form-control form-control-sm" id="cuIngQ" placeholder="${esc(Crm.t("crmPropSearch"))}" aria-label="${esc(Crm.t("crmPropSearch"))}">
+                                <div id="cuIngTalal" class="crmPropResults"></div>
+                            </div>
+                            ${u.ingatlanok.length ? u.ingatlanok.map(x => Crm.ingatlanSor(x, `
+                                <div class="d-flex flex-column align-items-end gap-1">
+                                    <select class="form-select form-select-sm py-0 crmKapcsSel" data-kapcs="${x.id}" data-szerep="${esc(x.szerep)}" aria-label="${esc(Crm.t("crmStatus"))}">
+                                        ${["uj", "kuldve", "megtekintes", "ajanlat", "elvetve"].map(k => `<option value="${k}" ${x.kapcs_allapot === k ? "selected" : ""}>${Crm.t((x.szerep === "tulajdonos" ? "crmOwnSt_" : "crmLinkSt_") + k)}</option>`).join("")}
+                                    </select>
+                                    <span class="small text-body-secondary">${Crm.t("crmLinkRole_" + x.szerep)} · ${x.szerep !== "tulajdonos" ? `<button type="button" class="btn btn-link btn-sm p-0" data-ujmegtI="${x.id}">${Crm.t("crmViewingShort")}</button> · ` : ""}${x.szerep !== "tulajdonos" && u.user_id && Crm.ter ? `<button type="button" class="btn btn-link btn-sm p-0" data-ajmeghiv="${x.id}" title="${esc(Crm.t("mkInviteOfferHint"))}">${Crm.t("mkInviteOffer")}</button> · ` : ""}<button type="button" class="btn btn-link btn-sm p-0 text-danger" data-levesz="${x.id}">${Crm.t("crmUnlink")}</button></span>
+                                </div>`)).join("") : `<p class="small text-body-secondary mb-0">${Crm.t("crmPropsNone")}</p>`}
+                        </div>
+                        ${u.ajanlatok && u.ajanlatok.length ? `
+                        <div class="crmCard">
+                            <h6><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> ${Crm.t("ofOffers")}</h6>
+                            ${u.ajanlatok.map(o => `
+                                <div class="d-flex justify-content-between gap-2 small border-top pt-1 mt-1">
+                                    <span class="text-truncate">${esc(o.ingatlan_cim || o.kulso_link || "")}</span>
+                                    <span class="text-nowrap"><b>${esc(Crm.penz(o.osszeg, o.penznem))}</b> ${Crm.ajanlatBadge(o.statusz)}</span>
+                                </div>`).join("")}
+                        </div>` : ""}
+                    </section>
+
+                    <section data-dpanel="megtekintesek" ${ful === "megtekintesek" ? "" : "hidden"}>
+                        <div class="crmCard">
+                            <h6><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${Crm.t("crmViewPlanned")} <span class="badge rounded-pill text-bg-light">${tervezett.length}</span></h6>
+                            ${tervezett.length ? `<div class="list-group list-group-flush">${tervezett.map(m => Crm.megtSor(m, "ugyfel")).join("")}</div>` : `<p class="small text-body-secondary mb-0">${Crm.t("crmNoViewings")}</p>`}
+                        </div>
+                        <div class="crmCard">
+                            <h6><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> ${Crm.t("crmViewPast")} <span class="badge rounded-pill text-bg-light">${multbeli.length}</span></h6>
+                            ${multbeli.length ? `<div class="list-group list-group-flush">${multbeli.map(m => Crm.megtSor(m, "ugyfel")).join("")}</div>` : `<p class="small text-body-secondary mb-0">–</p>`}
+                        </div>
+                    </section>
+
+                    <section data-dpanel="feladatok" ${ful === "feladatok" ? "" : "hidden"}>
+                        <div class="crmCard">
+                            <h6><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${Crm.t("crmTasks")}</h6>
+                            ${nyitottF.length ? `<div class="list-group list-group-flush">${nyitottF.map(f => Crm.feladatSor(f, true)).join("")}</div>` : `<p class="small text-body-secondary mb-0">${Crm.t("crmNoOpenTasks")}</p>`}
+                            ${keszF.length ? `<details class="mt-2"><summary class="small text-body-secondary">${Crm.t("crmDoneTasks", { n: keszF.length })}</summary><div class="list-group list-group-flush">${keszF.map(f => Crm.feladatSor(f, true)).join("")}</div></details>` : ""}
+                        </div>
+                    </section>
+
+                    ${Crm.ter ? `<section data-dpanel="iratok" ${ful === "iratok" ? "" : "hidden"}>${CrmDocs.kartya(u)}</section>` : ""}
+
+                    <section data-dpanel="elozmenyek" ${ful === "elozmenyek" ? "" : "hidden"}>
+                        <div class="crmCard">
+                            ${u.tevekenysegek.length ? tevLista(u.tevekenysegek) : `<p class="small text-body-secondary mb-0">${Crm.t("crmRecentNone")}</p>`}
+                        </div>
+                    </section>
                 </div>`;
+
+            // Belső fülek (újrarajzolás nélkül)
+            tartalom.querySelectorAll("[data-dful]").forEach(b => b.onclick = () => {
+                Crm.adatlapFul = b.dataset.dful;
+                tartalom.querySelectorAll("[data-dpanel]").forEach(p => { p.hidden = p.dataset.dpanel !== Crm.adatlapFul; });
+                tartalom.querySelectorAll(".crmDetailTab").forEach(t => { const on = t.dataset.dful === Crm.adatlapFul; t.classList.toggle("active", on); t.setAttribute("aria-selected", on); });
+            });
 
             const $ = s => tartalom.querySelector(s);
             const ujra = () => { Crm.adatlap(u.id, tartalom, modal); Crm.frissit(); };
 
             $("#cuSzerk").onclick = () => Crm.ugyfelSzerk(u, () => ujra());
-            $("#cuAllapot").onchange = e => Crm.api(`/ugyfelek/${u.id}`, { method: "PATCH", body: { allapot: e.target.value } }).then(ujra).catch(err => alert(Crm.hiba(err)));
+            tartalom.querySelectorAll("[data-allapot]").forEach(b => b.onclick = () => {
+                if (b.dataset.allapot === u.allapot) return;
+                Crm.api(`/ugyfelek/${u.id}`, { method: "PATCH", body: { allapot: b.dataset.allapot } }).then(() => { Crm.jelez(Crm.t("crmStatusSaved", { st: Crm.t("crmSt_" + b.dataset.allapot) })); ujra(); }).catch(err => alert(Crm.hiba(err)));
+            });
             const fel = $("#cuFelelos");
             if (fel) fel.onchange = e => Crm.api(`/ugyfelek/${u.id}`, { method: "PATCH", body: { felelos_id: e.target.value } }).then(() => { Crm.jelez(Crm.t("crmReassigned")); ujra(); }).catch(err => alert(Crm.hiba(err)));
 
