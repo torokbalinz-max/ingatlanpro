@@ -53,6 +53,17 @@ router.get(`${B}/beerkezo`, vp(ctx => crm.beerkezo(ctx)));
 router.post(`${B}/beerkezo/felvesz`, vp((ctx, req) => crm.beerkezoFelvesz(ctx, req.body || {})));
 router.post(`${B}/beerkezo/elvet`, vp((ctx, req) => crm.beerkezoElvet(ctx, req.body || {})));
 
+router.get(`${B}/megtekintesek`, vp((ctx, req) => crm.megtLista(ctx, req.query)));
+router.post(`${B}/megtekintesek`, vp((ctx, req) => crm.megtMent(ctx, null, req.body || {})));
+router.put(`${B}/megtekintesek/:id`, vp((ctx, req) => crm.megtMent(ctx, req.params.id, req.body || {})));
+router.post(`${B}/megtekintesek/:id/eredmeny`, vp((ctx, req) => crm.megtEredmeny(ctx, req.params.id, req.body || {})));
+router.delete(`${B}/megtekintesek/:id`, vp((ctx, req) => crm.megtTorol(ctx, req.params.id)));
+
+router.get(`${B}/ingatlanok`, vp((ctx, req) => crm.ingatlanLista(ctx, req.query)));
+router.get(`${B}/ingatlanok/:id`, vp((ctx, req) => crm.ingatlanReszlet(ctx, req.params.id)));
+
+router.get(`${B}/csapat`, vp(ctx => crm.csapat(ctx)));
+
 router.get(`${B}/export.csv`, async (req, res) => {
     try {
         const ctx = await crm.kontextus(req, req.params.ter);

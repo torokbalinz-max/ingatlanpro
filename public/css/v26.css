@@ -195,3 +195,52 @@ select.crmStSel { font-weight: 600; border-radius: 999px; }
 }
 .crmToast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { .crmToast { transition: none; } }
+
+/* ---------- CRM 2: tábla, naptár, ingatlanok, csapat ---------- */
+.crmBoard { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 1fr); gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem; }
+.crmCol { background: var(--ip-bg); border-radius: var(--ip-radius); padding: 0.6rem; min-height: 200px; display: flex; flex-direction: column; }
+.crmCol.over { outline: 2px dashed var(--ip-accent); outline-offset: -2px; }
+.crmColHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.crmColBody { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+.crmKCard { background: var(--ip-surface); border: 1px solid var(--ip-border); border-radius: var(--ip-radius-sm); padding: 0.55rem 0.65rem; cursor: grab; }
+.crmKCard:hover { border-color: var(--ip-accent); }
+.crmKCard:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+.crmKCard.drag { opacity: 0.5; }
+.crmKSel { margin-top: 0.4rem; font-size: 0.75rem; padding-top: 0.1rem; padding-bottom: 0.1rem; }
+
+.crmWeek { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.5rem; }
+@media (max-width: 991.98px) { .crmWeek { grid-template-columns: 1fr; } .crmDayEmpty { display: none; } }
+.crmDay { background: var(--ip-bg); border-radius: var(--ip-radius-sm); padding: 0.5rem; min-height: 140px; }
+.crmDay.today { background: var(--ip-accent-soft); }
+.crmDayHead { display: flex; align-items: baseline; gap: 0.35rem; margin-bottom: 0.4rem; font-size: 0.8rem; color: var(--ip-muted); text-transform: capitalize; }
+.crmDayHead b { font-size: 1.05rem; color: var(--ip-text); }
+.crmEvent {
+    display: block; width: 100%; text-align: left; margin-bottom: 0.4rem; padding: 0.4rem 0.5rem; border-radius: 8px;
+    border: 0; border-left: 4px solid var(--ip-accent); background: var(--ip-surface); color: inherit; font-size: 0.85rem; box-shadow: var(--ip-shadow);
+}
+.crmEvent:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+.crmEvent.st-megtortent { border-left-color: #15803d; opacity: 0.8; }
+.crmEvent.st-elmaradt { border-left-color: var(--ip-danger); opacity: 0.7; }
+.crmEvent.st-lemondva { border-left-color: var(--ip-muted); opacity: 0.55; text-decoration: line-through; }
+.crmEventTime { font-weight: 700; color: var(--ip-accent); font-variant-numeric: tabular-nums; }
+.crmViewRow { display: flex; gap: 0.6rem; align-items: center; }
+.crmViewIcon { width: 1.2rem; text-align: center; }
+.crmResultAlert { border-color: var(--ip-warn); }
+.crmResultAlert > i:first-child { color: var(--ip-warn); }
+.crmResult { margin-top: 0.75rem; padding: 0.75rem; border-radius: var(--ip-radius-sm); background: var(--ip-accent-soft); }
+.crmDl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 0; }
+.crmDl dt { color: var(--ip-muted); font-weight: 500; }
+.crmDl dd { margin: 0; overflow-wrap: anywhere; }
+
+.crmPropGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.8rem; }
+.crmPropCard { border: 1px solid var(--ip-border); border-radius: var(--ip-radius); background: var(--ip-surface); overflow: hidden; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.crmPropCard:hover { border-color: var(--ip-accent); box-shadow: var(--ip-shadow); }
+.crmPropCard:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+.crmPropCardImg { position: relative; height: 120px; background: var(--ip-bg); display: flex; align-items: center; justify-content: center; color: var(--ip-muted); font-size: 1.5rem; }
+.crmPropCardImg img { width: 100%; height: 100%; object-fit: cover; }
+.crmPropCardImg .badge { position: absolute; top: 8px; left: 8px; }
+.crmPropStats { display: flex; gap: 0.9rem; margin: 0.35rem 0; font-size: 0.85rem; font-weight: 600; }
+.crmPropStats i { color: var(--ip-muted); }
+.crmPRow { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; padding: 0.3rem 0; }
+.crmTeam td, .crmTeam th { white-space: nowrap; }
+.crmConsent { padding: 0.6rem 0.75rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }

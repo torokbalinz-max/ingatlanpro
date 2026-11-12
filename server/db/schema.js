@@ -984,6 +984,33 @@ async function createSchema(db) {
             PRIMARY KEY (ugyfel_id, ingatlan_id)
         )
     `);
+    // Ügyfél: második telefon, cím, kapcsolattartás módja, adatkezelési hozzájárulás (GDPR)
+    await db.query(`ALTER TABLE crm_ugyfelek ADD COLUMN IF NOT EXISTS telefon2 TEXT`);
+    await db.query(`ALTER TABLE crm_ugyfelek ADD COLUMN IF NOT EXISTS cim TEXT`);
+    await db.query(`ALTER TABLE crm_ugyfelek ADD COLUMN IF NOT EXISTS kapcsolat_mod TEXT`);
+    await db.query(`ALTER TABLE crm_ugyfelek ADD COLUMN IF NOT EXISTS hozzajarulas TIMESTAMP`);
+
+    // Megtekintések (látogatások): ki, melyik ingatlant, mikor, kivel; utána az eredmény
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS crm_megtekintesek (
+            id SERIAL PRIMARY KEY,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE CASCADE,
+            ugyfel_id INTEGER REFERENCES crm_ugyfelek(id) ON DELETE CASCADE,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE SET NULL,
+            felelos_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            kezdet TIMESTAMP NOT NULL,
+            hossz_perc INTEGER DEFAULT 30,
+            hely TEXT,
+            megjegyzes TEXT,
+            statusz TEXT DEFAULT 'tervezett',
+            erdeklodes TEXT,
+            visszajelzes TEXT,
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_crm_megt ON crm_megtekintesek (iroda_id, kezdet)`);
+
     // A beérkező érdeklődések (üzenetek) közül, amit már feldolgoztak (felvették / elvetették)
     await db.query(`
         CREATE TABLE IF NOT EXISTS crm_feldolgozott (

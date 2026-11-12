@@ -187,7 +187,21 @@ async function attekintes(ctx) {
 
     const beerkezett = await beerkezo(ctx, { csakSzam: true });
 
+    const mp = [];
+    const mt = terSql(ctx, "m", mp);
+    let ml = "TRUE";
+    if (!ctx.vezeto) { mp.push(ctx.userId); ml = `m.felelos_id = $${mp.length}`; }
+    const megt = await db.query(`${MEGT_SELECT}
+        WHERE ${mt} AND ${ml} AND m.statusz = 'tervezett' AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours'
+        ORDER BY m.kezdet LIMIT 10`, mp);
+    // Lezáratlan: elmúlt, de még „tervezett” – rögzíteni kell az eredményt
+    const lezaratlan = await db.query(`${MEGT_SELECT}
+        WHERE ${mt} AND ${ml} AND m.statusz = 'tervezett' AND m.kezdet < (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours'
+        ORDER BY m.kezdet DESC LIMIT 10`, mp);
+
     return {
+        megtekintesek: megt.rows,
+        lezaratlan: lezaratlan.rows,
         allapotok,
         nyitott: NYITOTT.reduce((s, a) => s + allapotok[a], 0),
         feladatok: fel.rows,
@@ -263,7 +277,11 @@ async function ugyfelMent(ctx, id, b) {
         forras: FORRASOK.includes(b.forras) ? b.forras : (sz(b.forras, 40) || null),
         cimkek: JSON.stringify(cimkeLista(b.cimkek)),
         igeny: JSON.stringify(igenyTisztit(b.igeny)),
-        jegyzet: sz(b.jegyzet, 4000)
+        jegyzet: sz(b.jegyzet, 4000),
+        telefon2: sz(b.telefon2, 40),
+        cim: sz(b.cim, 200),
+        kapcsolat_mod: ["telefon", "email", "whatsapp", "sms", "barmely"].includes(b.kapcsolat_mod) ? b.kapcsolat_mod : null,
+        hozzajarulas: !!b.hozzajarulas
     };
     if (mezo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mezo.email)) throw hibaKod("bad_email");
 
@@ -272,9 +290,11 @@ async function ugyfelMent(ctx, id, b) {
         if (masik) { const e = hibaKod("duplicate", 409); e.extra = { masik }; throw e; }
         const felelos = b.felelos_id !== undefined && b.felelos_id !== "" ? await felelosOk(ctx, b.felelos_id) : ctx.userId;
         const r = await db.query(`
-            INSERT INTO crm_ugyfelek (iroda_id, felelos_id, user_id, nev, telefon, email, szerepek, allapot, forras, cimkek, igeny, jegyzet, created_by)
-            VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10::jsonb,$11::jsonb,$12,$13) RETURNING id`,
-            [ctx.irodaId, felelos, szam(b.user_id), mezo.nev, mezo.telefon, mezo.email, mezo.szerepek, mezo.allapot, mezo.forras, mezo.cimkek, mezo.igeny, mezo.jegyzet, ctx.userId]);
+            INSERT INTO crm_ugyfelek (iroda_id, felelos_id, user_id, nev, telefon, email, szerepek, allapot, forras, cimkek, igeny, jegyzet, created_by,
+                                      telefon2, cim, kapcsolat_mod, hozzajarulas)
+            VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16, CASE WHEN $17::boolean THEN NOW() END) RETURNING id`,
+            [ctx.irodaId, felelos, szam(b.user_id), mezo.nev, mezo.telefon, mezo.email, mezo.szerepek, mezo.allapot, mezo.forras, mezo.cimkek, mezo.igeny, mezo.jegyzet, ctx.userId,
+             mezo.telefon2, mezo.cim, mezo.kapcsolat_mod, mezo.hozzajarulas]);
         await naploz(r.rows[0].id, ctx.userId, "rendszer", "letrehozva");
         return ugyfel(ctx, r.rows[0].id);
     }
@@ -284,8 +304,10 @@ async function ugyfelMent(ctx, id, b) {
     if (b.felelos_id !== undefined && ctx.vezeto) felelos = b.felelos_id === "" || b.felelos_id === null ? null : await felelosOk(ctx, b.felelos_id);
     await db.query(`
         UPDATE crm_ugyfelek SET nev=$2, telefon=$3, email=$4, szerepek=$5::jsonb, allapot=$6, forras=$7, cimkek=$8::jsonb, igeny=$9::jsonb,
-               jegyzet=$10, felelos_id=$11, updated_at=NOW() WHERE id=$1`,
-        [regi.id, mezo.nev, mezo.telefon, mezo.email, mezo.szerepek, mezo.allapot, mezo.forras, mezo.cimkek, mezo.igeny, mezo.jegyzet, felelos]);
+               jegyzet=$10, felelos_id=$11, telefon2=$12, cim=$13, kapcsolat_mod=$14,
+               hozzajarulas = CASE WHEN $15::boolean THEN COALESCE(hozzajarulas, NOW()) END, updated_at=NOW() WHERE id=$1`,
+        [regi.id, mezo.nev, mezo.telefon, mezo.email, mezo.szerepek, mezo.allapot, mezo.forras, mezo.cimkek, mezo.igeny, mezo.jegyzet, felelos,
+         mezo.telefon2, mezo.cim, mezo.kapcsolat_mod, mezo.hozzajarulas]);
     if (regi.allapot !== mezo.allapot) await naploz(regi.id, ctx.userId, "rendszer", `allapot:${regi.allapot}>${mezo.allapot}`);
     if (regi.felelos_id !== felelos) await naploz(regi.id, ctx.userId, "rendszer", `felelos:${felelos || ""}`);
     return ugyfel(ctx, regi.id);
@@ -335,8 +357,10 @@ async function ugyfel(ctx, id) {
         SELECT k.szerep, k.allapot AS kapcs_allapot, k.created_at AS kapcs_ido, i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.statusz, i.eladva, i.kulso_kepek, i.iroda_id
         FROM crm_ugyfel_ingatlan k JOIN ingatlanok i ON i.id = k.ingatlan_id
         WHERE k.ugyfel_id = $1 ORDER BY k.created_at DESC`, [u.id]);
+    const megt = await db.query(`${MEGT_SELECT} WHERE m.ugyfel_id = $1 ORDER BY m.kezdet DESC LIMIT 100`, [u.id]);
     return {
         ...u,
+        megtekintesek: megt.rows,
         felelos_nev: fel ? fel.nev : null,
         tevekenysegek: tev.rows,
         feladatok: feladatok.rows,
@@ -616,6 +640,235 @@ async function beerkezoElvet(ctx, b) {
     return { ok: true };
 }
 
+// ===================== MEGTEKINTÉSEK =====================
+// Ki (ügyfél), melyik ingatlant, mikor, melyik munkatárssal; utána az eredmény
+// (megtörtént / elmaradt / lemondva, mennyire érdekli, visszajelzés). A kezdés
+// helyi (romániai) idő, ahogy beírták – szövegként adjuk vissza.
+
+const MEGT_STATUSZ = ["tervezett", "megtortent", "elmaradt", "lemondva"];
+const ERDEKLODES = ["nagyon", "talan", "nem"];
+
+const MEGT_SELECT = `
+    SELECT m.id, m.iroda_id, m.ugyfel_id, m.ingatlan_id, m.felelos_id, m.hossz_perc, m.hely, m.megjegyzes, m.statusz, m.erdeklodes, m.visszajelzes,
+           to_char(m.kezdet, 'YYYY-MM-DD"T"HH24:MI') AS kezdet,
+           u.nev AS ugyfel_nev, u.telefon AS ugyfel_telefon,
+           i.cim AS ingatlan_cim, i.tipus AS ingatlan_tipus, i.ar AS ingatlan_ar, i.kulso_kepek,
+           COALESCE(us.nev, us.felhasznalonev) AS felelos_nev
+    FROM crm_megtekintesek m
+    LEFT JOIN crm_ugyfelek u ON u.id = m.ugyfel_id
+    LEFT JOIN ingatlanok i ON i.id = m.ingatlan_id
+    LEFT JOIN users us ON us.id = m.felelos_id`;
+
+function idoTisztit(v) {
+    const t = String(v || "").trim().replace(" ", "T").slice(0, 16);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t)) throw hibaKod("bad_date");
+    return t.replace("T", " ");
+}
+
+async function megtLista(ctx, q = {}) {
+    const p = [];
+    const felt = [terSql(ctx, "m", p)];
+    if (!ctx.vezeto) { p.push(ctx.userId); felt.push(`(m.felelos_id = $${p.length} OR u.felelos_id = $${p.length})`); }
+    else if (q.felelos === "en") { p.push(ctx.userId); felt.push(`m.felelos_id = $${p.length}`); }
+    else if (szam(q.felelos)) { p.push(Number(q.felelos)); felt.push(`m.felelos_id = $${p.length}`); }
+    if (q.tol) { p.push(String(q.tol).slice(0, 10)); felt.push(`m.kezdet >= $${p.length}::date`); }
+    if (q.ig) { p.push(String(q.ig).slice(0, 10)); felt.push(`m.kezdet < $${p.length}::date + INTERVAL '1 day'`); }
+    if (szam(q.ingatlan)) { p.push(Number(q.ingatlan)); felt.push(`m.ingatlan_id = $${p.length}`); }
+    if (MEGT_STATUSZ.includes(q.statusz)) { p.push(q.statusz); felt.push(`m.statusz = $${p.length}`); }
+    if (szam(q.id)) { p.push(Number(q.id)); felt.push(`m.id = $${p.length}`); }
+    const r = await db.query(`${MEGT_SELECT} WHERE ${felt.join(" AND ")} ORDER BY m.kezdet LIMIT 500`, p);
+    return r.rows;
+}
+
+async function megtJog(ctx, id) {
+    const p = [Number(id) || 0];
+    let felt = `m.id = $1 AND ${terSql(ctx, "m", p)}`;
+    if (!ctx.vezeto) { p.push(ctx.userId); felt += ` AND (m.felelos_id = $${p.length} OR m.created_by = $${p.length})`; }
+    const r = await db.query(`SELECT m.* FROM crm_megtekintesek m WHERE ${felt}`, p);
+    if (!r.rowCount) throw hibaKod("not_found", 404);
+    return r.rows[0];
+}
+
+async function megtMent(ctx, id, b) {
+    const ugyfelId = szam(b.ugyfel_id);
+    if (!ugyfelId) throw hibaKod("contact_required");
+    const u = await ugyfelJog(ctx, ugyfelId);
+    const ingatlanId = szam(b.ingatlan_id);
+    if (ingatlanId) await ingatlanJog(ctx, ingatlanId);
+    const kezdet = idoTisztit(b.kezdet);
+    const hossz = Math.min(480, Math.max(10, Number(b.hossz_perc) || 30));
+    const felelos = b.felelos_id ? await felelosOk(ctx, b.felelos_id) : (u.felelos_id || ctx.userId);
+
+    // Ütközés: ugyanannak a munkatársnak átfedő megtekintése (figyelmeztetés, nem tiltás)
+    const utk = felelos ? await db.query(`
+        SELECT m.id, to_char(m.kezdet, 'HH24:MI') AS ido, i.cim FROM crm_megtekintesek m LEFT JOIN ingatlanok i ON i.id = m.ingatlan_id
+        WHERE m.felelos_id = $1 AND m.statusz = 'tervezett' AND m.id <> $2
+          AND m.kezdet < $3::timestamp + ($4 || ' minutes')::interval AND m.kezdet + (m.hossz_perc || ' minutes')::interval > $3::timestamp
+        LIMIT 1`, [felelos, Number(id) || 0, kezdet, String(hossz)]) : { rows: [] };
+    if (utk.rows[0] && !b.mindenkepp) { const e = hibaKod("overlap", 409); e.extra = { utkozes: utk.rows[0] }; throw e; }
+
+    let hely = sz(b.hely, 200);
+    if (!hely && ingatlanId) {
+        const i = (await db.query("SELECT cim FROM ingatlanok WHERE id = $1", [ingatlanId])).rows[0];
+        hely = i && i.cim ? String(i.cim).slice(0, 200) : null;
+    }
+
+    if (!id) {
+        const r = await db.query(`
+            INSERT INTO crm_megtekintesek (iroda_id, ugyfel_id, ingatlan_id, felelos_id, kezdet, hossz_perc, hely, megjegyzes, created_by)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+            [ctx.irodaId, u.id, ingatlanId, felelos, kezdet, hossz, hely, sz(b.megjegyzes, 1000), ctx.userId]);
+        await naploz(u.id, ctx.userId, "rendszer", `megt_terv:${kezdet}`, ingatlanId);
+        if (ingatlanId) {
+            await db.query(`INSERT INTO crm_ugyfel_ingatlan (ugyfel_id, ingatlan_id, szerep, allapot) VALUES ($1,$2,'erdeklodik','uj') ON CONFLICT DO NOTHING`, [u.id, ingatlanId]);
+        }
+        if (["uj", "kapcsolat"].includes(u.allapot)) {
+            await db.query("UPDATE crm_ugyfelek SET allapot = 'aktiv' WHERE id = $1", [u.id]);
+            await naploz(u.id, ctx.userId, "rendszer", `allapot:${u.allapot}>aktiv`);
+        }
+        return { id: r.rows[0].id };
+    }
+    const m = await megtJog(ctx, id);
+    await db.query(`UPDATE crm_megtekintesek SET ugyfel_id=$2, ingatlan_id=$3, felelos_id=$4, kezdet=$5, hossz_perc=$6, hely=$7, megjegyzes=$8 WHERE id=$1`,
+        [m.id, u.id, ingatlanId, felelos, kezdet, hossz, hely, sz(b.megjegyzes, 1000)]);
+    return { id: m.id };
+}
+
+// Az eredmény: megtörtént (mennyire érdekli + visszajelzés) / elmaradt / lemondva
+async function megtEredmeny(ctx, id, b) {
+    const m = await megtJog(ctx, id);
+    const statusz = MEGT_STATUSZ.includes(b.statusz) ? b.statusz : "megtortent";
+    const erd = statusz === "megtortent" && ERDEKLODES.includes(b.erdeklodes) ? b.erdeklodes : null;
+    const vissza = sz(b.visszajelzes, 2000);
+    await db.query("UPDATE crm_megtekintesek SET statusz = $2, erdeklodes = $3, visszajelzes = $4 WHERE id = $1", [m.id, statusz, erd, vissza]);
+    if (m.ugyfel_id) {
+        if (statusz === "megtortent") {
+            await naploz(m.ugyfel_id, ctx.userId, "megtekintes", [erd ? `[${erd}]` : "", vissza || ""].filter(Boolean).join(" ") || "–", m.ingatlan_id, true);
+            if (m.ingatlan_id) {
+                await db.query(`UPDATE crm_ugyfel_ingatlan SET allapot = $3 WHERE ugyfel_id = $1 AND ingatlan_id = $2 AND szerep = 'erdeklodik' AND allapot <> 'ajanlat'`,
+                    [m.ugyfel_id, m.ingatlan_id, erd === "nem" ? "elvetve" : "megtekintes"]);
+            }
+        } else {
+            await naploz(m.ugyfel_id, ctx.userId, "rendszer", `megt_${statusz}${vissza ? ":" + vissza : ""}`, m.ingatlan_id);
+        }
+    }
+    return { ok: true };
+}
+
+async function megtTorol(ctx, id) {
+    const m = await megtJog(ctx, id);
+    await db.query("DELETE FROM crm_megtekintesek WHERE id = $1", [m.id]);
+    return { torolve: true };
+}
+
+// ===================== INGATLANOK (ki az ügyfél melyik ingatlanhoz) =====================
+// Az iroda hirdetései az érdeklődőkkel, a tulajdonossal és a megtekintésekkel.
+// (Az oldal CRM-jében: a CRM-ben kapcsolt ingatlanok.) Az ügynök csak a saját
+// ügyfeleit látja a számokban is.
+
+async function ingatlanLista(ctx, q = {}) {
+    const p = [];
+    const lp = [];
+    // a látható ügyfelek szűrője a belső lekérdezésekhez
+    let lathato = "TRUE";
+    if (!ctx.vezeto) { p.push(ctx.userId); lathato = `cu.felelos_id = $${p.length}`; }
+    const felt = [];
+    if (ctx.irodaId !== null) { p.push(ctx.irodaId); felt.push(`i.iroda_id = $${p.length}`); }
+    else felt.push(`EXISTS (SELECT 1 FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id WHERE k.ingatlan_id = i.id AND cu.iroda_id IS NULL)`);
+    if (q.statusz === "aktiv") felt.push("i.statusz = 'aktiv' AND COALESCE(i.eladva, false) = false");
+    else if (q.statusz === "eladva") felt.push("COALESCE(i.eladva, false) = true");
+    else felt.push("i.statusz <> 'torolve'");
+    if (q.q) { p.push(`%${String(q.q).toLowerCase()}%`); felt.push(`(LOWER(COALESCE(i.cim,'')) LIKE $${p.length} OR LOWER(COALESCE(i.kerulet,'')) LIKE $${p.length} OR i.id::text = REPLACE($${p.length}, '%', ''))`); }
+    if (szam(q.ugynok)) { p.push(Number(q.ugynok)); felt.push(`i.ugynok_id = $${p.length}`); }
+    void lp;
+    const r = await db.query(`
+        SELECT i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.statusz, i.eladva, i.kulso_kepek, i.ugynok_id,
+               ag.nev AS ugynok_nev,
+               (SELECT COUNT(*)::int FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id
+                 WHERE k.ingatlan_id = i.id AND k.szerep = 'erdeklodik' AND k.allapot <> 'elvetve' AND ${lathato}) AS erdeklodok,
+               (SELECT COUNT(*)::int FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id
+                 WHERE k.ingatlan_id = i.id AND k.allapot = 'ajanlat' AND ${lathato}) AS ajanlatok,
+               (SELECT string_agg(cu.nev, ', ') FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id
+                 WHERE k.ingatlan_id = i.id AND k.szerep = 'tulajdonos' AND ${lathato}) AS tulajdonos,
+               (SELECT COUNT(*)::int FROM crm_megtekintesek m JOIN crm_ugyfelek cu ON cu.id = m.ugyfel_id
+                 WHERE m.ingatlan_id = i.id AND m.statusz = 'megtortent' AND ${lathato}) AS megtekintve,
+               (SELECT to_char(MIN(m.kezdet), 'YYYY-MM-DD"T"HH24:MI') FROM crm_megtekintesek m JOIN crm_ugyfelek cu ON cu.id = m.ugyfel_id
+                 WHERE m.ingatlan_id = i.id AND m.statusz = 'tervezett' AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours' AND ${lathato}) AS kov_megtekintes
+        FROM ingatlanok i LEFT JOIN iroda_ugynokok ag ON ag.id = i.ugynok_id
+        WHERE ${felt.join(" AND ")}
+        ORDER BY (i.statusz = 'aktiv') DESC, i.updated_at DESC NULLS LAST, i.id DESC LIMIT 400`, p);
+    return r.rows;
+}
+
+async function ingatlanReszlet(ctx, ingatlanId) {
+    const i = (await db.query(`
+        SELECT i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.statusz, i.eladva, i.kulso_kepek, i.iroda_id, i.ugynok_id,
+               ag.nev AS ugynok_nev, ag.telefon AS ugynok_telefon
+        FROM ingatlanok i LEFT JOIN iroda_ugynokok ag ON ag.id = i.ugynok_id WHERE i.id = $1`, [Number(ingatlanId) || 0])).rows[0];
+    if (!i) throw hibaKod("listing_not_found", 404);
+    if (ctx.irodaId !== null && i.iroda_id !== ctx.irodaId) throw hibaKod("not_found", 404);
+    const p = [i.id];
+    const t = terSql(ctx, "u", p);
+    const l = lathatoSql(ctx, "u", p);
+    const ugyfelek = await db.query(`
+        SELECT u.id, u.nev, u.telefon, u.email, u.allapot, u.felelos_id, COALESCE(us.nev, us.felhasznalonev) AS felelos_nev,
+               k.szerep, k.allapot AS kapcs_allapot, k.created_at AS kapcs_ido,
+               (SELECT to_char(MAX(m.kezdet), 'YYYY-MM-DD"T"HH24:MI') FROM crm_megtekintesek m WHERE m.ugyfel_id = u.id AND m.ingatlan_id = $1 AND m.statusz = 'megtortent') AS utolso_megt
+        FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek u ON u.id = k.ugyfel_id LEFT JOIN users us ON us.id = u.felelos_id
+        WHERE k.ingatlan_id = $1 AND ${t} AND ${l}
+        ORDER BY (k.szerep = 'tulajdonos') DESC, (k.allapot = 'elvetve'), k.created_at DESC`, p);
+    const mp = [i.id];
+    const mt = terSql(ctx, "m", mp);
+    let ml = "TRUE";
+    if (!ctx.vezeto) { mp.push(ctx.userId); ml = `(m.felelos_id = $${mp.length} OR u.felelos_id = $${mp.length})`; }
+    const megt = await db.query(`${MEGT_SELECT} WHERE m.ingatlan_id = $1 AND ${mt} AND ${ml} ORDER BY m.kezdet DESC LIMIT 100`, mp);
+    return { ingatlan: i, ugyfelek: ugyfelek.rows, megtekintesek: megt.rows };
+}
+
+// ===================== CSAPAT (a vezetőnek) =====================
+// Munkatársanként: ügyfelek állapot szerint, nyitott és késő feladatok,
+// e heti megtekintések, nyert ügyek az elmúlt 90 napban.
+
+async function csapat(ctx) {
+    if (!ctx.vezeto) throw hibaKod("forbidden", 403);
+    const t = await tagok(ctx);
+    const p = [];
+    const ter = terSql(ctx, "u", p);
+    const ugy = await db.query(`
+        SELECT u.felelos_id, u.allapot, COUNT(*)::int AS n FROM crm_ugyfelek u WHERE ${ter} GROUP BY 1, 2`, p);
+    const fp = [];
+    const ft = terSql(ctx, "f", fp);
+    const fel = await db.query(`
+        SELECT f.felelos_id, COUNT(*)::int AS nyitott,
+               COUNT(*) FILTER (WHERE f.hatarido < (NOW() AT TIME ZONE 'Europe/Bucharest'))::int AS kesik
+        FROM crm_feladatok f WHERE ${ft} AND f.kesz IS NULL GROUP BY 1`, fp);
+    const mp = [];
+    const mt = terSql(ctx, "m", mp);
+    const megt = await db.query(`
+        SELECT m.felelos_id,
+               COUNT(*) FILTER (WHERE m.statusz = 'tervezett' AND m.kezdet >= date_trunc('week', NOW() AT TIME ZONE 'Europe/Bucharest') AND m.kezdet < date_trunc('week', NOW() AT TIME ZONE 'Europe/Bucharest') + INTERVAL '7 days')::int AS heti,
+               COUNT(*) FILTER (WHERE m.statusz = 'megtortent' AND m.kezdet >= NOW() - INTERVAL '30 days')::int AS megtortent30
+        FROM crm_megtekintesek m WHERE ${mt} GROUP BY 1`, mp);
+    const np = [];
+    const nt = terSql(ctx, "u", np);
+    const nyert = await db.query(`
+        SELECT u.felelos_id, COUNT(*)::int AS n FROM crm_ugyfelek u
+        WHERE ${nt} AND u.allapot = 'nyert' AND u.updated_at >= NOW() - INTERVAL '90 days' GROUP BY 1`, np);
+
+    const sor = id => {
+        const a = Object.fromEntries(ALLAPOTOK.map(x => [x, 0]));
+        ugy.rows.filter(r => (r.felelos_id || null) === id).forEach(r => { a[r.allapot] = r.n; });
+        const f = fel.rows.find(r => (r.felelos_id || null) === id) || {};
+        const m = megt.rows.find(r => (r.felelos_id || null) === id) || {};
+        const n = nyert.rows.find(r => (r.felelos_id || null) === id) || {};
+        return { allapotok: a, nyitott_ugyfel: NYITOTT.reduce((s, k) => s + a[k], 0), feladat: f.nyitott || 0, kesik: f.kesik || 0, heti_megt: m.heti || 0, megtortent30: m.megtortent30 || 0, nyert90: n.n || 0 };
+    };
+    return {
+        tagok: t.map(x => ({ ...x, ...sor(x.id) })),
+        nincs: sor(null)
+    };
+}
+
 // ===================== EXPORT (CSV) =====================
 async function csv(ctx) {
     const { ugyfelek } = await ugyfelLista(ctx, {});
@@ -635,5 +888,6 @@ module.exports = {
     ugyfelLista, ugyfel, ugyfelMent, ugyfelValt, ugyfelTorol, hasonlo,
     tevekenyseg, tevekenysegTorol, ingatlanKapcsol, ingatlanLevesz, ingatlanKeres,
     feladatLista, feladatMent, feladatKesz, feladatTorol,
-    beerkezo, beerkezoFelvesz, beerkezoElvet, csv
+    beerkezo, beerkezoFelvesz, beerkezoElvet, csv,
+    megtLista, megtMent, megtEredmeny, megtTorol, ingatlanLista, ingatlanReszlet, csapat
 };
