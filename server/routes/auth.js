@@ -115,6 +115,8 @@ router.get("/api/me", async (req, res) => {
             csapat,
             megbizas,
             vevo,
+            // Tesztfiók (Admin → Tesztelés): a felső sáv – ki van bent, válthat-e
+            teszt: req.user && req.user.teszt ? await require("../services/teszt").sav(req).catch(() => null) : null,
             // Az ÁSZF (új változatát) még nem fogadta el -> a weboldal megkérdezi
             aszfKell: !!(req.user && req.valodiSzerep !== "admin" && req.user.aszf_verzio !== ASZF_VERZIO)
         });

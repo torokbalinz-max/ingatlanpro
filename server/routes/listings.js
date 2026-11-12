@@ -26,10 +26,12 @@ router.get("/api/ingatlanok", async (req, res) => {
     try {
 
         const city = req.query.city;
+        // A teszthirdetéseket (Admin → Tesztelés) csak az admin és a tesztfiókok látják
+        const tesztSzur = require("../services/teszt").lat(req) ? "" : " AND NOT COALESCE(i.teszt, false)";
 
         const result = city
-            ? await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.varos = $1 AND i.statusz = 'aktiv' ORDER BY i.id`, [city])
-            : await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.statusz = 'aktiv' ORDER BY i.id`);
+            ? await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.varos = $1 AND i.statusz = 'aktiv'${tesztSzur} ORDER BY i.id`, [city])
+            : await db.query(`SELECT ${LISTA_MEZOK} FROM ingatlanok i WHERE i.statusz = 'aktiv'${tesztSzur} ORDER BY i.id`);
 
         // Más oldalról átvett hirdetés: a forrás szövegét (címét) nyilvánosan nem
         // mutatjuk – a felület az adatokból (típus, szobák, város) állít össze címet
@@ -50,7 +52,7 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
     try {
 
         const r = await db.query(`
-            SELECT ${LISTA_MEZOK}, i.leiras, i.forras_szoveg, i.megbizas_id,
+            SELECT ${LISTA_MEZOK}, i.leiras, i.forras_szoveg, i.megbizas_id, i.teszt,
                    (SELECT COALESCE(u.nev, u.felhasznalonev) FROM users u WHERE u.id = i.owner_id) AS hirdeto_nev
             FROM ingatlanok i WHERE i.id = $1`, [req.params.id]);
 
@@ -62,6 +64,9 @@ router.get("/api/ingatlanok/:id", async (req, res) => {
         );
 
         const i = r.rows[0];
+
+        // Teszthirdetés: csak az admin és a tesztfiókok látják
+        if (i.teszt && !require("../services/teszt").lat(req)) return res.status(404).json({ error: "not_found" });
 
         // Bejelentés miatt eltávolított hirdetés: csak a hirdető és az admin látja
         if (i.statusz === "tiltott" && req.szerep !== "admin" && !(req.user && req.user.id === i.owner_id)) {

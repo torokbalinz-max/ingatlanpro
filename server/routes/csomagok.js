@@ -41,6 +41,8 @@ router.get("/api/csomagok", async (req, res) => {
 router.post("/api/csomagok/rendeles", csakBelepve, async (req, res) => {
     try {
         if (tulSok(req.user.id)) return res.status(429).json({ error: "too_many" });
+        // Tesztfiókkal (Admin → Tesztelés) nem lehet rendelni – ne keletkezzen valódi számla
+        if (req.user.teszt) return res.status(400).json({ error: "test_account" });
         const v = await rendeles.rendel(req.user, req.body || {});
         // Rendeléskor NEM megy e-mail (se a vevőnek díjbekérő, se neked):
         // a díjbekérő nem kötelező, a fizetési adatok a képernyőn és a

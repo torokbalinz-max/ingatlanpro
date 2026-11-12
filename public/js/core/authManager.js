@@ -135,6 +135,9 @@ class AuthManager {
 
         AuthManager.apply();
 
+        // Tesztfiók (Admin → Tesztelés): alul a sáv – ki vagy, váltás, vissza az adminba
+        if (typeof TesztSav !== "undefined") TesztSav.mutat(me.teszt || null);
+
         // A felhasználási feltételek (új változatának) elfogadása
         if (me.aszfKell && typeof LegalPage !== "undefined") LegalPage.aszfKerdes();
 

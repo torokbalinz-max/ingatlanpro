@@ -1404,6 +1404,9 @@ async function statJog(req) {
 async function irodaAktiv(irodaId) {
     const b = await beallitas();
     if (!b.iroda_csomag_kell) return { kell: false, aktiv: true };
+    // Tesztiroda (Admin → Tesztelés): csomag nélkül is aktív
+    const t = await db.query("SELECT teszt FROM irodak WHERE id = $1", [irodaId]).catch(() => ({ rows: [] }));
+    if (t.rows[0] && t.rows[0].teszt) return { kell: true, aktiv: true, teszt: true };
     const j = await irodaJogosultsag(irodaId);
     return { kell: true, aktiv: j.csomagok > 0 };
 }

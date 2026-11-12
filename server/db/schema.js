@@ -1084,6 +1084,37 @@ async function createSchema(db) {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ajanlat_user ON ajanlatok (user_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ajanlat_cimzett ON ajanlatok (cimzett_id)`);
 
+    // Tesztkörnyezet (Admin → Tesztelés, services/teszt.js): a tesztfiókok, -irodák és
+    // -hirdetések jelzője. A tesztfiók / -iroda által létrehozott hirdetés és iroda
+    // automatikusan teszt lesz (trigger) – így a nyilvános listákból kimarad.
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS teszt BOOLEAN DEFAULT false`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS teszt_kulcs TEXT`);
+    await db.query(`ALTER TABLE irodak ADD COLUMN IF NOT EXISTS teszt BOOLEAN DEFAULT false`);
+    await db.query(`ALTER TABLE ingatlanok ADD COLUMN IF NOT EXISTS teszt BOOLEAN DEFAULT false`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_users_teszt ON users (id) WHERE teszt`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ingatlanok_teszt ON ingatlanok (id) WHERE teszt`);
+    await db.query(`
+        CREATE OR REPLACE FUNCTION ip_teszt_jelol() RETURNS trigger AS $$
+        BEGIN
+            IF TG_TABLE_NAME = 'ingatlanok' THEN
+                IF NOT COALESCE(NEW.teszt, false) AND (
+                    (NEW.owner_id IS NOT NULL AND EXISTS (SELECT 1 FROM users WHERE id = NEW.owner_id AND teszt)) OR
+                    (NEW.iroda_id IS NOT NULL AND EXISTS (SELECT 1 FROM irodak WHERE id = NEW.iroda_id AND teszt))) THEN
+                    NEW.teszt := true;
+                END IF;
+            ELSIF TG_TABLE_NAME = 'irodak' THEN
+                IF NOT COALESCE(NEW.teszt, false) AND NEW.created_by IS NOT NULL
+                   AND EXISTS (SELECT 1 FROM users WHERE id = NEW.created_by AND teszt) THEN
+                    NEW.teszt := true;
+                END IF;
+            END IF;
+            RETURN NEW;
+        END $$ LANGUAGE plpgsql`);
+    const trig = await db.query(`SELECT tgname FROM pg_trigger WHERE tgname IN ('ip_teszt_ingatlan', 'ip_teszt_iroda')`);
+    const vanTrig = new Set(trig.rows.map(r => r.tgname));
+    if (!vanTrig.has("ip_teszt_ingatlan")) await db.query(`CREATE TRIGGER ip_teszt_ingatlan BEFORE INSERT OR UPDATE OF owner_id, iroda_id ON ingatlanok FOR EACH ROW EXECUTE FUNCTION ip_teszt_jelol()`);
+    if (!vanTrig.has("ip_teszt_iroda")) await db.query(`CREATE TRIGGER ip_teszt_iroda BEFORE INSERT ON irodak FOR EACH ROW EXECUTE FUNCTION ip_teszt_jelol()`);
+
     // A beérkező érdeklődések (üzenetek) közül, amit már feldolgoztak (felvették / elvetették)
     await db.query(`
         CREATE TABLE IF NOT EXISTS crm_feldolgozott (

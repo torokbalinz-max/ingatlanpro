@@ -50,6 +50,7 @@ router.get("/api/fizetes/allapot", async (req, res) => {
 // Fizetés indítása a saját díjbekérőre → { url } (oda kell átirányítani)
 router.post("/api/fizetes/szamla/:id", csakBelepve, async (req, res) => {
     try {
+        if (req.user.teszt) return res.status(400).json({ error: "test_account" });
         const v = await fizetes.inditas(req.user, req.params.id, {
             alapCim: mail.oldalCim(req),
             nyelv: String((req.body && req.body.nyelv) || "").slice(0, 2)

@@ -170,6 +170,7 @@ app.use(require("./routes/irattar"));
 app.use(require("./routes/ertesitesek"));
 app.use(require("./routes/chat"));
 app.use(require("./routes/crm"));
+app.use(require("./routes/teszt"));
 
 // Hibakezelő (pl. a belépés-ellenőrzés adatbázis-hibája)
 app.use((err, req, res, next) => {

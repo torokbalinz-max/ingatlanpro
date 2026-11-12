@@ -43,6 +43,12 @@ async function kuld({ to, subject, html, text, replyTo, csatolmanyok }) {
 
     if (!elerheto() || !to) return false;
 
+    // Tesztfiókok (Admin → Tesztelés, @teszt.invalid): nem küldünk nekik levelet
+    const cimek = (Array.isArray(to) ? to : String(to).split(",")).map(x => String(x && x.email ? x.email : x).trim().toLowerCase()).filter(Boolean);
+    const valodi = cimek.filter(x => !x.endsWith("@teszt.invalid"));
+    if (!valodi.length) { console.log("✉️  (teszt) levél nem ment ki:", subject); return true; }
+    if (valodi.length !== cimek.length) to = Array.isArray(to) ? to.filter(x => !String(x && x.email ? x.email : x).toLowerCase().includes("@teszt.invalid")) : valodi.join(", ");
+
     // Csak fejlesztéshez: a levelek fájlba mennek (MAIL_TESZT_MAPPA), nem küldjük el
     if (process.env.MAIL_TESZT_MAPPA) {
         try {

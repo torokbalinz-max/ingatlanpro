@@ -39,8 +39,9 @@ const penzugy = require("../services/penzugy");
 
 // Ha az admin bekapcsolta, hogy az iroda csak irodai csomaggal aktív
 // (Admin → Pénzügy → Beállítások → Fizetős funkciók): az aktív előfizetés feltétele
-const AKTIV_CSOMAG_SQL = `EXISTS (SELECT 1 FROM penzugy_elofizetesek e JOIN penzugy_ugyfelek u ON u.id = e.ugyfel_id
-    WHERE u.iroda_id = i.id AND e.statusz = 'aktiv' AND e.kezdet <= CURRENT_DATE AND (e.vege IS NULL OR e.vege >= CURRENT_DATE))`;
+// (a tesztiroda – Admin → Tesztelés – csomag nélkül is aktív)
+const AKTIV_CSOMAG_SQL = `(COALESCE(i.teszt, false) OR EXISTS (SELECT 1 FROM penzugy_elofizetesek e JOIN penzugy_ugyfelek u ON u.id = e.ugyfel_id
+    WHERE u.iroda_id = i.id AND e.statusz = 'aktiv' AND e.kezdet <= CURRENT_DATE AND (e.vege IS NULL OR e.vege >= CURRENT_DATE)))`;
 
 const router = express.Router();
 
@@ -70,7 +71,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 // Az iroda oszlopai a logó (kép) nélkül
 const IRODA_MEZOK = `i.id, i.nev, i.leiras, i.telefon, i.email, i.weboldal, i.cim, i.varos, i.ellenorzott, i.created_at, i.updated_at,
-    i.cui, i.reg_com, i.hivatalos_nev, i.hivatalos_cim, i.caen, i.anaf_ido, i.dontes_ok, i.dontes_ido, i.statusz,
+    i.cui, i.reg_com, i.hivatalos_nev, i.hivatalos_cim, i.caen, i.anaf_ido, i.dontes_ok, i.dontes_ido, i.statusz, i.teszt,
     (i.logo IS NOT NULL) AS van_logo`;
 
 // A felhasználó szerepe az irodában: { tag, vezeto } – az admin mindent.
@@ -268,6 +269,8 @@ router.get("/api/irodak", async (req, res) => {
         const felt = ["i.statusz = 'jovahagyva'"];
         const p = [];
         if ((await penzugy.beallitas()).iroda_csomag_kell) felt.push(AKTIV_CSOMAG_SQL);
+        // A tesztirodák csak az adminnak és a tesztfiókoknak
+        if (!require("../services/teszt").lat(req)) felt.push("NOT COALESCE(i.teszt, false)");
 
         if (req.query.varos) {
             p.push(String(req.query.varos));
@@ -402,6 +405,7 @@ router.get("/api/irodak/:id", async (req, res) => {
         const j = await jog(req, iroda.id);
 
         if (iroda.statusz !== "jovahagyva" && !j.tag) return res.status(404).json({ error: "not_found" });
+        if (iroda.teszt && !j.tag && !require("../services/teszt").lat(req)) return res.status(404).json({ error: "not_found" });
 
         // Csomaghoz kötött iroda: amíg nincs kifizetve, nyilvánosan nem látszik
         const csomag = await penzugy.irodaAktiv(iroda.id).catch(() => ({ kell: false, aktiv: true }));

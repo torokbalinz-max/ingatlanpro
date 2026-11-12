@@ -67,13 +67,14 @@ async function hirdetesLinkbol(link) {
 }
 
 // A regisztrált (jóváhagyott, aktív) irodák listája a választóhoz
-async function irodak(q) {
+async function irodak(q, tesztLat = false) {
     const p = [];
     let felt = "i.statusz = 'jovahagyva'";
+    if (!tesztLat) felt += " AND NOT COALESCE(i.teszt, false)";
     if (q) { p.push(`%${String(q).toLowerCase()}%`); felt += ` AND (LOWER(i.nev) LIKE $1 OR LOWER(COALESCE(i.hivatalos_nev,'')) LIKE $1)`; }
     const b = await require("./penzugy").beallitas();
-    if (b.iroda_csomag_kell) felt += ` AND EXISTS (SELECT 1 FROM penzugy_elofizetesek e JOIN penzugy_ugyfelek u ON u.id = e.ugyfel_id
-        WHERE u.iroda_id = i.id AND e.statusz = 'aktiv' AND e.kezdet <= CURRENT_DATE AND (e.vege IS NULL OR e.vege >= CURRENT_DATE))`;
+    if (b.iroda_csomag_kell) felt += ` AND (COALESCE(i.teszt, false) OR EXISTS (SELECT 1 FROM penzugy_elofizetesek e JOIN penzugy_ugyfelek u ON u.id = e.ugyfel_id
+        WHERE u.iroda_id = i.id AND e.statusz = 'aktiv' AND e.kezdet <= CURRENT_DATE AND (e.vege IS NULL OR e.vege >= CURRENT_DATE)))`;
     const r = await db.query(`SELECT i.id, i.nev, i.varos, (i.logo IS NOT NULL) AS van_logo FROM irodak i WHERE ${felt} ORDER BY i.nev LIMIT 40`, p);
     return r.rows;
 }
