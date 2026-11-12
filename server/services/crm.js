@@ -831,6 +831,7 @@ async function ingatlanLista(ctx, q = {}) {
     void lp;
     const r = await db.query(`
         SELECT i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.statusz, i.eladva, i.kulso_kepek, i.ugynok_id,
+               (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id,
                ag.nev AS ugynok_nev,
                (SELECT COUNT(*)::int FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id
                  WHERE k.ingatlan_id = i.id AND k.szerep = 'erdeklodik' AND k.allapot <> 'elvetve' AND ${lathato}) AS erdeklodok,
@@ -838,6 +839,17 @@ async function ingatlanLista(ctx, q = {}) {
                  WHERE k.ingatlan_id = i.id AND k.allapot = 'ajanlat' AND ${lathato}) AS ajanlatok,
                (SELECT string_agg(cu.nev, ', ') FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id
                  WHERE k.ingatlan_id = i.id AND k.szerep = 'tulajdonos' AND ${lathato}) AS tulajdonos,
+               -- az eladó (tulajdonos) és a vevők (érdeklődők) a kártyához: ki hol tart ennél az ingatlannál
+               (SELECT json_build_object('id', cu.id, 'nev', cu.nev, 'telefon', cu.telefon) FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id
+                 WHERE k.ingatlan_id = i.id AND k.szerep = 'tulajdonos' AND ${lathato} ORDER BY k.created_at LIMIT 1) AS tulaj,
+               (SELECT json_agg(vv ORDER BY vv.sor, vv.ido DESC) FROM (
+                   SELECT cu.id, cu.nev, k.allapot AS kapcs, cu.allapot, k.created_at AS ido,
+                          CASE k.allapot WHEN 'ajanlat' THEN 1 WHEN 'megtekintes' THEN 2 WHEN 'kuldve' THEN 3 WHEN 'uj' THEN 4 ELSE 5 END AS sor
+                   FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek cu ON cu.id = k.ugyfel_id
+                   WHERE k.ingatlan_id = i.id AND k.szerep <> 'tulajdonos' AND ${lathato}) vv) AS vevok,
+               (SELECT json_build_object('osszeg', a.osszeg, 'penznem', a.penznem) FROM ajanlatok a
+                 WHERE a.ingatlan_id = i.id AND a.statusz IN ('uj', 'megnezve', 'ellenajanlat') ORDER BY a.osszeg DESC LIMIT 1) AS ajanlat_max,
+               i.iroda_ref, i.owner_id,
                (SELECT COUNT(*)::int FROM crm_megtekintesek m JOIN crm_ugyfelek cu ON cu.id = m.ugyfel_id
                  WHERE m.ingatlan_id = i.id AND m.statusz = 'megtortent' AND ${lathato}) AS megtekintve,
                (SELECT to_char(MIN(m.kezdet), 'YYYY-MM-DD"T"HH24:MI') FROM crm_megtekintesek m JOIN crm_ugyfelek cu ON cu.id = m.ugyfel_id
@@ -851,6 +863,7 @@ async function ingatlanLista(ctx, q = {}) {
 async function ingatlanReszlet(ctx, ingatlanId) {
     const i = (await db.query(`
         SELECT i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.statusz, i.eladva, i.kulso_kepek, i.iroda_id, i.ugynok_id,
+               (SELECT k.id FROM ingatlan_kepek k WHERE k.ingatlan_id = i.id ORDER BY k.sorrend, k.id LIMIT 1) AS kep_id, i.iroda_ref,
                ag.nev AS ugynok_nev, ag.telefon AS ugynok_telefon
         FROM ingatlanok i LEFT JOIN iroda_ugynokok ag ON ag.id = i.ugynok_id WHERE i.id = $1`, [Number(ingatlanId) || 0])).rows[0];
     if (!i) throw hibaKod("listing_not_found", 404);
@@ -875,7 +888,12 @@ async function ingatlanReszlet(ctx, ingatlanId) {
     let ml = "TRUE";
     if (!ctx.vezeto) { mp.push(ctx.userId); ml = `(m.felelos_id = $${mp.length} OR u.felelos_id = $${mp.length})`; }
     const megt = await db.query(`${MEGT_SELECT} WHERE m.ingatlan_id = $1 AND ${mt} AND ${ml} ORDER BY m.kezdet DESC LIMIT 100`, mp);
-    return { ingatlan: i, ugyfelek: ugyfelek.rows, megtekintesek: megt.rows };
+    // Ajánlatok erre az ingatlanra (az iroda CRM-jében; az oldal CRM-jében nincs)
+    const ajanlatok = ctx.irodaId !== null ? (await db.query(`
+        SELECT a.id, a.nev, a.osszeg, a.penznem, a.statusz, a.ellen_osszeg, a.created_at, a.crm_ugyfel_id
+        FROM ajanlatok a WHERE a.ingatlan_id = $1 AND a.iroda_id = $2 ORDER BY a.created_at DESC LIMIT 50`, [i.id, ctx.irodaId])).rows
+        .map(a => ({ ...a, osszeg: Number(a.osszeg), ellen_osszeg: a.ellen_osszeg === null ? null : Number(a.ellen_osszeg) })) : [];
+    return { ingatlan: i, ugyfelek: ugyfelek.rows, megtekintesek: megt.rows, ajanlatok };
 }
 
 // ===================== CSAPAT (a vezetőnek) =====================

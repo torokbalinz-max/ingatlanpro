@@ -493,7 +493,7 @@ class AgencyPage {
             return Crm.mount(body, { ter: ir.id, nezet: AgencyPage.CRM_NEZET[tab], beagyazott: true });
         }
         ({
-            hirdetesek: () => AgencyPage.hirdetesTab(body),
+            hirdetesek: () => AgencyPage.hirdetesOldal(body),
             csapat: () => AgencyPage.csapatTab(body, vezeto),
             iroda: () => AgencyPage.irodaTab(body)
         })[tab]();
@@ -589,7 +589,168 @@ class AgencyPage {
 
     }
 
-    // ---------- hirdetések ----------
+    // ---------- hirdetések: ingatlanok és ügyfeleik (kártyák) / kezelés (táblázat) ----------
+    //  Kártyák: minden ingatlannál ki az eladó, hány vevő hol tart (új érdeklődő →
+    //  ajánlottam → megnézte → ajánlatot tett), mikor a következő megtekintés, mi a
+    //  legjobb ajánlat. A „Részletek” az ingatlan teljes ügyét nyitja (Crm.ingatlanNyit).
+    //  Kezelés: a régi táblázat (mappák, tömeges műveletek, belső adatok).
+
+    static hNezet = "kartya";
+    static kSzuro = { statusz: "aktiv", fokusz: "", q: "", ugynok: "" };
+
+    static hirdetesOldal(el) {
+        el.innerHTML = `
+            <div class="propViewSwitch" role="tablist">
+                <button type="button" role="tab" class="${AgencyPage.hNezet === "kartya" ? "active" : ""}" data-hnezet="kartya" aria-selected="${AgencyPage.hNezet === "kartya"}"><i class="fa-solid fa-people-arrows" aria-hidden="true"></i> ${I18n.t("propViewCards")}</button>
+                <button type="button" role="tab" class="${AgencyPage.hNezet === "kezeles" ? "active" : ""}" data-hnezet="kezeles" aria-selected="${AgencyPage.hNezet === "kezeles"}"><i class="fa-solid fa-table-list" aria-hidden="true"></i> ${I18n.t("propViewManage")}</button>
+            </div>
+            <div id="propBody"></div>`;
+        el.querySelectorAll("[data-hnezet]").forEach(b => b.onclick = () => { AgencyPage.hNezet = b.dataset.hnezet; AgencyPage.hirdetesOldal(el); });
+        const body = el.querySelector("#propBody");
+        if (AgencyPage.hNezet === "kezeles") return AgencyPage.hirdetesTab(body);
+        AgencyPage.ingatlanKartyak(body);
+    }
+
+    // A CRM-hez (ügyfél / ingatlan adatlap) az iroda és a munkatársak
+    static crmKesz() {
+        const ir = AgencyPage.iroda;
+        if (Crm.ter === ir.id && Crm.tagok && Crm.tagok.length) return Promise.resolve();
+        Crm.ter = ir.id;
+        return Crm.api("/tagok").then(v => { Crm.tagok = v.tagok || []; Crm.en = v.en; Crm.vezeto = !!v.vezeto; });
+    }
+
+    static ingatlanKartyak(el) {
+        const ir = AgencyPage.iroda;
+        const esc = Utils.escape;
+        const vezeto = AgencyPage.vezeto();
+        el.innerHTML = `<div class="emptyState"><div class="spinner-border text-primary"></div></div>`;
+        Promise.all([AgencyPage.crmKesz(), fetch(`/api/crm/${ir.id}/ingatlanok?statusz=`).then(r => r.ok ? r.json() : [])]).then(([, crmL]) => {
+            const crm = new Map((crmL || []).map(x => [x.id, x]));
+            const f = AgencyPage.kSzuro;
+            const L = AgencyPage.hirdetesek.map(i => ({ ...i, ...(crm.get(i.id) || {}), kep_id: i.kep_id, _st: AgencyPage.statuszOf(i) }));
+            const vevok = i => (i.vevok || []).filter(v => v.kapcs !== "elvetve");
+            const FOK = {
+                elado: i => !i.tulaj,
+                vevo: i => !vevok(i).length,
+                ajanlat: i => !!i.ajanlat_max
+            };
+            const szamSt = s => L.filter(i => !s || i._st === s).length;
+            const q = f.q.trim().toLowerCase();
+            const lista = L.filter(i => (!f.statusz || i._st === f.statusz)
+                && (!f.fokusz || FOK[f.fokusz](i))
+                && (!f.ugynok || String(i.ugynok_id) === f.ugynok)
+                && (!q || [i.cim, i.iroda_ref, "ip-" + i.id, i.tulaj && i.tulaj.nev, ...(i.vevok || []).map(v => v.nev)].some(x => String(x || "").toLowerCase().includes(q))));
+
+            const fazisOssz = i => {
+                const d = { uj: 0, kuldve: 0, megtekintes: 0, ajanlat: 0 };
+                vevok(i).forEach(v => { d[v.kapcs] = (d[v.kapcs] || 0) + 1; });
+                return d;
+            };
+            const kartya = i => {
+                const kep = Utils.photoUrl(i);
+                const d = fazisOssz(i);
+                const V = vevok(i);
+                return `
+                <article class="propCard">
+                    <div class="propCardHead">
+                        <a class="propCardImg" href="#listing/${i.id}">${kep ? `<img src="${esc(kep)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : `<i class="${Types.get(i.tipus).icon}" aria-hidden="true"></i>`}</a>
+                        <div class="min-w-0 flex-fill">
+                            <a href="#listing/${i.id}" class="fw-semibold d-block text-truncate">${esc(i.cim || Types.label(i.tipus))}</a>
+                            <div class="small text-body-secondary text-truncate"><b class="propCode">IP-${i.id}</b>${i.iroda_ref ? ` · ${esc(i.iroda_ref)}` : ""} · ${esc(CityManager.helyLabel(i))}</div>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                                <b>${Utils.price(i)}</b> ${AgencyPage.statuszBadge(i)}
+                                ${vezeto && i.ugynok_nev ? `<span class="small text-body-secondary"><i class="fa-regular fa-user" aria-hidden="true"></i> ${esc(i.ugynok_nev)}</span>` : ""}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="propCardGrid">
+                        <div>
+                            <span class="crmColLabel">${I18n.t("propSeller")}</span>
+                            ${i.tulaj ? `<button type="button" class="btn btn-link p-0 text-start fw-semibold" data-pugyfel="${i.tulaj.id}">${esc(i.tulaj.nev)}</button>
+                                ${i.tulaj.telefon ? `<a class="small d-block" href="tel:${esc(i.tulaj.telefon)}"><i class="fa-solid fa-phone" aria-hidden="true"></i> ${esc(i.tulaj.telefon)}</a>` : ""}`
+                                : `<button type="button" class="btn btn-link btn-sm p-0 text-warning" data-pnyit="${i.id}"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> ${I18n.t("propSellerAdd")}</button>`}
+                        </div>
+                        <div>
+                            <span class="crmColLabel">${I18n.t("propBuyers")} (${V.length})</span>
+                            ${V.length ? `
+                                <div class="propFunnel">
+                                    ${Crm.VEVO_FAZIS.map(k => `<span class="pf pf-${k} ${d[k] ? "" : "zero"}" title="${esc(I18n.t("propCol_" + k))}"><b>${d[k]}</b> ${I18n.t("propColShort_" + k)}</span>`).join("")}
+                                </div>
+                                <div class="propNames small">${V.slice(0, 3).map(v => `<button type="button" class="btn btn-link btn-sm p-0" data-pugyfel="${v.id}">${esc(v.nev)}</button>`).join(", ")}${V.length > 3 ? ` <span class="text-body-secondary">+${V.length - 3}</span>` : ""}</div>`
+                                : `<span class="small text-body-secondary">${I18n.t("propNoBuyers")}</span>`}
+                        </div>
+                        <div>
+                            <span class="crmColLabel">${I18n.t("crmNextStep")}</span>
+                            ${i.kov_megtekintes ? `<span class="small fw-semibold text-success d-block"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${Crm.hatarido(i.kov_megtekintes)}</span>` : `<span class="small text-body-secondary d-block">${I18n.t("propNoViewing")}</span>`}
+                            ${i.ajanlat_max ? `<span class="small d-block"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> ${I18n.t("propBestOffer")}: <b>${esc(Crm.penz(i.ajanlat_max.osszeg, i.ajanlat_max.penznem))}</b></span>` : ""}
+                        </div>
+                    </div>
+                    <div class="propCardActs">
+                        <button type="button" class="btn btn-sm btn-primary" data-pnyit="${i.id}"><i class="fa-solid fa-folder-open" aria-hidden="true"></i> ${I18n.t("propOpen")}</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-pmegt="${i.id}"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${I18n.t("crmViewingShort")}</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-pedit="${i.id}" aria-label="${esc(I18n.t("detailEdit"))}"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>
+                    </div>
+                </article>`;
+            };
+
+            el.innerHTML = `
+                <div class="crmPhaseTabs" role="tablist" aria-label="${esc(I18n.t("agColStatus"))}">
+                    ${[["aktiv", "agStatus_aktiv"], ["fuggo", "agStatus_fuggo"], ["eladva", "agStatus_eladva"], ["archiv", "agStatus_archiv"], ["", "crmPhaseAll"]].map(([k, l]) => `
+                        <button type="button" role="tab" class="crmPhaseTab ${f.statusz === k ? "active" : ""}" aria-selected="${f.statusz === k}" data-kst="${k}"><span>${I18n.t(l)}</span><b>${szamSt(k)}</b></button>`).join("")}
+                </div>
+                <div class="crmToolbar">
+                    <div class="crmSearchBox">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="search" class="form-control" id="propQ" placeholder="${esc(I18n.t("propSearchPh"))}" value="${esc(f.q)}" aria-label="${esc(I18n.t("propSearchPh"))}">
+                    </div>
+                </div>
+                <div class="crmChipRows">
+                    <div class="crmChipRow">
+                        <span class="crmChipLabel">${I18n.t("crmFocus")}</span>
+                        ${[["elado", "fa-key"], ["vevo", "fa-user-slash"], ["ajanlat", "fa-hand-holding-dollar"]].map(([k, ic]) => `
+                            <button type="button" class="crmChip ${f.fokusz === k ? "active" : ""}" data-kfok="${k}" aria-pressed="${f.fokusz === k}"><i class="fa-solid ${ic}" aria-hidden="true"></i> ${I18n.t("propFocus_" + k)} <b>${L.filter(i => (!f.statusz || i._st === f.statusz) && FOK[k](i)).length}</b></button>`).join("")}
+                    </div>
+                    ${vezeto && ir.ugynokok.length > 1 ? `
+                    <div class="crmChipRow">
+                        <span class="crmChipLabel">${I18n.t("agAgent")}</span>
+                        <button type="button" class="crmChip ${!f.ugynok ? "active" : ""}" data-kugy="">${I18n.t("agAnyAgent")}</button>
+                        ${ir.ugynokok.map(u => `<button type="button" class="crmChip ${f.ugynok === String(u.id) ? "active" : ""}" data-kugy="${u.id}">${esc(u.nev)}</button>`).join("")}
+                    </div>` : ""}
+                </div>
+                ${lista.length ? `<div class="propCards">${lista.map(kartya).join("")}</div>` : `
+                <div class="emptyState">
+                    <i class="fa-solid fa-house-user"></i>
+                    <h5>${I18n.t(AgencyPage.hirdetesek.length ? "currentNoResults" : "agEmpty")}</h5>
+                    ${AgencyPage.hirdetesek.length ? "" : `<p>${I18n.t("agEmptyHint")}</p>`}
+                </div>`}`;
+
+            const ujra = () => AgencyPage.ingatlanKartyak(el);
+            el.querySelectorAll("[data-kst]").forEach(b => b.onclick = () => { f.statusz = b.dataset.kst; ujra(); });
+            el.querySelectorAll("[data-kfok]").forEach(b => b.onclick = () => { f.fokusz = f.fokusz === b.dataset.kfok ? "" : b.dataset.kfok; ujra(); });
+            el.querySelectorAll("[data-kugy]").forEach(b => b.onclick = () => { f.ugynok = b.dataset.kugy; ujra(); });
+            let t = null;
+            el.querySelector("#propQ").oninput = e => { clearTimeout(t); t = setTimeout(() => { f.q = e.target.value; ujra(); const x = el.querySelector("#propQ"); x.focus(); x.setSelectionRange(x.value.length, x.value.length); }, 300); };
+            el.querySelectorAll("[data-pnyit]").forEach(b => b.onclick = () => Crm.ingatlanNyit(Number(b.dataset.pnyit)));
+            el.querySelectorAll("[data-pugyfel]").forEach(b => b.onclick = () => Crm.ugyfelNyit(Number(b.dataset.pugyfel)));
+            el.querySelectorAll("[data-pmegt]").forEach(b => b.onclick = () => {
+                const i = L.find(x => x.id === Number(b.dataset.pmegt));
+                Crm.megtSzerk({ ingatlan_id: i.id, ingatlan_cim: i.cim, felelos_id: Crm.en }, ujra);
+            });
+            el.querySelectorAll("[data-pedit]").forEach(b => b.onclick = () => NewPropertyManager.startEdit({ id: Number(b.dataset.pedit) }));
+
+            // Az adatlapok bezárása után friss számok
+            if (!AgencyPage._propFigyel) {
+                AgencyPage._propFigyel = true;
+                document.addEventListener("hidden.bs.modal", e => {
+                    if (!["crmIng", "crmUgyfel", "crmMegt"].includes(e.target.id)) return;
+                    const pb = document.getElementById("propBody");
+                    if (pb && AgencyPage.tab === "hirdetesek" && AgencyPage.hNezet === "kartya" && !document.querySelector(".modal.show")) AgencyPage.ingatlanKartyak(pb);
+                });
+            }
+        }).catch(() => { el.innerHTML = `<div class="alert alert-danger">${I18n.t("alertLoadError")}</div>`; });
+    }
+
+    // ---------- hirdetések (kezelés) ----------
 
     static statuszOf(i) {
         if (i.statusz === "archiv") return "archiv";
@@ -925,7 +1086,7 @@ class AgencyPage {
         bar.querySelectorAll("[data-bulk]").forEach(b => b.onclick = () => futtat(b.dataset.bulk));
         document.getElementById("agBulkClear").onclick = () => {
             AgencyPage.kijelolt.clear();
-            AgencyPage.hirdetesTab(document.getElementById("agBody"));
+            AgencyPage.hirdetesTab(document.getElementById("propBody") || document.getElementById("agBody"));
         };
 
     }
@@ -994,7 +1155,7 @@ class AgencyPage {
                 .then(() => {
                     Object.assign(i, body, { ugynok_id: body.ugynok_id ? Number(body.ugynok_id) : null });
                     modal.hide();
-                    AgencyPage.hirdetesTab(document.getElementById("agBody"));
+                    AgencyPage.hirdetesTab(document.getElementById("propBody") || document.getElementById("agBody"));
                 })
                 .catch(e => alert(AgencyPage.hibaSzoveg(e)));
         };
