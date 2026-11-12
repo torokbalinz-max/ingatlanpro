@@ -458,6 +458,8 @@ class ListingPage {
 
                         ${kapcsolatBox}
 
+                        ${typeof Offers !== "undefined" ? Offers.listingBox(i) : ""}
+
                         ${sajatBox}
 
                         ${adminBox}
@@ -586,6 +588,8 @@ class ListingPage {
 
         const edit = document.getElementById("lpEdit");
         if (edit) edit.onclick = () => NewPropertyManager.startEdit(i);
+
+        if (typeof Offers !== "undefined") Offers.listingKot(i);
 
         const kapcs = document.getElementById("lpContact");
         if (kapcs) kapcs.onclick = () => {

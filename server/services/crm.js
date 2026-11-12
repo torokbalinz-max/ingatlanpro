@@ -199,7 +199,10 @@ async function attekintes(ctx) {
         WHERE ${mt} AND ${ml} AND m.statusz = 'tervezett' AND m.kezdet < (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours'
         ORDER BY m.kezdet DESC LIMIT 10`, mp);
 
+    const ujAjanlat = ctx.irodaId !== null ? await require("./ajanlat").nyitottDb(ctx) : 0;
+
     return {
+        uj_ajanlat: ujAjanlat,
         megtekintesek: megt.rows,
         lezaratlan: lezaratlan.rows,
         allapotok,
@@ -358,8 +361,14 @@ async function ugyfel(ctx, id) {
         FROM crm_ugyfel_ingatlan k JOIN ingatlanok i ON i.id = k.ingatlan_id
         WHERE k.ugyfel_id = $1 ORDER BY k.created_at DESC`, [u.id]);
     const megt = await db.query(`${MEGT_SELECT} WHERE m.ugyfel_id = $1 ORDER BY m.kezdet DESC LIMIT 100`, [u.id]);
+    const iratok = await require("./crmIratok").lista(u.id);
+    const ajanlatok = await db.query(`
+        SELECT a.id, a.osszeg, a.penznem, a.statusz, a.ellen_osszeg, a.created_at, a.ingatlan_id, a.kulso_link, i.cim AS ingatlan_cim
+        FROM ajanlatok a LEFT JOIN ingatlanok i ON i.id = a.ingatlan_id WHERE a.crm_ugyfel_id = $1 ORDER BY a.id DESC LIMIT 50`, [u.id]);
     return {
         ...u,
+        iratok,
+        ajanlatok: ajanlatok.rows.map(x => ({ ...x, osszeg: Number(x.osszeg), ellen_osszeg: x.ellen_osszeg === null ? null : Number(x.ellen_osszeg) })),
         megtekintesek: megt.rows,
         felelos_nev: fel ? fel.nev : null,
         tevekenysegek: tev.rows,
@@ -884,7 +893,7 @@ async function csv(ctx) {
 
 module.exports = {
     ALLAPOTOK, NYITOTT, SZEREPEK, FORRASOK, TEV_TIPUSOK, KAPCS_ALLAPOT,
-    kontextus, tagok, attekintes,
+    kontextus, tagok, attekintes, ugyfelJog,
     ugyfelLista, ugyfel, ugyfelMent, ugyfelValt, ugyfelTorol, hasonlo,
     tevekenyseg, tevekenysegTorol, ingatlanKapcsol, ingatlanLevesz, ingatlanKeres,
     feladatLista, feladatMent, feladatKesz, feladatTorol,

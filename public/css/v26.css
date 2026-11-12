@@ -244,3 +244,40 @@ select.crmStSel { font-weight: 600; border-radius: 999px; }
 .crmPRow { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; padding: 0.3rem 0; }
 .crmTeam td, .crmTeam th { white-space: nowrap; }
 .crmConsent { padding: 0.6rem 0.75rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }
+
+/* ---------- Iratok (CRM + ügyfélportál) ---------- */
+.crmDocRow, .ptRow { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.55rem 0; border-top: 1px solid var(--ip-border); }
+.crmDocGroup .crmDocRow:first-of-type { border-top: 0; }
+.crmDocIcon { margin-top: 0.2rem; width: 1.1rem; text-align: center; }
+.crmDocRow.st-bekuldve, .ptRow.st-bekuldve { background: var(--ip-warn-soft); border-radius: 8px; padding-left: 0.4rem; padding-right: 0.4rem; }
+.crmDocSel { width: auto; max-width: 170px; font-size: 0.75rem; padding-top: 0.1rem; padding-bottom: 0.1rem; }
+.crmFiles { display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.3rem; }
+.crmFile { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.8rem; overflow-wrap: anywhere; }
+.crmPortalBox { padding: 0.7rem 0.8rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }
+.ptWrap { max-width: 760px; margin: 0 auto; padding: 1rem 0 2rem; }
+.ptHead { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; }
+.ptLogo { width: 52px; height: 52px; border-radius: 12px; object-fit: contain; background: var(--ip-surface); border: 1px solid var(--ip-border); }
+.ptLogoIcon { display: inline-flex; align-items: center; justify-content: center; color: var(--ip-accent); font-size: 1.4rem; }
+.ptRow { padding: 0.75rem 0.5rem; }
+.ptRow label.btn { cursor: pointer; }
+.ptContact { margin-top: 1.5rem; padding: 0.9rem 1rem; border-radius: var(--ip-radius); background: var(--ip-accent-soft); }
+
+/* ---------- Vételi ajánlatok ---------- */
+.ofTarget { padding: 0.7rem 0.9rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }
+.crmOffer { border: 1px solid var(--ip-border); border-left: 4px solid var(--ip-accent); border-radius: var(--ip-radius); padding: 0.85rem 1rem; margin-bottom: 0.8rem; background: var(--ip-surface); }
+.crmOffer.st-uj { border-left-color: var(--ip-danger); }
+.crmOffer.st-ellenajanlat { border-left-color: var(--ip-warn); }
+.crmOffer.st-elutasitva, .crmOffer.st-visszavonva { opacity: 0.65; border-left-color: var(--ip-muted); }
+.crmOffer.st-elfogadva { border-left-color: #15803d; }
+.crmOffer blockquote { padding: 0.45rem 0.7rem; background: var(--ip-bg); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.crmOfferAmount { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.crmOfferMeta { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--ip-muted); }
+.crmOfferAlert { border-color: var(--ip-danger); }
+.crmOfferAlert > i:first-child { color: var(--ip-danger); }
+.ofExt { max-width: 760px; margin: 0 auto; padding: 1rem 0 2rem; }
+.ofSteps { padding-left: 1.2rem; color: var(--ip-muted); }
+.ofAgencyList { display: flex; flex-direction: column; gap: 0.35rem; max-height: 260px; overflow: auto; }
+.ofAgency { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; border: 1px solid var(--ip-border); border-radius: var(--ip-radius-sm); background: var(--ip-surface); text-align: left; color: inherit; }
+.ofAgency:hover, .ofAgency.active { border-color: var(--ip-accent); background: var(--ip-accent-soft); }
+.ofAgency img, .ofAgencyIcon { width: 32px; height: 32px; border-radius: 8px; object-fit: contain; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; background: var(--ip-bg); color: var(--ip-muted); }
+.ofNoAgency { padding-top: 0.75rem; border-top: 1px dashed var(--ip-border); }

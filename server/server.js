@@ -135,6 +135,8 @@ const jsonNagy = express.json({ limit: "40mb" });
 const jsonKicsi = express.json({ limit: "1mb" });
 // A hirdető a fizetési oldalon (belépés nélkül, a titkos linkkel) tölti fel a reklám képét
 app.use(/^\/reklam-szerzodes\/[a-f0-9]{48}\/anyag$/, express.json({ limit: "12mb" }));
+// Az ügyfél a titkos portál-linken (belépés nélkül) tölt fel iratot (max. 8 MB fájl)
+app.use(/^\/api\/crm-portal\/[a-f0-9]{64}\/irat\/\d+$/, express.json({ limit: "12mb" }));
 app.use((req, res, next) => (req.user ? jsonNagy : jsonKicsi)(req, res, next));
 
 // ===================== API =====================

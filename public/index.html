@@ -102,6 +102,7 @@
                         <div class="navPanelList">
                             <a class="navPanelItem nvKozep" role="menuitem" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot"></i><span><b data-i18n="mapTitle">Térkép</b><small data-i18n="menuMapDesc">Az ingatlanok a térképen</small></span></a>
                             <a class="navPanelItem" role="menuitem" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Add fel, mit keresel – az eladók ajánlanak neked</small></span></a>
+            <a class="navPanelItem" role="menuitem" href="#ajanlat" data-page="ajanlat"><i class="fa-solid fa-hand-holding-dollar"></i><span><b data-i18n="ofPageTitle">Ajánlat egy ingatlanra</b><small data-i18n="ofNavDesc">Más oldalon láttad? Tegyél ajánlatot a regisztrált irodának</small></span></a>
                         </div>
                     </div>
                     <div class="navTobbOszlop">
@@ -138,6 +139,7 @@
                     <a class="dropdown-item" href="#properties" data-page="properties"><i class="fa-solid fa-house"></i><span><b data-i18n="menuIngatlanok">Ingatlanok</b><small data-i18n="menuIngatlanokDesc">Keresés, táblázat, térkép</small></span></a>
                     <a class="dropdown-item" href="#map" data-page="map"><i class="fa-solid fa-map-location-dot"></i><span><b data-i18n="mapTitle">Térkép</b><small data-i18n="menuMapDesc">Az ingatlanok a térképen</small></span></a>
                     <a class="dropdown-item" href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Add fel, mit keresel – az eladók ajánlanak neked</small></span></a>
+            <a class="dropdown-item" href="#ajanlat" data-page="ajanlat"><i class="fa-solid fa-hand-holding-dollar"></i><span><b data-i18n="ofPageTitle">Ajánlat egy ingatlanra</b><small data-i18n="ofNavDesc">Más oldalon láttad? Tegyél ajánlatot a regisztrált irodának</small></span></a>
                     <a class="dropdown-item navMenuFeature" href="#eladjuk" data-page="eladjuk"><i class="fa-solid fa-key"></i><span><b data-i18n="menuEladjuk">Eladjuk helyetted</b><small data-i18n="menuEladjukDesc">Megbízás: fotózás, hirdetés, vevők, szerződés – mi intézzük</small></span></a>
                 </div>
                 <div class="navMenuCol">
@@ -247,6 +249,7 @@
         <div class="mobSheetLista">
             <h6 class="navMenuHead" data-i18n="navHeadBuyers">Vevőknek</h6>
             <a href="#igenyek" data-page="igenyek"><i class="fa-solid fa-bullhorn"></i><span><b data-i18n="menuIgenyek">Keresek</b><small data-i18n="navBuyRequestDesc">Add fel, mit keresel – az eladók ajánlanak neked</small></span></a>
+            <a href="#ajanlat" data-page="ajanlat"><i class="fa-solid fa-hand-holding-dollar"></i><span><b data-i18n="ofPageTitle">Ajánlat egy ingatlanra</b><small data-i18n="ofNavDesc">Más oldalon láttad? Tegyél ajánlatot a regisztrált irodának</small></span></a>
             <h6 class="navMenuHead" data-i18n="navHeadMarket">Piac</h6>
             <a href="#valuation" data-page="valuation"><i class="fa-solid fa-calculator"></i><span><b data-i18n="menuErtekbecslo">Értékbecslő</b><small data-i18n="menuErtekbecsloDesc">Mennyit ér egy lakás?</small></span></a>
             <a href="#market" data-page="market"><i class="fa-solid fa-chart-line"></i><span><b data-i18n="menuStatisztika">Piaci elemzés</b><small data-i18n="menuStatisztikaDesc">Átlagok, bontások, trendek</small></span></a>
@@ -505,6 +508,12 @@
 <!-- =====================================================================
      SÚGÓ
      ===================================================================== -->
+
+<!-- Vételi ajánlat más oldalon látott ingatlanra (js/offers/offers.js) -->
+<section id="page-ajanlat" class="page" style="display:none;"><div id="ofPage"></div></section>
+
+<!-- Ügyfélportál: iratok titkos linkkel (js/crm/docPortal.js) -->
+<section id="page-iratok" class="page" style="display:none;"><div id="ptPage"></div></section>
 
 <section id="page-sugo" class="page" style="display:none;">
     <div id="sugoContent"></div>
@@ -1561,6 +1570,7 @@
 <script src="js/core/i18n-v25.js"></script>
 <script src="js/core/i18n-v26.js"></script>
 <script src="js/core/i18n-crm.js"></script>
+<script src="js/core/i18n-offers.js"></script>
 <script src="js/core/dokumentum.js"></script>
 <script src="js/core/gridLocale.js"></script>
 <script src="js/core/telepulesek.js"></script>
@@ -1637,6 +1647,9 @@
 <script src="js/requests/requestsPage.js"></script>
 <script src="js/agency/anaf.js"></script>
 <script src="js/crm/crm.js"></script>
+<script src="js/crm/crmDocs.js"></script>
+<script src="js/crm/docPortal.js"></script>
+<script src="js/offers/offers.js"></script>
 <script src="js/agency/agencyPage.js"></script>
 <script src="js/agency/agencyDirectory.js"></script>
 <script src="js/agency/profileFeature.js"></script>

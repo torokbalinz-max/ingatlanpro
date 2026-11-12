@@ -1011,6 +1011,79 @@ async function createSchema(db) {
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_crm_megt ON crm_megtekintesek (iroda_id, kezdet)`);
 
+    // ---- Iratok (adásvételhez szükséges dokumentumok) – services/crmIratok.js ----
+    // Ügyfelenként egy kipipálható lista (sablonból), feltölthető fájlokkal; az
+    // ügyfél egy titkos linken (portál) látja és ő is feltölthet.
+    await db.query(`ALTER TABLE crm_ugyfelek ADD COLUMN IF NOT EXISTS portal_token TEXT`);
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS crm_ugyfel_portal ON crm_ugyfelek (portal_token) WHERE portal_token IS NOT NULL`);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS crm_iratok (
+            id SERIAL PRIMARY KEY,
+            ugyfel_id INTEGER REFERENCES crm_ugyfelek(id) ON DELETE CASCADE,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE SET NULL,
+            kulcs TEXT,
+            nev TEXT NOT NULL,
+            kinek TEXT DEFAULT 'elado',
+            statusz TEXT DEFAULT 'hianyzik',
+            lejarat DATE,
+            megjegyzes TEXT,
+            sorrend INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_crm_irat_ugyfel ON crm_iratok (ugyfel_id)`);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS crm_irat_fajlok (
+            id SERIAL PRIMARY KEY,
+            irat_id INTEGER REFERENCES crm_iratok(id) ON DELETE CASCADE,
+            nev TEXT,
+            mime TEXT,
+            meret INTEGER,
+            adat BYTEA,
+            feltolto TEXT DEFAULT 'iroda',
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_crm_irat_fajl ON crm_irat_fajlok (irat_id)`);
+
+    // ---- Vételi ajánlatok – services/ajanlat.js ----
+    // A vevő az appon keresztül tesz (nem kötelező érvényű) ajánlatot: az iroda
+    // hirdetésére (az iroda CRM-jébe kerül), magánhirdetésre (a tulajdonosnak),
+    // vagy más oldalon látott ingatlanra egy regisztrált irodának (link + adatok).
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS ajanlatok (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE SET NULL,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE CASCADE,
+            cimzett_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            nev TEXT,
+            telefon TEXT,
+            email TEXT,
+            osszeg NUMERIC(14,2) NOT NULL,
+            penznem TEXT DEFAULT 'EUR',
+            finanszirozas TEXT,
+            hitel_elobiralat BOOLEAN DEFAULT false,
+            birtokba TEXT,
+            ervenyes DATE,
+            uzenet TEXT,
+            kulso_link TEXT,
+            kulso_adat JSONB,
+            statusz TEXT DEFAULT 'uj',
+            ellen_osszeg NUMERIC(14,2),
+            valasz TEXT,
+            valasz_ido TIMESTAMP,
+            crm_ugyfel_id INTEGER REFERENCES crm_ugyfelek(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ajanlat_iroda ON ajanlatok (iroda_id, statusz)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ajanlat_user ON ajanlatok (user_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ajanlat_cimzett ON ajanlatok (cimzett_id)`);
+
     // A beérkező érdeklődések (üzenetek) közül, amit már feldolgoztak (felvették / elvetették)
     await db.query(`
         CREATE TABLE IF NOT EXISTS crm_feldolgozott (

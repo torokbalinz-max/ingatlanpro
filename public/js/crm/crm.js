@@ -43,6 +43,7 @@ class Crm {
         { k: "ugyfelek", ikon: "fa-solid fa-address-book" },
         { k: "ingatlanok", ikon: "fa-solid fa-house" },
         { k: "megtekintesek", ikon: "fa-regular fa-calendar" },
+        { k: "ajanlatok", ikon: "fa-solid fa-hand-holding-dollar", iroda: true },
         { k: "feladatok", ikon: "fa-solid fa-list-check" },
         { k: "beerkezo", ikon: "fa-solid fa-inbox" },
         { k: "csapat", ikon: "fa-solid fa-people-group", vezeto: true }
@@ -61,6 +62,8 @@ class Crm {
     static szuro = { q: "", allapot: "nyitott", szerep: "", felelos: "", cimke: "", rend: "friss" };
     static fSzuro = { felelos: "", kesz: false };
     static beerkezoDb = 0;
+    static ajanlatDb = 0;
+    static aSzuro = { statusz: "nyitott" };
 
     // ===================== KÖZÖS =====================
 
@@ -187,10 +190,11 @@ class Crm {
             <div class="crm">
                 <div class="crmTop">
                     <nav class="crmNav" aria-label="CRM">
-                        ${Crm.NEZETEK.filter(n => !n.vezeto || (Crm.vezeto && Crm.ter)).map(n => `
+                        ${Crm.NEZETEK.filter(n => (!n.vezeto || (Crm.vezeto && Crm.ter)) && (!n.iroda || Crm.ter)).map(n => `
                             <button type="button" class="crmNavBtn ${Crm.nezet === n.k ? "active" : ""}" data-crm-nezet="${n.k}" aria-pressed="${Crm.nezet === n.k}">
                                 <i class="${n.ikon}" aria-hidden="true"></i> ${Crm.t("crmNav_" + n.k)}
                                 ${n.k === "beerkezo" ? `<span class="badge rounded-pill text-bg-warning crmInboxBadge" ${Crm.beerkezoDb ? "" : "hidden"}>${Crm.beerkezoDb}</span>` : ""}
+                                ${n.k === "ajanlatok" ? `<span class="badge rounded-pill text-bg-danger crmOfferBadge" ${Crm.ajanlatDb ? "" : "hidden"}>${Crm.ajanlatDb}</span>` : ""}
                             </button>`).join("")}
                     </nav>
                     <div class="d-flex gap-2">
@@ -219,7 +223,8 @@ class Crm {
             beerkezo: () => Crm.beerkezo(body),
             ingatlanok: () => Crm.ingatlanok(body),
             megtekintesek: () => Crm.megtekintesek(body),
-            csapat: () => Crm.csapat(body)
+            csapat: () => Crm.csapat(body),
+            ajanlatok: () => Crm.ajanlatok(body)
         })[Crm.nezet]();
     }
 
@@ -239,6 +244,9 @@ class Crm {
         Crm.betolt(body);
         Crm.api("/attekintes").then(a => {
             Crm.badge(a.beerkezett);
+            Crm.ajanlatDb = a.uj_ajanlat || 0;
+            const ob = Crm.el && Crm.el.querySelector(".crmOfferBadge");
+            if (ob) { ob.textContent = Crm.ajanlatDb; ob.hidden = !Crm.ajanlatDb; }
             const most = new Date();
             const vege = new Date(); vege.setHours(23, 59, 59, 999);
             const kesik = a.feladatok.filter(f => Crm.helyi(f.hatarido) < most && Crm.helyi(f.hatarido).toDateString() !== most.toDateString());
@@ -263,6 +271,12 @@ class Crm {
                 <button type="button" class="crmInboxAlert mb-4" id="crmGoInbox">
                     <i class="fa-solid fa-inbox" aria-hidden="true"></i>
                     <span class="flex-fill text-start"><b>${Crm.t("crmInboxAlert", { n: a.beerkezett })}</b><span class="d-block small">${Crm.t("crmInboxAlertHint")}</span></span>
+                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                </button>` : ""}
+                ${a.uj_ajanlat ? `
+                <button type="button" class="crmInboxAlert crmOfferAlert mb-4" data-go="ajanlatok">
+                    <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i>
+                    <span class="flex-fill text-start"><b>${Crm.t("ofNewOffers", { n: a.uj_ajanlat })}</b><span class="d-block small">${Crm.t("ofNewOffersHint")}</span></span>
                     <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                 </button>` : ""}
                 ${a.lezaratlan.length ? `
@@ -681,6 +695,17 @@ class Crm {
                                         <span class="small text-body-secondary">${Crm.t("crmLinkRole_" + x.szerep)} · ${x.szerep !== "tulajdonos" ? `<button type="button" class="btn btn-link btn-sm p-0" data-ujmegtI="${x.id}">${Crm.t("crmViewingShort")}</button> · ` : ""}<button type="button" class="btn btn-link btn-sm p-0 text-danger" data-levesz="${x.id}">${Crm.t("crmUnlink")}</button></span>
                                     </div>`)).join("") : `<p class="small text-body-secondary mb-0">${Crm.t("crmPropsNone")}</p>`}
                             </div>
+
+                            ${u.ajanlatok && u.ajanlatok.length ? `
+                            <div class="crmCard">
+                                <h6><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> ${Crm.t("ofOffers")}</h6>
+                                ${u.ajanlatok.map(o => `
+                                    <div class="d-flex justify-content-between gap-2 small border-top pt-1 mt-1">
+                                        <span class="text-truncate">${esc(o.ingatlan_cim || o.kulso_link || "")}</span>
+                                        <span class="text-nowrap"><b>${esc(Crm.penz(o.osszeg, o.penznem))}</b> ${Crm.ajanlatBadge(o.statusz)}</span>
+                                    </div>`).join("")}
+                            </div>` : ""}
+                            ${Crm.ter ? CrmDocs.kartya(u) : ""}
                         </div>
 
                         <div class="col-lg-7">
@@ -768,6 +793,7 @@ class Crm {
             };
 
             $("#cuFelUj").onclick = () => Crm.feladatSzerk({ ugyfel_id: u.id, ugyfel_nev: u.nev, felelos_id: u.felelos_id || Crm.en }, ujra);
+            if (Crm.ter) CrmDocs.kot(tartalom, u, ujra);
             $("#cuMegtUj").onclick = () => Crm.megtSzerk({ ugyfel_id: u.id, ugyfel_nev: u.nev, felelos_id: u.felelos_id || Crm.en }, ujra);
             tartalom.querySelectorAll("[data-ujmegtI]").forEach(b => b.onclick = () => {
                 const ing = u.ingatlanok.find(x => String(x.id) === b.dataset.ujmegti);
@@ -843,6 +869,16 @@ class Crm {
         if (s.startsWith("ingatlan:")) {
             const [, szerep, all] = s.split(":");
             return Crm.t("crmSys_prop", { mi: Crm.t((szerep === "tulajdonos" ? "crmOwnSt_" : "crmLinkSt_") + (all || "uj")) });
+        }
+        if (s === "letrehozva_ajanlatbol") return Crm.t("ofSys_created");
+        if (s === "ajanlat_visszavonva") return Crm.t("ofSys_withdrawn");
+        if (s.startsWith("ajanlat_")) {
+            const [st, ossz] = s.slice(8).split(":");
+            return Crm.t("ofSys_" + st) + (ossz ? " – " + Crm.esc(ossz) : "");
+        }
+        if (s.startsWith("irat_feltoltve:")) {
+            const [, kulcs, ...nev] = s.split(":");
+            return Crm.t("dcSys_uploaded", { nev: kulcs ? CrmDocs.nev({ kulcs, nev: nev.join(":") }) : Crm.esc(nev.join(":")) });
         }
         if (s.startsWith("megt_terv:")) return Crm.t("crmSys_viewPlan", { ido: Crm.hatarido(s.slice(10)) });
         if (s.startsWith("megt_elmaradt")) return Crm.t("crmSys_viewMissed") + (s.includes(":") ? " – " + Crm.esc(s.split(":").slice(1).join(":")) : "");
@@ -1539,6 +1575,122 @@ class Crm {
                 Crm.keret();
             });
         }).catch(e => { body.innerHTML = `<div class="alert alert-danger">${Crm.hiba(e)}</div>`; });
+    }
+
+    // ===================== AJÁNLATOK (irodának) =====================
+
+    static penz(v, p) {
+        return `${Number(v || 0).toLocaleString(Utils.locale(), { maximumFractionDigits: 0 })} ${p === "RON" ? "lei" : "€"}`;
+    }
+
+    static ajanlatBadge(st) {
+        const szin = { uj: "danger", megnezve: "secondary", elfogadva: "success", elutasitva: "dark", ellenajanlat: "warning", visszavonva: "light" }[st] || "light";
+        return `<span class="badge text-bg-${szin}">${Crm.t("ofSt_" + st)}</span>`;
+    }
+
+    static ajanlatok(body) {
+        const f = Crm.aSzuro;
+        Crm.betolt(body);
+        Promise.all([Crm.api("/ajanlatok?" + new URLSearchParams(f.statusz ? { statusz: f.statusz } : {})), Crm.api("/ingatlanok?statusz=aktiv").catch(() => [])]).then(([L, sajat]) => {
+            const esc = Crm.esc;
+            body.innerHTML = `
+                <div class="crmFilters">
+                    <div class="btn-group btn-group-sm" role="group">
+                        ${[["nyitott", "ofOpen"], ["elfogadva", "ofSt_elfogadva"], ["", "crmAll"]].map(([k, l]) => `<button type="button" class="btn ${f.statusz === k ? "btn-primary" : "btn-outline-secondary"}" data-ast="${k}">${Crm.t(l)}</button>`).join("")}
+                    </div>
+                </div>
+                <p class="small text-body-secondary">${Crm.t("ofAgencyHelp")}</p>
+                ${L.length ? L.map(a => `
+                    <article class="crmOffer st-${esc(a.statusz)}">
+                        <div class="d-flex flex-wrap justify-content-between gap-2">
+                            <div class="min-w-0">
+                                <div class="crmOfferAmount">${esc(Crm.penz(a.osszeg, a.penznem))} ${Crm.ajanlatBadge(a.statusz)}</div>
+                                <div class="small">
+                                    ${a.crm_ugyfel_id ? `<a href="#" data-ugyfel="${a.crm_ugyfel_id}" class="fw-semibold">${esc(a.nev || "")}</a>` : `<b>${esc(a.nev || "")}</b>`}
+                                    ${a.telefon ? ` · <a href="tel:${esc(a.telefon)}">${esc(a.telefon)}</a>` : ""}${a.email ? ` · <a href="mailto:${esc(a.email)}">${esc(a.email)}</a>` : ""}
+                                </div>
+                                <div class="small text-body-secondary">${Crm.idopont(a.created_at)}${a.ervenyes ? ` · ${Crm.t("ofValidUntil")}: ${esc(String(a.ervenyes).slice(0, 10))}` : ""}</div>
+                            </div>
+                            <div class="text-end small">
+                                ${a.ingatlan_id ? `<a href="#" data-ingatlan="${a.ingatlan_id}"><i class="fa-solid fa-house" aria-hidden="true"></i> ${esc(a.ingatlan_cim || "#" + a.ingatlan_id)}</a>
+                                    ${a.ingatlan_ar ? `<div class="text-body-secondary">${Crm.t("ofAsking")}: ${esc(Crm.penz(a.ingatlan_ar, "EUR"))} · ${Math.round((a.osszeg / a.ingatlan_ar - 1) * 100)}%</div>` : ""}` : ""}
+                                ${a.kulso_link ? `<div><span class="badge text-bg-info">${Crm.t("ofExternal")}</span> <a href="${esc(a.kulso_link)}" target="_blank" rel="noopener nofollow">${esc(Crm.domain(a.kulso_link))}</a></div>
+                                    ${a.kulso_adat ? `<div class="text-body-secondary">${esc([a.kulso_adat.cim, a.kulso_adat.ar ? Crm.penz(a.kulso_adat.ar, "EUR") : ""].filter(Boolean).join(" · "))}</div>` : ""}` : ""}
+                            </div>
+                        </div>
+                        <div class="crmOfferMeta small mt-2">
+                            ${a.finanszirozas ? `<span><i class="fa-solid fa-wallet" aria-hidden="true"></i> ${Crm.t("ofFin_" + a.finanszirozas)}${a.hitel_elobiralat ? ` (${Crm.t("ofPreApproved")})` : ""}</span>` : ""}
+                            ${a.birtokba ? `<span><i class="fa-solid fa-key" aria-hidden="true"></i> ${esc(a.birtokba)}</span>` : ""}
+                        </div>
+                        ${a.uzenet ? `<blockquote class="small mt-2 mb-0">${esc(a.uzenet)}</blockquote>` : ""}
+                        ${a.kulso_adat && a.kulso_adat.megjegyzes ? `<blockquote class="small mt-2 mb-0">${esc(a.kulso_adat.megjegyzes)}</blockquote>` : ""}
+                        ${a.statusz === "ellenajanlat" ? `<div class="small mt-2"><b>${Crm.t("ofCounterSent")}:</b> ${esc(Crm.penz(a.ellen_osszeg, a.penznem))}${a.valasz ? ` – ${esc(a.valasz)}` : ""}</div>` : ""}
+                        ${a.valasz && a.statusz !== "ellenajanlat" ? `<div class="small mt-2 text-body-secondary"><b>${Crm.t("ofReply")}:</b> ${esc(a.valasz)}</div>` : ""}
+                        ${["uj", "megnezve", "ellenajanlat"].includes(a.statusz) ? `
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-success" data-av="${a.id}" data-mit="elfogadva">${Crm.t("ofAccept")}</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-av="${a.id}" data-mit="ellenajanlat">${Crm.t("ofCounter")}</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-av="${a.id}" data-mit="elutasitva">${Crm.t("ofReject")}</button>
+                            ${a.kulso_link && !a.ingatlan_id && sajat.length ? `
+                            <span class="ms-auto d-flex gap-1 align-items-center">
+                                <label class="visually-hidden" for="akap${a.id}">${Crm.t("ofLinkOwn")}</label>
+                                <select class="form-select form-select-sm" id="akap${a.id}" data-akap="${a.id}">
+                                    <option value="">${Crm.t("ofLinkOwn")}</option>
+                                    ${sajat.map(i => `<option value="${i.id}">#${i.id} ${esc(i.cim || Types.label(i.tipus))}</option>`).join("")}
+                                </select>
+                            </span>` : ""}
+                        </div>` : ""}
+                    </article>`).join("") : `<div class="emptyState"><i class="fa-solid fa-hand-holding-dollar"></i><h5>${Crm.t("ofNone")}</h5><p>${Crm.t("ofNoneHint")}</p></div>`}`;
+            body.querySelectorAll("[data-ast]").forEach(b => b.onclick = () => { f.statusz = b.dataset.ast; Crm.ajanlatok(body); });
+            // megnyitva: „megnézve”
+            L.filter(a => a.statusz === "uj").forEach(a => Crm.api(`/ajanlatok/${a.id}/valasz`, { method: "POST", body: { statusz: "megnezve" } }).catch(() => { }));
+            if (L.some(a => a.statusz === "uj")) { Crm.ajanlatDb = 0; const ob = Crm.el.querySelector(".crmOfferBadge"); if (ob) ob.hidden = true; }
+            body.querySelectorAll("[data-av]").forEach(b => b.onclick = () => {
+                const a = L.find(x => String(x.id) === b.dataset.av);
+                Crm.ajanlatValasz(a, b.dataset.mit, () => Crm.ajanlatok(body));
+            });
+            body.querySelectorAll("[data-akap]").forEach(s => s.onchange = () => {
+                if (!s.value) return;
+                Crm.api(`/ajanlatok/${s.dataset.akap}/kapcsol`, { method: "POST", body: { ingatlan_id: s.value } }).then(() => { Crm.jelez(Crm.t("crmSaved")); Crm.ajanlatok(body); }).catch(e => alert(Crm.hiba(e)));
+            });
+            Crm.kotesek(body);
+        }).catch(e => { body.innerHTML = `<div class="alert alert-danger">${Crm.hiba(e)}</div>`; });
+    }
+
+    static domain(u) {
+        try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return u; }
+    }
+
+    // Válasz: elfogad / elutasít / ellenajánlat (összeg + üzenet)
+    static ajanlatValasz(a, mit, utana) {
+        const { tartalom, modal } = Svc.modal("crmAjVal", "");
+        const esc = Crm.esc;
+        tartalom.innerHTML = `
+            <div class="modal-header">
+                <h5 class="modal-title">${Crm.t("ofReplyTitle_" + mit)}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${esc(Crm.t("crmClose"))}"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small">${esc(a.nev || "")} · <b>${esc(Crm.penz(a.osszeg, a.penznem))}</b></p>
+                ${mit === "ellenajanlat" ? `
+                <label class="form-label small mb-1" for="avOssz">${Crm.t("ofCounterAmount")} (${a.penznem === "RON" ? "lei" : "€"})</label>
+                <input type="number" class="form-control mb-3" id="avOssz" min="1" value="${Math.round(a.ingatlan_ar || a.osszeg)}">` : ""}
+                <label class="form-label small mb-1" for="avSzoveg">${Crm.t("ofReplyMsg")}</label>
+                <textarea class="form-control" id="avSzoveg" rows="3" maxlength="2000" placeholder="${esc(Crm.t("ofReplyPh_" + mit))}"></textarea>
+                <p class="small text-body-secondary mt-2 mb-0">${Crm.t("ofReplyNote")}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${Crm.t("crmCancel")}</button>
+                <button type="button" class="btn btn-primary" id="avOk">${Crm.t("ofSend")}</button>
+            </div>`;
+        modal.show();
+        const $ = q => tartalom.querySelector(q);
+        $("#avOk").onclick = () => {
+            $("#avOk").disabled = true;
+            Crm.api(`/ajanlatok/${a.id}/valasz`, { method: "POST", body: { statusz: mit, ellen_osszeg: $("#avOssz") ? $("#avOssz").value : null, valasz: $("#avSzoveg").value } })
+                .then(() => { modal.hide(); Crm.jelez(Crm.t("ofReplied")); utana(); })
+                .catch(e => { $("#avOk").disabled = false; alert(Crm.hiba(e)); });
+        };
     }
 
 }

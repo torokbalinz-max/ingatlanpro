@@ -22,6 +22,7 @@ class AccountPage {
         { key: "statisztika", icon: "fa-solid fa-chart-simple", label: "lsTab", al: "hirdetesek" },
         { key: "keresesek", icon: "fa-solid fa-bookmark", label: "accTabSearches" },
         { key: "igenyek", icon: "fa-solid fa-bullhorn", label: "accTabRequests" },
+        { key: "ajanlatok", icon: "fa-solid fa-hand-holding-dollar", label: "ofAccountTab" },
         { key: "uzenetek", icon: "fa-solid fa-envelope", label: "accTabMessages" },
         { key: "ertesitesek", icon: "fa-solid fa-bell", label: "accTabNotifications" },
         { key: "csomag", icon: "fa-solid fa-receipt", label: "accTabBilling" }
@@ -79,6 +80,7 @@ class AccountPage {
                 Messages.render(body, ny);
             },
             ertesitesek: () => Notifications.render(body),
+            ajanlatok: () => Offers.fiok(body),
             csomag: () => AccountBilling.render(body),
             megbizasok: () => MyMandates.render(body)
         })[AccountPage.tab]();

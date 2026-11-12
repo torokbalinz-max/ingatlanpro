@@ -17,7 +17,8 @@ class Notifications {
         igeny: "fa-solid fa-bullhorn",
         kedvenc_ar: "fa-solid fa-tag",
         kedvenc_statusz: "fa-solid fa-circle-info",
-        uzenet: "fa-solid fa-envelope"
+        uzenet: "fa-solid fa-envelope",
+        ajanlat: "fa-solid fa-hand-holding-dollar"
     };
 
     static TIPUSOK = ["kereses", "igeny", "kedvenc_ar", "kedvenc_statusz", "uzenet"];
@@ -150,6 +151,11 @@ class Notifications {
             cim = I18n.t(le ? "ntfPriceDown" : "ntfPriceUp");
             tartalom = Notifications.hirdetes({ ...(a.hirdetes || {}), ar: a.uj },
                 `<span class="ntfPriceChange"><s>${esc(Utils.eur(a.regi))}</s> → <b class="${le ? "text-success" : "text-danger"}">${esc(Utils.eur(a.uj))}</b> (${a.szazalek > 0 ? "+" : ""}${esc(String(a.szazalek))}%)</span>`);
+        } else if (e.tipus === "ajanlat") {
+            const p = v => `${Number(v || 0).toLocaleString(Utils.locale(), { maximumFractionDigits: 0 })} ${a.penznem === "RON" ? "lei" : "€"}`;
+            cim = a.esemeny ? I18n.f("ntfOffer_" + a.esemeny, { v: p(a.esemeny === "ellenajanlat" ? a.ellen_osszeg : a.osszeg) }) : I18n.f("ntfOfferNew", { v: p(a.osszeg) });
+            tartalom = a.cim ? `<div class="small text-body-secondary">${esc(a.cim)}</div>` : "";
+            tartalom += e.link ? `<a class="btn btn-link btn-sm px-0" href="${esc(e.link)}">${I18n.t("ntfOfferOpen")}</a>` : "";
         } else if (e.tipus === "kedvenc_statusz") {
             cim = I18n.t(a.allapot === "ujra" ? "ntfAvailableAgain" : "ntfUnavailable");
             tartalom = Notifications.hirdetes(a.hirdetes);
