@@ -45,39 +45,14 @@ class Offers {
 
     // ---------- A hirdetés oldalán ----------
 
+    // A doboz (megtekintés-kérés + ajánlat) a js/offers/viewings.js-ben: ajánlatot csak
+    // a hirdetővel való kapcsolat után lehet tenni
     static listingBox(i) {
-        if (!i || ["torolve"].includes(i.statusz) || i.eladva) return "";
-        if (AuthManager.canEdit(i)) return "";
-        const irodai = i.iroda && i.iroda.statusz === "jovahagyva";
-        if (irodai || i.owner_id) {
-            return `
-                <div class="card mt-3 ofBox">
-                    <div class="card-body">
-                        <button type="button" class="btn btn-outline-primary w-100" id="ofListingBtn"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> ${I18n.t("ofMake")}</button>
-                        <p class="small text-body-secondary mt-2 mb-0">${I18n.t(irodai ? "ofListingHintAgency" : "ofListingHintPrivate")}</p>
-                    </div>
-                </div>`;
-        }
-        // beolvasott hirdetés: nincs kinek továbbítani – kivéve, ha egy regisztrált iroda hirdeti
-        return `
-            <div class="card mt-3 ofBox">
-                <div class="card-body small">
-                    <b><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> ${I18n.t("ofImportedTitle")}</b>
-                    <p class="text-body-secondary mb-2">${I18n.t("ofImportedText")}</p>
-                    <a class="btn btn-sm btn-outline-primary" href="#ajanlat/${i.id}">${I18n.t("ofImportedBtn")}</a>
-                </div>
-            </div>`;
+        return typeof Viewings !== "undefined" ? Viewings.box(i) : "";
     }
 
     static listingKot(i) {
-        const b = document.getElementById("ofListingBtn");
-        if (!b) return;
-        b.onclick = () => AuthManager.kell().then(() => Offers.urlap({
-            ingatlan_id: i.id,
-            cim: i.cim || Types.label(i.tipus),
-            ar: i.ar,
-            cimzett: i.iroda ? i.iroda.nev : (i.hirdeto_nev || I18n.t("lpSeller"))
-        })).catch(() => { });
+        if (typeof Viewings !== "undefined") Viewings.kot(i);
     }
 
     // ---------- Az ajánlat űrlapja (ablak) ----------
@@ -210,10 +185,10 @@ class Offers {
                             <div class="small">${esc(v.hirdetes.cim || "")} · ${I18n.f("ofGoesTo", { kinek: esc(v.iroda ? v.iroda.nev : I18n.t("lpSeller")) })}</div>
                             <div class="d-flex gap-2 mt-2">
                                 <a class="btn btn-sm btn-outline-secondary" href="#listing/${v.hirdetes.id}">${I18n.t("ofOpenListing")}</a>
-                                <button type="button" class="btn btn-sm btn-primary" id="ofGo">${I18n.t("ofMake")}</button>
+                                <button type="button" class="btn btn-sm btn-primary" id="ofGo"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${I18n.t("mkRequest")}</button>
                             </div>
                         </div>`;
-                    $("#ofGo").onclick = () => AuthManager.kell().then(() => Offers.urlap({ ingatlan_id: v.hirdetes.id, cim: v.hirdetes.cim, ar: v.hirdetes.ar, cimzett: v.iroda ? v.iroda.nev : I18n.t("lpSeller") })).catch(() => { });
+                    $("#ofGo").onclick = () => AuthManager.kell().then(() => Viewings.urlap({ ingatlan_id: v.hirdetes.id, cim: v.hirdetes.cim, cimzett: v.iroda ? v.iroda.nev : I18n.t("lpSeller") })).catch(() => { });
                     return;
                 }
                 Offers.irodaValaszto($("#ofExtBody"), link, v.hirdetes);
@@ -269,9 +244,10 @@ class Offers {
         let t = null;
         $("#ofIrQ").oninput = e => { clearTimeout(t); t = setTimeout(() => keres(e.target.value), 250); };
         keres("");
-        $("#ofKTovabb").onclick = () => AuthManager.kell().then(() => Offers.urlap({
-            kulso_link: link, iroda_id: valasztott.id, kulso_cim: $("#ofKCim").value, kulso_ar: $("#ofKAr").value, ingatlan_id: undefined,
-            cim: $("#ofKCim").value || link, ar: Number($("#ofKAr").value) || null, cimzett: valasztott.nev
+        // Előbb kapcsolatfelvétel (megtekintés-kérés) – ajánlatot az iroda válasza után tehet
+        $("#ofKTovabb").onclick = () => AuthManager.kell().then(() => Viewings.urlap({
+            kulso_link: link, iroda_id: valasztott.id, kulso_cim: $("#ofKCim").value, kulso_ar: $("#ofKAr").value,
+            cim: $("#ofKCim").value || link, cimzett: valasztott.nev
         })).catch(() => { });
         $("#ofMeghiv").onclick = () => {
             const szoveg = I18n.f("ofInviteText", { link: location.origin });

@@ -201,8 +201,15 @@ async function attekintes(ctx) {
 
     const ujAjanlat = ctx.irodaId !== null ? await require("./ajanlat").nyitottDb(ctx) : 0;
 
+    // Megtekintés-kérések (új) és „hívom” jelzések (72 óra) – services/megtekintes.js
+    const mk = require("./megtekintes");
+    const ujKeres = ctx.irodaId !== null ? await mk.irodaNyitottDb(ctx).catch(() => 0) : 0;
+    const hivasDb = ctx.irodaId !== null ? (await mk.hivasok(ctx).catch(() => [])).length : 0;
+
     return {
         uj_ajanlat: ujAjanlat,
+        uj_keres: ujKeres,
+        hivas_jelzes: hivasDb,
         megtekintesek: megt.rows,
         lezaratlan: lezaratlan.rows,
         allapotok,

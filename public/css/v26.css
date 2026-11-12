@@ -324,3 +324,42 @@ body.tdBarOn { padding-bottom: 70px; }
 .tdStep.done label { color: var(--bs-secondary-color); text-decoration: line-through; }
 .tdStepWho { flex: 0 0 auto; white-space: nowrap; }
 @media (max-width: 575.98px) { .tdStep { flex-wrap: wrap; } .tdStepWho { margin-left: 1.6rem; } }
+
+/* ===================== Megtekintés-kérés, „hívom” jelzés, CRM → Kérések ===================== */
+.mkCode { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; padding: .55rem .75rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); font-size: .875rem; }
+.mkCode > i { color: var(--ip-accent); }
+.mkCodeVal { font-size: 1.05rem; letter-spacing: .04em; font-variant-numeric: tabular-nums; margin-left: auto; }
+.mkState { display: flex; gap: .7rem; align-items: flex-start; margin-top: .75rem; padding: .7rem .8rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }
+.mkState > i { font-size: 1.2rem; margin-top: .1rem; color: var(--ip-muted); }
+.mkState.warn { background: var(--ip-warn-soft); }
+.mkState.warn > i { color: var(--ip-warn); }
+.mkState.ok { background: rgba(21, 128, 61, .1); }
+.mkState.ok > i { color: #15803d; }
+.mkLocked { display: flex; gap: .7rem; align-items: flex-start; color: var(--ip-muted); }
+.mkLocked > i { margin-top: .2rem; }
+.mkSlotRow { display: grid; grid-template-columns: 1.6rem 1fr 7rem; gap: .5rem; align-items: center; margin-bottom: .45rem; }
+.mkSlotNo { width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 700; background: var(--ip-bg); }
+.mkSlots { display: flex; flex-wrap: wrap; gap: .45rem; }
+.mkSlot { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .1rem; padding: .45rem .75rem; border: 1px solid var(--ip-accent); border-radius: var(--ip-radius-sm); background: var(--ip-surface); color: inherit; font-weight: 600; font-size: .9rem; min-height: 44px; }
+.mkSlot:hover, .mkSlot:focus-visible { background: var(--ip-accent); color: #fff; }
+.mkSlot.busy { border-color: var(--ip-warn); }
+.mkBusy { font-weight: 400; font-size: .75rem; color: var(--ip-warn); }
+.mkSlot:hover .mkBusy, .mkSlot:focus-visible .mkBusy { color: #fff; }
+.mkSt { font-weight: 600; background: var(--ip-bg); color: var(--ip-muted); }
+.mkSt-uj { background: var(--ip-danger); color: #fff; }
+.mkSt-javasolt { background: var(--ip-warn-soft); color: var(--ip-warn); }
+.mkSt-elfogadva { background: rgba(21, 128, 61, .12); color: #15803d; }
+.crmReq { border: 1px solid var(--ip-border); border-left: 4px solid var(--ip-accent); border-radius: var(--ip-radius); padding: .85rem 1rem; margin-bottom: .8rem; background: var(--ip-surface); }
+.crmReq.st-uj { border-left-color: var(--ip-danger); }
+.crmReq.st-javasolt { border-left-color: var(--ip-warn); }
+.crmReq.st-elfogadva { border-left-color: #15803d; }
+.crmReq.st-elutasitva, .crmReq.st-lemondva { opacity: .65; border-left-color: var(--ip-muted); }
+.crmReq blockquote { padding: .45rem .7rem; background: var(--ip-bg); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.crmReqAlert { border-color: var(--ip-danger); }
+.crmReqAlert > i:first-child { color: var(--ip-danger); }
+.crmQuick { padding: .85rem 1rem; border: 1px solid var(--ip-border); border-radius: var(--ip-radius); background: var(--ip-surface); }
+.crmQuickLabel { display: block; font-weight: 600; margin-bottom: .45rem; }
+.crmQuickLabel i { color: var(--ip-accent); }
+.crmQuickRes:not(:empty) { margin-top: .6rem; display: flex; flex-direction: column; gap: .4rem; }
+.crmQuickItem { display: flex; align-items: center; gap: .7rem; padding: .5rem .6rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }
+@media (max-width: 575.98px) { .mkSlotRow { grid-template-columns: 1.6rem 1fr 5.8rem; } }

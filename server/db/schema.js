@@ -1084,6 +1084,65 @@ async function createSchema(db) {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ajanlat_user ON ajanlatok (user_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ajanlat_cimzett ON ajanlatok (cimzett_id)`);
 
+    // Megtekintés-kérés (services/megtekintes.js): a vevő 1–3 időpontot javasol, a
+    // hirdető (az iroda ügynöke / a magánszemély) elfogad egyet, másikat javasol vagy
+    // elutasítja. Elfogadáskor az iroda CRM-naptárába kerül (crm_megt_id).
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megtekintes_keresek (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE CASCADE,
+            cimzett_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            felelos_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            nev TEXT, telefon TEXT, email TEXT,
+            idopontok JSONB DEFAULT '[]'::jsonb,
+            uzenet TEXT,
+            kulso_link TEXT,
+            kulso_adat JSONB,
+            statusz TEXT DEFAULT 'uj',
+            valasztott TIMESTAMP,
+            javasolt TIMESTAMP,
+            valasz TEXT,
+            crm_ugyfel_id INTEGER REFERENCES crm_ugyfelek(id) ON DELETE SET NULL,
+            crm_megt_id INTEGER REFERENCES crm_megtekintesek(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mkeres_iroda ON megtekintes_keresek (iroda_id, statusz)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mkeres_user ON megtekintes_keresek (user_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_mkeres_cimzett ON megtekintes_keresek (cimzett_id)`);
+
+    // Ajánlattétel engedélye: csak az tehet ajánlatot, aki már kapcsolatban van a hirdetővel
+    // (elfogadott megtekintés, válasz az üzenetére, CRM-ügyfél) – vagy akit a hirdető meghív
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS ajanlat_engedelyek (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            keres_id INTEGER REFERENCES megtekintes_keresek(id) ON DELETE CASCADE,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            adta INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_aeng_ing ON ajanlat_engedelyek (ingatlan_id, user_id) WHERE ingatlan_id IS NOT NULL`);
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_aeng_keres ON ajanlat_engedelyek (keres_id) WHERE keres_id IS NOT NULL`);
+
+    // „Hívom” jelzés: a belépett érdeklődő a hirdetésen a telefonszámra koppintott –
+    // az ügynök a CRM-ben látja, ki hívhatja és melyik hirdetés miatt
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS hivas_jelzesek (
+            id SERIAL PRIMARY KEY,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            rejtve BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_hivas_ing ON hivas_jelzesek (ingatlan_id, created_at)`);
+
     // Tesztkörnyezet (Admin → Tesztelés, services/teszt.js): a tesztfiókok, -irodák és
     // -hirdetések jelzője. A tesztfiók / -iroda által létrehozott hirdetés és iroda
     // automatikusan teszt lesz (trigger) – így a nyilvános listákból kimarad.

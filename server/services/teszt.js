@@ -210,7 +210,17 @@ async function letrehoz() {
 
         await client.query("COMMIT");
 
-        // Ajánlat a valódi folyamaton át (értesítés, CRM-kapcsolás is): Vevő Gizella Anna lakására
+        // Gizella már beszélt Annával (meghívta ajánlattételre) – ajánlat a valódi folyamaton át
+        await db.query("INSERT INTO ajanlat_engedelyek (ingatlan_id, iroda_id, user_id, adta) VALUES ($1, $2, $3, $4)", [H.a1, A, U.vevo2, U.ugynok_a1]);
+        // Megtekintés-kérés: Vevő Henrik 3 időpontot javasol Anna nagyobb lakására; Vevő Ilona a magán eladóhoz
+        const mk = require("./megtekintes");
+        const ido = (nap, ora) => db.query(`SELECT to_char(date_trunc('day', NOW() AT TIME ZONE 'Europe/Bucharest') + ($1 || ' days')::interval + ($2 || ' hours')::interval, 'YYYY-MM-DD"T"HH24:MI') AS t`, [String(nap), String(ora)]).then(r => r.rows[0].t);
+        try {
+            await mk.kerTesz({ id: U.vevo3 }, { ingatlan_id: H.a2, idopontok: [await ido(2, 10), await ido(2, 17), await ido(3, 12)], uzenet: "Szeretném megnézni, bármelyik időpont jó. (teszt)", hozzajarul: true });
+            await mk.kerTesz({ id: U.vevo4 }, { ingatlan_id: H.m1, idopontok: [await ido(1, 18), await ido(4, 11)], uzenet: "Hétköznap délután jó lenne. (teszt)", hozzajarul: true });
+        } catch (e) { console.warn("Teszt megtekintés-kérés:", e.message); }
+        // „Hívom” jelzés: Vevő János a ház telefonszámára koppintott (Balázs hirdetése)
+        await db.query("INSERT INTO hivas_jelzesek (ingatlan_id, user_id, created_at) VALUES ($1, $2, NOW() - INTERVAL '20 minutes')", [H.a3, U.vevo5]);
         try {
             await require("./ajanlat").tesz({ id: U.vevo2 }, { ingatlan_id: H.a1, osszeg: 66000, penznem: "EUR", finanszirozas: "hitel",
                 hitel_elobiralat: true, uzenet: "Hitelből venném, előbírálatom van. (teszt)", hozzajarul: true });

@@ -18,7 +18,8 @@ class Notifications {
         kedvenc_ar: "fa-solid fa-tag",
         kedvenc_statusz: "fa-solid fa-circle-info",
         uzenet: "fa-solid fa-envelope",
-        ajanlat: "fa-solid fa-hand-holding-dollar"
+        ajanlat: "fa-solid fa-hand-holding-dollar",
+        megtekintes: "fa-regular fa-calendar-check"
     };
 
     static TIPUSOK = ["kereses", "igeny", "kedvenc_ar", "kedvenc_statusz", "uzenet"];
@@ -154,6 +155,11 @@ class Notifications {
         } else if (e.tipus === "ajanlat") {
             const p = v => `${Number(v || 0).toLocaleString(Utils.locale(), { maximumFractionDigits: 0 })} ${a.penznem === "RON" ? "lei" : "€"}`;
             cim = a.esemeny ? I18n.f("ntfOffer_" + a.esemeny, { v: p(a.esemeny === "ellenajanlat" ? a.ellen_osszeg : a.osszeg) }) : I18n.f("ntfOfferNew", { v: p(a.osszeg) });
+            tartalom = a.cim ? `<div class="small text-body-secondary">${esc(a.cim)}</div>` : "";
+            tartalom += e.link ? `<a class="btn btn-link btn-sm px-0" href="${esc(e.link)}">${I18n.t("ntfOfferOpen")}</a>` : "";
+        } else if (e.tipus === "megtekintes") {
+            const ido = a.ido && typeof Viewings !== "undefined" ? Viewings.ido(a.ido) : "";
+            cim = I18n.f("ntfMk_" + (a.esemeny || "uj"), { nev: a.nev || "", ido });
             tartalom = a.cim ? `<div class="small text-body-secondary">${esc(a.cim)}</div>` : "";
             tartalom += e.link ? `<a class="btn btn-link btn-sm px-0" href="${esc(e.link)}">${I18n.t("ntfOfferOpen")}</a>` : "";
         } else if (e.tipus === "kedvenc_statusz") {

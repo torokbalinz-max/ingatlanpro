@@ -96,18 +96,18 @@ async function cimzettInfo({ ingatlan_id, link }) {
 }
 
 // A vevő ügyfélként az iroda CRM-jében (meglévő: fiók vagy e-mail alapján)
-async function crmUgyfel(irodaId, vevo, ingatlan, felelosId) {
+async function crmUgyfel(irodaId, vevo, ingatlan, felelosId, { allapot = "targyalas", naplo = "letrehozva_ajanlatbol", forras = "hirdetes" } = {}) {
     const r = await db.query(`
         SELECT id FROM crm_ugyfelek WHERE iroda_id = $1 AND (user_id = $2 OR ($3::text IS NOT NULL AND LOWER(email) = LOWER($3))) ORDER BY id LIMIT 1`,
         [irodaId, vevo.id, vevo.email || null]);
     if (r.rows[0]) return r.rows[0].id;
     const u = await db.query(`
         INSERT INTO crm_ugyfelek (iroda_id, felelos_id, user_id, nev, telefon, email, szerepek, allapot, forras, igeny, created_by)
-        VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'targyalas','hirdetes',$8::jsonb,NULL) RETURNING id`,
+        VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$9,$10,$8::jsonb,NULL) RETURNING id`,
         [irodaId, felelosId || null, vevo.id, vevo.nev || vevo.email || "Vevő", vevo.telefon || null, vevo.email || null,
          JSON.stringify([ingatlan && ingatlan.ugylet === "kiado" ? "berlo" : "vevo"]),
-         JSON.stringify(ingatlan ? { ugylet: ingatlan.ugylet || null, tipus: ingatlan.tipus || null, varos: ingatlan.varos || null } : null)]);
-    await db.query("INSERT INTO crm_tevekenysegek (ugyfel_id, tipus, szoveg) VALUES ($1, 'rendszer', 'letrehozva_ajanlatbol')", [u.rows[0].id]);
+         JSON.stringify(ingatlan ? { ugylet: ingatlan.ugylet || null, tipus: ingatlan.tipus || null, varos: ingatlan.varos || null } : null), allapot, forras]);
+    await db.query("INSERT INTO crm_tevekenysegek (ugyfel_id, tipus, szoveg) VALUES ($1, 'rendszer', $2)", [u.rows[0].id, naplo]);
     return u.rows[0].id;
 }
 
@@ -127,17 +127,30 @@ async function tesz(user, b) {
     if (!vevo.telefon && !vevo.email) throw hibaKod("contact_required");
 
     // Melyik hirdetés / iroda
-    let h = null;
-    const link = sz(b.kulso_link, 600);
-    if (b.ingatlan_id) h = (await db.query("SELECT * FROM ingatlanok WHERE id = $1 AND statusz <> 'torolve'", [Number(b.ingatlan_id) || 0])).rows[0] || null;
-    else if (link) {
-        if (!/^https?:\/\/[^\s]+\.[^\s]+/.test(link)) throw hibaKod("bad_link");
-        const talalt = await hirdetesLinkbol(link);
-        if (talalt) h = (await db.query("SELECT * FROM ingatlanok WHERE id = $1", [talalt.id])).rows[0];
-    } else throw hibaKod("listing_required");
-
-    let irodaId = null, cimzettId = null, kulso = null;
-    if (h) {
+    //  - appon lévő hirdetés (ingatlan_id): az irodának / a tulajdonosnak – ha a vevő már
+    //    kapcsolatban van a hirdetővel (services/megtekintes.js ajanlatJog)
+    //  - más oldalon látott ingatlan: csak egy elfogadott megtekintés-kérés (keres_id) után,
+    //    annak az irodának, a kérés linkjével
+    let h = null, link = null, irodaId = null, cimzettId = null, kulso = null;
+    const mk = require("./megtekintes");
+    if (b.keres_id) {
+        const k = (await db.query("SELECT * FROM megtekintes_keresek WHERE id = $1 AND user_id = $2", [Number(b.keres_id) || 0, user.id])).rows[0];
+        if (!k) throw hibaKod("listing_required");
+        const eng = k.statusz === "elfogadva" || (await db.query("SELECT 1 FROM ajanlat_engedelyek WHERE keres_id = $1 OR (ingatlan_id IS NOT NULL AND ingatlan_id = $2 AND user_id = $3)", [k.id, k.ingatlan_id, user.id])).rowCount > 0;
+        if (!eng) throw hibaKod("contact_first", 403);
+        if (k.ingatlan_id && !k.kulso_link) {
+            b.ingatlan_id = k.ingatlan_id;
+        } else {
+            irodaId = k.iroda_id;
+            link = k.kulso_link;
+            kulso = { cim: (k.kulso_adat && k.kulso_adat.cim) || null, ar: (k.kulso_adat && k.kulso_adat.ar) || null, tipus: null, megjegyzes: null };
+            if (k.ingatlan_id) h = (await db.query("SELECT * FROM ingatlanok WHERE id = $1", [k.ingatlan_id])).rows[0] || null;
+        }
+    }
+    if (!irodaId) {
+        if (!b.ingatlan_id) throw hibaKod("contact_first", 403);
+        h = (await db.query("SELECT * FROM ingatlanok WHERE id = $1 AND statusz <> 'torolve'", [Number(b.ingatlan_id) || 0])).rows[0] || null;
+        if (!h) throw hibaKod("listing_required");
         if (h.owner_id === user.id) throw hibaKod("own_listing");
         if (h.iroda_id) {
             const ir = (await db.query("SELECT id, statusz FROM irodak WHERE id = $1", [h.iroda_id])).rows[0];
@@ -146,24 +159,8 @@ async function tesz(user, b) {
             if (tag.rowCount) throw hibaKod("own_listing");
         }
         if (!irodaId && h.owner_id) cimzettId = h.owner_id;
-        if (!irodaId && !cimzettId) {
-            // beolvasott hirdetés: ha a vevő megnevez egy regisztrált irodát, annak megy külsőként
-            if (!b.iroda_id) throw hibaKod("not_offerable");
-        }
-    }
-    if (!irodaId && !cimzettId) {
-        const ir = (await db.query("SELECT id FROM irodak WHERE id = $1 AND statusz = 'jovahagyva'", [Number(b.iroda_id) || 0])).rows[0];
-        if (!ir) throw hibaKod("agency_required");
-        const elerheto = (await irodak()).some(x => x.id === ir.id);
-        if (!elerheto) throw hibaKod("agency_required");
-        irodaId = ir.id;
-        kulso = {
-            cim: sz(b.kulso_cim, 200) || (h && h.cim) || null,
-            ar: Number(b.kulso_ar) || (h && h.ar) || null,
-            tipus: sz(b.kulso_tipus, 30) || (h && h.tipus) || null,
-            megjegyzes: sz(b.kulso_megjegyzes, 500)
-        };
-        if (!link && !h) throw hibaKod("listing_required");
+        if (!irodaId && !cimzettId) throw hibaKod("not_offerable");
+        if (!(await mk.ajanlatJog(user.id, h)).jog) throw hibaKod("contact_first", 403);
     }
 
     // Ugyanarra már van nyitott ajánlata: az újat nem engedjük (módosítás helyett vonja vissza)
@@ -347,5 +344,5 @@ async function nyitottDb(ctx) {
 
 module.exports = {
     STATUSZOK, FINANSZ, tesz, cimzettInfo, irodak, sajat, vevoValt, beerkezett,
-    irodaLista, irodaValasz, maganValasz, irodaKapcsol, nyitottDb, hirdetesLinkbol
+    irodaLista, irodaValasz, maganValasz, irodaKapcsol, nyitottDb, hirdetesLinkbol, crmUgyfel
 };
