@@ -21,6 +21,11 @@
 //                            nem elérhetők, bejelentések (városra adva csak
 //                            azokban a városokban; a duplikátumok és a tömeges
 //                            műveletek csak az egész oldalra)
+//               beolvasas    városra adva: a város beolvasása a forrásoldalakról
+//                            (OLX, Storia, Imoradar24), a forrásoldal-ellenőrzés és
+//                            az automatikus javítás abban a városban; a linkről
+//                            beolvasás, a figyelt oldalak és a forrás-sorrend csak
+//                            az egész oldalra
 //             az admin felület többi része (csak „mindenre” hatókörrel):
 //               beolvasas    beolvasás linkről, figyelt oldalak, karbantartás
 //               helyek       városok, kerületek, város és környéke, hely-ellenőrzés
@@ -49,7 +54,7 @@ const GLOBALIS = ["ellenorzes", "beolvasas", "helyek", "irodak", "reklam", "penz
 const JOGOK = [...HATOKOROS, ...GLOBALIS];
 // Az admin felület részei, amelyek városra is kiadhatók (a szerver a listákat
 // és a műveleteket a városokra szűri)
-const VAROSI = ["ellenorzes"];
+const VAROSI = ["ellenorzes", "beolvasas"];
 const HATOKOROK = ["mind", "varos", "megbizas", "ingatlan"];
 const SZEREPEK = ["ertekesito", "bemutato", "fotos", "regios", "asszisztens", "egyeni"];
 const TIPUSOK = ["lakas", "haz", "telek", "kereskedelmi", "iroda"];
@@ -104,6 +109,15 @@ async function kontextus(req) {
     if (req._csapat) return req._csapat;
 
     const k = { admin: req.szerep === "admin", tag: null, hozzaferesek: [], hozzarendelt: [] };
+
+    // Az admin felület városválasztója (Hirdetések modul): a listák csak ezt a várost
+    // (és a "<város> és környéke" várost) mutatják – a jogosultságot NEM bővíti, csak szűkít
+    {
+        const v = String((req.get && req.get("X-Admin-Varos")) || "").trim();
+        let nev = null;
+        try { nev = v && v.length <= 240 ? decodeURIComponent(v).slice(0, 80) : null; } catch (e) { nev = null; }
+        k.munkaVaros = nev || null;
+    }
 
     if (!k.admin && req.user) {
         try {
@@ -241,8 +255,51 @@ function latja(k, j) {
 // A városra adható részek SQL-feltétele (ingatlanok sora, alias pl. "i.")
 //   -> "TRUE" (admin / egész oldal) vagy a városok feltétele
 function reszSql(k, jog, params, alias = "") {
-    if (k.admin || globalis(k, jog)) return "TRUE";
-    return hatokorSql(k, jog, params, { varos: alias + "varos", tipus: alias + "tipus", megbizas: alias + "megbizas_id", ingatlan: alias + "id" });
+    const alap = (k.admin || globalis(k, jog)) ? "TRUE"
+        : hatokorSql(k, jog, params, { varos: alias + "varos", tipus: alias + "tipus", megbizas: alias + "megbizas_id", ingatlan: alias + "id" });
+    if (!k.munkaVaros || alap === "FALSE") return alap;
+    params.push(k.munkaVaros);
+    const p = "$" + params.length;
+    const szuro = `(${alias}varos = ${p} OR ${alias}varos_eredeti = ${p} OR ${alias}varos IN (SELECT nev FROM varosok WHERE anyavaros = ${p}))`;
+    return alap === "TRUE" ? szuro : `(${alap} AND ${szuro})`;
+}
+
+// Egy városra (és a "<város> és környéke" városra) kapott jog: admin, egész oldal,
+// vagy a városra / annak anyavárosára szóló hozzáférés (típusra szűkítés nélkül)
+async function varosJog(req, jog, varos) {
+    if (req.szerep === "admin") return true;
+    const k = await kontextus(req);
+    if (globalis(k, jog)) return true;
+    if (!varos || !k.tag) return false;
+    const nevek = new Set([varos]);
+    try {
+        const r = await db.query("SELECT anyavaros FROM varosok WHERE nev = $1", [varos]);
+        if (r.rows[0] && r.rows[0].anyavaros) nevek.add(r.rows[0].anyavaros);
+    } catch (e) { /* nem baj */ }
+    return k.hozzaferesek.some(h => h.jogok.has(jog) && h.hatokor === "varos" && nevek.has(h.varos) && !h.tipus);
+}
+
+// Útvonal-védelem: az egész oldalra kapott jog, VAGY a kérés városára (body.varos) kapott jog
+function csakVarosra(...kodok) {
+    return async (req, res, next) => {
+        try {
+            if (req.szerep === "admin") return next();
+            if (!req.user) return res.status(401).json({ error: "login_required" });
+            const varos = String((req.body && req.body.varos) || req.query.varos || "").trim();
+            for (const kod of kodok) if (await varosJog(req, kod, varos || null)) return next();
+            res.status(403).json({ error: varos ? "not_in_scope" : "admin_only" });
+        } catch (err) {
+            next(err);
+        }
+    };
+}
+
+// A munkatárs városai egy részhez (a választókhoz) – null = minden város
+async function varosai(req, jog) {
+    if (req.szerep === "admin") return null;
+    const k = await kontextus(req);
+    if (globalis(k, jog)) return null;
+    return [...new Set(k.hozzaferesek.filter(h => h.jogok.has(jog) && h.hatokor === "varos" && h.varos).map(h => h.varos))];
 }
 
 // Útvonal-védelem: a :id hirdetésre (vagy a body.ids mindegyikére) van-e joga
@@ -494,5 +551,6 @@ async function valaszthatok() {
 module.exports = {
     JOGOK, HATOKOROS, GLOBALIS, VAROSI, HATOKOROK, SZEREPEK, SZEREP_JOGOK,
     kontextus, szabad, vanJoga, globalis, reszek, reszSql, csakHirdetesen, csakGlobalis, csakResz, csakPanel, panel, hirdetesJog, megbizasJog, hatokorSql, osszegzes,
+    varosJog, csakVarosra, varosai,
     lista, felhasznaloKeres, hozzaad, ment, torol, valaszthatok
 };

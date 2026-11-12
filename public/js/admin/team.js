@@ -17,6 +17,12 @@
 //
 //  Ez a rész (Csapat és jogosultságok) mindig csak az adminé.
 //
+//  Átláthatóság (2026-11): minden munkatárs kártyáján és a szerkesztőben is
+//  egy „Mit lát az adminban” összegzés – modulonként (Hirdetések, Értékesítés,
+//  Pénzügy és irattár, Partnerek, Rendszer), és hogy hol (mindenhol / melyik
+//  városban). A városi sorban egy kattintással „Városi hirdetéskezelő”
+//  (ellenőrzés + a város beolvasása + szerkesztés + fotók).
+//
 //  Szerver: /api/admin/csapat (server/routes/csapat.js)
 // ============================================================
 
@@ -28,7 +34,40 @@ AdminManager.TEAM_IKON = {
 AdminManager.TEAM_HATOKOROS = ["megbizas", "megbizas_lat", "megtekintes", "hirdetes", "kepek"];
 AdminManager.TEAM_GLOBALIS = ["ellenorzes", "beolvasas", "helyek", "irodak", "reklam", "penzugy", "statisztika", "beallitasok"];
 // Az admin részek közül városra is kiadható (pl. az ellenőrzés csak Sepsiszentgyörgyön)
-AdminManager.TEAM_VAROSI = ["ellenorzes"];
+AdminManager.TEAM_VAROSI = ["ellenorzes", "beolvasas"];
+
+// Melyik jog melyik admin-modulban látszik (az összegzéshez és a csoportosításhoz)
+AdminManager.TEAM_MODUL = [
+    { key: "hird", label: "adminModListings", icon: "fa-solid fa-house", jogok: ["ellenorzes", "beolvasas", "hirdetes", "kepek"] },
+    { key: "ert", label: "adminModSales", icon: "fa-solid fa-key", jogok: ["megbizas", "megbizas_lat", "megtekintes"] },
+    { key: "penz", label: "tmModFinArchive", icon: "fa-solid fa-coins", jogok: ["penzugy"] },
+    { key: "partner", label: "adminModPartners", icon: "fa-solid fa-handshake", jogok: ["irodak", "reklam"] },
+    { key: "rendszer", label: "adminModSystem", icon: "fa-solid fa-gear", jogok: ["helyek", "statisztika", "beallitasok"] }
+];
+
+// A városi sor ajánlott csomagja: egy város hirdetéseinek teljes kezelése
+AdminManager.TEAM_VAROSI_CSOMAG = ["ellenorzes", "beolvasas", "hirdetes", "kepek"];
+
+// „Mit lát az adminban”: modulonként a jogok és hogy hol (HTML)
+AdminManager.teamLat = function (hozzaferesek) {
+    const esc = Utils.escape;
+    const nev = j => I18n.t(AdminManager.TEAM_VAROSI.includes(j) || AdminManager.TEAM_GLOBALIS.includes(j) ? "cs2_resz_" + j : "cs2_resz_" + j);
+    const hol = h => h.hatokor === "mind" ? I18n.t("tmEverywhere") : AdminManager.teamHatokor(h);
+    const sorok = AdminManager.TEAM_MODUL.map(m => {
+        const elemek = [];
+        (hozzaferesek || []).forEach(h => {
+            const j = (h.jogok || []).filter(x => m.jogok.includes(x));
+            if (j.length) elemek.push({ hol: hol(h), mind: h.hatokor === "mind", jogok: j });
+        });
+        if (!elemek.length) return "";
+        return `
+            <li>
+                <span class="tmLatModul"><i class="${m.icon}" aria-hidden="true"></i> ${esc(I18n.t(m.label))}</span>
+                <span class="tmLatHol">${elemek.map(e => `<span class="tmLatElem ${e.mind ? "mind" : ""}"><b>${e.hol}</b>: ${e.jogok.map(j => esc(nev(j))).join(", ")}</span>`).join("")}</span>
+            </li>`;
+    }).filter(Boolean);
+    return sorok.length ? `<ul class="tmLat">${sorok.join("")}</ul>` : `<p class="small text-body-secondary mb-0">${I18n.t("tmNoAccess")}</p>`;
+};
 
 AdminManager.teamHatokor = function (h) {
     const esc = Utils.escape;
@@ -112,6 +151,11 @@ AdminManager.renderTeam = function () {
                         <span class="badge tmRole r-${esc(t.szerep)} align-self-start">${esc(I18n.t("tmRole_" + t.szerep))}</span>
                     </header>
                     ${!t.aktiv ? `<div class="small text-warning mt-1"><i class="fa-solid fa-pause" aria-hidden="true"></i> ${I18n.t("tmInactive")}</div>` : ""}
+                    <div class="tmLatBlokk">
+                        <div class="small fw-semibold mb-1"><i class="fa-regular fa-eye" aria-hidden="true"></i> ${I18n.t("tmSeesTitle")}</div>
+                        ${AdminManager.teamLat(t.hozzaferesek)}
+                    </div>
+                    <details class="tmReszlet"><summary class="small">${I18n.t("tmDetails")}</summary>
                     ${glob.jogok.length ? `
                     <div>
                         <div class="small fw-semibold mb-1">${I18n.t("cs2_adminReszek")}${glob.lejar ? ` <small class="text-body-secondary">(${I18n.t("tmUntil")} ${esc(Svc.nap(glob.lejar))})</small>` : ""}</div>
@@ -124,6 +168,7 @@ AdminManager.renderTeam = function () {
                                 <span class="tmPerms">${(h.jogok || []).map(j => `<span title="${esc(I18n.t("cs2_reszSugo_" + j))}"><i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i> ${esc(I18n.t("cs2_resz_" + j))}</span>`).join("")}</span>
                             </li>`).join("") : !glob.jogok.length ? `<li class="text-body-secondary small">${I18n.t("tmNoAccess")}</li>` : ""}
                     </ul>
+                    </details>
                     <footer class="d-flex flex-wrap gap-2 align-items-center small text-body-secondary">
                         <span><i class="fa-solid fa-key" aria-hidden="true"></i> ${I18n.f("tmMandates", { n: t.megbizas_db })}</span>
                         <span>${I18n.t("tmLastLogin")}: ${t.utolso_belepes ? esc(Utils.ago(t.utolso_belepes)) : "–"}</span>
@@ -249,7 +294,12 @@ AdminManager.teamSzerk = function (t, uj) {
                             <i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i>
                             <span><b>${esc(I18n.t("cs2_resz_" + j))}</b><small>${esc(I18n.t("cs2_reszSugo_" + j))}</small></span>
                         </label>`).join("")}
-                    ${h.hatokor === "varos" ? AdminManager.TEAM_VAROSI.map(j => `
+                    ${h.hatokor === "varos" ? `
+                    <div class="w-100 d-flex flex-wrap align-items-center gap-2 mt-1 mb-1">
+                        <button type="button" class="btn btn-sm btn-outline-success" data-tm-csomag="${i}"><i class="fa-solid fa-city" aria-hidden="true"></i> ${I18n.t("tmCityPack")}</button>
+                        <small class="text-body-secondary">${I18n.t("tmCityPackHelp")}</small>
+                    </div>` : ""}
+                ${h.hatokor === "varos" ? AdminManager.TEAM_VAROSI.map(j => `
                         <label class="tmPermChk tmPermCity">
                             <input type="checkbox" class="form-check-input" data-jog="${j}" ${h.jogok.includes(j) ? "checked" : ""}>
                             <i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i>
@@ -309,11 +359,23 @@ AdminManager.teamSzerk = function (t, uj) {
                         <div><label class="form-label small mb-1" for="tmGlobLejar">${I18n.t("tmUntil")}</label>
                             <input class="form-control form-control-sm" id="tmGlobLejar" type="date" value="${esc(glob.lejar || "")}"></div>
                     </div>
-                    <div class="tmPermPick">
-                        ${G.map(j => `
+                    <div class="tmPermPick tmPermCsoport">
+                        ${AdminManager.TEAM_MODUL.map(m => {
+                            const js = m.jogok.filter(j => G.includes(j));
+                            if (!js.length) return "";
+                            return `
+                            <div class="tmModulCim w-100"><i class="${m.icon}" aria-hidden="true"></i> ${esc(I18n.t(m.label))}</div>
+                            ${js.map(j => `
                             <label class="tmPermChk">
                                 <input type="checkbox" class="form-check-input" data-glob="${j}" ${glob.jogok.includes(j) ? "checked" : ""}>
                                 <i class="${AdminManager.TEAM_IKON[j]}" aria-hidden="true"></i>
+                                <span><b>${esc(I18n.t("cs2_resz_" + j))}</b><small>${esc(I18n.t("cs2_reszSugo_" + j))}</small></span>
+                            </label>`).join("")}`;
+                        }).join("")}
+                        ${G.filter(j => !AdminManager.TEAM_MODUL.some(m => m.jogok.includes(j))).map(j => `
+                            <label class="tmPermChk">
+                                <input type="checkbox" class="form-check-input" data-glob="${j}" ${glob.jogok.includes(j) ? "checked" : ""}>
+                                <i class="${AdminManager.TEAM_IKON[j] || "fa-solid fa-circle"}" aria-hidden="true"></i>
                                 <span><b>${esc(I18n.t("cs2_resz_" + j))}</b><small>${esc(I18n.t("cs2_reszSugo_" + j))}</small></span>
                             </label>`).join("")}
                         <div class="tmPermChk tmTiltott" aria-disabled="true">
@@ -332,6 +394,12 @@ AdminManager.teamSzerk = function (t, uj) {
                         <button type="button" class="btn btn-sm btn-outline-primary" id="tmUjSor"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("tmAddAccess")}</button>
                     </div>
                     <div id="tmSorok">${hozz.map(sor).join("") || `<p class="text-body-secondary small">${I18n.t("tmNoAccess")}</p>`}</div>
+                </section>
+
+                <section class="tmBlokk tmElonezet mt-4">
+                    <h6 class="mb-1"><i class="fa-regular fa-eye" aria-hidden="true"></i> ${I18n.t("tmPreviewTitle")}</h6>
+                    <p class="small text-body-secondary mb-2">${I18n.t("tmPreviewHelp")}</p>
+                    <div id="tmElonezet"></div>
                 </section>
             </div>
             <div class="modal-footer">
@@ -358,6 +426,24 @@ AdminManager.teamSzerk = function (t, uj) {
         tartalom.querySelectorAll("[data-tm-torol-sor]").forEach(b => {
             b.onclick = () => { olvas(); hozz.splice(Number(b.dataset.tmTorolSor), 1); rajzol(); };
         });
+        tartalom.querySelectorAll("[data-tm-csomag]").forEach(b => {
+            b.onclick = () => {
+                olvas();
+                const h = hozz[Number(b.dataset.tmCsomag)];
+                if (h) h.jogok = [...new Set([...h.jogok, ...AdminManager.TEAM_VAROSI_CSOMAG])];
+                rajzol();
+            };
+        });
+        // Élő előnézet: mit fog látni (minden változásra)
+        const elonezet = () => {
+            olvas();
+            const lista = [...hozz.filter(h => h.jogok.length)];
+            if (glob.jogok.length) lista.unshift({ hatokor: "mind", jogok: glob.jogok });
+            const el = $("#tmElonezet");
+            if (el) el.innerHTML = AdminManager.teamLat(lista.map(h => ({ ...h, szerzodes_szam: h.szerzodes_szam })));
+        };
+        tartalom.querySelectorAll("input, select").forEach(x => x.addEventListener("change", elonezet));
+        elonezet();
         $("#tmUjSor").onclick = () => {
             olvas();
             const j = szerepSzerint($("#tmSzerep").value);

@@ -245,7 +245,8 @@ function olxOldalbol(html) {
         // Aktív-e még: az OLX a lejárt / törölt hirdetést "removed_by_user", "outdated",
         // "disabled"... állapottal adja (vagy isActive: false)
         const allapot = typeof ad.status === "string" ? ad.status.toLowerCase() : "";
-        if (ad.isActive === false || ad.active === false || (allapot && allapot !== "active")) a.aktiv = false;
+        // ("limited" = korlátozott kiemelésű, de nyilvánosan látható – az fent van)
+        if (ad.isActive === false || ad.active === false || (allapot && !["active", "limited"].includes(allapot))) a.aktiv = false;
         if (ad.id) a.olxId = String(ad.id);
         // Ár: a kiírt euró érték (a "regularPrice" lejben is jöhet, pl. 43 500 € = 232 245 lei)
         if (ad.price) {
@@ -413,7 +414,7 @@ async function olxAllapot(id) {
         const o = j && j.data;
         if (!o) return { aktiv: false };
         const st = String(o.status || "").toLowerCase();
-        if (st && st !== "active") return { aktiv: false };
+        if (st && !["active", "limited"].includes(st)) return { aktiv: false };
         return { aktiv: true, adat: olxAdat(o), link: tisztaLink(o.url) };
     } catch (e) {
         return null;

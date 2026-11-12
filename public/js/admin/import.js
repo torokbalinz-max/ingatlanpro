@@ -154,7 +154,14 @@ AdminManager.pollJob = function (jobId, boxId) {
             frissitve: I18n.t("importResUpdated"),
             ujra_elerheto: I18n.t("importResBack"),
             lista_szinkron: I18n.t("importResSync"),
-            forraslinkek: I18n.t("importResSrcLinks")
+            forraslinkek: I18n.t("importResSrcLinks"),
+            kozvetlenbol: I18n.t("importResDirect"),
+            masik_forras: I18n.t("importResOtherSite"),
+            mellek_link_ki: I18n.t("importResSideLinkGone"),
+            egyenkent: I18n.t("importResOneByOne"),
+            egyenkent_kesz: I18n.t("importResOneByOneDone"),
+            nem_teljes: I18n.t("importResIncomplete"),
+            kozvetlen_ki: I18n.t("importResDirectOff")
         };
 
         box.innerHTML = `
@@ -182,7 +189,9 @@ AdminManager.pollJob = function (jobId, boxId) {
                                 ${n.url ? `<a href="${Utils.escape(n.url)}" target="_blank" rel="noopener">${Utils.escape(n.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80))}</a>` : ""}
                                 ${n.db !== undefined ? `(${n.db})` : ""}
                                 ${n.ok === "nincs_a_listaban" ? `<span class="text-muted">${I18n.t("importResNotInList")}</span>` : ""}
-                                ${n.uzenet ? `<span class="${n.eredmeny === "letiltva" ? "text-body-secondary" : "text-danger"}">${Utils.escape(n.uzenet)}</span>` : ""}
+                                ${n.uzenet ? `<span class="${n.eredmeny === "hiba" ? "text-danger" : "text-body-secondary"}">${Utils.escape(n.uzenet)}</span>` : ""}
+                                ${n.eredmeny === "masik_forras" && n.uj ? `<span class="text-body-secondary">→ ${Utils.escape(String(n.uj).replace(/^https?:\/\/(www\.)?/, "").slice(0, 70))}</span>` : ""}
+                                ${n.forras ? `<span class="text-body-secondary">(${Utils.escape(n.forras)})</span>` : ""}
                                 ${n.regi ? `${Utils.eur(n.regi)} → ${Utils.eur(n.uj)}` : ""}
                                 ${n.hianyzo && n.hianyzo.length ? n.hianyzo.map(m => `<span class="badge text-bg-warning">${I18n.t("field_" + m)}</span>`).join(" ") : ""}
                                 ${n.problemak && n.problemak.length ? n.problemak.map(m => `<span class="badge text-bg-danger">${I18n.t("prob_" + m)}</span>`).join(" ") : ""}

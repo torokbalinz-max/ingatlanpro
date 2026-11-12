@@ -11,6 +11,8 @@
 //    npm run ellenorzes -- --mind                        minden város (lassú)
 //    npm run ellenorzes -- --forras imobiliare           csak az imobiliare.ro hirdetései (minden városban)
 //    npm run beolvasas -- <link> [<link>...] --varos Marosvasarhely [--tipus lakas] [--ugylet elado]
+//    npm run kozvetlen -- --varos Sepsiszentgyorgy       a város OLX + Storia listája közvetlenül
+//                                                        (új hirdetések, frissítés, a levettek le)
 //
 //  A .env-ben a DATABASE_URL az éles (Neon) adatbázis legyen – ugyanaz, mint a Renderen.
 // ============================================================
@@ -59,7 +61,16 @@ async function main() {
     let job;
     const kezdes = Date.now();
 
-    if (van("beolvas") || args.some(a => /^https?:\/\//i.test(a))) {
+    if (van("kozvetlen")) {
+
+        const v = ertek("varos");
+        if (!v && !van("mind")) hiba("Add meg a várost: --varos Sepsiszentgyorgy (vagy --mind)");
+        const varosok = v ? [await varosNev(v)]
+            : (await db.query("SELECT nev FROM varosok WHERE anyavaros IS NULL ORDER BY nev")).rows.map(x => x.nev);
+        console.log(`Közvetlen beolvasás (OLX + Storia): ${varosok.join(", ")}\n`);
+        job = importer.kozvetlenIndit(varosok, { csakMeglevo: van("csak-meglevo") });
+
+    } else if (van("beolvas") || args.some(a => /^https?:\/\//i.test(a))) {
 
         const urls = args.filter(a => /^https?:\/\//i.test(a));
         if (!urls.length) hiba("Adj meg legalább egy linket (hirdetés vagy találati lista).");
@@ -88,7 +99,7 @@ async function main() {
 
     // Folyamat kiírása
     let utolsoNaplo = 0;
-    const SZOVEG = { uj: "ÚJ", ar_frissitve: "ár", frissitve: "frissítve", nem_elerheto: "LEVÉVE", ujra_elerheto: "újra fent", hiba: "HIBA", letiltva: "letiltva", lista: "lista", lista_szinkron: "Imoradar24 lista", forraslinkek: "eredeti linkek keresése" };
+    const SZOVEG = { uj: "ÚJ", ar_frissitve: "ár", frissitve: "frissítve", nem_elerheto: "LEVÉVE", ujra_elerheto: "újra fent", hiba: "HIBA", letiltva: "letiltva", lista: "lista", lista_szinkron: "lista", forraslinkek: "eredeti linkek keresése", kozvetlenbol: "közvetlenül", masik_forras: "másik oldal", mellek_link_ki: "mellék-link ki", egyenkent: "egyenként", egyenkent_kesz: "egyenként kész", nem_teljes: "nem teljes" };
     const kiir = () => {
         const j = importer.allapot(job.id) || job;
         const uj = j.naplo.slice(utolsoNaplo);

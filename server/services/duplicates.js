@@ -633,6 +633,8 @@ async function osszevon(megtartId, torlendoIds) {
         await client.query("BEGIN");
         const v = await osszevonKliens(client, megtartId, torlendoIds);
         await client.query("COMMIT");
+        // a megtartott hirdetés fő linkje az admin forrás-sorrendje szerint (Admin → Hirdetések → Források)
+        await require("./forrasSorrend").alkalmaz({ ids: [v.megtart] }).catch(e => console.error("Forrás-sorrend:", e.message));
         return v;
     } catch (e) {
         await client.query("ROLLBACK");

@@ -9,7 +9,8 @@
     "import-backup": "node scripts/import-backup.js",
     "takaritas": "node scripts/takaritas.js",
     "ellenorzes": "node scripts/helyi-ellenorzes.js",
-    "beolvasas": "node scripts/helyi-ellenorzes.js --beolvas"
+    "beolvasas": "node scripts/helyi-ellenorzes.js --beolvas",
+    "kozvetlen": "node scripts/helyi-ellenorzes.js --kozvetlen"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,110 @@
+/* ============================================================
+   25. változat: admin városválasztó, Források oldal, átláthatóbb csapat-jogok
+   ============================================================ */
+
+/* ---- Városválasztó a modulsávban (Hirdetések, Ma) ---- */
+.admVaros {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    margin: 0 .5rem 0 auto;
+    padding: .15rem .25rem .15rem .6rem;
+    border: 1px solid var(--ip-border, #dbe2dc);
+    border-radius: 999px;
+    background: var(--ip-surface, #fff);
+    color: var(--ip-muted, #55635c);
+    white-space: nowrap;
+}
+.admVaros select {
+    border: 0;
+    background-color: transparent;
+    box-shadow: none !important;
+    padding-top: .2rem;
+    padding-bottom: .2rem;
+    max-width: 14rem;
+    font-weight: 600;
+    color: var(--ip-text, #17241e);
+}
+.admVaros.aktiv {
+    border-color: var(--ip-accent, #1b6a55);
+    background: var(--ip-accent-soft, rgba(27, 106, 85, .1));
+    color: var(--ip-accent-strong, #114c3d);
+}
+.admVaros + .admUgras { margin-left: 0; }
+@media (max-width: 767.98px) {
+    .admVaros { margin: .25rem 0; order: 3; }
+    .admVaros select { max-width: 60vw; }
+}
+
+/* ---- Források: a fő oldal sorrendje ---- */
+.fsSorrend { counter-reset: none; }
+.fsSor {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .45rem .6rem;
+    margin-bottom: .35rem;
+    border: 1px solid var(--ip-border-soft, #e5ebe6);
+    border-radius: var(--ip-radius-sm, 12px);
+    background: var(--ip-surface, #fff);
+}
+.fsSor .fsHely {
+    width: 1.8rem;
+    text-align: right;
+    color: var(--ip-muted, #55635c);
+    font-variant-numeric: tabular-nums;
+}
+.fsSor .btn { padding: .15rem .45rem; }
+.fsSor.fsKozvetito {
+    background: var(--ip-surface-2, #e9eee9);
+    border-style: dashed;
+}
+
+/* ---- Csapat: „Mit lát az adminban” ---- */
+.tmLatBlokk {
+    margin: .6rem 0 .4rem;
+    padding: .55rem .7rem;
+    border-radius: var(--ip-radius-sm, 12px);
+    background: var(--ip-surface-2, #e9eee9);
+}
+.tmLat {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: .35rem;
+}
+.tmLat li {
+    display: grid;
+    grid-template-columns: minmax(8.5rem, auto) 1fr;
+    gap: .5rem;
+    font-size: .85rem;
+    align-items: start;
+}
+.tmLatModul { font-weight: 600; color: var(--ip-text, #17241e); white-space: nowrap; }
+.tmLatModul i { width: 1.1rem; color: var(--ip-accent, #1b6a55); }
+.tmLatHol { display: flex; flex-direction: column; gap: .15rem; }
+.tmLatElem b { color: var(--ip-accent-strong, #114c3d); }
+.tmLatElem.mind b { color: var(--ip-text, #17241e); }
+@media (max-width: 575.98px) {
+    .tmLat li { grid-template-columns: 1fr; gap: .1rem; }
+}
+.tmReszlet > summary { cursor: pointer; color: var(--ip-muted, #55635c); margin: .25rem 0; }
+.tmPermCsoport .tmModulCim {
+    margin-top: .5rem;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--ip-muted, #55635c);
+}
+.tmPermCsoport .tmModulCim:first-child { margin-top: 0; }
+.tmElonezet {
+    padding: .75rem .9rem;
+    border: 1px dashed var(--ip-border, #dbe2dc);
+    border-radius: var(--ip-radius-sm, 12px);
+}
+
+/* a csoportcím és a „Városi hirdetéskezelő” sor a jogok rácsában teljes szélességű */
+.tmPermPick > .w-100,
+.tmPermCsoport .tmModulCim { grid-column: 1 / -1; }

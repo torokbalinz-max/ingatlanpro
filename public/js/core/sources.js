@@ -53,11 +53,12 @@ class Sources {
     }
 
     // ---------- Közvetítő (Imoradar24) helyett a valódi forrás ----------
-    //  Az Imoradar24 adatlapja belépés nélkül semmit sem mutat, ezért oda sosem
-    //  küldünk senkit. Ha az eredeti hirdetés (OLX / Storia / Publi24…) linkje már
-    //  megvan (a további linkek között), egyből oda visz; ha még nincs, a hirdetés
-    //  SAJÁT adatlapja nyílik (ott pontosan ez a hirdetés látszik) – a forrásoldal
-    //  keresése csak tartalék link az adatlapon, a kattintás nem oda visz.
+    //  Ha az eredeti hirdetés (OLX / Storia / Imobiliare / Publi24…) linkje megvan,
+    //  egyből oda visz. Ha nincs meg, az Imoradar24 ADATLAPJA nyílik (/oferta/… –
+    //  belépés nélkül is pontosan azt az egy hirdetést mutatja, élőben ellenőrizve
+    //  2026-11-12) – a forrásoldal keresésére (találati lista) a kattintás már nem visz.
+    //  Csak a régi "link-extern" címnél (az belépés nélkül nem visz tovább) marad a
+    //  forrásoldal szűrt keresése tartaléknak.
 
     static FORRAS_HOST = {
         olx: "olx.ro", storia: "storia.ro", publi24: "publi24.ro", homezz: "homezz.ro",
@@ -66,6 +67,11 @@ class Sources {
 
     static kozvetito(link) {
         return /imoradar24\.ro\//i.test(String(link || ""));
+    }
+
+    // Az Imoradar24 adatlapja (egy konkrét hirdetés – nem a link-extern, nem keresés)
+    static imoradarAdatlap(link) {
+        return /imoradar24\.ro\/oferta\/[a-z0-9-]+-\d{5,}/i.test(String(link || ""));
     }
 
     // Egy konkrét hirdetés linkje-e (nem keresés, nem közvetítő)
@@ -97,6 +103,8 @@ class Sources {
         if (Sources.kozvetito(i.link)) {
             const e = Sources.eredeti(i);
             if (e) return Sources.fromLink(e);
+            // a kattintás az Imoradar24 adatlapjára visz – a jelvény is ezt mutatja
+            if (Sources.imoradarAdatlap(i.link)) return "imoradar24.ro";
             if (Sources.FORRAS_HOST[i.forras_nev]) return Sources.FORRAS_HOST[i.forras_nev];
             if (i.forras_kereso) return Sources.fromLink(i.forras_kereso);
             return "imoradar24.ro";
@@ -108,20 +116,21 @@ class Sources {
     // (közvetített hirdetésnél, amíg az eredeti linkje nincs meg)
     static url(i) {
         if (!i || !i.link) return null;
-        // Az eredeti hirdetés; amíg az nincs meg: a forrásoldal (szűrt keresése) –
+        // Az eredeti hirdetés; amíg az nincs meg: az Imoradar24 adatlapja (pontosan ez a
+        // hirdetés); csak a régi link-extern címnél a forrásoldal szűrt keresése –
         // átvett hirdetésnél a kattintás SOSEM a saját adatlapra visz
-        if (Sources.kozvetito(i.link)) return Sources.eredeti(i) || i.forras_kereso || null;
+        if (Sources.kozvetito(i.link)) return Sources.eredeti(i) || (Sources.imoradarAdatlap(i.link) ? i.link : null) || i.forras_kereso || null;
         return i.link;
     }
 
     // A forrásoldal szűrt keresése (csak tartalék link az adatlapon)
     static kereso(i) {
-        return !!i && Sources.kozvetito(i.link) && !Sources.eredeti(i) ? (i.forras_kereso || null) : null;
+        return !!i && Sources.kozvetito(i.link) && !Sources.eredeti(i) && !Sources.imoradarAdatlap(i.link) ? (i.forras_kereso || null) : null;
     }
 
-    // Régi hívóknak: a kattintás már sosem a keresésre visz
+    // A kattintás a forrásoldal keresésére visz-e (csak a régi link-extern címnél)
     static keresesre(i) {
-        return !!i && Sources.kozvetito(i.link) && !Sources.eredeti(i) && !!i.forras_kereso;
+        return !!Sources.kereso(i);
     }
 
     // Forrásoldalanként a hirdetés linkje: { "olx.ro": url, "storia.ro": url, ... }

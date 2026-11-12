@@ -12,7 +12,11 @@
 //    Ma          a teendők – egy sor modulonként, ami vár
 //    Hirdetések  ellenőrzés: Ellenőrzésre vár · Hely-ellenőrzés · Állapot ·
 //                Beolvasás · Bejelentések
-//                rendrakás: Duplikátumok · Nem elérhető · Figyelt oldalak
+//                rendrakás: Duplikátumok · Nem elérhető · Figyelt oldalak · Források
+//                FELÜL VÁROSVÁLASZTÓ: a Hirdetések (és a Ma) modul egy városra szűkíthető –
+//                a listák, számlálók csak azt a várost (és a „<város> és környéke”
+//                várost) mutatják. A városra kapott munkatárs csak a saját városait
+//                választhatja. (A szerver az X-Admin-Varos fejlécből szűr – csapat.reszSql.)
 //    Értékesítés Megbízások · Naptár · Fotók (a csapat helyszíni munkája) · Beállítások
 //    Pénzügy     Áttekintés · Rendelések · Díjbekérők · e-Factura · Előfizetések · Ügyfelek ·
 //                Kiadások | Csomagok · Számlázás
@@ -40,7 +44,7 @@
     // Modulonként az oldalak sorrendben ("|" = elválasztó a fülek között)
     AdminManager.REND = {
         ma: ["overview"],
-        hird: ["review", "helyek", "allapot", "import", "reports", "|", "dups", "unavailable", "watch"],
+        hird: ["review", "helyek", "allapot", "import", "reports", "|", "dups", "unavailable", "watch", "forrasok"],
         ert: ["megbizasok", "naptar", "hirdetesek", "|", "megbizasBeall"],
         // gyakran: áttekintés, számlák, vásárlások, kiadások, e-Factura | ritkábban | beállítás jellegű a végén
         penz: ["penzugy", "szamlak", "rendelesek", "kiadasok", "efactura", "|", "ugyfelek", "elofizetesek", "kiemelesek", "|", "csomagok", "penzugyBeall"],
@@ -66,6 +70,10 @@
     if (uj.helyek) Object.assign(uj.helyek, { title: "adminTabLocCheck", desc: "adminDescLocCheck2", warn: false });
     if (uj.megbizasBeall) uj.megbizasBeall.title = "adminTabSalesSettings";
     if (uj.penzugyBeall) Object.assign(uj.penzugyBeall, { title: "adminTabFinSettings2", desc: "adminDescFinSettings2", icon: "fa-solid fa-gear", render: () => AdminManager.renderFinBeall() });
+    // A linkről beolvasás és a figyelt oldalak az egész oldalra szólnak; városra kapott
+    // beolvasási joggal a Források (a város beolvasása) és a Karbantartás látszik
+    if (uj.import) uj.import.jog = "beolvasas_mind";
+    if (uj.watch) uj.watch.jog = "beolvasas_mind";
 
     AdminManager.TABS = uj;
     Object.assign(AdminManager.ALIASES, { ma: "overview", today: "overview", hirdeteseim: "hirdetesek" });
@@ -96,6 +104,82 @@ AdminManager.modulDb = function (g) {
         .reduce((s, [, t]) => s + (Number(c[AdminManager.COUNT_KEY[t.count]]) || 0), 0);
 };
 
+// ===================== VÁROSVÁLASZTÓ (Hirdetések, Ma) =====================
+
+// A munkatárs városai a hirdetések kezeléséhez – null = minden város (admin / egész oldal)
+AdminManager.sajatVarosok = function () {
+    if (AuthManager.isAdmin()) return null;
+    const c = AuthManager.csapat || {};
+    const j = c.jogok || {};
+    if (j.ellenorzes_mind || j.beolvasas_mind) return null;
+    const v = (c.hozzaferesek || []).filter(h => h.hatokor === "varos" && h.varos && (h.jogok || []).some(x => ["ellenorzes", "beolvasas", "hirdetes", "kepek"].includes(x))).map(h => h.varos);
+    return [...new Set(v)];
+};
+
+AdminManager.munkaVaros = (() => { try { return localStorage.getItem("ip_adm_varos") || ""; } catch (e) { return ""; } })();
+
+AdminManager.munkaVarosBeallit = function (v) {
+    AdminManager.munkaVaros = v || "";
+    try { localStorage.setItem("ip_adm_varos", AdminManager.munkaVaros); } catch (e) { /* nem baj */ }
+};
+
+// Csak érvényes (és a munkatársnak kiadott) város maradhat kiválasztva
+AdminManager.munkaVarosEllenoriz = function () {
+    // amíg a városok listája nincs betöltve, nem döntünk (különben elveszne a választás)
+    if (!(CityManager.varosok || []).length) return;
+    const sajat = AdminManager.sajatVarosok();
+    const van = n => (CityManager.varosok || []).some(v => v.nev === n);
+    if (AdminManager.munkaVaros && (!van(AdminManager.munkaVaros) || (sajat && !sajat.includes(AdminManager.munkaVaros)))) AdminManager.munkaVarosBeallit("");
+    // egy városra kapott munkatárs: az az egy város
+    if (!AdminManager.munkaVaros && sajat && sajat.length === 1) AdminManager.munkaVarosBeallit(sajat[0]);
+};
+
+AdminManager.varosValaszto = function () {
+    const esc = Utils.escape;
+    const sajat = AdminManager.sajatVarosok();
+    const lista = (CityManager.varosok || []).filter(v => !v.anyavaros && (!sajat || sajat.includes(v.nev))).map(v => v.nev)
+        .sort((a, b) => CityManager.displayName(a).localeCompare(CityManager.displayName(b), "hu"));
+    if (!lista.length) return "";
+    return `
+        <label class="admVaros ${AdminManager.munkaVaros ? "aktiv" : ""}" title="${esc(I18n.t("admCityHelp"))}">
+            <i class="fa-solid fa-city" aria-hidden="true"></i>
+            <span class="visually-hidden">${esc(I18n.t("admCityLabel"))}</span>
+            <select id="admVaros" class="form-select form-select-sm" aria-label="${esc(I18n.t("admCityLabel"))}">
+                ${!sajat || sajat.length > 1 ? `<option value="">${esc(I18n.t(sajat ? "admCityMine" : "admCityAll"))}</option>` : ""}
+                ${lista.map(n => `<option value="${esc(n)}" ${n === AdminManager.munkaVaros ? "selected" : ""}>${esc(CityManager.displayName(n))}</option>`).join("")}
+            </select>
+        </label>`;
+};
+
+// A városválasztók (pl. Karbantartás) a városra kapott munkatársnak csak a saját városait kínálják
+(() => {
+    const eredeti = AdminManager.cityOptions;
+    AdminManager.cityOptions = function (selected) {
+        const sajat = AdminManager.sajatVarosok();
+        if (!sajat) return eredeti.call(this, selected);
+        return sajat.slice().sort((a, b) => CityManager.displayName(a).localeCompare(CityManager.displayName(b), "hu"))
+            .map(n => `<option value="${Utils.escape(n)}" ${n === selected ? "selected" : ""}>${Utils.escape(CityManager.displayName(n))}</option>`).join("");
+    };
+})();
+
+// Minden admin-kérés viszi a kiválasztott várost (a szerver a hirdetés-listákat erre szűri)
+(() => {
+    if (window.__ipAdminFetch) return;
+    window.__ipAdminFetch = true;
+    const eredeti = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+        try {
+            const url = typeof input === "string" ? input : (input && input.url) || "";
+            if (AdminManager.munkaVaros && /^(\/|https?:\/\/[^/]*\/)api\/admin\//.test(url) && (url.startsWith("/") || url.startsWith(location.origin))) {
+                const h = new Headers((init && init.headers) || (typeof input !== "string" && input.headers) || {});
+                if (!h.has("X-Admin-Varos")) h.set("X-Admin-Varos", encodeURIComponent(AdminManager.munkaVaros));
+                init = { ...(init || {}), headers: h };
+            }
+        } catch (e) { /* a kérés megy tovább fejléc nélkül */ }
+        return eredeti(input, init);
+    };
+})();
+
 // ===================== A FELSŐ SÁV: modulok + a modul oldalai =====================
 
 AdminManager.renderNav = function () {
@@ -104,6 +188,7 @@ AdminManager.renderNav = function () {
     if (!top) return;
 
     const esc = Utils.escape;
+    AdminManager.munkaVarosEllenoriz();
     const aktivTab = AdminManager.TABS[AdminManager.tab] ? AdminManager.tab : "overview";
     const aktivModul = AdminManager.TABS[aktivTab].group;
     const oldalak = g => (AdminManager.REND[g.key] || []).filter(k => k === "|" || (AdminManager.TABS[k] && AdminManager.lathato(AdminManager.TABS[k])));
@@ -126,6 +211,7 @@ AdminManager.renderNav = function () {
                         </button>`;
                 }).join("")}
             </nav>
+            ${["hird", "ma"].includes(aktivModul) ? AdminManager.varosValaszto() : ""}
             <button type="button" class="admUgras" id="admUgras" aria-keyshortcuts="Control+K">
                 <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>${esc(I18n.t("adminJump"))}</span><kbd>Ctrl K</kbd>
             </button>
@@ -145,6 +231,13 @@ AdminManager.renderNav = function () {
     top.querySelectorAll("[data-modul]").forEach(b => { b.onclick = () => AdminManager.open(b.dataset.modul); });
     top.querySelectorAll("[data-tab]").forEach(b => { b.onclick = () => AdminManager.open(b.dataset.tab); });
     top.querySelector("#admUgras").onclick = () => AdminManager.ugras();
+    const vv = top.querySelector("#admVaros");
+    if (vv) vv.onchange = () => {
+        AdminManager.munkaVarosBeallit(vv.value);
+        // a mostani oldal és a számlálók újra, a kiválasztott városra
+        AdminManager.open(AdminManager.TABS[AdminManager.tab] ? AdminManager.tab : "overview");
+        if (AdminManager.refreshPendingCount) AdminManager.refreshPendingCount();
+    };
 
     // Kis képernyőn a kiválasztott fül legyen látható
     const akt = top.querySelector(".admLap.active, .admModul.active");

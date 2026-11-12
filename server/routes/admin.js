@@ -215,7 +215,8 @@ router.post("/api/admin/listing/:id/refresh", csapat.csakResz("ellenorzes", "beo
 // Meglévő hirdetések ellenőrzése a forrásoldalon (háttérben)
 //  varos: csak ennek a városnak (és a "<város> és környéke" városnak) a hirdetései – mind,
 //  a város Imoradar24-listája a végéig, utána a még hiányzó eredeti linkek keresése
-router.post("/api/admin/recheck", csapat.csakGlobalis("ellenorzes", "beolvasas"), async (req, res) => {
+//  Városra kapott ellenőrzési / beolvasási joggal a saját városára is indítható
+router.post("/api/admin/recheck", csapat.csakVarosra("ellenorzes", "beolvasas"), async (req, res) => {
 
     try {
 
@@ -257,7 +258,7 @@ router.post("/api/admin/ai-check/:id", csapat.csakResz("ellenorzes"), csapat.csa
 // kerület, település, közelítő hely...), és újraértékeli, mit kell még
 // kézzel ellenőrizni.
 
-router.post("/api/admin/autofix", csapat.csakResz("beolvasas"), async (req, res) => {
+router.post("/api/admin/autofix", csapat.csakVarosra("beolvasas"), async (req, res) => {
     try {
         const varosok = req.body.varos ? await importer.varosCsoport(req.body.varos) : null;
         const j = autofix.indit({ mind: req.body.mind !== false, varosok });
@@ -347,7 +348,7 @@ router.post("/api/admin/unmatched-areas/assign", csapat.csakResz("helyek"), asyn
 });
 
 // Az Imoradar24-re mutató hirdetések: az eredeti link megkeresése most (és mi lett az eredmény)
-router.post("/api/admin/forraslinkek", csapat.csakGlobalis("ellenorzes"), async (req, res) => {
+router.post("/api/admin/forraslinkek", csapat.csakVarosra("ellenorzes", "beolvasas"), async (req, res) => {
     try {
         const varosok = req.body && req.body.varos ? await importer.varosCsoport(req.body.varos) : null;
         res.json(await require("../services/forrasHely").javitMind({ limit: varosok ? 5000 : 1000, varosok }));
@@ -450,8 +451,75 @@ router.post("/api/admin/duplicates/merge", csapat.csakGlobalis("ellenorzes"), as
 
 });
 
+// ===================== FORRÁSOK: közvetlen beolvasás, fő oldal =====================
+//  Melyik oldalakat olvassuk közvetlenül (OLX, Storia), a fő oldal sorrendje (ha egy
+//  ingatlan több oldalon is fent van, kattintásra melyik nyíljon meg), és városonként
+//  az aktív hirdetések forrásai + a legutóbbi sikeres közvetlen beolvasás ideje.
+
+router.get("/api/admin/forrasok", csapat.csakResz("beolvasas"), async (req, res) => {
+    try {
+        const forrasSorrend = require("../services/forrasSorrend");
+        const csak = await csapat.varosai(req, "beolvasas");
+        const params = [];
+        let szuro = "";
+        if (csak) { params.push(csak); szuro = "AND (i.varos = ANY($1::text[]) OR i.varos_eredeti = ANY($1::text[]) OR i.varos IN (SELECT nev FROM varosok WHERE anyavaros = ANY($1::text[])))"; }
+        const r = await db.query(`
+            SELECT COALESCE(v.anyavaros, i.varos) AS varos,
+                   CASE WHEN i.link ~* 'imoradar24\\.ro/' THEN 'imoradar24'
+                        WHEN i.link ~* 'olx\\.ro/' THEN 'olx'
+                        WHEN i.link ~* 'storia\\.ro/' THEN 'storia'
+                        WHEN i.link ~* 'imobiliare\\.ro/' THEN 'imobiliare'
+                        WHEN i.link ~* 'publi24\\.ro/' THEN 'publi24'
+                        WHEN i.forras_tipus = 'import' THEN 'egyeb'
+                        ELSE 'sajat' END AS forras,
+                   COUNT(*)::int AS db,
+                   COUNT(*) FILTER (WHERE jsonb_typeof(i.tovabbi_linkek) = 'array' AND jsonb_array_length(i.tovabbi_linkek) > 0)::int AS tobb_oldalon
+            FROM ingatlanok i LEFT JOIN varosok v ON v.nev = i.varos
+            WHERE i.statusz = 'aktiv' ${szuro}
+            GROUP BY 1, 2 ORDER BY 1, 2`, params);
+        res.json({
+            beallitas: await forrasSorrend.olvas(),
+            oldalak: forrasSorrend.OLDALAK,
+            kozvetlenLehet: forrasSorrend.KOZVETLEN_LEHET,
+            kesz: await forrasSorrend.keszIdok(),
+            frissOra: forrasSorrend.FRISS_ORA,
+            varosonkent: r.rows,
+            csakVarosok: csak,
+            modosithat: req.szerep === "admin" || csapat.globalis(await csapat.kontextus(req), "beolvasas")
+        });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
+router.put("/api/admin/forrasok", csapat.csakGlobalis("beolvasas"), async (req, res) => {
+    try {
+        const forrasSorrend = require("../services/forrasSorrend");
+        const adat = await forrasSorrend.ment(req.body || {});
+        // az új sorrend a meglévő (több oldalon is fent lévő) hirdetéseken is
+        const atirt = req.body && req.body.alkalmaz === false ? 0 : await forrasSorrend.alkalmaz();
+        res.json({ siker: true, adat, atirt });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
+// Egy (vagy több) város közvetlen beolvasása most: OLX + Storia (háttérben, a napló az
+// /api/admin/import/:id-n). csakMeglevo: csak a meglévők frissítése / levétele.
+router.post("/api/admin/kozvetlen", csapat.csakVarosra("beolvasas"), async (req, res) => {
+    try {
+        const varos = String(req.body.varos || "").trim();
+        if (!varos) return res.status(400).json({ error: "no_city" });
+        const anya = (await require("../services/kornyek").anyaVarosa(varos).catch(() => null)) || varos;
+        const job = importer.kozvetlenIndit([anya], { csakMeglevo: !!req.body.csakMeglevo });
+        res.json({ jobId: job.id, varos: anya });
+    } catch (err) {
+        hiba(res, err);
+    }
+});
+
 // Tömeges beolvasás linkekről
-router.post("/api/admin/import", csapat.csakResz("beolvasas"), async (req, res) => {
+router.post("/api/admin/import", csapat.csakVarosra("beolvasas"), async (req, res) => {
 
     try {
 
@@ -483,7 +551,7 @@ router.post("/api/admin/import", csapat.csakResz("beolvasas"), async (req, res) 
 
 });
 
-router.get("/api/admin/import/:id", csapat.csakResz("beolvasas"), (req, res) => {
+router.get("/api/admin/import/:id", csapat.csakResz("beolvasas", "ellenorzes"), (req, res) => {
 
     const j = importer.allapot(req.params.id);
 
@@ -494,7 +562,7 @@ router.get("/api/admin/import/:id", csapat.csakResz("beolvasas"), (req, res) => 
 });
 
 // Figyelt oldalak
-router.get("/api/admin/watch", csapat.csakResz("beolvasas"), async (req, res) => {
+router.get("/api/admin/watch", csapat.csakGlobalis("beolvasas"), async (req, res) => {
 
     try {
         const r = await db.query("SELECT * FROM figyelt_oldalak ORDER BY id");
@@ -505,7 +573,7 @@ router.get("/api/admin/watch", csapat.csakResz("beolvasas"), async (req, res) =>
 
 });
 
-router.post("/api/admin/watch", csapat.csakResz("beolvasas"), async (req, res) => {
+router.post("/api/admin/watch", csapat.csakGlobalis("beolvasas"), async (req, res) => {
 
     try {
 
@@ -527,7 +595,7 @@ router.post("/api/admin/watch", csapat.csakResz("beolvasas"), async (req, res) =
 
 });
 
-router.delete("/api/admin/watch/:id", csapat.csakResz("beolvasas"), async (req, res) => {
+router.delete("/api/admin/watch/:id", csapat.csakGlobalis("beolvasas"), async (req, res) => {
 
     try {
         await db.query("DELETE FROM figyelt_oldalak WHERE id = $1", [req.params.id]);
@@ -538,7 +606,7 @@ router.delete("/api/admin/watch/:id", csapat.csakResz("beolvasas"), async (req, 
 
 });
 
-router.post("/api/admin/watch/:id/run", csapat.csakResz("beolvasas"), async (req, res) => {
+router.post("/api/admin/watch/:id/run", csapat.csakGlobalis("beolvasas"), async (req, res) => {
 
     try {
 
