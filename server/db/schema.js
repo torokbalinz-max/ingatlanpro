@@ -922,6 +922,79 @@ async function createSchema(db) {
     await db.query(`ALTER TABLE penzugy_rendelesek ADD COLUMN IF NOT EXISTS azonnali_kezdes TIMESTAMP`);
     await db.query(`ALTER TABLE penzugy_rendelesek ADD COLUMN IF NOT EXISTS visszaigazolva TIMESTAMP`);
 
+    // ===================== CRM (ügyfelek, tevékenységek, feladatok) =====================
+    // Minden irodának külön, zárt CRM-je van (iroda_id); az oldal saját CRM-je
+    // (az admin értékesítése) iroda_id = NULL. Lásd services/crm.js.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS crm_ugyfelek (
+            id SERIAL PRIMARY KEY,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE CASCADE,
+            felelos_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            nev TEXT NOT NULL,
+            telefon TEXT,
+            email TEXT,
+            szerepek JSONB DEFAULT '[]',
+            allapot TEXT DEFAULT 'uj',
+            forras TEXT,
+            cimkek JSONB DEFAULT '[]',
+            igeny JSONB,
+            jegyzet TEXT,
+            utolso_kapcsolat TIMESTAMP,
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_crm_ugyfel_iroda ON crm_ugyfelek (iroda_id, felelos_id)`);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS crm_tevekenysegek (
+            id SERIAL PRIMARY KEY,
+            ugyfel_id INTEGER REFERENCES crm_ugyfelek(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            tipus TEXT NOT NULL,
+            szoveg TEXT,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_crm_tev_ugyfel ON crm_tevekenysegek (ugyfel_id, created_at DESC)`);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS crm_feladatok (
+            id SERIAL PRIMARY KEY,
+            iroda_id INTEGER REFERENCES irodak(id) ON DELETE CASCADE,
+            ugyfel_id INTEGER REFERENCES crm_ugyfelek(id) ON DELETE CASCADE,
+            felelos_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            cim TEXT NOT NULL,
+            hatarido TIMESTAMP,
+            fontos BOOLEAN DEFAULT false,
+            kesz TIMESTAMP,
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_crm_feladat ON crm_feladatok (iroda_id, felelos_id, kesz)`);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS crm_ugyfel_ingatlan (
+            ugyfel_id INTEGER REFERENCES crm_ugyfelek(id) ON DELETE CASCADE,
+            ingatlan_id INTEGER REFERENCES ingatlanok(id) ON DELETE CASCADE,
+            szerep TEXT DEFAULT 'erdeklodik',
+            allapot TEXT DEFAULT 'uj',
+            created_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (ugyfel_id, ingatlan_id)
+        )
+    `);
+    // A beérkező érdeklődések (üzenetek) közül, amit már feldolgoztak (felvették / elvetették)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS crm_feldolgozott (
+            ter INTEGER NOT NULL,
+            uzenet_id INTEGER NOT NULL,
+            ugyfel_id INTEGER REFERENCES crm_ugyfelek(id) ON DELETE SET NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (ter, uzenet_id)
+        )
+    `);
+
     // Elállás a szerződéstől (14 nap, „Elállás a szerződéstől” gomb – 11a. cikk):
     // a nyilatkozat tartalma és időpontja; a visszatérítést az admin intézi
     await db.query(`

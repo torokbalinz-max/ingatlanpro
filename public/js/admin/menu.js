@@ -43,6 +43,7 @@
         { key: "reklam", label: "adminModAds", icon: "fa-solid fa-rectangle-ad", szekcio: "varos" },
         { key: "ert", label: "adminModSales", icon: "fa-solid fa-key", szekcio: "varos" },
         { key: "ma", label: "adminModToday", icon: "fa-solid fa-sun", szekcio: "altalanos" },
+        { key: "crm", label: "crmTitle", icon: "fa-solid fa-address-book", szekcio: "altalanos" },
         { key: "penz", label: "adminModFinance", icon: "fa-solid fa-coins", szekcio: "altalanos" },
         { key: "irat", label: "adminModArchive", icon: "fa-solid fa-box-archive", szekcio: "altalanos" },
         { key: "partner", label: "adminModAgencies", icon: "fa-solid fa-briefcase", szekcio: "altalanos" },
@@ -59,12 +60,16 @@
         reklam: ["reklam"],
         ert: ["megbizasok", "naptar", "hirdetesek"],
         ma: ["overview"],
+        crm: ["crm"],
         // gyakran: áttekintés, számlák, vásárlások, kiadások, e-Factura | ritkábban | beállítás jellegű a végén
         penz: ["penzugy", "szamlak", "rendelesek", "kiadasok", "efactura", "|", "ugyfelek", "elofizetesek", "kiemelesek", "|", "csomagok", "penzugyBeall"],
         irat: ["irattarSzamla", "irattarSzerzodes"],
         partner: ["irodak"],
         beall: ["allapotok", "places", "kornyek", "megbizasBeall", "|", "webhely", "csapat", "sitestats"]
     };
+
+    // Az oldal saját CRM-je (az admin értékesítése) – az irodákétól külön (js/crm/crm.js)
+    AdminManager.TABS.crm = { group: "crm", jog: "admin", icon: "fa-solid fa-address-book", title: "crmTitle", desc: "crmAdminDesc", render: () => Crm.mount(AdminManager.box(), { ter: 0 }) };
 
     // Megszűnt külön oldalak (a funkciójuk a Források oldalon van)
     const MEGSZUNT = { import: "forrasok", watch: "forrasok" };

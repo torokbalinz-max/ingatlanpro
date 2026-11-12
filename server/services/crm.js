@@ -1,0 +1,639 @@
+// ============================================================
+//  CRM – ügyfelek, tevékenységek, feladatok, beérkező érdeklődések
+//
+//  Térségek (ter): minden irodának külön, zárt CRM-je van (ter = az iroda
+//  id-je); az oldal saját értékesítésének CRM-je ter = 0 (iroda_id NULL,
+//  csak az admin). Egy iroda soha nem látja a másikét.
+//
+//  Ki mit lát egy irodán belül:
+//   - a vezető (és az admin): mindent, és ő osztja ki / adja át az ügyfeleket
+//   - a tag (ügynök): csak a saját ügyfeleit (felelős = ő) és a saját feladatait;
+//     a beérkező érdeklődések közül a neki címzetteket
+//
+//  Ügyfél: név, elérhetőség, szerepek (vevő / eladó / bérlő / bérbeadó),
+//  állapot (új → kapcsolatban → aktív → tárgyalás → nyert / elvesztett /
+//  inaktív), forrás, címkék, keresési igény (a saját ingatlanok közül az
+//  illeszkedőket mutatja), jegyzet, kapcsolódó ingatlanok, idővonal.
+//
+//  Beérkező: a térség hirdetéseire jött üzenetek, küldőnként csoportosítva –
+//  egy kattintással ügyfél lesz belőle (vagy a meglévő ügyfélhez kerül).
+// ============================================================
+
+const db = require("../db/database");
+
+const ALLAPOTOK = ["uj", "kapcsolat", "aktiv", "targyalas", "nyert", "elvesztett", "inaktiv"];
+const NYITOTT = ["uj", "kapcsolat", "aktiv", "targyalas"];
+const SZEREPEK = ["vevo", "elado", "berlo", "berbeado"];
+const FORRASOK = ["hirdetes", "telefon", "ajanlas", "weboldal", "kozosseg", "szemelyes", "egyeb"];
+const TEV_TIPUSOK = ["jegyzet", "hivas", "email", "uzenet", "talalkozo", "megtekintes", "ajanlat", "rendszer"];
+const KAPCS_ALLAPOT = ["uj", "kuldve", "megtekintes", "ajanlat", "elvetve"];
+
+function hibaKod(kod, status = 400) {
+    const e = new Error(kod);
+    e.kod = kod;
+    e.status = status;
+    return e;
+}
+
+const sz = (v, max = 300) => {
+    if (v === undefined || v === null) return null;
+    const t = String(v).trim();
+    return t ? t.slice(0, max) : null;
+};
+const szam = v => (v === "" || v === null || v === undefined || !Number.isFinite(Number(v))) ? null : Number(v);
+
+// ---------- Jogosultság ----------
+// ctx: { ter, irodaId (null = az oldalé), userId, vezeto, admin }
+async function kontextus(req, terParam) {
+    const ter = Number(terParam) || 0;
+    if (!req.user && req.szerep !== "admin") throw hibaKod("login_required", 401);
+    const userId = req.user ? req.user.id : null;
+    if (ter === 0) {
+        if (req.szerep !== "admin") throw hibaKod("forbidden", 403);
+        return { ter: 0, irodaId: null, userId, vezeto: true, admin: true };
+    }
+    const j = await require("../routes/irodak").jog(req, ter);
+    if (!j.tag) throw hibaKod("not_member", 403);
+    // Csomaghoz kötött iroda: amíg nincs kifizetve, a CRM zárva
+    if (!j.admin) {
+        const ia = await require("./penzugy").irodaAktiv(ter).catch(() => ({ aktiv: true }));
+        if (!ia.aktiv) throw hibaKod("agency_inactive", 402);
+    }
+    return { ter, irodaId: ter, userId, vezeto: !!j.vezeto, admin: !!j.admin };
+}
+
+// A térség szűrője az SQL-ben (alias.iroda_id)
+function terSql(ctx, alias, p) {
+    if (ctx.irodaId === null) return `${alias}.iroda_id IS NULL`;
+    p.push(ctx.irodaId);
+    return `${alias}.iroda_id = $${p.length}`;
+}
+
+// A tag csak a saját ügyfeleit látja
+function lathatoSql(ctx, alias, p) {
+    if (ctx.vezeto) return "TRUE";
+    p.push(ctx.userId);
+    return `${alias}.felelos_id = $${p.length}`;
+}
+
+async function ugyfelJog(ctx, id) {
+    const p = [Number(id) || 0];
+    const r = await db.query(`SELECT * FROM crm_ugyfelek u WHERE u.id = $1 AND ${terSql(ctx, "u", p)} AND ${lathatoSql(ctx, "u", p)}`, p);
+    if (!r.rowCount) throw hibaKod("not_found", 404);
+    return r.rows[0];
+}
+
+// Kik lehetnek felelősök (az iroda aktív tagjai; az oldalnál az adminok)
+async function tagok(ctx) {
+    if (ctx.irodaId === null) {
+        const r = await db.query(`SELECT id, COALESCE(nev, felhasznalonev, email) AS nev FROM users WHERE szerep = 'admin' ORDER BY nev`).catch(() => ({ rows: [] }));
+        return r.rows;
+    }
+    const r = await db.query(`
+        SELECT u.id, COALESCE(u.nev, u.felhasznalonev, u.email) AS nev, t.szerep
+        FROM iroda_tagok t JOIN users u ON u.id = t.user_id
+        WHERE t.iroda_id = $1 AND COALESCE(t.statusz, 'aktiv') = 'aktiv' ORDER BY nev`, [ctx.irodaId]);
+    return r.rows;
+}
+
+async function felelosOk(ctx, felelosId) {
+    if (!felelosId) return null;
+    if (!ctx.vezeto) return ctx.userId;              // a tag csak magának
+    const t = await tagok(ctx);
+    if (!t.some(x => x.id === Number(felelosId))) throw hibaKod("bad_owner");
+    return Number(felelosId);
+}
+
+// ---------- Ügyfél adatainak tisztítása ----------
+function igenyTisztit(i) {
+    if (!i || typeof i !== "object") return null;
+    const o = {
+        ugylet: ["elado", "kiado"].includes(i.ugylet) ? i.ugylet : null,
+        tipus: sz(i.tipus, 30),
+        varos: sz(i.varos, 80),
+        kerulet: sz(i.kerulet, 80),
+        ar_min: szam(i.ar_min),
+        ar_max: szam(i.ar_max),
+        szoba_min: szam(i.szoba_min),
+        nm_min: szam(i.nm_min),
+        megjegyzes: sz(i.megjegyzes, 500)
+    };
+    return Object.values(o).some(v => v !== null) ? o : null;
+}
+
+function lista(v, ervenyes) {
+    const a = Array.isArray(v) ? v : [];
+    return [...new Set(a.map(x => String(x).trim()).filter(x => x && (!ervenyes || ervenyes.includes(x))))].slice(0, 12);
+}
+
+function cimkeLista(v) {
+    const a = Array.isArray(v) ? v : String(v || "").split(",");
+    return [...new Set(a.map(x => String(x).trim().slice(0, 30)).filter(Boolean))].slice(0, 12);
+}
+
+// ---------- Tevékenység (idővonal) ----------
+async function naploz(ugyfelId, userId, tipus, szoveg, ingatlanId = null, kapcsolat = false) {
+    await db.query(`INSERT INTO crm_tevekenysegek (ugyfel_id, user_id, tipus, szoveg, ingatlan_id) VALUES ($1,$2,$3,$4,$5)`,
+        [ugyfelId, userId, tipus, sz(szoveg, 4000), ingatlanId]);
+    if (kapcsolat) await db.query("UPDATE crm_ugyfelek SET utolso_kapcsolat = NOW(), updated_at = NOW() WHERE id = $1", [ugyfelId]);
+    else await db.query("UPDATE crm_ugyfelek SET updated_at = NOW() WHERE id = $1", [ugyfelId]);
+}
+
+// ===================== ÁTTEKINTÉS =====================
+
+async function attekintes(ctx) {
+    const p = [];
+    const t = terSql(ctx, "u", p);
+    const l = lathatoSql(ctx, "u", p);
+    const db1 = await db.query(`
+        SELECT u.allapot, COUNT(*)::int AS n FROM crm_ugyfelek u WHERE ${t} AND ${l} GROUP BY u.allapot`, p);
+    const allapotok = Object.fromEntries(ALLAPOTOK.map(a => [a, 0]));
+    db1.rows.forEach(r => { allapotok[r.allapot] = r.n; });
+
+    // Feladatok: késésben, ma, a következő 7 nap
+    const fp = [];
+    const ft = terSql(ctx, "f", fp);
+    let fl = "TRUE";
+    if (!ctx.vezeto) { fp.push(ctx.userId); fl = `f.felelos_id = $${fp.length}`; }
+    const fel = await db.query(`
+        SELECT f.*, to_char(f.hatarido, 'YYYY-MM-DD"T"HH24:MI') AS hatarido, u.nev AS ugyfel_nev, COALESCE(us.nev, us.felhasznalonev) AS felelos_nev
+        FROM crm_feladatok f
+        LEFT JOIN crm_ugyfelek u ON u.id = f.ugyfel_id
+        LEFT JOIN users us ON us.id = f.felelos_id
+        WHERE ${ft} AND ${fl} AND f.kesz IS NULL AND f.hatarido IS NOT NULL AND f.hatarido < CURRENT_DATE + INTERVAL '8 days'
+        ORDER BY f.hatarido LIMIT 60`, fp);
+
+    // Akikkel régóta nem volt kapcsolat (nyitott, 14 napja)
+    const hp = [];
+    const ht = terSql(ctx, "u", hp);
+    const hl = lathatoSql(ctx, "u", hp);
+    const hidegek = await db.query(`
+        SELECT u.id, u.nev, u.allapot, u.utolso_kapcsolat, u.created_at
+        FROM crm_ugyfelek u
+        WHERE ${ht} AND ${hl} AND u.allapot = ANY($${hp.length + 1})
+          AND COALESCE(u.utolso_kapcsolat, u.created_at) < NOW() - INTERVAL '14 days'
+          AND NOT EXISTS (SELECT 1 FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL)
+        ORDER BY COALESCE(u.utolso_kapcsolat, u.created_at) LIMIT 8`, [...hp, NYITOTT]);
+
+    // Legutóbbi tevékenységek
+    const tp = [];
+    const tt = terSql(ctx, "u", tp);
+    const tl = lathatoSql(ctx, "u", tp);
+    const tev = await db.query(`
+        SELECT t.id, t.tipus, t.szoveg, t.created_at, u.id AS ugyfel_id, u.nev AS ugyfel_nev, COALESCE(us.nev, us.felhasznalonev) AS user_nev
+        FROM crm_tevekenysegek t JOIN crm_ugyfelek u ON u.id = t.ugyfel_id
+        LEFT JOIN users us ON us.id = t.user_id
+        WHERE ${tt} AND ${tl} ORDER BY t.id DESC LIMIT 12`, tp);
+
+    const beerkezett = await beerkezo(ctx, { csakSzam: true });
+
+    return {
+        allapotok,
+        nyitott: NYITOTT.reduce((s, a) => s + allapotok[a], 0),
+        feladatok: fel.rows,
+        hidegek: hidegek.rows,
+        tevekenysegek: tev.rows,
+        beerkezett
+    };
+}
+
+// ===================== ÜGYFELEK =====================
+
+async function ugyfelLista(ctx, q = {}) {
+    const p = [];
+    const felt = [terSql(ctx, "u", p), lathatoSql(ctx, "u", p)];
+    if (q.q) {
+        p.push(`%${String(q.q).trim().toLowerCase()}%`);
+        felt.push(`(LOWER(u.nev) LIKE $${p.length} OR LOWER(COALESCE(u.email,'')) LIKE $${p.length} OR REGEXP_REPLACE(COALESCE(u.telefon,''), '[^0-9+]', '', 'g') LIKE REGEXP_REPLACE($${p.length}, '[^0-9+%]', '', 'g') OR LOWER(COALESCE(u.jegyzet,'')) LIKE $${p.length})`);
+    }
+    if (q.allapot === "nyitott") { p.push(NYITOTT); felt.push(`u.allapot = ANY($${p.length})`); }
+    else if (ALLAPOTOK.includes(q.allapot)) { p.push(q.allapot); felt.push(`u.allapot = $${p.length}`); }
+    if (SZEREPEK.includes(q.szerep)) { p.push(JSON.stringify([q.szerep])); felt.push(`u.szerepek @> $${p.length}::jsonb`); }
+    if (q.felelos === "nincs") felt.push("u.felelos_id IS NULL");
+    else if (szam(q.felelos)) { p.push(Number(q.felelos)); felt.push(`u.felelos_id = $${p.length}`); }
+    if (q.cimke) { p.push(JSON.stringify([String(q.cimke)])); felt.push(`u.cimkek @> $${p.length}::jsonb`); }
+
+    const rend = {
+        friss: "u.updated_at DESC",
+        nev: "LOWER(u.nev)",
+        kapcsolat: "COALESCE(u.utolso_kapcsolat, u.created_at) ASC",
+        uj: "u.created_at DESC"
+    }[q.rend] || "u.updated_at DESC";
+
+    const r = await db.query(`
+        SELECT u.id, u.nev, u.telefon, u.email, u.szerepek, u.allapot, u.forras, u.cimkek, u.igeny,
+               u.felelos_id, COALESCE(us.nev, us.felhasznalonev) AS felelos_nev,
+               u.utolso_kapcsolat, u.created_at, u.updated_at,
+               (SELECT to_char(MIN(f.hatarido), 'YYYY-MM-DD"T"HH24:MI') FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL) AS kov_feladat,
+               (SELECT COUNT(*)::int FROM crm_ugyfel_ingatlan k WHERE k.ugyfel_id = u.id) AS ingatlan_db
+        FROM crm_ugyfelek u LEFT JOIN users us ON us.id = u.felelos_id
+        WHERE ${felt.join(" AND ")}
+        ORDER BY ${rend} LIMIT 500`, p);
+
+    // a térség címkéi (a szűrőhöz)
+    const cp = [];
+    const c = await db.query(`SELECT DISTINCT jsonb_array_elements_text(u.cimkek) AS c FROM crm_ugyfelek u WHERE ${terSql(ctx, "u", cp)} AND ${lathatoSql(ctx, "u", cp)} ORDER BY 1 LIMIT 60`, cp);
+
+    return { ugyfelek: r.rows, cimkek: c.rows.map(x => x.c) };
+}
+
+// Van-e már ilyen ügyfél (e-mail vagy telefon alapján) – figyelmeztetéshez
+async function hasonlo(ctx, { email, telefon }, kiveve = 0) {
+    const p = [];
+    const t = terSql(ctx, "u", p);
+    const f = [];
+    if (email) { p.push(String(email).trim().toLowerCase()); f.push(`LOWER(u.email) = $${p.length}`); }
+    const tel = String(telefon || "").replace(/[^0-9]/g, "").slice(-9);
+    if (tel.length >= 7) { p.push("%" + tel); f.push(`REGEXP_REPLACE(COALESCE(u.telefon,''), '[^0-9]', '', 'g') LIKE $${p.length}`); }
+    if (!f.length) return null;
+    p.push(kiveve);
+    const r = await db.query(`SELECT u.id, u.nev, u.felelos_id FROM crm_ugyfelek u WHERE ${t} AND (${f.join(" OR ")}) AND u.id <> $${p.length} LIMIT 1`, p);
+    return r.rows[0] || null;
+}
+
+async function ugyfelMent(ctx, id, b) {
+    const nev = sz(b.nev, 160);
+    if (!nev) throw hibaKod("name_required");
+    const mezo = {
+        nev,
+        telefon: sz(b.telefon, 40),
+        email: sz(b.email, 160),
+        szerepek: JSON.stringify(lista(b.szerepek, SZEREPEK)),
+        allapot: ALLAPOTOK.includes(b.allapot) ? b.allapot : "uj",
+        forras: FORRASOK.includes(b.forras) ? b.forras : (sz(b.forras, 40) || null),
+        cimkek: JSON.stringify(cimkeLista(b.cimkek)),
+        igeny: JSON.stringify(igenyTisztit(b.igeny)),
+        jegyzet: sz(b.jegyzet, 4000)
+    };
+    if (mezo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mezo.email)) throw hibaKod("bad_email");
+
+    if (!id) {
+        const masik = !b.mindenkepp ? await hasonlo(ctx, mezo) : null;
+        if (masik) { const e = hibaKod("duplicate", 409); e.extra = { masik }; throw e; }
+        const felelos = b.felelos_id !== undefined && b.felelos_id !== "" ? await felelosOk(ctx, b.felelos_id) : ctx.userId;
+        const r = await db.query(`
+            INSERT INTO crm_ugyfelek (iroda_id, felelos_id, user_id, nev, telefon, email, szerepek, allapot, forras, cimkek, igeny, jegyzet, created_by)
+            VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10::jsonb,$11::jsonb,$12,$13) RETURNING id`,
+            [ctx.irodaId, felelos, szam(b.user_id), mezo.nev, mezo.telefon, mezo.email, mezo.szerepek, mezo.allapot, mezo.forras, mezo.cimkek, mezo.igeny, mezo.jegyzet, ctx.userId]);
+        await naploz(r.rows[0].id, ctx.userId, "rendszer", "letrehozva");
+        return ugyfel(ctx, r.rows[0].id);
+    }
+
+    const regi = await ugyfelJog(ctx, id);
+    let felelos = regi.felelos_id;
+    if (b.felelos_id !== undefined && ctx.vezeto) felelos = b.felelos_id === "" || b.felelos_id === null ? null : await felelosOk(ctx, b.felelos_id);
+    await db.query(`
+        UPDATE crm_ugyfelek SET nev=$2, telefon=$3, email=$4, szerepek=$5::jsonb, allapot=$6, forras=$7, cimkek=$8::jsonb, igeny=$9::jsonb,
+               jegyzet=$10, felelos_id=$11, updated_at=NOW() WHERE id=$1`,
+        [regi.id, mezo.nev, mezo.telefon, mezo.email, mezo.szerepek, mezo.allapot, mezo.forras, mezo.cimkek, mezo.igeny, mezo.jegyzet, felelos]);
+    if (regi.allapot !== mezo.allapot) await naploz(regi.id, ctx.userId, "rendszer", `allapot:${regi.allapot}>${mezo.allapot}`);
+    if (regi.felelos_id !== felelos) await naploz(regi.id, ctx.userId, "rendszer", `felelos:${felelos || ""}`);
+    return ugyfel(ctx, regi.id);
+}
+
+// Gyors módosítás: állapot vagy felelős
+async function ugyfelValt(ctx, id, b) {
+    const regi = await ugyfelJog(ctx, id);
+    if (b.allapot !== undefined) {
+        if (!ALLAPOTOK.includes(b.allapot)) throw hibaKod("bad_status");
+        if (b.allapot !== regi.allapot) {
+            await db.query("UPDATE crm_ugyfelek SET allapot = $2, updated_at = NOW() WHERE id = $1", [regi.id, b.allapot]);
+            await naploz(regi.id, ctx.userId, "rendszer", `allapot:${regi.allapot}>${b.allapot}`);
+        }
+    }
+    if (b.felelos_id !== undefined) {
+        if (!ctx.vezeto) throw hibaKod("forbidden", 403);
+        const f = b.felelos_id === "" || b.felelos_id === null ? null : await felelosOk(ctx, b.felelos_id);
+        if (f !== regi.felelos_id) {
+            await db.query("UPDATE crm_ugyfelek SET felelos_id = $2, updated_at = NOW() WHERE id = $1", [regi.id, f]);
+            // a nyitott feladatai is átkerülnek
+            await db.query("UPDATE crm_feladatok SET felelos_id = $2 WHERE ugyfel_id = $1 AND kesz IS NULL AND (felelos_id IS NULL OR felelos_id = $3)", [regi.id, f, regi.felelos_id]);
+            await naploz(regi.id, ctx.userId, "rendszer", `felelos:${f || ""}`);
+        }
+    }
+    return { ok: true };
+}
+
+async function ugyfelTorol(ctx, id) {
+    if (!ctx.vezeto) throw hibaKod("forbidden", 403);
+    const u = await ugyfelJog(ctx, id);
+    await db.query("DELETE FROM crm_ugyfelek WHERE id = $1", [u.id]);
+    return { torolve: true };
+}
+
+async function ugyfel(ctx, id) {
+    const u = await ugyfelJog(ctx, id);
+    const fel = u.felelos_id ? (await db.query("SELECT COALESCE(nev, felhasznalonev) AS nev FROM users WHERE id = $1", [u.felelos_id])).rows[0] : null;
+    const tev = await db.query(`
+        SELECT t.*, COALESCE(us.nev, us.felhasznalonev) AS user_nev, i.cim AS ingatlan_cim
+        FROM crm_tevekenysegek t LEFT JOIN users us ON us.id = t.user_id LEFT JOIN ingatlanok i ON i.id = t.ingatlan_id
+        WHERE t.ugyfel_id = $1 ORDER BY t.created_at DESC, t.id DESC LIMIT 300`, [u.id]);
+    const feladatok = await db.query(`
+        SELECT f.*, to_char(f.hatarido, 'YYYY-MM-DD"T"HH24:MI') AS hatarido, COALESCE(us.nev, us.felhasznalonev) AS felelos_nev FROM crm_feladatok f LEFT JOIN users us ON us.id = f.felelos_id
+        WHERE f.ugyfel_id = $1 ORDER BY (f.kesz IS NOT NULL), f.hatarido NULLS LAST, f.id DESC LIMIT 100`, [u.id]);
+    const ingatlanok = await db.query(`
+        SELECT k.szerep, k.allapot AS kapcs_allapot, k.created_at AS kapcs_ido, i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.statusz, i.eladva, i.kulso_kepek, i.iroda_id
+        FROM crm_ugyfel_ingatlan k JOIN ingatlanok i ON i.id = k.ingatlan_id
+        WHERE k.ugyfel_id = $1 ORDER BY k.created_at DESC`, [u.id]);
+    return {
+        ...u,
+        felelos_nev: fel ? fel.nev : null,
+        tevekenysegek: tev.rows,
+        feladatok: feladatok.rows,
+        ingatlanok: ingatlanok.rows,
+        illeszkedo: u.igeny ? await illeszkedo(ctx, u) : []
+    };
+}
+
+// A keresési igényhez illeszkedő ingatlanok: az iroda saját aktív hirdetései
+// (az oldal CRM-jében az összes aktív hirdetés). A már kapcsolt ingatlanok nélkül.
+async function illeszkedo(ctx, u) {
+    const i = u.igeny || {};
+    const p = [u.id];
+    const felt = ["i.statusz = 'aktiv'", "COALESCE(i.eladva, false) = false",
+        "NOT EXISTS (SELECT 1 FROM crm_ugyfel_ingatlan k WHERE k.ugyfel_id = $1 AND k.ingatlan_id = i.id)"];
+    if (ctx.irodaId !== null) { p.push(ctx.irodaId); felt.push(`i.iroda_id = $${p.length}`); }
+    if (i.ugylet) { p.push(i.ugylet); felt.push(`i.ugylet = $${p.length}`); }
+    if (i.tipus) { p.push(i.tipus); felt.push(`i.tipus = $${p.length}`); }
+    if (i.varos) { p.push(i.varos.toLowerCase()); felt.push(`LOWER(i.varos) = $${p.length}`); }
+    if (i.kerulet) { p.push(`%${i.kerulet.toLowerCase()}%`); felt.push(`LOWER(COALESCE(i.kerulet,'')) LIKE $${p.length}`); }
+    if (i.ar_min) { p.push(i.ar_min); felt.push(`i.ar >= $${p.length}`); }
+    if (i.ar_max) { p.push(i.ar_max); felt.push(`i.ar <= $${p.length}`); }
+    if (i.szoba_min) { p.push(i.szoba_min); felt.push(`COALESCE(i.szobak, 0) >= $${p.length}`); }
+    if (i.nm_min) { p.push(i.nm_min); felt.push(`COALESCE(i.nm, 0) >= $${p.length}`); }
+    if (p.length < 2 + (ctx.irodaId !== null ? 1 : 0)) return [];      // üres igény: nincs mit keresni
+    const r = await db.query(`
+        SELECT i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.kulso_kepek, i.created_at
+        FROM ingatlanok i WHERE ${felt.join(" AND ")} ORDER BY i.created_at DESC LIMIT 12`, p);
+    return r.rows;
+}
+
+async function tevekenyseg(ctx, id, b) {
+    const u = await ugyfelJog(ctx, id);
+    const tipus = TEV_TIPUSOK.includes(b.tipus) && b.tipus !== "rendszer" ? b.tipus : "jegyzet";
+    const szoveg = sz(b.szoveg, 4000);
+    if (!szoveg) throw hibaKod("text_required");
+    const ingatlanId = szam(b.ingatlan_id);
+    // kapcsolatfelvételnek számít minden, ami nem belső jegyzet
+    await naploz(u.id, ctx.userId, tipus, szoveg, ingatlanId, tipus !== "jegyzet");
+    // az új ügyfél az első kapcsolattal „kapcsolatban” lesz
+    if (tipus !== "jegyzet" && u.allapot === "uj") {
+        await db.query("UPDATE crm_ugyfelek SET allapot = 'kapcsolat' WHERE id = $1", [u.id]);
+        await naploz(u.id, ctx.userId, "rendszer", "allapot:uj>kapcsolat");
+    }
+    return { ok: true };
+}
+
+async function tevekenysegTorol(ctx, id, tid) {
+    const u = await ugyfelJog(ctx, id);
+    const p = [Number(tid) || 0, u.id];
+    let felt = "id = $1 AND ugyfel_id = $2 AND tipus <> 'rendszer'";
+    if (!ctx.vezeto) { p.push(ctx.userId); felt += ` AND user_id = $3`; }
+    const r = await db.query(`DELETE FROM crm_tevekenysegek WHERE ${felt}`, p);
+    if (!r.rowCount) throw hibaKod("not_found", 404);
+    return { torolve: true };
+}
+
+// ---------- Kapcsolódó ingatlanok ----------
+
+async function ingatlanJog(ctx, ingatlanId) {
+    const r = await db.query("SELECT id, iroda_id, cim FROM ingatlanok WHERE id = $1", [Number(ingatlanId) || 0]);
+    const i = r.rows[0];
+    if (!i) throw hibaKod("listing_not_found", 404);
+    // az iroda CRM-jében bármely hirdetés kapcsolható (a vevő más hirdetést is nézhet),
+    // de a saját hirdetései a lényeg – ezt a kereső mutatja előre
+    return i;
+}
+
+async function ingatlanKapcsol(ctx, id, b) {
+    const u = await ugyfelJog(ctx, id);
+    const i = await ingatlanJog(ctx, b.ingatlan_id);
+    const szerep = ["erdeklodik", "tulajdonos", "berlo"].includes(b.szerep) ? b.szerep : "erdeklodik";
+    const allapot = KAPCS_ALLAPOT.includes(b.allapot) ? b.allapot : "uj";
+    await db.query(`
+        INSERT INTO crm_ugyfel_ingatlan (ugyfel_id, ingatlan_id, szerep, allapot) VALUES ($1,$2,$3,$4)
+        ON CONFLICT (ugyfel_id, ingatlan_id) DO UPDATE SET szerep = EXCLUDED.szerep, allapot = EXCLUDED.allapot`,
+        [u.id, i.id, szerep, allapot]);
+    await naploz(u.id, ctx.userId, "rendszer", `ingatlan:${szerep}:${allapot}`, i.id);
+    return { ok: true };
+}
+
+async function ingatlanLevesz(ctx, id, ingatlanId) {
+    const u = await ugyfelJog(ctx, id);
+    await db.query("DELETE FROM crm_ugyfel_ingatlan WHERE ugyfel_id = $1 AND ingatlan_id = $2", [u.id, Number(ingatlanId) || 0]);
+    return { ok: true };
+}
+
+// Hirdetés keresése a kapcsoláshoz: előbb a térség saját hirdetései
+async function ingatlanKeres(ctx, q) {
+    const p = [];
+    const felt = ["i.statusz <> 'torolve'"];
+    const t = String(q || "").trim();
+    if (/^#?\d+$/.test(t)) { p.push(Number(t.replace("#", ""))); felt.push(`i.id = $${p.length}`); }
+    else if (t) { p.push(`%${t.toLowerCase()}%`); felt.push(`(LOWER(COALESCE(i.cim,'')) LIKE $${p.length} OR LOWER(COALESCE(i.kerulet,'')) LIKE $${p.length} OR LOWER(COALESCE(i.iroda_ref,'')) LIKE $${p.length})`); }
+    let sajat = "FALSE";
+    if (ctx.irodaId !== null) { p.push(ctx.irodaId); sajat = `i.iroda_id = $${p.length}`; if (!t) felt.push(sajat); }
+    const r = await db.query(`
+        SELECT i.id, i.cim, i.ar, i.nm, i.szobak, i.tipus, i.ugylet, i.varos, i.kerulet, i.statusz, (${sajat}) AS sajat
+        FROM ingatlanok i WHERE ${felt.join(" AND ")}
+        ORDER BY (${sajat}) DESC, (i.statusz = 'aktiv') DESC, i.id DESC LIMIT 20`, p);
+    return r.rows;
+}
+
+// ===================== FELADATOK =====================
+
+async function feladatLista(ctx, q = {}) {
+    const p = [];
+    const felt = [terSql(ctx, "f", p)];
+    if (!ctx.vezeto) { p.push(ctx.userId); felt.push(`f.felelos_id = $${p.length}`); }
+    else if (q.felelos === "en") { p.push(ctx.userId); felt.push(`f.felelos_id = $${p.length}`); }
+    else if (szam(q.felelos)) { p.push(Number(q.felelos)); felt.push(`f.felelos_id = $${p.length}`); }
+    felt.push(q.kesz ? "f.kesz IS NOT NULL" : "f.kesz IS NULL");
+    const r = await db.query(`
+        SELECT f.*, to_char(f.hatarido, 'YYYY-MM-DD"T"HH24:MI') AS hatarido, u.nev AS ugyfel_nev, u.telefon AS ugyfel_telefon, COALESCE(us.nev, us.felhasznalonev) AS felelos_nev
+        FROM crm_feladatok f LEFT JOIN crm_ugyfelek u ON u.id = f.ugyfel_id LEFT JOIN users us ON us.id = f.felelos_id
+        WHERE ${felt.join(" AND ")}
+        ORDER BY ${q.kesz ? "f.kesz DESC" : "f.hatarido NULLS LAST, f.fontos DESC, f.id"} LIMIT 300`, p);
+    return r.rows;
+}
+
+async function feladatJog(ctx, id) {
+    const p = [Number(id) || 0];
+    let felt = `f.id = $1 AND ${terSql(ctx, "f", p)}`;
+    if (!ctx.vezeto) { p.push(ctx.userId); felt += ` AND (f.felelos_id = $${p.length} OR f.created_by = $${p.length})`; }
+    const r = await db.query(`SELECT * FROM crm_feladatok f WHERE ${felt}`, p);
+    if (!r.rowCount) throw hibaKod("not_found", 404);
+    return r.rows[0];
+}
+
+async function feladatMent(ctx, id, b) {
+    const cim = sz(b.cim, 200);
+    if (!cim) throw hibaKod("title_required");
+    const hatarido = b.hatarido ? new Date(b.hatarido) : null;
+    if (hatarido && isNaN(hatarido)) throw hibaKod("bad_date");
+    const hi = hatarido ? String(b.hatarido).slice(0, 16).replace("T", " ") : null;     // helyi idő, ahogy beírta
+    let ugyfelId = szam(b.ugyfel_id);
+    if (ugyfelId) await ugyfelJog(ctx, ugyfelId);
+    const felelos = b.felelos_id ? await felelosOk(ctx, b.felelos_id) : ctx.userId;
+    if (!id) {
+        const r = await db.query(`
+            INSERT INTO crm_feladatok (iroda_id, ugyfel_id, felelos_id, cim, hatarido, fontos, created_by)
+            VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+            [ctx.irodaId, ugyfelId, felelos, cim, hi, !!b.fontos, ctx.userId]);
+        if (ugyfelId) await naploz(ugyfelId, ctx.userId, "rendszer", `feladat:${cim}`);
+        return r.rows[0];
+    }
+    const f = await feladatJog(ctx, id);
+    const r = await db.query(`UPDATE crm_feladatok SET cim=$2, hatarido=$3, fontos=$4, felelos_id=$5, ugyfel_id=$6 WHERE id=$1 RETURNING *`,
+        [f.id, cim, hi, !!b.fontos, felelos, ugyfelId]);
+    return r.rows[0];
+}
+
+async function feladatKesz(ctx, id, kesz = true, jegyzet = null) {
+    const f = await feladatJog(ctx, id);
+    await db.query("UPDATE crm_feladatok SET kesz = CASE WHEN $2 THEN NOW() END WHERE id = $1", [f.id, !!kesz]);
+    if (kesz && f.ugyfel_id) await naploz(f.ugyfel_id, ctx.userId, "rendszer", `kesz:${f.cim}${jegyzet ? " – " + String(jegyzet).slice(0, 500) : ""}`);
+    return { ok: true };
+}
+
+async function feladatTorol(ctx, id) {
+    const f = await feladatJog(ctx, id);
+    await db.query("DELETE FROM crm_feladatok WHERE id = $1", [f.id]);
+    return { torolve: true };
+}
+
+// ===================== BEÉRKEZŐ ÉRDEKLŐDÉSEK =====================
+// A térség hirdetéseire jött üzenetek (az irodánál: az iroda hirdetései; az
+// oldalnál: az adminnak címzettek), amelyeket még nem dolgoztak fel.
+// A tag csak a neki címzetteket látja.
+
+async function beerkezoAlap(ctx) {
+    const p = [ctx.ter];
+    const felt = ["NOT EXISTS (SELECT 1 FROM crm_feldolgozott d WHERE d.ter = $1 AND d.uzenet_id = m.id)",
+        "m.created_at > NOW() - INTERVAL '120 days'"];
+    if (ctx.irodaId !== null) {
+        p.push(ctx.irodaId);
+        felt.push(`i.iroda_id = $${p.length}`);
+        // az iroda saját tagjainak üzenetei (válaszok) nem érdeklődések
+        felt.push(`m.felado_id NOT IN (SELECT user_id FROM iroda_tagok WHERE iroda_id = $${p.length})`);
+        if (!ctx.vezeto) { p.push(ctx.userId); felt.push(`m.cimzett_id = $${p.length}`); }
+    } else {
+        felt.push("m.cimzett_id IN (SELECT id FROM users WHERE szerep = 'admin')");
+        felt.push("m.felado_id NOT IN (SELECT id FROM users WHERE szerep = 'admin')");
+    }
+    return { p, felt };
+}
+
+async function beerkezo(ctx, { csakSzam = false } = {}) {
+    const { p, felt } = await beerkezoAlap(ctx);
+    const join = ctx.irodaId !== null ? "JOIN ingatlanok i ON i.id = m.ingatlan_id" : "LEFT JOIN ingatlanok i ON i.id = m.ingatlan_id";
+    if (csakSzam) {
+        const r = await db.query(`SELECT COUNT(DISTINCT m.felado_id)::int AS n FROM uzenetek m ${join} WHERE ${felt.join(" AND ")}`, p).catch(() => ({ rows: [{ n: 0 }] }));
+        return r.rows[0].n;
+    }
+    const r = await db.query(`
+        SELECT m.id, m.felado_id, m.cimzett_id, m.ingatlan_id, m.szoveg, m.created_at,
+               i.cim AS ingatlan_cim, i.tipus, i.ugylet, i.ar, i.varos,
+               COALESCE(f.nev, f.felhasznalonev) AS felado_nev, f.email AS felado_email, f.telefon AS felado_telefon
+        FROM uzenetek m ${join} LEFT JOIN users f ON f.id = m.felado_id
+        WHERE ${felt.join(" AND ")} ORDER BY m.created_at DESC LIMIT 400`, p);
+
+    // küldőnként csoportosítva; a meglévő ügyfél (fiók vagy e-mail alapján) megjelölve
+    const csop = new Map();
+    for (const m of r.rows) {
+        const k = m.felado_id || "x" + m.id;
+        if (!csop.has(k)) csop.set(k, { felado_id: m.felado_id, nev: m.felado_nev, email: m.felado_email, telefon: m.felado_telefon, uzenetek: [], ingatlanok: new Map(), utolso: m.created_at });
+        const c = csop.get(k);
+        c.uzenetek.push({ id: m.id, szoveg: m.szoveg, created_at: m.created_at, ingatlan_id: m.ingatlan_id, ingatlan_cim: m.ingatlan_cim });
+        if (m.ingatlan_id) c.ingatlanok.set(m.ingatlan_id, { id: m.ingatlan_id, cim: m.ingatlan_cim, tipus: m.tipus, ugylet: m.ugylet, ar: m.ar, varos: m.varos });
+    }
+    const ki = [];
+    for (const c of csop.values()) {
+        let meglevo = null;
+        const mp = [];
+        const t = terSql(ctx, "u", mp);
+        const f = [];
+        if (c.felado_id) { mp.push(c.felado_id); f.push(`u.user_id = $${mp.length}`); }
+        if (c.email) { mp.push(c.email.toLowerCase()); f.push(`LOWER(u.email) = $${mp.length}`); }
+        if (f.length) {
+            const mr = await db.query(`SELECT u.id, u.nev, u.felelos_id FROM crm_ugyfelek u WHERE ${t} AND (${f.join(" OR ")}) LIMIT 1`, mp);
+            meglevo = mr.rows[0] || null;
+        }
+        ki.push({ ...c, ingatlanok: [...c.ingatlanok.values()], meglevo });
+    }
+    return ki;
+}
+
+// Felvétel: új ügyfél (vagy a meglévőhöz), az üzenetek az idővonalra, a hirdetések kapcsolva
+async function beerkezoFelvesz(ctx, b) {
+    const lista = await beerkezo(ctx);
+    const c = lista.find(x => String(x.felado_id) === String(b.felado_id));
+    if (!c) throw hibaKod("not_found", 404);
+
+    let ugyfelId = c.meglevo ? c.meglevo.id : null;
+    if (ugyfelId) {
+        try { await ugyfelJog(ctx, ugyfelId); }
+        catch (e) {
+            // a tag nem látja (másé): nem kerülhet hozzá – a vezető dönt
+            throw hibaKod("belongs_to_other", 409);
+        }
+    } else {
+        const ugylet = c.ingatlanok[0] && c.ingatlanok[0].ugylet;
+        const r = await db.query(`
+            INSERT INTO crm_ugyfelek (iroda_id, felelos_id, user_id, nev, telefon, email, szerepek, allapot, forras, igeny, created_by)
+            VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'uj','hirdetes',$8::jsonb,$9) RETURNING id`,
+            [ctx.irodaId, b.felelos_id && ctx.vezeto ? await felelosOk(ctx, b.felelos_id) : ctx.userId, c.felado_id,
+             c.nev || c.email || "Érdeklődő", c.telefon || null, c.email || null,
+             JSON.stringify([ugylet === "kiado" ? "berlo" : "vevo"]),
+             JSON.stringify(c.ingatlanok[0] ? igenyTisztit({ ugylet: c.ingatlanok[0].ugylet, tipus: c.ingatlanok[0].tipus, varos: c.ingatlanok[0].varos }) : null),
+             ctx.userId]);
+        ugyfelId = r.rows[0].id;
+        await naploz(ugyfelId, ctx.userId, "rendszer", "letrehozva_uzenetbol");
+    }
+    // időrendben az idővonalra
+    for (const m of [...c.uzenetek].reverse()) {
+        await db.query(`INSERT INTO crm_tevekenysegek (ugyfel_id, user_id, tipus, szoveg, ingatlan_id, created_at) VALUES ($1,NULL,'uzenet',$2,$3,$4)`,
+            [ugyfelId, m.szoveg, m.ingatlan_id, m.created_at]);
+        await db.query("INSERT INTO crm_feldolgozott (ter, uzenet_id, ugyfel_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [ctx.ter, m.id, ugyfelId]);
+    }
+    for (const i of c.ingatlanok) {
+        await db.query(`INSERT INTO crm_ugyfel_ingatlan (ugyfel_id, ingatlan_id, szerep) VALUES ($1,$2,'erdeklodik') ON CONFLICT DO NOTHING`, [ugyfelId, i.id]);
+    }
+    await db.query("UPDATE crm_ugyfelek SET utolso_kapcsolat = GREATEST(COALESCE(utolso_kapcsolat, 'epoch'), $2), updated_at = NOW() WHERE id = $1", [ugyfelId, c.utolso]);
+    // Visszahívás feladat (ha kérte)
+    if (b.feladat) {
+        await db.query(`INSERT INTO crm_feladatok (iroda_id, ugyfel_id, felelos_id, cim, hatarido, created_by) VALUES ($1,$2,$3,$4, (NOW() AT TIME ZONE 'Europe/Bucharest') + INTERVAL '1 day', $5)`,
+            [ctx.irodaId, ugyfelId, ctx.userId, sz(b.feladat, 200), ctx.userId]);
+    }
+    return { ugyfel_id: ugyfelId, uj: !c.meglevo };
+}
+
+async function beerkezoElvet(ctx, b) {
+    const lista = await beerkezo(ctx);
+    const c = lista.find(x => String(x.felado_id) === String(b.felado_id));
+    if (!c) throw hibaKod("not_found", 404);
+    for (const m of c.uzenetek) await db.query("INSERT INTO crm_feldolgozott (ter, uzenet_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", [ctx.ter, m.id]);
+    return { ok: true };
+}
+
+// ===================== EXPORT (CSV) =====================
+async function csv(ctx) {
+    const { ugyfelek } = await ugyfelLista(ctx, {});
+    const esc = v => {
+        const t = v === null || v === undefined ? "" : Array.isArray(v) ? v.join(", ") : String(v);
+        return /[",;\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    };
+    const fej = ["id", "nev", "telefon", "email", "szerepek", "allapot", "forras", "cimkek", "felelos", "utolso_kapcsolat", "letrehozva"];
+    const sorok = ugyfelek.map(u => [u.id, u.nev, u.telefon, u.email, u.szerepek, u.allapot, u.forras, u.cimkek, u.felelos_nev,
+        u.utolso_kapcsolat ? new Date(u.utolso_kapcsolat).toISOString().slice(0, 10) : "", new Date(u.created_at).toISOString().slice(0, 10)].map(esc).join(";"));
+    return "﻿" + [fej.join(";"), ...sorok].join("\n");
+}
+
+module.exports = {
+    ALLAPOTOK, NYITOTT, SZEREPEK, FORRASOK, TEV_TIPUSOK, KAPCS_ALLAPOT,
+    kontextus, tagok, attekintes,
+    ugyfelLista, ugyfel, ugyfelMent, ugyfelValt, ugyfelTorol, hasonlo,
+    tevekenyseg, tevekenysegTorol, ingatlanKapcsol, ingatlanLevesz, ingatlanKeres,
+    feladatLista, feladatMent, feladatKesz, feladatTorol,
+    beerkezo, beerkezoFelvesz, beerkezoElvet, csv
+};

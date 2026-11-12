@@ -117,3 +117,81 @@
 .abWdRow { padding: 0.6rem 0; border-top: 1px solid var(--ip-border); }
 .abWdRow:first-of-type { border-top: 0; }
 .abWdConfirm { margin-top: 0.6rem; padding: 0.75rem; border-radius: var(--ip-radius-sm); background: rgba(180, 35, 24, 0.06); }
+
+/* ---------- CRM (js/crm/crm.js) ---------- */
+.crmTop { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.crmNav { display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0.3rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }
+.crmNavBtn {
+    display: inline-flex; align-items: center; gap: 0.4rem; border: 0; background: transparent; color: var(--ip-muted);
+    padding: 0.4rem 0.8rem; border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+}
+.crmNavBtn:hover { color: var(--ip-text); }
+.crmNavBtn.active { background: var(--ip-surface); color: var(--ip-accent); box-shadow: var(--ip-shadow); }
+.crmNavBtn:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+.crmHelp { margin-bottom: 1rem; }
+.crmFilters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+.crmFilters .form-select { width: auto; max-width: 220px; }
+.crmFilters input[type=search] { flex: 1 1 240px; }
+.crmTableWrap { border: 1px solid var(--ip-border); border-radius: var(--ip-radius); background: var(--ip-surface); }
+.crmTable th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--ip-muted); font-weight: 600; white-space: nowrap; }
+.crmTable tbody tr { cursor: pointer; }
+.crmMail { max-width: 220px; }
+.crmSt {
+    display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+    background: var(--ip-bg); color: var(--ip-muted);
+}
+.crmSt-uj { background: rgba(37, 99, 235, 0.12); color: #1d4ed8; }
+.crmSt-kapcsolat { background: rgba(14, 116, 144, 0.12); color: #0e7490; }
+.crmSt-aktiv { background: var(--ip-accent-soft); color: var(--ip-accent); }
+.crmSt-targyalas { background: var(--ip-warn-soft); color: var(--ip-warn); }
+.crmSt-nyert { background: rgba(21, 128, 61, 0.14); color: #15803d; }
+.crmSt-elvesztett { background: rgba(180, 35, 24, 0.10); color: var(--ip-danger); }
+select.crmStSel { font-weight: 600; border-radius: 999px; }
+.crmRole, .crmTag { display: inline-block; padding: 0.05rem 0.45rem; border-radius: 6px; font-size: 0.72rem; border: 1px solid var(--ip-border); color: var(--ip-muted); }
+.crmTag { background: var(--ip-bg); border-color: transparent; }
+.crmGroupHead { padding: 0.4rem 1rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--ip-bg); }
+.crmTask { display: flex; gap: 0.75rem; align-items: flex-start; }
+.crmTask .form-check-input { margin-top: 0.3rem; flex: 0 0 auto; width: 1.15em; height: 1.15em; }
+.crmTask.done .crmTaskTitle { text-decoration: line-through; color: var(--ip-muted); }
+.crmTaskTitle { color: var(--ip-text); text-decoration: none; font-weight: 600; }
+.crmInboxAlert {
+    display: flex; align-items: center; gap: 0.9rem; width: 100%; padding: 0.85rem 1.1rem; border: 1px solid var(--ip-warn);
+    border-radius: var(--ip-radius); background: var(--ip-warn-soft); color: inherit;
+}
+.crmInboxAlert > i:first-child { font-size: 1.3rem; color: var(--ip-warn); }
+.crmStart { padding: 1rem 1.25rem; border-radius: var(--ip-radius); background: var(--ip-accent-soft); }
+.crmCard { border: 1px solid var(--ip-border); border-radius: var(--ip-radius); padding: 0.9rem 1rem; margin-bottom: 1rem; background: var(--ip-surface); }
+.crmCard h6 { margin-bottom: 0.6rem; }
+.crmFacts > div { margin-bottom: 0.25rem; }
+.crmNote { white-space: pre-wrap; padding: 0.5rem 0.65rem; border-radius: var(--ip-radius-sm); background: var(--ip-bg); }
+.crmProp { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-top: 1px solid var(--ip-border); }
+.crmProp:first-of-type { border-top: 0; }
+.crmPropImg { flex: 0 0 52px; height: 40px; border-radius: 8px; overflow: hidden; background: var(--ip-bg); display: inline-flex; align-items: center; justify-content: center; color: var(--ip-muted); }
+.crmPropImg img { width: 100%; height: 100%; object-fit: cover; }
+.crmKapcsSel { width: auto; max-width: 150px; font-size: 0.78rem; }
+.crmPropResults { max-height: 240px; overflow: auto; }
+.crmPropPick { display: flex; gap: 0.4rem; align-items: center; padding: 0.35rem 0; border-bottom: 1px solid var(--ip-border); }
+.crmLog { background: var(--ip-accent-soft); border-color: transparent; }
+.crmLogTypes { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.crmLogTypes .btn { background: var(--ip-surface); }
+.crmLogTypes .btn-check:checked + .btn { background: var(--ip-accent); color: var(--ip-accent-contrast); border-color: var(--ip-accent); }
+.crmTimeline { list-style: none; margin: 0; padding: 0; position: relative; }
+.crmTimeline::before { content: ""; position: absolute; left: 15px; top: 4px; bottom: 4px; width: 2px; background: var(--ip-border); }
+.crmTl { display: flex; gap: 0.7rem; padding: 0.4rem 0; position: relative; }
+.crmTlIcon {
+    flex: 0 0 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; z-index: 1;
+    background: var(--ip-surface); border: 2px solid var(--ip-border); color: var(--ip-muted); font-size: 0.8rem;
+}
+.crmTl-hivas .crmTlIcon, .crmTl-talalkozo .crmTlIcon, .crmTl-megtekintes .crmTlIcon { border-color: var(--ip-accent); color: var(--ip-accent); }
+.crmTl-uzenet .crmTlIcon, .crmTl-email .crmTlIcon { border-color: #2563eb; color: #2563eb; }
+.crmTl-ajanlat .crmTlIcon { border-color: var(--ip-warn); color: var(--ip-warn); }
+.crmTl-rendszer .crmTlIcon { width: 32px; border-style: dashed; }
+.crmTlText { white-space: pre-wrap; font-size: 0.9rem; margin-top: 0.15rem; overflow-wrap: anywhere; }
+.crmInbox { border: 1px solid var(--ip-border); border-radius: var(--ip-radius); padding: 0.9rem 1.1rem; margin-bottom: 0.9rem; background: var(--ip-surface); }
+.crmInboxMsgs blockquote { margin: 0.5rem 0 0; padding: 0.45rem 0.7rem; border-left: 3px solid var(--ip-border); background: var(--ip-bg); border-radius: 0 8px 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.crmToast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 2000;
+    background: #1b1f1d; color: #fff; padding: 0.55rem 1rem; border-radius: 999px; font-size: 0.9rem; transition: opacity .2s, transform .2s;
+}
+.crmToast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .crmToast { transition: none; } }

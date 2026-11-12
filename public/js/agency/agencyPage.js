@@ -31,6 +31,7 @@ class AgencyPage {
     static TABS = [
         { key: "attekintes", icon: "fa-solid fa-gauge-high", label: "agTabOverview" },
         { key: "hirdetesek", icon: "fa-solid fa-house-user", label: "agTabListings" },
+        { key: "crm", icon: "fa-solid fa-address-book", label: "agTabCrm" },
         { key: "ugynokok", icon: "fa-solid fa-id-badge", label: "agTabAgents" },
         { key: "tagok", icon: "fa-solid fa-users", label: "agTabMembers" },
         { key: "adatok", icon: "fa-solid fa-building", label: "agTabDetails" }
@@ -418,7 +419,7 @@ class AgencyPage {
         const body = document.getElementById("agBody");
 
         // Csomaghoz kötött, még nem aktív iroda: csak az áttekintés és az adatok
-        if (zarolt && ["hirdetesek", "ugynokok", "tagok"].includes(AgencyPage.tab)) {
+        if (zarolt && ["hirdetesek", "crm", "ugynokok", "tagok"].includes(AgencyPage.tab)) {
             body.innerHTML = `
                 <div class="emptyState">
                     <i class="fa-solid fa-lock"></i>
@@ -432,6 +433,7 @@ class AgencyPage {
         ({
             attekintes: () => AgencyPage.attekintesTab(body, szerep === "vezeto"),
             hirdetesek: () => AgencyPage.hirdetesTab(body),
+            crm: () => Crm.mount(body, { ter: ir.id }),
             ugynokok: () => AgencyPage.ugynokTab(body, szerep === "vezeto"),
             tagok: () => AgencyPage.tagTab(body, szerep === "vezeto"),
             adatok: () => AgencyPage.adatTab(body, szerep === "vezeto")
@@ -533,6 +535,7 @@ class AgencyPage {
                         <div class="card-body d-grid gap-2">
                             <button type="button" class="btn btn-primary btn-sm text-start" id="agQNew" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> ${I18n.t("navPost")}</button>
                             <button type="button" class="btn btn-outline-primary btn-sm text-start" id="agQTake" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-right-to-bracket fa-fw" aria-hidden="true"></i> ${I18n.t("agTakeOver")}</button>
+                            <a class="btn btn-outline-primary btn-sm text-start ${zarolt ? "disabled" : ""}" href="#iroda/${ir.id}:crm"><i class="fa-solid fa-address-book fa-fw" aria-hidden="true"></i> ${I18n.t("agQCrm")}</a>
                             ${vezeto ? `
                             <a class="btn btn-outline-secondary btn-sm text-start" href="#iroda/${ir.id}:ugynokok"><i class="fa-solid fa-id-badge fa-fw" aria-hidden="true"></i> ${I18n.t("agQAgent")}</a>
                             <a class="btn btn-outline-secondary btn-sm text-start" href="#iroda/${ir.id}:tagok"><i class="fa-solid fa-user-plus fa-fw" aria-hidden="true"></i> ${I18n.t("agQMember")}</a>` : ""}
