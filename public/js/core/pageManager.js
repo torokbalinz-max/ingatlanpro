@@ -131,12 +131,7 @@ class PageManager {
             el.style.display = el.id === "page-" + page ? "block" : "none";
         });
 
-        // Menü gomb felirata + aktív pont
-        document.getElementById("navMenuIcon").className = info.icon;
-
-        const label = document.getElementById("navMenuLabel");
-        label.setAttribute("data-i18n", info.label);
-        label.innerText = I18n.t(info.label);
+        // (a régi lenyíló főmenü megszűnt – az aktív pontot a NavMenu.aktiv jelöli)
 
         // A hirdetés oldal a lista része (a menüben az Ingatlanok marad kiemelve)
         const menuPage = page === "listing" ? PageManager.lastListPage : page;

@@ -17,36 +17,55 @@ class AccountPage {
     static tab = "attekintes";
     static nyitando = null;      // egy beszélgetés, amit meg kell nyitni (válasz után)
 
-    // Minden rész: kulcs, ikon, cím, rövid leírás (az áttekintéshez); link: másik oldal
+    // Minden rész: kulcs, ikon, cím, rövid leírás (az áttekintéshez); link: másik oldal;
+    // al: egy menüpont alatti fül (nem külön menüpont – a menüben a „szülője” az aktív)
     static RESZEK = {
         attekintes: { icon: "fa-solid fa-house", label: "acNav_attekintes" },
+        // naponta
         kedvencek: { icon: "fa-solid fa-star", label: "menuKedvencek", desc: "acDesc_kedvencek", link: "#favorites" },
-        keresesek: { icon: "fa-solid fa-bookmark", label: "accTabSearches", desc: "acDesc_keresesek" },
-        igenyek: { icon: "fa-solid fa-bullhorn", label: "accTabRequests", desc: "acDesc_igenyek" },
-        megtekintesek: { icon: "fa-regular fa-calendar-check", label: "acNav_megtekintesek", desc: "acDesc_megtekintesek" },
-        ajanlatok: { icon: "fa-solid fa-hand-holding-dollar", label: "acNav_ajanlatok", desc: "acDesc_ajanlatok" },
-        erdeklodes: { icon: "fa-solid fa-house-circle-check", label: "by_cim", desc: "acDesc_erdeklodes", link: "#erdeklodes" },
         uzenetek: { icon: "fa-solid fa-envelope", label: "accTabMessages", desc: "acDesc_uzenetek" },
         ertesitesek: { icon: "fa-solid fa-bell", label: "accTabNotifications", desc: "acDesc_ertesitesek" },
+        // amit keresek / amit hirdetek
+        keresesek: { icon: "fa-solid fa-magnifying-glass", label: "acNav_kereseseim", desc: "acDesc_kereseseim", ful: "accTabSearches" },
+        igenyek: { icon: "fa-solid fa-bullhorn", label: "accTabRequests", al: "keresesek" },
         hirdetesek: { icon: "fa-solid fa-house-user", label: "accTabListings", desc: "acDesc_hirdetesek" },
+        statisztika: { icon: "fa-solid fa-chart-simple", label: "lsTab", al: "hirdetesek", rejtettFul: true },
+        megtekintesek: { icon: "fa-regular fa-calendar-check", label: "acNav_ugyek", desc: "acDesc_ugyek", ful: "acNav_megtekintesek" },
+        ajanlatok: { icon: "fa-solid fa-hand-holding-dollar", label: "acNav_ajanlatok", al: "megtekintesek" },
+        erdeklodes: { icon: "fa-solid fa-house-circle-check", label: "by_cim", al: "megtekintesek", link: "#erdeklodes" },
         eladas: { icon: "fa-solid fa-key", label: "el_menu", desc: "acDesc_eladas", link: "#eladas" },
-        profil: { icon: "fa-solid fa-id-card", label: "acNav_profil", desc: "acDesc_profil" },
-        ertesitesBeall: { icon: "fa-solid fa-sliders", label: "acNav_ertesitesBeall", desc: "acDesc_ertesitesBeall" },
-        csomag: { icon: "fa-solid fa-receipt", label: "accTabBilling", desc: "acDesc_csomag" },
-        munkaterulet: { icon: "fa-solid fa-briefcase", label: "wsEnter", desc: "acDesc_munkaterulet", link: "#iroda" },
-        // a Hirdetéseim alatti második oldal (nem külön menüpont)
-        statisztika: { icon: "fa-solid fa-chart-simple", label: "lsTab", al: "hirdetesek" },
-        megbizasok: { icon: "fa-solid fa-key", label: "el_menu", al: "eladas" }
+        megbizasok: { icon: "fa-solid fa-key", label: "el_menu", al: "eladas", rejtettFul: true },
+        // ritkán: beállítások (egy menüpont, három fül)
+        profil: { icon: "fa-solid fa-gear", label: "acGrp_settings", desc: "acDesc_beall", ful: "acNav_profil" },
+        ertesitesBeall: { icon: "fa-solid fa-sliders", label: "acNav_ertesitesBeall", al: "profil" },
+        csomag: { icon: "fa-solid fa-receipt", label: "accTabBilling", al: "profil" },
+        munkaterulet: { icon: "fa-solid fa-briefcase", label: "wsEnter", desc: "acDesc_munkaterulet", link: "#iroda" }
     };
 
+    // A menü: használat szerinti sorrend, csoportcímek nélkül (kevés pont – nem kell címke).
+    // Elválasztó: naponta | saját keresés és hirdetés | beállítás
     static CSOPORTOK = [
-        { cim: null, elemek: ["attekintes"] },
-        { cim: "acGrp_search", elemek: ["kedvencek", "keresesek", "igenyek"] },
-        { cim: "acGrp_deals", elemek: ["megtekintesek", "ajanlatok", "erdeklodes", "uzenetek", "ertesitesek"] },
-        { cim: "acGrp_sell", elemek: ["hirdetesek", "eladas"] },
-        { cim: "acGrp_settings", elemek: ["profil", "ertesitesBeall", "csomag"] },
-        { cim: "acGrp_pro", elemek: ["munkaterulet"] }
+        { elemek: ["attekintes"] },
+        { elemek: ["kedvencek", "uzenetek", "ertesitesek"] },
+        { elemek: ["keresesek", "hirdetesek", "megtekintesek", "eladas"] },
+        { elemek: ["profil", "munkaterulet"] }
     ];
+
+    // Látszik-e a menüben (ami most nem a felhasználóé, ne foglalja a helyet)
+    static latszik(k) {
+        // Munkaterület: csak az ingatlaniroda tagjának / meghívottjának (irodát regisztrálni az Ingatlanirodák oldalon lehet)
+        if (k === "munkaterulet") return (AuthManager.irodak || []).length > 0 || (AuthManager.irodaMeghivasok || []).length > 0;
+        // Ingatlanom eladása: akinek van megbízása (és be van kapcsolva az értékesítés)
+        if (k === "eladas") return Utils.ertekesites() && !!(AuthManager.megbizas && AuthManager.megbizas.db);
+        return true;
+    }
+
+    // Egy menüpont fülei: ő maga + akiknek ő az „al”-ja (a rejtett fülek nélkül)
+    static fulek(szulo) {
+        const R = AccountPage.RESZEK;
+        const al = Object.keys(R).filter(k => R[k].al === szulo && !R[k].rejtettFul && (k !== "erdeklodes" || Utils.ertekesites()));
+        return al.length ? [szulo, ...al] : [];
+    }
 
     // A régi kulcsok
     static REGI = { "ertesites-beallitas": "ertesitesBeall", beallitasok: "profil" };
@@ -54,6 +73,12 @@ class AccountPage {
     static reszCim(k) {
         if (k === "munkaterulet") return I18n.t(AuthManager.irodak.length ? "wsEnter" : "acNav_irodaUj");
         return I18n.t(AccountPage.RESZEK[k].label);
+    }
+
+    // A fül felirata (a szülő fülén a saját, rövid neve áll – nem a menüpont összefoglaló neve)
+    static fulCim(k) {
+        const r = AccountPage.RESZEK[k];
+        return I18n.t(r.ful || r.label);
     }
 
     static jelveny(k) {
@@ -88,9 +113,8 @@ class AccountPage {
                     </div>
                     <nav class="wsNav">
                         ${AccountPage.CSOPORTOK.map(g => `
-                            <div class="wsNavGroup">
-                                ${g.cim ? `<span class="wsNavHead">${I18n.t(g.cim)}</span>` : ""}
-                                ${g.elemek.map(k => `
+                            <div class="wsNavGroup accNavGroup">
+                                ${g.elemek.filter(AccountPage.latszik).map(k => `
                                     <a class="wsNavItem ${k === aktiv ? "active" : ""}" href="${R[k].link || "#fiok/" + k}" ${k === aktiv ? 'aria-current="page"' : ""}>
                                         <i class="${R[k].icon} fa-fw" aria-hidden="true"></i><span>${AccountPage.reszCim(k)}</span>${AccountPage.jelveny(k)}
                                     </a>`).join("")}
@@ -109,6 +133,13 @@ class AccountPage {
                             ${R[aktiv].desc ? `<p class="wsHelp">${I18n.t(R[aktiv].desc)}</p>` : ""}
                         </div>
                     </div>`}
+                    ${AccountPage.fulek(aktiv).length ? `
+                    <nav class="accFulek" aria-label="${esc(AccountPage.reszCim(aktiv))}">
+                        ${AccountPage.fulek(aktiv).map(k => `
+                            <a class="accFul ${k === AccountPage.tab ? "active" : ""}" href="${R[k].link || "#fiok/" + k}" ${k === AccountPage.tab ? 'aria-current="page"' : ""}>
+                                <i class="${k === aktiv ? "fa-solid fa-circle-dot" : R[k].icon} fa-fw" aria-hidden="true"></i><span>${esc(AccountPage.fulCim(k))}</span>
+                            </a>`).join("")}
+                    </nav>` : ""}
                     <div id="accBody"></div>
                 </main>
             </div>`;
@@ -139,32 +170,28 @@ class AccountPage {
 
     }
 
-    // Áttekintés: minden rész egy kártya, témák szerint – egy mondat, mire jó
+    // Áttekintés: a menü pontjai kártyákon – egy mondat, mire jó
     static attekintes(el) {
         const esc = Utils.escape;
         const R = AccountPage.RESZEK;
         const u = AuthManager.user;
+        const pontok = AccountPage.CSOPORTOK.flatMap(g => g.elemek).filter(k => k !== "attekintes" && AccountPage.latszik(k));
         el.innerHTML = `
             <div class="accHello">
                 <h1 class="wsTitle">${esc(I18n.f("acHello", { nev: (u.nev || "").split(" ")[0] || "" }))}</h1>
-                <p class="wsHelp">${I18n.t("acHelloText")}</p>
+                <p class="wsHelp">${I18n.t("acHelloText2")}</p>
             </div>
-            ${AccountPage.CSOPORTOK.filter(g => g.cim).map(g => `
-                <section class="accSection">
-                    <h2 class="accSectionHead">${I18n.t(g.cim)}</h2>
-                    <p class="small text-body-secondary mb-2">${I18n.t(g.cim + "_desc")}</p>
-                    <div class="accCards">
-                        ${g.elemek.map(k => `
-                            <a class="accCard" href="${R[k].link || "#fiok/" + k}">
-                                <span class="accCardIcon" aria-hidden="true"><i class="${R[k].icon}"></i></span>
-                                <span class="accCardBody">
-                                    <b>${esc(AccountPage.reszCim(k))} ${AccountPage.jelveny(k)}</b>
-                                    <span>${I18n.t(k === "munkaterulet" && !AuthManager.irodak.length ? "acDesc_irodaUj" : R[k].desc)}</span>
-                                </span>
-                                <i class="fa-solid fa-chevron-right accCardGo" aria-hidden="true"></i>
-                            </a>`).join("")}
-                    </div>
-                </section>`).join("")}`;
+            <div class="accCards">
+                ${pontok.map(k => `
+                    <a class="accCard" href="${R[k].link || "#fiok/" + k}">
+                        <span class="accCardIcon" aria-hidden="true"><i class="${R[k].icon}"></i></span>
+                        <span class="accCardBody">
+                            <b>${esc(AccountPage.reszCim(k))} ${AccountPage.jelveny(k)}</b>
+                            <span>${I18n.t(R[k].desc)}</span>
+                        </span>
+                        <i class="fa-solid fa-chevron-right accCardGo" aria-hidden="true"></i>
+                    </a>`).join("")}
+            </div>`;
     }
 
     static rerender() {

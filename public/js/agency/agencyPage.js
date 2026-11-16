@@ -50,6 +50,20 @@ class AgencyPage {
             { key: "csapat", icon: "fa-solid fa-id-badge", ugynok: true, label: "wsNav_profil" }] }
     ];
 
+    // A bal oldali menü: öt pont, használat szerinti sorrendben (2026-11, átrendezve).
+    // Az összetartozó oldalak egy menüpont alatt, füleken (fulek) – az oldalak maguk és a
+    // címeik (#iroda/<id>:<kulcs>) nem változtak, csak a menü lett rövidebb.
+    static MENU = [
+        { key: "attekintes", icon: "fa-solid fa-sun", label: "wsNav5_ma", fulek: ["attekintes", "beerkezo"] },
+        { key: "ugyfelek", icon: "fa-solid fa-address-book", label: "wsNav_ugyfelek", fulek: ["ugyfelek", "ajanlatok"] },
+        { key: "hirdetesek", icon: "fa-solid fa-house-user", label: "wsNav_hirdetesek", fulek: ["hirdetesek"] },
+        { key: "naptar", icon: "fa-regular fa-calendar", label: "wsNav_naptar", fulek: ["naptar", "feladatok"] },
+        { key: "csapat", icon: "fa-solid fa-building", label: "wsGrp_agency", fulek: ["csapat", "iroda"], vezeto: true },
+        { key: "csapat", icon: "fa-solid fa-id-badge", label: "wsNav_profil", fulek: ["csapat"], ugynok: true }
+    ];
+    static FUL_IKON = { attekintes: "fa-solid fa-gauge-high", beerkezo: "fa-solid fa-inbox", ugyfelek: "fa-solid fa-address-book", ajanlatok: "fa-solid fa-hand-holding-dollar",
+        naptar: "fa-regular fa-calendar", feladatok: "fa-solid fa-list-check", csapat: "fa-solid fa-people-group", iroda: "fa-solid fa-building" };
+
     // Régi fül-nevek → az új oldalak
     static REGI = { crm: "attekintes", ugynokok: "csapat", tagok: "csapat", adatok: "iroda", keresek: "beerkezo", megtekintesek: "naptar" };
     static KULCSOK = ["attekintes", "beerkezo", "naptar", "feladatok", "ugyfelek", "ajanlatok", "hirdetesek", "csapat", "iroda"];
@@ -384,6 +398,10 @@ class AgencyPage {
         try { localStorage.setItem("ip_mod", "munka"); } catch (e) { /* nem baj */ }
 
         const aktivElem = AgencyPage.NAV.flatMap(g => g.elemek).find(e => e.key === tab && (!e.vezeto || vezeto) && (!e.ugynok || !vezeto)) || {};
+        // az öt pontos menü: a szerepnek megfelelő pontok, és amelyikhez a mostani oldal tartozik
+        const menu = AgencyPage.MENU.filter(e => (!e.vezeto || vezeto) && (!e.ugynok || !vezeto));
+        const aktivMenu = menu.find(e => e.fulek.includes(tab)) || menu[0];
+        const fulek = aktivMenu.fulek.length > 1 ? aktivMenu.fulek : [];
 
         AgencyPage.box().innerHTML = `
             <div class="ws">
@@ -399,19 +417,15 @@ class AgencyPage {
                         ${AuthManager.irodak.map(x => `<option value="${x.id}" ${x.id === ir.id ? "selected" : ""}>${esc(x.nev)}</option>`).join("")}
                     </select>` : ""}
                     <nav class="wsNav">
-                        ${AgencyPage.NAV.map(g => {
-                            const el = g.elemek.filter(e => (!e.vezeto || vezeto) && (!e.ugynok || !vezeto));
-                            if (!el.length) return "";
-                            return `<div class="wsNavGroup"><span class="wsNavHead">${I18n.t(g.cim)}</span>
-                                ${el.map(e => `
-                                    <a class="wsNavItem ${e.key === tab ? "active" : ""}" href="#iroda/${ir.id}:${e.key}" ${e.key === tab ? 'aria-current="page"' : ""}>
-                                        <i class="${e.icon} fa-fw" aria-hidden="true"></i><span>${navCim(e)}</span>
-                                        ${e.key === "beerkezo" ? `<span class="badge rounded-pill text-bg-danger crmReqBadge" hidden></span><span class="badge rounded-pill text-bg-warning crmInboxBadge" hidden></span>` : ""}
-                                        ${e.key === "ajanlatok" ? `<span class="badge rounded-pill text-bg-danger crmOfferBadge" hidden></span>` : ""}
-                                        ${e.key === "hirdetesek" ? `<span class="wsNavCount">${AgencyPage.hirdetesek.length}</span>` : ""}
-                                    </a>`).join("")}
-                            </div>`;
-                        }).join("")}
+                        <div class="wsNavGroup">
+                            ${menu.map(e => `
+                                <a class="wsNavItem ${e === aktivMenu ? "active" : ""}" href="#iroda/${ir.id}:${e.key}" ${e === aktivMenu ? 'aria-current="page"' : ""}>
+                                    <i class="${e.icon} fa-fw" aria-hidden="true"></i><span>${I18n.t(e.label)}</span>
+                                    ${e.fulek.includes("beerkezo") ? `<span class="badge rounded-pill text-bg-danger crmReqBadge" hidden></span><span class="badge rounded-pill text-bg-warning crmInboxBadge" hidden></span>` : ""}
+                                    ${e.fulek.includes("ajanlatok") ? `<span class="badge rounded-pill text-bg-danger crmOfferBadge" hidden></span>` : ""}
+                                    ${e.key === "hirdetesek" ? `<span class="wsNavCount">${AgencyPage.hirdetesek.length}</span>` : ""}
+                                </a>`).join("")}
+                        </div>
                     </nav>
                     <div class="wsSideFoot">
                         <a href="#irodak/${ir.id}"><i class="fa-solid fa-arrow-up-right-from-square fa-fw" aria-hidden="true"></i> ${I18n.t("agPublicPage")}</a>
@@ -439,6 +453,15 @@ class AgencyPage {
                             ${ir.dontes_ok ? `<div class="small mt-1"><b>${I18n.t("agReason")}:</b> ${esc(ir.dontes_ok)}</div>` : ""}
                         </div>
                     </div>` : ""}
+                    ${fulek.length ? `
+                    <nav class="accFulek" aria-label="${esc(I18n.t(aktivMenu.label))}">
+                        ${fulek.map(k => `
+                            <a class="accFul ${k === tab ? "active" : ""}" href="#iroda/${ir.id}:${k}" ${k === tab ? 'aria-current="page"' : ""}>
+                                <i class="${AgencyPage.FUL_IKON[k] || "fa-solid fa-circle"} fa-fw" aria-hidden="true"></i><span>${I18n.t("wsNav_" + k)}</span>
+                                ${k === "beerkezo" ? `<span class="badge rounded-pill text-bg-danger crmReqBadge" hidden></span><span class="badge rounded-pill text-bg-warning crmInboxBadge" hidden></span>` : ""}
+                                ${k === "ajanlatok" ? `<span class="badge rounded-pill text-bg-danger crmOfferBadge" hidden></span>` : ""}
+                            </a>`).join("")}
+                    </nav>` : ""}
                     <div class="wsHead">
                         <div class="min-w-0">
                             <h1 class="wsTitle">${esc(navCim(aktivElem.key ? aktivElem : { key: tab }))}</h1>

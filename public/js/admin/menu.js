@@ -31,41 +31,36 @@
 
 (() => {
 
-    // Két rész (2026-11):
-    //   VÁROS  – felül a városválasztó, és ami egy városhoz tartozik: a hirdetések kezelése,
-    //            a források (beolvasás), a karbantartás, a reklámfelületek, az értékesítés
-    //   ÁLTALÁNOS – ami az egész oldalé: teendők, pénzügy, irattár, ingatlanirodák, beállítások
-    //            (állapotok, városok és kerületek, webhely, csapat, látogatottság)
+    // Öt modul, használat szerinti sorrendben (2026-11, átrendezve):
+    //   Ma          ami most rád vár
+    //   Hirdetések  naponta: ellenőrzés, hely, állapot, bejelentések | rendrakás: duplikátumok,
+    //               nem elérhető, források (beolvasás), karbantartás      – VÁROSRA szűrhető
+    //   Értékesítés megbízások, naptár, fotók, CRM – csak ha be van kapcsolva az „Eladjuk helyetted”
+    //   Pénzügy     naponta: áttekintés, számlák, vásárlások, kiadások | ritkán: e-Factura,
+    //               előfizetések, ügyfelek, kiemelések, irattár
+    //   Partnerek   ingatlanirodák, reklámfelületek (a reklám VÁROSRA szűrhető)
+    //   Beállítások csomagok és árak, számlázás, állapotok, városok, környék | webhely, csapat,
+    //               látogatottság, tesztelés
+    // szekcio: "varos" = a modul oldalai a kiválasztott városra szűrnek (a városválasztó a
+    // fülek sorában jelenik meg); egy oldal külön is kérheti (TABS[k].varos = true).
     AdminManager.GROUPS = [
-        { key: "hird", label: "adminModListings", icon: "fa-solid fa-house", szekcio: "varos" },
-        { key: "forras", label: "fsTab", icon: "fa-solid fa-diagram-project", szekcio: "varos" },
-        { key: "karb", label: "adminTabTools", icon: "fa-solid fa-toolbox", szekcio: "varos" },
-        { key: "reklam", label: "adminModAds", icon: "fa-solid fa-rectangle-ad", szekcio: "varos" },
-        { key: "ert", label: "adminModSales", icon: "fa-solid fa-key", szekcio: "varos" },
         { key: "ma", label: "adminModToday", icon: "fa-solid fa-sun", szekcio: "altalanos" },
-        { key: "crm", label: "crmTitle", icon: "fa-solid fa-address-book", szekcio: "altalanos" },
+        { key: "hird", label: "adminModListings", icon: "fa-solid fa-house", szekcio: "varos" },
+        { key: "ert", label: "adminModSales", icon: "fa-solid fa-key", szekcio: "varos" },
         { key: "penz", label: "adminModFinance", icon: "fa-solid fa-coins", szekcio: "altalanos" },
-        { key: "irat", label: "adminModArchive", icon: "fa-solid fa-box-archive", szekcio: "altalanos" },
-        { key: "partner", label: "adminModAgencies", icon: "fa-solid fa-briefcase", szekcio: "altalanos" },
+        { key: "partner", label: "adminModPartners", icon: "fa-solid fa-handshake", szekcio: "altalanos" },
         { key: "beall", label: "adminModSettings", icon: "fa-solid fa-gear", szekcio: "altalanos" }
     ];
 
-    // Modulonként az oldalak sorrendben ("|" = elválasztó a fülek között).
-    // Minden oldal pontosan egy helyen van. A régi „Beolvasás” és „Figyelt oldalak” a
-    // Források oldalba olvadt (a régi címek oda visznek).
+    // Modulonként az oldalak sorrendben ("|" = elválasztó a fülek között: előtte a napi,
+    // utána a ritkább). Minden oldal pontosan egy helyen van.
     AdminManager.REND = {
-        hird: ["review", "helyek", "allapot", "reports", "|", "dups", "unavailable"],
-        forras: ["forrasok"],
-        karb: ["tools"],
-        reklam: ["reklam"],
-        ert: ["megbizasok", "naptar", "hirdetesek"],
         ma: ["overview"],
-        crm: ["crm"],
-        // gyakran: áttekintés, számlák, vásárlások, kiadások, e-Factura | ritkábban | beállítás jellegű a végén
-        penz: ["penzugy", "szamlak", "rendelesek", "kiadasok", "efactura", "|", "ugyfelek", "elofizetesek", "kiemelesek", "|", "csomagok", "penzugyBeall"],
-        irat: ["irattarSzamla", "irattarSzerzodes"],
-        partner: ["irodak"],
-        beall: ["allapotok", "places", "kornyek", "megbizasBeall", "|", "webhely", "csapat", "sitestats"]
+        hird: ["review", "helyek", "allapot", "reports", "|", "dups", "unavailable", "forrasok", "tools"],
+        ert: ["megbizasok", "naptar", "hirdetesek", "crm", "|", "megbizasBeall"],
+        penz: ["penzugy", "szamlak", "rendelesek", "kiadasok", "|", "efactura", "elofizetesek", "ugyfelek", "kiemelesek", "|", "irattarSzamla", "irattarSzerzodes"],
+        partner: ["irodak", "reklam"],
+        beall: ["csomagok", "penzugyBeall", "|", "allapotok", "places", "kornyek", "|", "webhely", "csapat", "sitestats"]
     };
 
     // Az oldal saját CRM-je (az admin értékesítése) – az irodákétól külön (js/crm/crm.js)
@@ -90,9 +85,12 @@
     if (uj.hirdetesek) Object.assign(uj.hirdetesek, { title: "adminTabPhotos", desc: "adminDescPhotos", icon: "fa-solid fa-camera" });
     if (uj.helyek) Object.assign(uj.helyek, { title: "adminTabLocCheck", desc: "adminDescLocCheck2", warn: false });
     if (uj.megbizasBeall) uj.megbizasBeall.title = "adminTabSalesSettings";
-    if (uj.penzugyBeall) Object.assign(uj.penzugyBeall, { title: "adminTabFinSettings2", desc: "adminDescFinSettings2", icon: "fa-solid fa-gear", render: () => AdminManager.renderFinBeall() });
+    if (uj.penzugyBeall) Object.assign(uj.penzugyBeall, { title: "adminTabInvoicing", desc: "adminDescFinSettings2", icon: "fa-solid fa-gear", render: () => AdminManager.renderFinBeall() });
     // A karbantartás városra is adható (a város beolvasási jogával)
     if (uj.tools) Object.assign(uj.tools, { desc: "mtDescCity" });
+    // A reklámfelületek a Partnerek modulban vannak, de városra szűrnek
+    if (uj.reklam) uj.reklam.varos = true;
+    // Az oldal saját CRM-je az értékesítés része (kikapcsolt értékesítésnél a modullal együtt rejtve)
 
     AdminManager.TABS = uj;
     Object.assign(AdminManager.ALIASES, { ma: "overview", today: "overview", hirdeteseim: "hirdetesek", import: "forrasok", watch: "forrasok", beolvasas: "forrasok", figyelt: "forrasok" });
@@ -141,6 +139,7 @@ AdminManager.munkaVaros = (() => { try { return localStorage.getItem("ip_adm_var
 // a városválasztó; az Általános rész (teendők, pénzügy…) mindig az egész oldalt mutatja
 AdminManager.varosSzekcio = function () {
     const t = AdminManager.TABS && AdminManager.TABS[AdminManager.tab];
+    if (t && typeof t.varos === "boolean") return t.varos;
     const g = t && (AdminManager.GROUPS || []).find(x => x.key === t.group);
     return !!(g && g.szekcio === "varos");
 };
@@ -231,40 +230,43 @@ AdminManager.renderNav = function () {
         // elválasztó csak két oldal között
         .filter((k, i, l) => k !== "|" || (i > 0 && i < l.length - 1 && l[i - 1] !== "|"));
 
+    // Akinek csak egy modulja van (pl. egy városra kapott munkatárs), annál nincs modulsor –
+    // rögtön a saját munkájának fülei látszanak
+    const egyModul = modulok.length <= 1;
+    const varosos = AdminManager.varosSzekcio();
+
     top.innerHTML = `
-        <div class="admTop">
-            ${["varos", "altalanos"].map(sz => {
-                const ms = modulok.filter(g => g.szekcio === sz);
-                if (!ms.length) return "";
-                return `
-                <nav class="admModulok admSzekcio sz-${sz} ${(AdminManager.GROUPS.find(g => g.key === aktivModul) || {}).szekcio === sz ? "aktiv" : ""}" aria-label="${esc(I18n.t(sz === "varos" ? "admSecCity" : "admSecGeneral"))}">
-                    ${sz === "varos" ? AdminManager.varosValaszto() : `<span class="admSzekcioCim">${esc(I18n.t("admSecGeneral"))}</span>`}
-                    ${ms.map(g => {
-                        const elso = oldalak(g).find(k => k !== "|");
-                        const db = AdminManager.modulDb(g);
-                        return `
-                        <button type="button" class="admModul ${g.key === aktivModul ? "active" : ""}" data-modul="${elso}" ${g.key === aktivModul ? 'aria-current="page"' : ""}>
-                            <i class="${g.icon}" aria-hidden="true"></i><span>${esc(I18n.t(g.label))}</span>
-                            ${g.key === "ma" ? `<span class="admModulDb" id="todayCount" hidden></span>` : db ? `<span class="admModulDb">${db > 99 ? "99+" : db}</span>` : ""}
-                        </button>`;
-                    }).join("")}
-                </nav>`;
-            }).join("")}
+        <div class="admTop ${egyModul ? "admTopEgy" : ""}">
+            ${egyModul ? "" : `
+            <nav class="admModulok" aria-label="${esc(I18n.t("adminTitle"))}">
+                ${modulok.map(g => {
+                    const elso = oldalak(g).find(k => k !== "|");
+                    const db = AdminManager.modulDb(g);
+                    return `
+                    <button type="button" class="admModul ${g.key === aktivModul ? "active" : ""}" data-modul="${elso}" ${g.key === aktivModul ? 'aria-current="page"' : ""}>
+                        <i class="${g.icon}" aria-hidden="true"></i><span>${esc(I18n.t(g.label))}</span>
+                        ${g.key === "ma" ? `<span class="admModulDb" id="todayCount" hidden></span>` : db ? `<span class="admModulDb">${db > 99 ? "99+" : db}</span>` : ""}
+                    </button>`;
+                }).join("")}
+            </nav>`}
             <button type="button" class="admUgras" id="admUgras" aria-keyshortcuts="Control+K">
                 <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>${esc(I18n.t("adminJump"))}</span><kbd>Ctrl K</kbd>
             </button>
         </div>
-        ${lapok.length > 1 ? `
-        <nav class="admLapok" id="adminTabs" aria-label="${esc(I18n.t((AdminManager.GROUPS.find(g => g.key === aktivModul) || {}).label || "adminTitle"))}">
-            ${lapok.map(k => k === "|" ? `<span class="admLapSep" aria-hidden="true"></span>` : (() => {
-                const t = AdminManager.TABS[k];
-                return `
-                    <button type="button" class="admLap ${k === aktivTab ? "active" : ""}" data-tab="${k}">
-                        <i class="${t.icon}" aria-hidden="true"></i><span>${esc(I18n.t(t.title))}</span>
-                        ${t.count ? `<span class="navCount ${t.warn ? "warn" : ""}" id="${t.count}" hidden></span>` : ""}
-                    </button>`;
-            })()).join("")}
-        </nav>` : `<nav id="adminTabs" hidden></nav>`}`;
+        ${lapok.length > 1 || varosos ? `
+        <div class="admAlsor">
+            ${varosos ? AdminManager.varosValaszto() : ""}
+            <nav class="admLapok" id="adminTabs" aria-label="${esc(I18n.t((AdminManager.GROUPS.find(g => g.key === aktivModul) || {}).label || "adminTitle"))}">
+                ${lapok.length > 1 ? lapok.map(k => k === "|" ? `<span class="admLapSep" aria-hidden="true"></span>` : (() => {
+                    const t = AdminManager.TABS[k];
+                    return `
+                        <button type="button" class="admLap ${k === aktivTab ? "active" : ""}" data-tab="${k}">
+                            <i class="${t.icon}" aria-hidden="true"></i><span>${esc(I18n.t(t.title))}</span>
+                            ${t.count ? `<span class="navCount ${t.warn ? "warn" : ""}" id="${t.count}" hidden></span>` : ""}
+                        </button>`;
+                })()).join("") : ""}
+            </nav>
+        </div>` : `<nav id="adminTabs" hidden></nav>`}`;
 
     top.querySelectorAll("[data-modul]").forEach(b => { b.onclick = () => AdminManager.open(b.dataset.modul); });
     top.querySelectorAll("[data-tab]").forEach(b => { b.onclick = () => AdminManager.open(b.dataset.tab); });

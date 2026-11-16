@@ -1,0 +1,143 @@
+/* ============================================================
+   27. változat: az átrendezett menük
+   1. Főmenü: Ingatlanok · Térkép · Keresek · Statisztikák · Csomagok ·
+      Eladjuk helyetted · Több ▾. Ami nem fér ki, a „Több” alá kerül –
+      ezt a js/core/navMenu.js (NavMenu.elfer) méri ki, nem képernyő-
+      méretenként kézzel írt szabályok. Telefonon / iPaden állva alsó sáv.
+   ============================================================ */
+
+/* ---------- Felső sor ---------- */
+.appNavInner > .appBrand,
+.appNavInner > .navLinks,
+.appNavInner > .navRight { flex: 0 0 auto; }
+
+/* a régi szabály (v22) 992–1100 px között kézzel rejtette a Csomagokat – már a mérés dönt */
+.navLinks > .navLink[data-page="csomagok"] { display: flex; }
+.navLinks > .navLink[hidden] { display: none !important; }
+
+/* 992 px-től a sor mindig egyforma sűrű (a hely kiosztását a mérés végzi) */
+@media (min-width: 992px) {
+    body .navLinks > .navLink, body .navLinks .navGroupBtn { padding: 0 0.7rem; }
+    body .appNavInner { gap: 1.25rem; }
+
+    /* a sötét mód kapcsoló és az Admin gomb mindig a fejlécben (nem a fiók menüben) */
+    body.is-logged-in .navRight #btnDarkMode { display: grid !important; }
+    body.is-logged-in .navRight .navAdminBtn:not([hidden]) { display: grid !important; }
+    body .navUserMenu .navDarkItem { display: none !important; }
+}
+
+/* ---------- A „Több” lenyíló: egy egyszerű lista ---------- */
+.navPanelLista { width: 340px; min-width: 0; max-width: calc(100vw - 16px); }
+
+/* ---------- Alsó sáv (telefon, iPad állva): 5 hely ---------- */
+@media (max-width: 991.98px) {
+    .mobBar { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+/* ---------- Táblázat nézet: csak adminnak, munkatársnak, ingatlanosnak ---------- */
+body:not(.proNezet) .viewModeBox { display: none !important; }
+
+/* ---------- Ha szűk a fejléc (NavMenu.elfer teszi rá a body-ra) ---------- */
+body .navPostBtn span.npRovid { display: none !important; }
+body.navSzuk .navPostBtn span.npHosszu { display: none !important; }
+body.navSzuk .navPostBtn span.npRovid { display: inline !important; }
+@media (min-width: 992px) {
+    body.navSzuk2.is-logged-in .navRight #btnDarkMode { display: none !important; }
+    body.navSzuk2.is-logged-in .navUserMenu .navDarkItem { display: list-item !important; }
+}
+
+/* ============================================================
+   2. Fiókom: hat menüpont, az összetartozók füleken
+   ============================================================ */
+/* a csoportok között vékony elválasztó (csoportcím nélkül) */
+.accNavGroup + .accNavGroup { padding-top: .9rem; border-top: 1px solid var(--ip-border); }
+.accNavGroup:empty { display: none; }
+
+/* fülek egy menüponton belül (Kereséseim, Megtekintések és ajánlatok, Beállítások) */
+.accFulek {
+    display: flex; gap: .35rem; margin: 0 0 1.25rem; padding: .3rem;
+    border: 1px solid var(--ip-border); border-radius: 12px; background: var(--ip-surface);
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; max-width: 100%; width: fit-content;
+}
+.accFulek::-webkit-scrollbar { display: none; }
+.accFul {
+    display: inline-flex; align-items: center; gap: .45rem; flex: 0 0 auto;
+    padding: .45rem .85rem; border-radius: 9px; white-space: nowrap;
+    color: var(--ip-muted); font-weight: 600; font-size: .9rem; text-decoration: none;
+}
+.accFul:hover { color: var(--ip-text); background: var(--ip-accent-soft); }
+.accFul.active { color: var(--ip-accent-contrast, #fff); background: var(--ip-accent); }
+.accFul > i { font-size: .85rem; opacity: .85; }
+.accFul > i.fa-circle-dot { display: none; }
+
+/* a fiók lenyíló menü feje: név + „Fiókom áttekintése” */
+.navUserMenu .navUserFej { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: .05rem; padding-top: .55rem; padding-bottom: .45rem; white-space: normal; }
+.navUserMenu .navUserFej small { color: var(--ip-muted); font-size: .78rem; }
+
+@media (max-width: 991.98px) {
+    .accNavGroup + .accNavGroup { padding-top: 0; border-top: 0; }
+    .accFulek { width: auto; }
+}
+
+/* ============================================================
+   4. Admin: öt modul egy sorban, alatta a modul fülei
+      (a városválasztó a fülek sorában, csak ahol városra lehet szűrni)
+   ============================================================ */
+/* az admin felületen a nyilvános menü nem látszik – a logó és a „Vissza az oldalra” visz vissza */
+.navBackBtn { display: none !important; }
+@media (min-width: 992px) {
+    body[data-page="admin"] .navLinks { display: none !important; }
+    body[data-page="admin"] .navRight .navPostBtn { display: none !important; }
+    body[data-page="admin"] .navBackBtn { display: inline-flex !important; align-items: center; gap: .45rem; white-space: nowrap; }
+}
+
+.admTop { flex-wrap: nowrap; }
+.admTop.admTopEgy { justify-content: flex-end; }
+.admAlsor { display: flex; align-items: center; gap: .6rem; min-width: 0; padding: 0 0 .5rem; }
+.admAlsor .admVaros { flex: 0 0 auto; margin: 0; order: 0; }
+.admAlsor .admLapok { flex: 1 1 auto; min-width: 0; padding: 0; }
+.admAlsor .admLap { flex: 0 0 auto; white-space: nowrap; }
+.admAlsor .admLapSep { flex: 0 0 1px; }
+
+/* telefon, iPad állva: a modulok és a fülek is vízszintesen görgethetők, semmi nem törik el */
+@media (max-width: 991.98px) {
+    .admTop { gap: .5rem; }
+    .admTop .admUgras > span, .admTop .admUgras > kbd { display: none; }
+    .admAlsor { flex-wrap: wrap; row-gap: .4rem; }
+    .admAlsor .admLapok { flex: 1 1 100%; }
+    .admAlsor .admVaros select { max-width: 60vw; }
+}
+
+/* ============================================================
+   3. Ügynöki munkaterület: öt menüpont, az összetartozók füleken
+      (a fülek ugyanazok, mint a Fiókom oldalon: .accFulek)
+   ============================================================ */
+.accFul .badge { font-size: .68rem; }
+.accFul.active .badge { box-shadow: 0 0 0 1px rgba(255, 255, 255, .6); }
+
+/* ============================================================
+   5. Semmi ne lógjon le a képernyő aljáról (iPad, telefon)
+      Az iPad / iPhone Safari a „100vh”-t a címsor nélküli, NAGYOBB magasságra
+      számolja – a „dvh” a ténylegesen látható magasság. Minden lenyíló lista és
+      görgethető doboz ehhez igazodik, és ha hosszabb, a saját belsejében görög.
+   ============================================================ */
+/* minden lenyíló menü (fiók menü, szűrők, választók): legfeljebb a látható magasság */
+.dropdown-menu { max-height: calc(100vh - var(--ip-nav-h, 64px) - 24px); max-height: calc(100dvh - var(--ip-nav-h, 64px) - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.navPanel { max-height: calc(100dvh - var(--ip-nav-h, 64px) - 16px); overflow-y: auto; overscroll-behavior: contain; }
+@media (min-width: 992px) {
+    .wsSide { max-height: calc(100dvh - var(--ip-nav-h) - 2rem); }
+}
+/* telefon, iPad állva: lent ott az alsó menüsáv (68 px + a kijelző alsó sávja) */
+@media (max-width: 991.98px) {
+    .dropdown-menu, .navPanel { max-height: calc(100dvh - var(--ip-nav-h, 64px) - 92px - env(safe-area-inset-bottom)); }
+    .tdBarMenu { max-height: 50dvh; }
+}
+/* görgethető listák */
+.msgList { max-height: 70dvh; }
+.msgBubbles { max-height: 55dvh; }
+.histList { max-height: min(560px, calc(100dvh - 12rem)); }
+.admUgrasLista { max-height: 55dvh; }
+/* felugró ablakok: a tartalom görög, a gombok mindig elérhetők */
+.modal-dialog-scrollable .modal-content { max-height: calc(100dvh - 2rem); }
+.lpQueueList { max-height: calc(100dvh - var(--ip-nav-h, 64px) - 7rem); }
+.deSide { max-height: 80dvh; }
