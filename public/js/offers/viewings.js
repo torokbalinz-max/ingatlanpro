@@ -138,13 +138,27 @@ class Viewings {
 
         const $ = q => body.querySelector(q);
         const ujra = () => Viewings.kot(i);
-        // Van szabad idősáv: a gomb alatt a legközelebbi időpont („Legközelebb: csüt. 16:30”)
+        // Van szabad idősáv: a szabad időpontok rögtön itt látszanak (a következő 3 nap) –
+        // egy időpontra kattintva már csak megerősíteni kell (js/offers/slots.js)
         if ($("#mkKer")) Viewings.api(`/api/megtekintes/szabad/${i.id}`).then(sz => {
             const h = $("#mkHint");
-            if (!h || !sz.napok || !sz.napok.length) return;
-            const db = sz.napok.reduce((n, x) => n + x.idok.length, 0);
-            h.innerHTML = `<span class="isElso"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${I18n.f("isNext", { ido: esc(Viewings.ido(`${sz.napok[0].datum}T${sz.napok[0].idok[0]}`)), db })}</span>`;
-            $("#mkKer").innerHTML = `<i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${I18n.t("isPickBtn")}`;
+            if (!h || !sz.napok || !sz.napok.length || typeof Idosav === "undefined") return;
+            const o = { ingatlan_id: i.id, cim: i.cim || Types.label(i.tipus), cimzett: i.iroda ? i.iroda.nev : (i.hirdeto_nev || I18n.t("lpSeller")) };
+            const d = ymd => new Date(ymd + "T00:00");
+            h.className = "mkGyors mt-3 mb-0";
+            h.innerHTML = `
+                <b class="d-block mb-2"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${I18n.t("isFreeTimes")}</b>
+                ${sz.napok.slice(0, 3).map(n => `
+                    <div class="mkGyorsNap">
+                        <span>${esc(d(n.datum).toLocaleDateString(Utils.locale(), { weekday: "short", month: "short", day: "numeric" }))}</span>
+                        <div>${n.idok.slice(0, 4).map(t => `<button type="button" class="isIdo" data-gy="${n.datum}T${t}">${t}</button>`).join("")}${n.idok.length > 4 ? `<button type="button" class="isIdo tobb" data-gy="${n.datum}">+${n.idok.length - 4}</button>` : ""}</div>
+                    </div>`).join("")}`;
+            $("#mkKer").innerHTML = `<i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${I18n.t(sz.napok.length > 3 ? "isAllTimes" : "isPickBtn")}`;
+            h.querySelectorAll("[data-gy]").forEach(b => b.onclick = () => AuthManager.kell().then(() => {
+                if (AuthManager.owns(i) || AuthManager.irodaTag(i.iroda_id)) return;
+                const [nap, ido] = b.dataset.gy.split("T");
+                Idosav.foglal(o, sz, ujra, { nap, ido: ido || null });
+            }).catch(() => { }));
         }).catch(() => { });
         if ($("#mkKer")) $("#mkKer").onclick = () => AuthManager.kell().then(() => {
             if (AuthManager.owns(i) || AuthManager.irodaTag(i.iroda_id)) return;

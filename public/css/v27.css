@@ -217,3 +217,43 @@ body.navSzuk .navPostBtn span.npRovid { display: inline !important; }
 .flPortal { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; align-items: center; gap: .5rem; }
 .flPortal.be label { font-weight: 600; }
 @media (max-width: 575.98px) { .flPortal { grid-template-columns: minmax(0, 1fr) auto; } .flPortal > input.form-control { grid-column: 1 / -1; grid-row: 2; } }
+
+/* ============================================================
+   8. Ügyfél és ingatlan saját oldala a munkaterületen (nem felugró ablak)
+      A tartalom ugyanaz, mint az ablakban volt – itt a teljes szélességet kapja.
+   ============================================================ */
+.wsVissza { display: inline-flex; align-items: center; gap: .45rem; margin-bottom: .9rem; color: var(--ip-muted); font-weight: 600; font-size: .9rem; text-decoration: none; }
+.wsVissza:hover { color: var(--ip-accent); }
+.crmLapTartalom { display: flex; flex-direction: column; min-width: 0; }
+.crmLap .modal-header { padding: 1rem 1.15rem; border: 1px solid var(--ip-border); border-radius: var(--ip-radius); background: var(--ip-surface); display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.crmLap .modal-header .btn-close { display: none; }
+.crmLap .modal-body { padding: 1rem 0 0; overflow: visible; }
+.crmLap .modal-footer { padding: 1rem 0 0; border: 0; }
+/* a munkaterület oldalsávja keskenyebb, hogy az oldalé legyen a hely */
+@media (min-width: 1200px) { .ws:has(.crmLap) { grid-template-columns: 208px minmax(0, 1fr); gap: 1.25rem; } }
+
+/* a tulajdonos kártyáján: hol tart az eladás, miben egyeztünk meg */
+.flMini { display: block; margin-top: .75rem; padding: .75rem .85rem; border: 1px solid color-mix(in srgb, var(--ip-accent) 35%, var(--ip-border)); border-radius: 12px; background: var(--ip-accent-soft); color: var(--ip-text); text-decoration: none; }
+.flMini:hover { border-color: var(--ip-accent); color: var(--ip-text); }
+.flMini b { color: var(--ip-accent); }
+.flMiniSav { height: 6px; margin: .4rem 0 .35rem; border-radius: 999px; background: color-mix(in srgb, var(--ip-accent) 18%, var(--ip-surface)); overflow: hidden; }
+.flMiniSav > span { display: block; height: 100%; border-radius: 999px; background: var(--ip-accent); }
+.flMiniDl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .15rem .75rem; margin: .5rem 0 0; font-size: .85rem; }
+.flMiniDl dt { font-weight: 500; color: var(--ip-muted); }
+.flMiniDl dd { margin: 0; font-weight: 600; text-align: right; }
+.flMiniPort { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .5rem; }
+.flMiniPort span { padding: .1rem .5rem; border-radius: 999px; background: var(--ip-surface); border: 1px solid var(--ip-border); font-size: .75rem; font-weight: 600; }
+.flMiniGo { display: block; margin-top: .6rem; font-size: .82rem; font-weight: 600; color: var(--ip-accent); }
+.lapIng { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .55rem .7rem; border: 1px solid var(--ip-border); border-radius: 10px; color: var(--ip-text); text-decoration: none; }
+.lapIng + .lapIng { margin-top: .4rem; }
+.lapIng:hover { border-color: var(--ip-accent); color: var(--ip-text); }
+.lapIng > i { color: var(--ip-muted); font-size: .8rem; }
+
+/* a hirdetés oldalán: a szabad időpontok rögtön látszanak */
+.mkGyors { color: var(--ip-text); font-size: .9rem; }
+.mkGyorsNap { display: grid; grid-template-columns: 5.6rem minmax(0, 1fr); align-items: center; gap: .5rem; padding: .3rem 0; }
+.mkGyorsNap + .mkGyorsNap { border-top: 1px dashed var(--ip-border); }
+.mkGyorsNap > span { font-size: .82rem; font-weight: 600; color: var(--ip-muted); text-transform: capitalize; }
+.mkGyorsNap > div { display: flex; flex-wrap: wrap; gap: .3rem; }
+.mkGyorsNap .isIdo { padding: .3rem .55rem; font-size: .85rem; }
+.mkGyorsNap .isIdo.tobb { color: var(--ip-muted); border-style: dashed; }

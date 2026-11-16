@@ -203,6 +203,7 @@ class Crm {
             Crm.nezet = "attekintes";
         }
         Crm.beagyazott = !!opts.beagyazott;
+        if (!opts.beagyazott) Crm.lapHash = null;
         if (opts.nezet) { Crm.nezet = opts.nezet; Crm.beagyNezet = opts.nezet; }
         el.innerHTML = `<div class="text-center py-5"><span class="spinner-border text-primary" role="status"></span></div>`;
         Crm.api("/tagok").then(v => {
@@ -761,6 +762,39 @@ class Crm {
     // Megkeresés → Találkozó → Egyezés → Felmérés → Szerződés → Meghirdetve → Érdeklődők → Ajánlat → Adásvétel → Lezárva.
     // Csak eladó / bérbeadó ügyfélnél látszik. A lépésre kattintva oda áll; alatta a megegyezés
     // feltételei és az, hogy hol van meghirdetve az ingatlan (más oldalak is).
+    // Az eladó ügyének rövid összefoglalója (az ingatlan oldalán, a tulajdonos kártyáján):
+    // hol tart a folyamat, miben egyeztünk meg, hol van meghirdetve – kattintásra az eladó oldala
+    static eladoOsszegzes(u) {
+        const esc = Crm.esc;
+        const f = u.folyamat || {};
+        const lepes = f.lepes || "megkereses";
+        const hol = Math.max(0, Crm.FOLYAMAT.findIndex(x => x.k === lepes));
+        const ft = f.feltetelek || {};
+        const kov = Crm.FOLYAMAT[hol + 1];
+        const sorok = [
+            ft.ar ? [Crm.t("flPrice"), Crm.penz(ft.ar, ft.penznem || "EUR")] : null,
+            ft.jutalek ? [Crm.t("flCommission"), `${ft.jutalek}%`] : null,
+            ft.lejar ? [Crm.t("flUntil"), new Date(ft.lejar + "T00:00").toLocaleDateString(Utils.locale(), { year: "numeric", month: "short", day: "numeric" })] : null,
+            ft.kizarolagos ? [Crm.t("flExclusive"), Crm.t("flYes")] : null
+        ].filter(Boolean);
+        return `
+            <a href="#" data-ugyfel="${u.id}" class="flMini" title="${esc(Crm.t("flOpenCase"))}">
+                <div class="d-flex justify-content-between align-items-baseline gap-2">
+                    <b><i class="${Crm.FOLYAMAT[hol].ikon}" aria-hidden="true"></i> ${Crm.t("fl_" + lepes)}</b>
+                    <small>${hol + 1} / ${Crm.FOLYAMAT.length}</small>
+                </div>
+                <div class="flMiniSav" role="progressbar" aria-valuemin="0" aria-valuemax="${Crm.FOLYAMAT.length}" aria-valuenow="${hol + 1}"><span style="width:${Math.round((hol + 1) / Crm.FOLYAMAT.length * 100)}%"></span></div>
+                ${kov ? `<small class="d-block text-body-secondary">${Crm.t("flNext")}: ${Crm.t("fl_" + kov.k)}</small>` : ""}
+                ${sorok.length ? `<dl class="flMiniDl">${sorok.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : `<small class="d-block mt-1">${Crm.t("flNoTerms")}</small>`}
+                ${ft.vallalas ? `<small class="d-block mt-1"><b>${Crm.t("flIDo")}:</b> ${esc(ft.vallalas)}</small>` : ""}
+                ${ft.igeny ? `<small class="d-block mt-1"><b>${Crm.t("flTheyWant")}:</b> ${esc(ft.igeny)}</small>` : ""}
+                ${(f.portalok || []).length ? `<div class="flMiniPort">${f.portalok.map(x => `<span>${esc(x.nev)}</span>`).join("")}</div>` : ""}
+                <span class="flMiniGo">${Crm.t("flOpenCase")} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+            </a>`;
+    }
+
+    // csak eladó / bérbeadó (nem keres ő maga): nála az eladás folyamata a lényeg, nem a vevői állapot
+    static csakElado(u) { return Crm.eladoE(u) && !(u.szerepek || []).some(x => x === "vevo" || x === "berlo"); }
     static eladoE(u) { return (u.szerepek || []).some(x => x === "elado" || x === "berbeado"); }
 
     static folyamatHtml(u) {
@@ -861,8 +895,31 @@ class Crm {
         };
     }
 
+    // ===================== SAJÁT OLDAL (a munkaterületen) =====================
+    // Az ügyfél és az ingatlan a munkaterületen nem felugró ablak, hanem teljes szélességű oldal
+    // (#iroda/<id>:ugyfel-<n>, #iroda/<id>:ingatlan-<n>) – a böngésző Vissza gombja is működik.
+    // Crm.lapHash-t az AgencyPage állítja be; az admin CRM-ben (nincs lapHash) marad az ablak.
+    static lapHash = null;
+    static LAP_MODAL = { show() { }, hide() { } };
+
+    static lap(el, o) {
+        Crm.ter = Number(o.ter || 0);
+        Crm.beagyazott = true;
+        el.innerHTML = `<div class="text-center py-5"><span class="spinner-border text-primary" role="status"></span></div>`;
+        Crm.api("/tagok").then(v => {
+            Crm.tagok = v.tagok || [];
+            Crm.en = v.en;
+            Crm.vezeto = !!v.vezeto;
+            el.innerHTML = `<div class="crmLap crmLap-${o.mit}"><div class="crmLapTartalom"></div></div>`;
+            const t = el.querySelector(".crmLapTartalom");
+            if (o.mit === "ugyfel") Crm.adatlap(o.id, t, Crm.LAP_MODAL);
+            else Crm.ingatlanNyit(o.id, t);
+        }).catch(e => { el.innerHTML = `<div class="emptyState"><i class="fa-solid fa-lock"></i><p>${Crm.hiba(e)}</p></div>`; });
+    }
+
     static ugyfelNyit(id) {
         Crm.adatlapFul = "attekintes";
+        if (Crm.lapHash) { const h = Crm.lapHash("ugyfel", id); if (location.hash === h) window.dispatchEvent(new HashChangeEvent("hashchange")); else location.hash = h; return; }
         const { tartalom, modal } = Svc.modal("crmUgyfel", "modal-xl");
         tartalom.innerHTML = `<div class="modal-body text-center py-5"><span class="spinner-border text-primary" role="status"></span></div>`;
         modal.show();
@@ -939,7 +996,7 @@ class Crm {
                     <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="${esc(Crm.t("crmClose"))}"></button>
                 </div>
 
-                <div class="crmStageBar">
+                <div class="crmStageBar ${Crm.csakElado(u) ? "d-none" : ""}">
                     <ol class="crmStages" aria-label="${esc(Crm.t("crmStatus"))}">
                         ${lepesSzam.map((a, n) => `
                             <li><button type="button" class="crmStage ${a === u.allapot ? "current" : lepesIdx > -1 && n < lepesIdx ? "done" : ""}" data-allapot="${a}" ${a === u.allapot ? 'aria-current="step"' : ""}>
@@ -991,7 +1048,17 @@ class Crm {
                                     </dl>
                                     ${u.jegyzet ? `<p class="small mt-2 mb-0 crmNote">${esc(u.jegyzet)}</p>` : ""}
                                 </div>
+                                ${Crm.eladoE(u) ? `
                                 <div class="crmCard">
+                                    <h6><i class="fa-solid fa-house" aria-hidden="true"></i> ${Crm.t("lapProp")}</h6>
+                                    ${(u.ingatlanok || []).filter(x => x.szerep === "tulajdonos").map(x => `
+                                        <a class="lapIng" href="${Crm.lapHash ? Crm.lapHash("ingatlan", x.id) : "#listing/" + x.id}">
+                                            <span class="min-w-0"><b class="d-block text-truncate">${esc(x.cim || Types.label(x.tipus))}</b>
+                                            <small class="text-body-secondary">IP-${x.id}${x.ar ? " · " + esc(Utils.eur(x.ar)) : ""}</small></span>
+                                            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                                        </a>`).join("") || `<p class="small text-body-secondary mb-0">${Crm.t("lapPropNone")}</p>`}
+                                </div>` : ""}
+                                <div class="crmCard ${Crm.csakElado(u) ? "d-none" : ""}">
                                     <h6><i class="fa-solid fa-magnifying-glass-location" aria-hidden="true"></i> ${Crm.t("crmWish")}</h6>
                                     ${igenySzoveg ? `<p class="small mb-2">${esc(igenySzoveg)}</p>` : `<p class="small text-body-secondary mb-2">${Crm.t("crmWishNone")}</p>`}
                                     ${i.megjegyzes ? `<p class="small text-body-secondary">${esc(i.megjegyzes)}</p>` : ""}
@@ -1817,8 +1884,9 @@ class Crm {
     // megnézte → ajánlatot tett), a megtekintések és az ajánlatok – egy helyen
     static VEVO_FAZIS = ["uj", "kuldve", "megtekintes", "ajanlat"];
 
-    static ingatlanNyit(id) {
-        const { tartalom, modal } = Svc.modal("crmIng", "modal-xl");
+    static ingatlanNyit(id, cel) {
+        if (!cel && Crm.lapHash) { location.hash = Crm.lapHash("ingatlan", id); return; }
+        const { tartalom, modal } = cel ? { tartalom: cel, modal: Crm.LAP_MODAL } : Svc.modal("crmIng", "modal-xl");
         tartalom.innerHTML = `<div class="modal-body text-center py-5"><span class="spinner-border text-primary" role="status"></span></div>`;
         modal.show();
         const rajzol = () => Crm.api(`/ingatlanok/${id}`).then(d => {
@@ -1892,7 +1960,8 @@ class Crm {
                                             <div class="small">${u.telefon ? `<a href="tel:${esc(u.telefon)}"><i class="fa-solid fa-phone" aria-hidden="true"></i> ${esc(u.telefon)}</a>` : ""}</div>
                                             <div class="small text-body-secondary">${Crm.t("crmOwnSt_" + (u.kapcs_allapot || "uj"))}</div>
                                         </div>
-                                    </div>`).join("") : `<p class="small text-body-secondary mb-0">${Crm.t("propSellerNone")}</p>`}
+                                    </div>
+                                    ${Crm.eladoOsszegzes(u)}`).join("") : `<p class="small text-body-secondary mb-0">${Crm.t("propSellerNone")}</p>`}
                             </div>
                             <div id="ciKereso" class="crmCard" hidden>
                                 <h6 id="ciKeresoCim"></h6>

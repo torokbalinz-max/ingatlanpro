@@ -930,7 +930,7 @@ async function ingatlanReszlet(ctx, ingatlanId) {
     const l = lathatoSql(ctx, "u", p);
     const ugyfelek = await db.query(`
         SELECT u.id, u.nev, u.telefon, u.email, u.allapot, u.felelos_id, COALESCE(us.nev, us.felhasznalonev) AS felelos_nev,
-               k.szerep, k.allapot AS kapcs_allapot, k.created_at AS kapcs_ido,
+               k.szerep, k.allapot AS kapcs_allapot, k.created_at AS kapcs_ido, u.folyamat, u.szerepek,
                (SELECT to_char(MAX(m.kezdet), 'YYYY-MM-DD"T"HH24:MI') FROM crm_megtekintesek m WHERE m.ugyfel_id = u.id AND m.ingatlan_id = $1 AND m.statusz = 'megtortent') AS utolso_megt
         FROM crm_ugyfel_ingatlan k JOIN crm_ugyfelek u ON u.id = k.ugyfel_id LEFT JOIN users us ON us.id = u.felelos_id
         WHERE k.ingatlan_id = $1 AND ${t} AND ${l}

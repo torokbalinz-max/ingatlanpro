@@ -124,6 +124,10 @@ class AgencyPage {
 
         const kulcs = AgencyPage.REGI[masodik] || masodik;
         if (kulcs && AgencyPage.KULCSOK.includes(kulcs)) AgencyPage.tab = kulcs;
+        // Egy ügyfél / egy ingatlan saját oldala: #iroda/<id>:ugyfel-<n>, #iroda/<id>:ingatlan-<n>
+        const lap = String(masodik || "").match(/^(ugyfel|ingatlan)-(\d+)$/);
+        AgencyPage.lap = lap ? { mit: lap[1], id: Number(lap[2]) } : null;
+        if (lap) AgencyPage.tab = lap[1] === "ugyfel" ? "ugyfelek" : "hirdetesek";
 
         if (!AgencyPage.iroda || AgencyPage.iroda.id !== id) {
             AgencyPage.kijelolt.clear();
@@ -402,6 +406,9 @@ class AgencyPage {
         const menu = AgencyPage.MENU.filter(e => (!e.vezeto || vezeto) && (!e.ugynok || !vezeto));
         const aktivMenu = menu.find(e => e.fulek.includes(tab)) || menu[0];
         const fulek = aktivMenu.fulek.length > 1 ? aktivMenu.fulek : [];
+        const lap = AgencyPage.lap;
+        // a felugró ablakok helyett saját oldal (js/crm/crm.js: Crm.lap)
+        if (typeof Crm !== "undefined") Crm.lapHash = (mit, id) => `#iroda/${ir.id}:${mit}-${id}`;
 
         AgencyPage.box().innerHTML = `
             <div class="ws">
@@ -453,7 +460,8 @@ class AgencyPage {
                             ${ir.dontes_ok ? `<div class="small mt-1"><b>${I18n.t("agReason")}:</b> ${esc(ir.dontes_ok)}</div>` : ""}
                         </div>
                     </div>` : ""}
-                    ${fulek.length ? `
+                    ${lap ? `
+                    <a class="wsVissza" href="#iroda/${ir.id}:${tab}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> ${I18n.t(lap.mit === "ugyfel" ? "wsBackClients" : "wsBackProps")}</a>` : `                    ${fulek.length ? `
                     <nav class="accFulek" aria-label="${esc(I18n.t(aktivMenu.label))}">
                         ${fulek.map(k => `
                             <a class="accFul ${k === tab ? "active" : ""}" href="#iroda/${ir.id}:${k}" ${k === tab ? 'aria-current="page"' : ""}>
@@ -470,7 +478,7 @@ class AgencyPage {
                         <div class="wsActions">
                             <button class="btn btn-primary btn-sm" id="agNewListing" ${zarolt ? "disabled" : ""}><i class="fa-solid fa-plus" aria-hidden="true"></i> ${I18n.t("navPost")}</button>
                         </div>
-                    </div>
+                    </div>`}
                     <div id="agBody"></div>
                 </main>
             </div>`;
@@ -482,7 +490,7 @@ class AgencyPage {
 
         AgencyPage.meghivasKotes(AgencyPage.box());
 
-        document.getElementById("agNewListing").onclick = () => {
+        (document.getElementById("agNewListing") || {}).onclick = () => {
             NewPropertyManager.prefIroda = ir.id;
             NewPropertyManager.editId = null;
             PageManager.show("new");
@@ -511,6 +519,7 @@ class AgencyPage {
             jel(".wsNav .crmOfferBadge", a.uj_ajanlat || 0);
         }).catch(() => { });
 
+        if (lap && !zarolt) return Crm.lap(body, { ter: ir.id, mit: lap.mit, id: lap.id });
         if (AgencyPage.CRM_NEZET[tab]) {
             if (tab === "attekintes") return AgencyPage.attekintesTab(body, vezeto);
             return Crm.mount(body, { ter: ir.id, nezet: AgencyPage.CRM_NEZET[tab], beagyazott: true });

@@ -191,13 +191,14 @@ class Idosav {
     // ===================== AZ ÉRDEKLŐDŐ: foglalás =====================
 
     // o: { ingatlan_id, cim, cimzett }, a: { napok: [{datum, idok}], hossz_perc, azonnali }
-    static foglal(o, a, utana) {
+    // elore: { nap, ido } – a hirdetés oldalán már kiválasztott időpont
+    static foglal(o, a, utana, elore) {
         const { tartalom, modal } = Svc.modal("isFoglal", "");
         const esc = Utils.escape;
         const t = k => I18n.t(k);
         const me = AuthManager.user || {};
-        let nap = a.napok[0].datum;
-        let ido = null;
+        let nap = elore && a.napok.some(n => n.datum === elore.nap) ? elore.nap : a.napok[0].datum;
+        let ido = (elore && elore.ido) || null;
         const d = ymd => new Date(ymd + "T00:00");
 
         tartalom.innerHTML = `
