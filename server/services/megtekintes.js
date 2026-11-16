@@ -512,5 +512,6 @@ async function engedelyAd(ctx, ugyfelId, ingatlanId) {
 module.exports = {
     idoTisztit, ajanlatJog, hirdetesAllapot, kerTesz, sajat, vevoValt, elfogad,
     irodaLista, irodaValasz, irodaNyitottDb, beerkezett, maganValasz, ics,
-    hivasJelez, hivasok, hivasRejt, hivasFelvesz, gyors, engedelyAd, hibaKod
+    hivasJelez, hivasok, hivasRejt, hivasFelvesz, gyors, engedelyAd, hibaKod,
+    cimzett, vezetok       // az idősávos foglaláshoz (services/idosav.js)
 };

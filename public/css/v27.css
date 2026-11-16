@@ -141,3 +141,79 @@ body.navSzuk .navPostBtn span.npRovid { display: inline !important; }
 .modal-dialog-scrollable .modal-content { max-height: calc(100dvh - 2rem); }
 .lpQueueList { max-height: calc(100dvh - var(--ip-nav-h, 64px) - 7rem); }
 .deSide { max-height: 80dvh; }
+
+/* ============================================================
+   6. Megtekintési idősávok (js/offers/slots.js)
+   ============================================================ */
+/* a hirdető heti rendje */
+.isHet { display: flex; flex-direction: column; border: 1px solid var(--ip-border); border-radius: 12px; overflow: hidden; }
+.isNap { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; align-items: center; gap: .5rem .75rem; padding: .55rem .75rem; }
+.isNap + .isNap { border-top: 1px solid var(--ip-border); }
+.isNap.ures { background: color-mix(in srgb, var(--ip-border) 22%, transparent); }
+.isNapNev { text-transform: capitalize; font-weight: 600; }
+.isSavok { display: flex; flex-wrap: wrap; gap: .4rem .75rem; min-width: 0; }
+.isSav { display: inline-flex; align-items: center; gap: .3rem; }
+.isSav input[type="time"] { width: 6.6rem; }
+.isNapGomb { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 575.98px) {
+    .isNap { grid-template-columns: minmax(0, 1fr) auto; }
+    .isNapNev { grid-column: 1; }
+    .isNapGomb { grid-column: 2; grid-row: 1; }
+    .isSavok { grid-column: 1 / -1; }
+    .isSav input[type="time"] { width: 6.1rem; }
+}
+
+/* összefoglaló sor a naptár / a megtekintések fölött */
+.isSavSor { display: flex; align-items: center; gap: .85rem; padding: .7rem .9rem; border: 1px solid var(--ip-border); border-radius: 12px; background: var(--ip-surface); }
+.isSavSor > i { flex: 0 0 36px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: var(--ip-accent-soft); color: var(--ip-accent); }
+.isSavSor.nincs { border-style: dashed; border-color: var(--ip-accent); background: var(--ip-accent-soft); }
+.isSavSor.nincs > i { background: var(--ip-surface); }
+@media (max-width: 575.98px) { .isSavSor { flex-wrap: wrap; } .isSavSor .btn { width: 100%; } }
+
+/* az érdeklődő: nap → időpont */
+.isNapok { display: flex; align-items: flex-start; gap: .4rem; overflow-x: auto; padding: .15rem .1rem .6rem; scrollbar-width: thin; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+.isNapChip { flex: 0 0 auto; min-width: 3.6rem; min-height: 4.1rem; justify-content: center; display: flex; flex-direction: column; align-items: center; gap: .05rem; padding: .45rem .55rem; scroll-snap-align: start;
+    border: 1px solid var(--ip-border); border-radius: 12px; background: var(--ip-surface); color: var(--ip-text); line-height: 1.15; }
+.isNapChip small { font-size: .7rem; color: var(--ip-muted); text-transform: capitalize; }
+.isNapChip b { font-size: 1.15rem; font-weight: 700; }
+.isNapChip:hover { border-color: var(--ip-accent); }
+.isNapChip.active { border-color: var(--ip-accent); background: var(--ip-accent); color: var(--ip-accent-contrast, #fff); }
+.isNapChip.active small { color: inherit; opacity: .85; }
+.isIdok { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr)); gap: .4rem; }
+.isIdo { padding: .55rem .25rem; border: 1px solid var(--ip-border); border-radius: 10px; background: var(--ip-surface); color: var(--ip-text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.isIdo:hover { border-color: var(--ip-accent); color: var(--ip-accent); }
+.isIdo.active { border-color: var(--ip-accent); background: var(--ip-accent); color: var(--ip-accent-contrast, #fff); }
+.isNapChip:focus-visible, .isIdo:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+.isValasztott { margin-top: .75rem; padding: .55rem .75rem; border-radius: 10px; background: var(--ip-accent-soft); color: var(--ip-accent); font-weight: 600; }
+.isElso { color: var(--ip-accent); font-weight: 600; }
+
+/* ============================================================
+   7. Naptárbejegyzés típusai + az eladás folyamata (js/crm/crm.js)
+   ============================================================ */
+.evTipusok { display: flex; flex-wrap: wrap; gap: .35rem; }
+.evTipus { margin: 0; }
+.evTipus > span { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .7rem; border: 1px solid var(--ip-border); border-radius: 999px; font-size: .88rem; font-weight: 600; color: var(--ip-muted); cursor: pointer; }
+.evTipus > input:checked + span { border-color: var(--ip-accent); background: var(--ip-accent); color: var(--ip-accent-contrast, #fff); }
+.evTipus > input:focus-visible + span { outline: 2px solid var(--ip-accent); outline-offset: 2px; }
+.crmEventTip { font-size: .72rem; opacity: .8; }
+
+.flCard { border-color: color-mix(in srgb, var(--ip-accent) 35%, var(--ip-border)); }
+.flLepesek { list-style: none; display: flex; gap: 0; margin: .5rem 0 .75rem; padding: 0 0 .25rem; overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.flLepes { flex: 1 0 5.4rem; position: relative; }
+.flLepes::before { content: ""; position: absolute; top: 17px; left: -50%; width: 100%; height: 2px; background: var(--ip-border); }
+.flLepes:first-child::before { display: none; }
+.flLepes.kesz::before, .flLepes.most::before { background: var(--ip-accent); }
+.flLepes > button { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: 0 .2rem; border: 0; background: none; color: var(--ip-muted); text-align: center; line-height: 1.2; }
+.flPont { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--ip-border); background: var(--ip-surface); font-size: .85rem; }
+.flLepes b { font-size: .78rem; font-weight: 600; }
+.flLepes small { font-size: .7rem; min-height: .9rem; }
+.flLepes.kesz .flPont { border-color: var(--ip-accent); background: var(--ip-accent-soft); color: var(--ip-accent); }
+.flLepes.most .flPont { border-color: var(--ip-accent); background: var(--ip-accent); color: var(--ip-accent-contrast, #fff); box-shadow: 0 0 0 4px var(--ip-accent-soft); }
+.flLepes.most > button, .flLepes.kesz > button { color: var(--ip-text); }
+.flLepes > button:hover .flPont { border-color: var(--ip-accent); }
+.flLepes > button:focus-visible { outline: 2px solid var(--ip-accent); outline-offset: 2px; border-radius: 8px; }
+.flResz { padding: .85rem; border: 1px solid var(--ip-border); border-radius: 12px; background: color-mix(in srgb, var(--ip-border) 14%, transparent); }
+.flPortalok { display: flex; flex-direction: column; gap: .35rem; }
+.flPortal { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; align-items: center; gap: .5rem; }
+.flPortal.be label { font-weight: 600; }
+@media (max-width: 575.98px) { .flPortal { grid-template-columns: minmax(0, 1fr) auto; } .flPortal > input.form-control { grid-column: 1 / -1; grid-row: 2; } }

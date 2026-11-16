@@ -38,6 +38,17 @@ const vp = fn => async (req, res) => {
     try { res.json(await fn(await crm.kontextus(req, req.params.ter), req)); } catch (e) { valasz(res, e); }
 };
 
+// ---- Idősávok: a hirdető heti rendje, a szabad időpontok és az egy kattintásos foglalás ----
+//   GET  /api/megtekintes/idosavok           a saját heti rendem + beállítások
+//   PUT  /api/megtekintes/idosavok           { savok: [{nap, kezd, veg}], hossz_perc, szunet_perc, elore_nap, min_ora, azonnali, aktiv }
+//   GET  /api/megtekintes/szabad/:ingatlan   a hirdetés szabad időpontjai (nyilvános)
+//   POST /api/megtekintes/foglal             { ingatlan_id, idopont, telefon, nev, uzenet, hozzajarul }
+const idosav = require("../services/idosav");
+router.get("/api/megtekintes/idosavok", pvp(req => idosav.olvas(belepve(req).id)));
+router.put("/api/megtekintes/idosavok", pvp(req => idosav.ment(belepve(req).id, req.body || {})));
+router.get("/api/megtekintes/szabad/:id", pvp(req => idosav.hirdetesSzabad(req.params.id)));
+router.post("/api/megtekintes/foglal", pvp(req => idosav.foglal(belepve(req), req.body || {})));
+
 router.get("/api/megtekintes/hirdetes/:id", pvp(req => mk.hirdetesAllapot(req.user, req.params.id)));
 router.post("/api/megtekintes", pvp(req => mk.kerTesz(belepve(req), req.body || {})));
 router.get("/api/megtekintes/sajat", pvp(req => mk.sajat(belepve(req))));

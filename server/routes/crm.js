@@ -36,6 +36,8 @@ router.put(`${B}/ugyfelek/:id`, vp((ctx, req) => crm.ugyfelMent(ctx, req.params.
 router.patch(`${B}/ugyfelek/:id`, vp((ctx, req) => crm.ugyfelValt(ctx, req.params.id, req.body || {})));
 router.delete(`${B}/ugyfelek/:id`, vp((ctx, req) => crm.ugyfelTorol(ctx, req.params.id)));
 
+// az eladó ügyének lépései, a megegyezés feltételei, hol van meghirdetve
+router.put(`${B}/ugyfelek/:id/folyamat`, vp((ctx, req) => crm.folyamatMent(ctx, req.params.id, req.body || {})));
 router.post(`${B}/ugyfelek/:id/tevekenyseg`, vp((ctx, req) => crm.tevekenyseg(ctx, req.params.id, req.body || {})));
 router.delete(`${B}/ugyfelek/:id/tevekenyseg/:tid`, vp((ctx, req) => crm.tevekenysegTorol(ctx, req.params.id, req.params.tid)));
 router.post(`${B}/ugyfelek/:id/ingatlan`, vp((ctx, req) => crm.ingatlanKapcsol(ctx, req.params.id, req.body || {})));

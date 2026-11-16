@@ -24,7 +24,10 @@ const db = require("../db/database");
 const ALLAPOTOK = ["uj", "kapcsolat", "aktiv", "targyalas", "nyert", "elvesztett", "inaktiv"];
 const NYITOTT = ["uj", "kapcsolat", "aktiv", "targyalas"];
 const SZEREPEK = ["vevo", "elado", "berlo", "berbeado"];
-const FORRASOK = ["hirdetes", "telefon", "ajanlas", "weboldal", "kozosseg", "szemelyes", "egyeb"];
+const FORRASOK = ["hirdetes", "telefon", "ajanlas", "weboldal", "kozosseg", "szemelyes", "olx", "storia", "imobiliare", "publi24", "facebook", "egyeb"];
+// Naptárbejegyzés típusai és az eladói folyamat lépései
+const MEGT_TIPUSOK = ["megtekintes", "talalkozo", "online", "hivas", "felmeres", "kozjegyzo"];
+const FOLYAMAT_LEPESEK = ["megkereses", "talalkozo", "megegyezes", "felmeres", "szerzodes", "hirdetve", "megtekintesek", "ajanlat", "adasvetel", "lezarva"];
 const TEV_TIPUSOK = ["jegyzet", "hivas", "email", "uzenet", "talalkozo", "megtekintes", "ajanlat", "rendszer"];
 const KAPCS_ALLAPOT = ["uj", "kuldve", "megtekintes", "ajanlat", "elvetve"];
 
@@ -269,6 +272,8 @@ async function ugyfelLista(ctx, q = {}) {
                (SELECT f.cim FROM crm_feladatok f WHERE f.ugyfel_id = u.id AND f.kesz IS NULL ORDER BY f.hatarido NULLS LAST LIMIT 1) AS kov_feladat_cim,
                (SELECT to_char(m.kezdet, 'YYYY-MM-DD"T"HH24:MI') FROM crm_megtekintesek m WHERE m.ugyfel_id = u.id AND m.statusz = 'tervezett'
                   AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours' ORDER BY m.kezdet LIMIT 1) AS kov_megt,
+               (SELECT COALESCE(m.tipus, 'megtekintes') FROM crm_megtekintesek m WHERE m.ugyfel_id = u.id AND m.statusz = 'tervezett'
+                  AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours' ORDER BY m.kezdet LIMIT 1) AS kov_megt_tipus,
                (SELECT COALESCE(i.cim, m.hely) FROM crm_megtekintesek m LEFT JOIN ingatlanok i ON i.id = m.ingatlan_id WHERE m.ugyfel_id = u.id AND m.statusz = 'tervezett'
                   AND m.kezdet >= (NOW() AT TIME ZONE 'Europe/Bucharest') - INTERVAL '3 hours' ORDER BY m.kezdet LIMIT 1) AS kov_megt_cim,
                (SELECT i.cim FROM crm_ugyfel_ingatlan k JOIN ingatlanok i ON i.id = k.ingatlan_id WHERE k.ugyfel_id = u.id ORDER BY (k.szerep = 'tulajdonos') DESC, k.created_at DESC LIMIT 1) AS elso_ingatlan,
@@ -697,6 +702,7 @@ const ERDEKLODES = ["nagyon", "talan", "nem"];
 
 const MEGT_SELECT = `
     SELECT m.id, m.iroda_id, m.ugyfel_id, m.ingatlan_id, m.felelos_id, m.hossz_perc, m.hely, m.megjegyzes, m.statusz, m.erdeklodes, m.visszajelzes,
+           COALESCE(m.tipus, 'megtekintes') AS tipus,
            to_char(m.kezdet, 'YYYY-MM-DD"T"HH24:MI') AS kezdet,
            u.nev AS ugyfel_nev, u.telefon AS ugyfel_telefon,
            i.cim AS ingatlan_cim, i.tipus AS ingatlan_tipus, i.ar AS ingatlan_ar, i.kulso_kepek,
@@ -760,11 +766,23 @@ async function megtMent(ctx, id, b) {
         hely = i && i.cim ? String(i.cim).slice(0, 200) : null;
     }
 
+    // Típus: megtekintés (alap) vagy találkozó / online megbeszélés / hívás (pl. az eladóval)
+    const tipus = MEGT_TIPUSOK.includes(b.tipus) ? b.tipus : "megtekintes";
     if (!id) {
         const r = await db.query(`
-            INSERT INTO crm_megtekintesek (iroda_id, ugyfel_id, ingatlan_id, felelos_id, kezdet, hossz_perc, hely, megjegyzes, created_by)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-            [ctx.irodaId, u.id, ingatlanId, felelos, kezdet, hossz, hely, sz(b.megjegyzes, 1000), ctx.userId]);
+            INSERT INTO crm_megtekintesek (iroda_id, ugyfel_id, ingatlan_id, felelos_id, kezdet, hossz_perc, hely, megjegyzes, created_by, tipus)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+            [ctx.irodaId, u.id, ingatlanId, felelos, kezdet, hossz, hely, sz(b.megjegyzes, 1000), ctx.userId, tipus]);
+        if (tipus !== "megtekintes") {
+            // nem megtekintés: az ügyfél nem lesz az ingatlan „érdeklődője”; az eladó ügye a
+            // „Megkeresés” lépésről magától a „Találkozó”-ra lép
+            await naploz(u.id, ctx.userId, tipus === "hivas" ? "hivas" : "talalkozo", `${kezdet.replace("T", " ")}${b.megjegyzes ? " – " + sz(b.megjegyzes, 300) : ""}`, ingatlanId);
+            if (tipus === "talalkozo" || tipus === "online") await db.query(`
+                UPDATE crm_ugyfelek SET folyamat = jsonb_set(jsonb_set(COALESCE(folyamat, '{}'::jsonb), '{lepes}', '"talalkozo"'),
+                       '{datumok}', COALESCE(folyamat->'datumok', '{}'::jsonb) || jsonb_build_object('talalkozo', $2::text))
+                WHERE id = $1 AND szerepek ?| ARRAY['elado','berbeado'] AND COALESCE(folyamat->>'lepes', 'megkereses') = 'megkereses'`, [u.id, kezdet.slice(0, 10)]);
+            return { id: r.rows[0].id };
+        }
         await naploz(u.id, ctx.userId, "rendszer", `megt_terv:${kezdet}`, ingatlanId);
         if (ingatlanId) {
             await db.query(`INSERT INTO crm_ugyfel_ingatlan (ugyfel_id, ingatlan_id, szerep, allapot) VALUES ($1,$2,'erdeklodik','uj') ON CONFLICT DO NOTHING`, [u.id, ingatlanId]);
@@ -776,9 +794,43 @@ async function megtMent(ctx, id, b) {
         return { id: r.rows[0].id };
     }
     const m = await megtJog(ctx, id);
-    await db.query(`UPDATE crm_megtekintesek SET ugyfel_id=$2, ingatlan_id=$3, felelos_id=$4, kezdet=$5, hossz_perc=$6, hely=$7, megjegyzes=$8 WHERE id=$1`,
-        [m.id, u.id, ingatlanId, felelos, kezdet, hossz, hely, sz(b.megjegyzes, 1000)]);
+    await db.query(`UPDATE crm_megtekintesek SET ugyfel_id=$2, ingatlan_id=$3, felelos_id=$4, kezdet=$5, hossz_perc=$6, hely=$7, megjegyzes=$8, tipus=$9 WHERE id=$1`,
+        [m.id, u.id, ingatlanId, felelos, kezdet, hossz, hely, sz(b.megjegyzes, 1000), tipus]);
     return { id: m.id };
+}
+
+// ===================== AZ ELADÓ ÜGYE: lépések, megegyezés, hol van meghirdetve =====================
+// Megkeresés → Találkozó → Megegyezés → Szerződés → Meghirdetve → Megtekintések → Ajánlat → Lezárva
+// b: { lepes, feltetelek: { ar, penznem, jutalek, kizarolagos, lejar, vallalas, igeny }, portalok: [{ nev, link }] }
+async function folyamatMent(ctx, id, b) {
+    const u = await ugyfelJog(ctx, id);
+    const regi = u.folyamat || {};
+    const uj = { lepes: regi.lepes || "megkereses", datumok: { ...(regi.datumok || {}) }, feltetelek: { ...(regi.feltetelek || {}) }, portalok: regi.portalok || [] };
+    const ma = (await db.query("SELECT to_char(NOW() AT TIME ZONE 'Europe/Bucharest', 'YYYY-MM-DD') AS d")).rows[0].d;
+    if (FOLYAMAT_LEPESEK.includes(b.lepes) && b.lepes !== uj.lepes) {
+        const i = FOLYAMAT_LEPESEK.indexOf(b.lepes);
+        // előre lépve a kihagyott lépések is „megvannak” (mai dátummal); visszalépve a későbbiek dátuma törlődik
+        FOLYAMAT_LEPESEK.forEach((k, n) => { if (n <= i) { if (!uj.datumok[k]) uj.datumok[k] = ma; } else delete uj.datumok[k]; });
+        await naploz(u.id, ctx.userId, "rendszer", `folyamat:${uj.lepes}>${b.lepes}`);
+        uj.lepes = b.lepes;
+    }
+    if (!uj.datumok.megkereses) uj.datumok.megkereses = u.created_at ? new Date(u.created_at).toISOString().slice(0, 10) : ma;
+    if (b.feltetelek && typeof b.feltetelek === "object") {
+        const f = b.feltetelek;
+        const num = v => { const n = Number(String(v == null ? "" : v).replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
+        uj.feltetelek = {
+            ar: num(f.ar), penznem: ["EUR", "RON"].includes(f.penznem) ? f.penznem : "EUR",
+            jutalek: num(f.jutalek) !== null ? Math.min(100, num(f.jutalek)) : null,
+            kizarolagos: !!f.kizarolagos,
+            lejar: /^\d{4}-\d{2}-\d{2}$/.test(String(f.lejar || "")) ? f.lejar : null,
+            vallalas: sz(f.vallalas, 2000), igeny: sz(f.igeny, 2000)
+        };
+    }
+    if (Array.isArray(b.portalok)) {
+        uj.portalok = b.portalok.slice(0, 20).map(x => ({ nev: sz(x && x.nev, 40), link: /^https?:\/\//i.test(String((x && x.link) || "")) ? sz(x.link, 500) : null })).filter(x => x.nev);
+    }
+    await db.query("UPDATE crm_ugyfelek SET folyamat = $2::jsonb, updated_at = NOW() WHERE id = $1", [u.id, JSON.stringify(uj)]);
+    return { folyamat: uj };
 }
 
 // Az eredmény: megtörtént (mennyire érdekli + visszajelzés) / elmaradt / lemondva
@@ -955,6 +1007,7 @@ async function csv(ctx) {
 
 module.exports = {
     ALLAPOTOK, NYITOTT, SZEREPEK, FORRASOK, TEV_TIPUSOK, KAPCS_ALLAPOT,
+    folyamatMent, FOLYAMAT_LEPESEK, MEGT_TIPUSOK,
     kontextus, tagok, attekintes, ugyfelJog,
     ugyfelLista, ugyfel, ugyfelMent, ugyfelValt, ugyfelTorol, hasonlo,
     tevekenyseg, tevekenysegTorol, ingatlanKapcsol, ingatlanLevesz, ingatlanKeres,

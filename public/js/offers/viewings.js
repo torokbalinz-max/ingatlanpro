@@ -125,7 +125,7 @@ class Viewings {
             ${kod}
             ${allapot || `
                 <button type="button" class="btn btn-primary w-100 mt-2" id="mkKer"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${I18n.t("mkRequest")}</button>
-                <p class="small text-body-secondary mt-2 mb-0">${I18n.t(a.irodai ? "mkRequestHintAgency" : "mkRequestHintPrivate")}</p>`}
+                <p class="small text-body-secondary mt-2 mb-0" id="mkHint">${I18n.t(a.irodai ? "mkRequestHintAgency" : "mkRequestHintPrivate")}</p>`}
             <hr class="my-3">
             ${a.ajanlat ? `
                 <button type="button" class="btn btn-outline-primary w-100" id="ofListingBtn"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> ${I18n.t("ofMake")}</button>
@@ -138,9 +138,22 @@ class Viewings {
 
         const $ = q => body.querySelector(q);
         const ujra = () => Viewings.kot(i);
+        // Van szabad idősáv: a gomb alatt a legközelebbi időpont („Legközelebb: csüt. 16:30”)
+        if ($("#mkKer")) Viewings.api(`/api/megtekintes/szabad/${i.id}`).then(sz => {
+            const h = $("#mkHint");
+            if (!h || !sz.napok || !sz.napok.length) return;
+            const db = sz.napok.reduce((n, x) => n + x.idok.length, 0);
+            h.innerHTML = `<span class="isElso"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${I18n.f("isNext", { ido: esc(Viewings.ido(`${sz.napok[0].datum}T${sz.napok[0].idok[0]}`)), db })}</span>`;
+            $("#mkKer").innerHTML = `<i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${I18n.t("isPickBtn")}`;
+        }).catch(() => { });
         if ($("#mkKer")) $("#mkKer").onclick = () => AuthManager.kell().then(() => {
             if (AuthManager.owns(i) || AuthManager.irodaTag(i.iroda_id)) return;
-            Viewings.urlap({ ingatlan_id: i.id, cim: i.cim || Types.label(i.tipus), cimzett: i.iroda ? i.iroda.nev : (i.hirdeto_nev || I18n.t("lpSeller")) }, ujra);
+            const o = { ingatlan_id: i.id, cim: i.cim || Types.label(i.tipus), cimzett: i.iroda ? i.iroda.nev : (i.hirdeto_nev || I18n.t("lpSeller")) };
+            // Ha a hirdetőnek vannak megtekintési idősávjai: a szabad időpontok közül egy kattintás
+            // (js/offers/slots.js); különben 1–3 saját időpont javaslása
+            Viewings.api(`/api/megtekintes/szabad/${i.id}`)
+                .then(sz => (sz.napok && sz.napok.length && typeof Idosav !== "undefined") ? Idosav.foglal(o, sz, ujra) : Viewings.urlap(o, ujra))
+                .catch(() => Viewings.urlap(o, ujra));
         }).catch(() => { });
         body.querySelectorAll("[data-mklemond]").forEach(b => b.onclick = () => {
             if (!confirm(I18n.t("mkCancelConfirm"))) return;
@@ -261,6 +274,7 @@ class Viewings {
                     </div>
                 </article>`;
             el.innerHTML = `
+                <div id="mkIdosav" class="mb-3"></div>
                 ${be.length ? `<h5 class="mt-2">${I18n.t("mkIncoming")}</h5>${be.map(k => sor(k, true)).join("")}<h5 class="mt-4">${I18n.t("mkMine")}</h5>` : ""}
                 ${sajat.length ? sajat.map(k => sor(k, false)).join("") : `<div class="emptyState"><i class="fa-regular fa-calendar"></i><h5>${I18n.t("mkMineNone")}</h5><p>${I18n.t("mkMineNoneHint")}</p></div>`}`;
             const ujra = () => Viewings.fiok(el);
@@ -287,6 +301,8 @@ class Viewings {
                     ? { ingatlan_id: kk.ingatlan_id, cim: kk.ingatlan_cim, ar: kk.ingatlan_ar, cimzett: kk.iroda_nev || kk.cimzett_nev || "" }
                     : { keres_id: kk.id, cim: (kk.kulso_adat && kk.kulso_adat.cim) || kk.kulso_link, ar: kk.kulso_adat && kk.kulso_adat.ar, cimzett: kk.iroda_nev || "" }, ujra);
             });
+            // Aki hirdet: a saját megtekintési idősávjai (az érdeklődők ezekből választanak)
+            if (typeof Idosav !== "undefined") Idosav.sav(el.querySelector("#mkIdosav"));
         }).catch(e => { el.innerHTML = `<div class="alert alert-danger">${Viewings.hiba(e)}</div>`; });
     }
 

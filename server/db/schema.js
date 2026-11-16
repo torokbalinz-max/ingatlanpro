@@ -1152,6 +1152,41 @@ async function createSchema(db) {
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_hivas_ing ON hivas_jelzesek (ingatlan_id, created_at)`);
 
+    // ---- Az ingatlanos folyamata (2026-11-16) ----
+    // Naptárbejegyzés típusa: megtekintes | talalkozo (személyes) | online (videóhívás) | hivas
+    await db.query(`ALTER TABLE crm_megtekintesek ADD COLUMN IF NOT EXISTS tipus TEXT DEFAULT 'megtekintes'`);
+    // Az eladó (bérbeadó) ügyének lépései: { lepes, datumok: {lepes: "YYYY-MM-DD"}, feltetelek: {...}, portalok: [{nev, link}] }
+    await db.query(`ALTER TABLE crm_ugyfelek ADD COLUMN IF NOT EXISTS folyamat JSONB`);
+    // Az ügynök szakterülete és területe (a vezető állítja; a nyilvános irodaoldalon is látszik)
+    await db.query(`ALTER TABLE iroda_ugynokok ADD COLUMN IF NOT EXISTS szakterulet TEXT`);
+    await db.query(`ALTER TABLE iroda_ugynokok ADD COLUMN IF NOT EXISTS terulet TEXT`);
+
+    // ---- Megtekintési idősávok (services/idosav.js) ----
+    // A hirdető heti rendje (nap: 1 = hétfő … 7 = vasárnap; kezd / veg: "HH:MM", helyi idő) –
+    // a hirdetés oldalán az érdeklődő a szabad időpontok közül választ.
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megtekintes_idosavok (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            nap SMALLINT NOT NULL,
+            kezd TEXT NOT NULL,
+            veg TEXT NOT NULL
+        )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_idosav_user ON megtekintes_idosavok (user_id, nap)`);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS megtekintes_idobeall (
+            user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            hossz_perc INTEGER DEFAULT 30,
+            szunet_perc INTEGER DEFAULT 0,
+            elore_nap INTEGER DEFAULT 14,
+            min_ora INTEGER DEFAULT 3,
+            azonnali BOOLEAN DEFAULT true,
+            aktiv BOOLEAN DEFAULT true,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+
     // Tesztkörnyezet (Admin → Tesztelés, services/teszt.js): a tesztfiókok, -irodák és
     // -hirdetések jelzője. A tesztfiók / -iroda által létrehozott hirdetés és iroda
     // automatikusan teszt lesz (trigger) – így a nyilvános listákból kimarad.

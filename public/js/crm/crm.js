@@ -28,7 +28,31 @@ class Crm {
     static ALLAPOTOK = ["uj", "kapcsolat", "aktiv", "targyalas", "nyert", "elvesztett", "inaktiv"];
     static NYITOTT = ["uj", "kapcsolat", "aktiv", "targyalas"];
     static SZEREPEK = ["vevo", "elado", "berlo", "berbeado"];
-    static FORRASOK = ["hirdetes", "telefon", "ajanlas", "weboldal", "kozosseg", "szemelyes", "egyeb"];
+    static FORRASOK = ["hirdetes", "telefon", "ajanlas", "weboldal", "kozosseg", "szemelyes", "olx", "storia", "imobiliare", "publi24", "facebook", "egyeb"];
+    // Naptárbejegyzés típusai (nem csak megtekintés: találkozó az eladóval, online megbeszélés, hívás)
+    static MEGT_TIPUSOK = [
+        { k: "megtekintes", ikon: "fa-solid fa-door-open" },
+        { k: "talalkozo", ikon: "fa-solid fa-handshake" },
+        { k: "online", ikon: "fa-solid fa-video" },
+        { k: "hivas", ikon: "fa-solid fa-phone" },
+        { k: "felmeres", ikon: "fa-solid fa-ruler-combined" },
+        { k: "kozjegyzo", ikon: "fa-solid fa-stamp" }
+    ];
+    static tipusIkon(t) { return (Crm.MEGT_TIPUSOK.find(x => x.k === t) || Crm.MEGT_TIPUSOK[0]).ikon; }
+    // Az eladó (bérbeadó) ügyének lépései
+    static FOLYAMAT = [
+        { k: "megkereses", ikon: "fa-solid fa-phone-volume" },
+        { k: "talalkozo", ikon: "fa-solid fa-handshake" },
+        { k: "megegyezes", ikon: "fa-solid fa-scale-balanced" },
+        { k: "felmeres", ikon: "fa-solid fa-ruler-combined" },
+        { k: "szerzodes", ikon: "fa-solid fa-file-signature" },
+        { k: "hirdetve", ikon: "fa-solid fa-bullhorn" },
+        { k: "megtekintesek", ikon: "fa-solid fa-door-open" },
+        { k: "ajanlat", ikon: "fa-solid fa-hand-holding-dollar" },
+        { k: "adasvetel", ikon: "fa-solid fa-stamp" },
+        { k: "lezarva", ikon: "fa-solid fa-flag-checkered" }
+    ];
+    static PORTALOK = ["IngatlanPro", "OLX", "Storia", "Imobiliare.ro", "Publi24", "Facebook"];
     static TEV = [
         { k: "hivas", ikon: "fa-solid fa-phone" },
         { k: "uzenet", ikon: "fa-regular fa-comment" },
@@ -209,7 +233,7 @@ class Crm {
                 <div class="crm crmEmbed">
                     ${muvelet ? `
                     <div class="crmActions">
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="crmUjMegt"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${Crm.t("crmNewViewing")}</button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="crmUjMegt"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${Crm.t("evNewBtn")}</button>
                         <button type="button" class="btn btn-outline-primary btn-sm" id="crmUjFeladat"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmNewTask")}</button>
                         <button type="button" class="btn btn-primary btn-sm" id="crmUjUgyfel"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> ${Crm.t("crmNewContact")}</button>
                     </div>` : ""}
@@ -236,7 +260,7 @@ class Crm {
                             </button>`).join("")}
                     </nav>
                     <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="crmUjMegt"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${Crm.t("crmNewViewing")}</button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="crmUjMegt"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${Crm.t("evNewBtn")}</button>
                         <button type="button" class="btn btn-outline-primary btn-sm" id="crmUjFeladat"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmNewTask")}</button>
                         <button type="button" class="btn btn-primary btn-sm" id="crmUjUgyfel"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> ${Crm.t("crmNewContact")}</button>
                     </div>
@@ -477,7 +501,7 @@ class Crm {
             const szurt = !!(f.q || f.szerep || f.felelos || f.cimke || f.fokusz);
 
             const kovetkezo = u => {
-                if (u.kov_megt) return `<span class="crmNext megt"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${Crm.t("crmNextViewing", { ido: Crm.hatarido(u.kov_megt) })}${u.kov_megt_cim ? `<small>${esc(u.kov_megt_cim)}</small>` : ""}</span>`;
+                if (u.kov_megt) return `<span class="crmNext megt"><i class="${Crm.tipusIkon(u.kov_megt_tipus)}" aria-hidden="true"></i> ${Crm.t("evT_" + (u.kov_megt_tipus || "megtekintes"))}: ${Crm.hatarido(u.kov_megt)}${u.kov_megt_cim ? `<small>${esc(u.kov_megt_cim)}</small>` : ""}</span>`;
                 if (u.kov_feladat) return `<span class="crmNext ${Crm.kesik(u.kov_feladat) ? "late" : "task"}"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${esc(u.kov_feladat_cim || Crm.t("crmTask"))}<small>${Crm.kesik(u.kov_feladat) ? Crm.t("crmLateSince", { ido: Crm.hatarido(u.kov_feladat) }) : Crm.hatarido(u.kov_feladat)}</small></span>`;
                 if (Crm.NYITOTT.includes(u.allapot)) return `<span class="crmNext none"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> ${Crm.t("crmNoNextStep")}</span>`;
                 return `<span class="crmNext done">–</span>`;
@@ -733,6 +757,110 @@ class Crm {
 
     // ---------- Adatlap ----------
 
+    // ===================== AZ ELADÓ ÜGYE (lépésről lépésre) =====================
+    // Megkeresés → Találkozó → Egyezés → Felmérés → Szerződés → Meghirdetve → Érdeklődők → Ajánlat → Adásvétel → Lezárva.
+    // Csak eladó / bérbeadó ügyfélnél látszik. A lépésre kattintva oda áll; alatta a megegyezés
+    // feltételei és az, hogy hol van meghirdetve az ingatlan (más oldalak is).
+    static eladoE(u) { return (u.szerepek || []).some(x => x === "elado" || x === "berbeado"); }
+
+    static folyamatHtml(u) {
+        if (!Crm.eladoE(u)) return "";
+        const esc = Crm.esc;
+        const f = u.folyamat || {};
+        const lepes = f.lepes || "megkereses";
+        const hol = Crm.FOLYAMAT.findIndex(x => x.k === lepes);
+        const d = f.datumok || {};
+        const ft = f.feltetelek || {};
+        const portalok = f.portalok || [];
+        const kov = Crm.FOLYAMAT[hol + 1];
+        const datum = v => v ? new Date(v + "T00:00").toLocaleDateString(Utils.locale(), { month: "short", day: "numeric" }) : "";
+        return `
+            <div class="crmCard flCard mb-4" id="flCard">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <h6 class="mb-0"><i class="fa-solid fa-route" aria-hidden="true"></i> ${Crm.t("flTitle")}</h6>
+                    ${kov ? `<button type="button" class="btn btn-sm btn-primary" data-fl-lep="${kov.k}"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> ${Crm.t("flNext")}: ${Crm.t("fl_" + kov.k)}</button>` : `<span class="badge text-bg-success">${Crm.t("flDone")}</span>`}
+                </div>
+                <ol class="flLepesek">
+                    ${Crm.FOLYAMAT.map((x, n) => `
+                        <li class="flLepes ${n < hol ? "kesz" : n === hol ? "most" : ""}">
+                            <button type="button" data-fl-lep="${x.k}" title="${esc(Crm.t("flSetHere"))}" ${n === hol ? 'aria-current="step"' : ""}>
+                                <span class="flPont"><i class="${n < hol ? "fa-solid fa-check" : x.ikon}" aria-hidden="true"></i></span>
+                                <b>${Crm.t("fl_" + x.k)}</b>
+                                <small>${esc(datum(d[x.k]))}</small>
+                            </button>
+                        </li>`).join("")}
+                </ol>
+                <p class="small text-body-secondary mb-3">${Crm.t("flHelp_" + lepes)}</p>
+
+                <div class="row g-3">
+                    <div class="col-lg-7">
+                        <div class="flResz">
+                            <b class="d-block mb-2"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> ${Crm.t("flTerms")}</b>
+                            <div class="row g-2">
+                                <div class="col-6 col-md-4"><label class="form-label small mb-1" for="flAr">${Crm.t("flPrice")}</label>
+                                    <div class="input-group input-group-sm"><input class="form-control" id="flAr" inputmode="decimal" value="${esc(ft.ar || "")}">
+                                        <select class="form-select flex-grow-0 w-auto" id="flPenz" aria-label="${esc(Crm.t("flCurrency"))}"><option ${ft.penznem !== "RON" ? "selected" : ""}>EUR</option><option ${ft.penznem === "RON" ? "selected" : ""}>RON</option></select></div></div>
+                                <div class="col-6 col-md-3"><label class="form-label small mb-1" for="flJut">${Crm.t("flCommission")}</label>
+                                    <div class="input-group input-group-sm"><input class="form-control" id="flJut" inputmode="decimal" value="${esc(ft.jutalek || "")}"><span class="input-group-text">%</span></div></div>
+                                <div class="col-6 col-md-5"><label class="form-label small mb-1" for="flLejar">${Crm.t("flUntil")}</label>
+                                    <input type="date" class="form-control form-control-sm" id="flLejar" value="${esc(ft.lejar || "")}"></div>
+                                <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="flKiz" ${ft.kizarolagos ? "checked" : ""}><label class="form-check-label small" for="flKiz">${Crm.t("flExclusive")}</label></div></div>
+                                <div class="col-md-6"><label class="form-label small mb-1" for="flVall">${Crm.t("flIDo")}</label>
+                                    <textarea class="form-control form-control-sm" id="flVall" rows="3" maxlength="2000" placeholder="${esc(Crm.t("flIDoPh"))}">${esc(ft.vallalas || "")}</textarea></div>
+                                <div class="col-md-6"><label class="form-label small mb-1" for="flIgeny">${Crm.t("flTheyWant")}</label>
+                                    <textarea class="form-control form-control-sm" id="flIgeny" rows="3" maxlength="2000" placeholder="${esc(Crm.t("flTheyWantPh"))}">${esc(ft.igeny || "")}</textarea></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="flResz h-100">
+                            <b class="d-block mb-1"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> ${Crm.t("flWhere")}</b>
+                            <p class="small text-body-secondary mb-2">${Crm.t("flWhereHelp")}</p>
+                            <div class="flPortalok">
+                                ${[...new Set([...Crm.PORTALOK, ...portalok.map(p => p.nev)])].map((nev, n) => {
+                                    const p = portalok.find(x => x.nev === nev);
+                                    return `
+                                    <div class="flPortal ${p ? "be" : ""}">
+                                        <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="flP${n}" data-fl-portal="${esc(nev)}" ${p ? "checked" : ""}><label class="form-check-label" for="flP${n}">${esc(nev)}</label></div>
+                                        <input class="form-control form-control-sm" type="url" data-fl-link="${esc(nev)}" value="${esc((p && p.link) || "")}" placeholder="https://… (${esc(Crm.t("flLinkOpt"))})" aria-label="${esc(nev)} link">
+                                        ${p && p.link ? `<a href="${esc(p.link)}" target="_blank" rel="noopener nofollow" class="btn btn-sm btn-link p-1" aria-label="${esc(Crm.t("flOpen"))}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>` : ""}
+                                    </div>`;
+                                }).join("")}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+                    <span class="small text-success" id="flMentve" hidden><i class="fa-solid fa-check" aria-hidden="true"></i> ${Crm.t("flSaved")}</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="flMent">${Crm.t("crmSave")}</button>
+                </div>
+            </div>`;
+    }
+
+    static folyamatKot(tartalom, u, ujra) {
+        const k = tartalom.querySelector("#flCard");
+        if (!k) return;
+        const $ = q => k.querySelector(q);
+        const adat = () => ({
+            feltetelek: { ar: $("#flAr").value, penznem: $("#flPenz").value, jutalek: $("#flJut").value, lejar: $("#flLejar").value, kizarolagos: $("#flKiz").checked,
+                vallalas: $("#flVall").value, igeny: $("#flIgeny").value },
+            portalok: [...k.querySelectorAll("[data-fl-portal]")].filter(c => c.checked).map(c => ({ nev: c.dataset.flPortal, link: (k.querySelector(`[data-fl-link="${CSS.escape(c.dataset.flPortal)}"]`) || {}).value || "" }))
+        });
+        const ment = extra => Crm.api(`/ugyfelek/${u.id}/folyamat`, { method: "PUT", body: { ...adat(), ...(extra || {}) } });
+        // lépés: a beírt (még nem mentett) adatok is mennek vele
+        k.querySelectorAll("[data-fl-lep]").forEach(b => b.onclick = () => {
+            if (b.closest(".flLepes.most")) return;
+            ment({ lepes: b.dataset.flLep }).then(ujra).catch(e => alert(Crm.hiba(e)));
+        });
+        // a link beírása bepipálja a portált
+        k.querySelectorAll("[data-fl-link]").forEach(i => i.oninput = () => { if (i.value.trim()) { const c = k.querySelector(`[data-fl-portal="${CSS.escape(i.dataset.flLink)}"]`); if (c) c.checked = true; } });
+        $("#flMent").onclick = () => {
+            $("#flMent").disabled = true;
+            ment().then(() => { $("#flMent").disabled = false; $("#flMentve").hidden = false; setTimeout(() => { const m = k.querySelector("#flMentve"); if (m) m.hidden = true; }, 2500); })
+                .catch(e => { $("#flMent").disabled = false; alert(Crm.hiba(e)); });
+        };
+    }
+
     static ugyfelNyit(id) {
         Crm.adatlapFul = "attekintes";
         const { tartalom, modal } = Svc.modal("crmUgyfel", "modal-xl");
@@ -827,12 +955,12 @@ class Crm {
                 <div class="crmNextBox ${kovM || kovF ? "" : nyitott ? "warn" : "quiet"}">
                     <div class="flex-fill min-w-0">
                         <span class="crmColLabel">${Crm.t("crmNextStep")}</span>
-                        ${kovM ? `<div class="fw-semibold"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${Crm.t("crmNextViewing", { ido: Crm.hatarido(kovM.kezdet) })} ${kovM.ingatlan_cim || kovM.hely ? `<span class="fw-normal text-body-secondary">· ${esc(kovM.ingatlan_cim || kovM.hely)}</span>` : ""}</div>` : ""}
+                        ${kovM ? `<div class="fw-semibold"><i class="${Crm.tipusIkon(kovM.tipus)}" aria-hidden="true"></i> ${Crm.t("evT_" + (kovM.tipus || "megtekintes"))}: ${Crm.hatarido(kovM.kezdet)} ${kovM.ingatlan_cim || kovM.hely ? `<span class="fw-normal text-body-secondary">· ${esc(kovM.ingatlan_cim || kovM.hely)}</span>` : ""}</div>` : ""}
                         ${kovF ? `<div class="${kovM ? "small" : "fw-semibold"} ${Crm.kesik(kovF.hatarido) ? "text-danger" : ""}"><i class="fa-solid fa-list-check" aria-hidden="true"></i> ${esc(kovF.cim)} <span class="fw-normal">· ${kovF.hatarido ? Crm.hatarido(kovF.hatarido) : ""}</span></div>` : ""}
                         ${!kovM && !kovF ? `<div class="fw-semibold">${Crm.t(nyitott ? "crmNoNextStepLong" : "crmClosedNoStep")}</div>` : ""}
                     </div>
                     <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-sm btn-primary" id="cuMegtUj"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${Crm.t("crmNewViewing")}</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="cuMegtUj"><i class="fa-regular fa-calendar-plus" aria-hidden="true"></i> ${Crm.t("evNewBtn")}</button>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="cuFelUj"><i class="fa-solid fa-plus" aria-hidden="true"></i> ${Crm.t("crmNewTask")}</button>
                     </div>
                 </div>
@@ -846,6 +974,7 @@ class Crm {
 
                 <div class="modal-body crmDetailBody">
                     <section data-dpanel="attekintes" ${ful === "attekintes" ? "" : "hidden"}>
+                        ${Crm.folyamatHtml(u)}
                         <div class="row g-4">
                             <div class="col-lg-5">
                                 <div class="crmCard">
@@ -958,6 +1087,8 @@ class Crm {
                 </div>`;
 
             // Belső fülek (újrarajzolás nélkül)
+            // az eladó ügye: lépések, megegyezés, hol van meghirdetve
+            Crm.folyamatKot(tartalom, u, () => Crm.adatlap(id, tartalom, modal));
             tartalom.querySelectorAll("[data-dful]").forEach(b => b.onclick = () => {
                 Crm.adatlapFul = b.dataset.dful;
                 tartalom.querySelectorAll("[data-dpanel]").forEach(p => { p.hidden = p.dataset.dpanel !== Crm.adatlapFul; });
@@ -1071,6 +1202,10 @@ class Crm {
         if (s.startsWith("allapot:")) {
             const [a, b] = s.slice(8).split(">");
             return Crm.t("crmSys_status", { a: Crm.t("crmSt_" + a), b: Crm.t("crmSt_" + b) });
+        }
+        if (s.startsWith("folyamat:")) {
+            const [a, b] = s.slice(9).split(">");
+            return Crm.t("crmSys_process", { a: Crm.t("fl_" + a), b: Crm.t("fl_" + b) });
         }
         if (s.startsWith("felelos:")) {
             const id = s.slice(8);
@@ -1389,6 +1524,7 @@ class Crm {
             const napok = [...Array(7)].map((_, n) => { const d = new Date(tol.getTime()); d.setDate(d.getDate() + n); return d; });
             const ma = Crm.ymd(new Date());
             body.innerHTML = `
+                ${Crm.ter ? `<div id="crmIdosav" class="mb-3"></div>` : ""}
                 <div class="crmFilters">
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button" class="btn btn-outline-secondary" id="crmHetE" aria-label="${esc(Crm.t("crmPrevWeek"))}"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
@@ -1416,7 +1552,7 @@ class Crm {
                             </header>
                             ${nap.map(m => `
                                 <button type="button" class="crmEvent st-${esc(m.statusz)}" data-megt="${m.id}">
-                                    <span class="crmEventTime">${esc(String(m.kezdet).slice(11, 16))}</span>
+                                    <span class="crmEventTime"><i class="${Crm.tipusIkon(m.tipus)} crmEventTip" aria-hidden="true" title="${esc(Crm.t("evT_" + (m.tipus || "megtekintes")))}"></i> ${esc(String(m.kezdet).slice(11, 16))}</span>
                                     <span class="d-block fw-semibold text-truncate">${esc(m.ugyfel_nev || "")}</span>
                                     <span class="d-block small text-truncate">${esc(m.ingatlan_cim || "")}</span>
                                     ${Crm.vezeto && m.felelos_nev ? `<span class="d-block small text-truncate opacity-75">${esc(m.felelos_nev)}</span>` : ""}
@@ -1426,6 +1562,8 @@ class Crm {
                 </div>
                 <p class="small text-body-secondary mt-2">${Crm.t("crmWeekHelp")}</p>`;
             const lep = n => { Crm.het = new Date(Crm.het.getTime() + n * 7 * 86400000); Crm.megtekintesek(body); };
+            // Megtekintési idősávok: mikor foglalhatnak az érdeklődők (js/offers/slots.js)
+            if (typeof Idosav !== "undefined") Idosav.sav(body.querySelector("#crmIdosav"));
             body.querySelector("#crmHetE").onclick = () => lep(-1);
             body.querySelector("#crmHetK").onclick = () => lep(1);
             body.querySelector("#crmHetMa").onclick = () => { Crm.het = Crm.hetfo(new Date()); Crm.megtekintesek(body); };
@@ -1460,10 +1598,17 @@ class Crm {
             const ingErtek = id => { const i = ingatlanok.find(x => x.id === Number(id)); return i ? `${i.cim || Types.label(i.tipus)}${i.ar ? " · " + Utils.eur(i.ar) : ""} [#${i.id}]` : (id ? `${m.ingatlan_cim || ""} [#${id}]` : ""); };
             tartalom.innerHTML = `
                 <div class="modal-header">
-                    <h5 class="modal-title">${Crm.t(uj ? "crmNewViewing" : "crmEditViewing")}</h5>
+                    <h5 class="modal-title">${Crm.t(uj ? "evNew" : "evEdit")}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${esc(Crm.t("crmClose"))}"></button>
                 </div>
                 <form class="modal-body" id="crmMegtForm" novalidate>
+                    <div class="evTipusok mb-3" role="radiogroup" aria-label="${esc(Crm.t("evType"))}">
+                        ${Crm.MEGT_TIPUSOK.map(x => `
+                            <label class="evTipus">
+                                <input type="radio" class="btn-check" name="cmTipus" value="${x.k}" ${(m.tipus || "megtekintes") === x.k ? "checked" : ""}>
+                                <span><i class="${x.ikon}" aria-hidden="true"></i> ${Crm.t("evT_" + x.k)}</span>
+                            </label>`).join("")}
+                    </div>
                     <label class="form-label small mb-1" for="cmUgyfel">${Crm.t("crmForContact")} *</label>
                     <input class="form-control mb-1" id="cmUgyfel" list="cmUgyfelL" autocomplete="off" value="${esc(ugyfelErtek(m.ugyfel_id) || (m.ugyfel_id ? `${m.ugyfel_nev || ""} [#${m.ugyfel_id}]` : ""))}" placeholder="${esc(Crm.t("crmPickContact"))}">
                     <datalist id="cmUgyfelL">${ugyfelek.map(u => `<option value="${esc(ugyfelErtek(u.id))}">`).join("")}</datalist>
@@ -1481,7 +1626,7 @@ class Crm {
                     ${Crm.vezeto && Crm.tagok.length > 1 ? `
                     <label class="form-label small mb-1" for="cmFelelos">${Crm.t("crmWhoGoes")}</label>
                     <select class="form-select mb-3" id="cmFelelos">${Crm.tagOpciok(m.felelos_id || Crm.en, false)}</select>` : ""}
-                    <label class="form-label small mb-1" for="cmHely">${Crm.t("crmPlace")}</label>
+                    <label class="form-label small mb-1" for="cmHely" id="cmHelyL">${Crm.t("crmPlace")}</label>
                     <input class="form-control mb-3" id="cmHely" maxlength="200" value="${esc(m.hely)}" placeholder="${esc(Crm.t("crmPlacePh"))}">
                     <label class="form-label small mb-1" for="cmMegj">${Crm.t("crmNotes")}</label>
                     <textarea class="form-control" id="cmMegj" rows="2" maxlength="1000">${esc(m.megjegyzes)}</textarea>
@@ -1495,7 +1640,17 @@ class Crm {
                 </div>`;
             const $ = q => tartalom.querySelector(q);
             const idOf = v => { const x = String(v || "").match(/\[#(\d+)\]\s*$/); return x ? Number(x[1]) : null; };
-            $("#cmUjUgyfel").onclick = () => { modal.hide(); Crm.ugyfelSzerk(null, v => Crm.megtSzerk({ ...m, ugyfel_id: v.id, ugyfel_nev: v.nev }, utana)); };
+            const tipus = () => (tartalom.querySelector('input[name="cmTipus"]:checked') || { value: "megtekintes" }).value;
+            // a „Hely” mező a típushoz igazodik (online: link, hívás: nem kell)
+            const tipusValt = () => {
+                const t = tipus();
+                $("#cmHelyL").textContent = Crm.t(t === "online" ? "evLink" : "crmPlace");
+                $("#cmHely").placeholder = t === "online" ? "https://meet.google.com/…" : Crm.t("crmPlacePh");
+                $("#cmHely").closest("form").classList.toggle("evHivas", t === "hivas");
+            };
+            tartalom.querySelectorAll('input[name="cmTipus"]').forEach(r => r.onchange = tipusValt);
+            tipusValt();
+            $("#cmUjUgyfel").onclick = () => { modal.hide(); Crm.ugyfelSzerk(null, v => Crm.megtSzerk({ ...m, tipus: tipus(), ugyfel_id: v.id, ugyfel_nev: v.nev }, utana)); };
             let mindenkepp = false;
             const kuld = e => {
                 if (e) e.preventDefault();
@@ -1505,7 +1660,7 @@ class Crm {
                 $("#cmMent").disabled = true;
                 Crm.api(uj ? "/megtekintesek" : `/megtekintesek/${m.id}`, {
                     method: uj ? "POST" : "PUT",
-                    body: { ugyfel_id: ugyfelId, ingatlan_id: idOf($("#cmIngatlan").value), kezdet: $("#cmIdo").value, hossz_perc: $("#cmHossz").value,
+                    body: { tipus: tipus(), ugyfel_id: ugyfelId, ingatlan_id: idOf($("#cmIngatlan").value), kezdet: $("#cmIdo").value, hossz_perc: $("#cmHossz").value,
                         felelos_id: $("#cmFelelos") ? $("#cmFelelos").value : (m.felelos_id || Crm.en), hely: $("#cmHely").value, megjegyzes: $("#cmMegj").value, mindenkepp }
                 }).then(() => { modal.hide(); Crm.jelez(Crm.t("crmViewingSaved")); if (utana) utana(); Crm.frissit(); })
                     .catch(err => {
@@ -1541,7 +1696,7 @@ class Crm {
             const kesz = m.statusz !== "tervezett";
             tartalom.innerHTML = `
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="${Crm.megtIkon(m.statusz)}" aria-hidden="true"></i> ${Crm.t("crmViewing")} – ${Crm.hatarido(m.kezdet)}</h5>
+                    <h5 class="modal-title"><i class="${m.statusz === "tervezett" ? Crm.tipusIkon(m.tipus) : Crm.megtIkon(m.statusz)}" aria-hidden="true"></i> ${Crm.t("evT_" + (m.tipus || "megtekintes"))} – ${Crm.hatarido(m.kezdet)}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${esc(Crm.t("crmClose"))}"></button>
                 </div>
                 <div class="modal-body">

@@ -782,7 +782,7 @@ router.delete("/api/irodak/:id/tagok/:userId", csakBelepve, async (req, res) => 
 //  (penzugy.irodaHely – Admin → Csomagok: „Ügynökök száma”).
 
 const csapatSor = `
-    SELECT a.id, a.nev, a.telefon, a.email, a.aktiv, a.user_id, a.meghivo, a.meghivo_szerep, a.meghivo_ido,
+    SELECT a.id, a.nev, a.telefon, a.email, a.aktiv, a.szakterulet, a.terulet, a.user_id, a.meghivo, a.meghivo_szerep, a.meghivo_ido,
            COALESCE(t.szerep, NULL) AS szerep, COALESCE(t.statusz, NULL) AS tag_statusz,
            COALESCE(u.nev, u.felhasznalonev) AS fiok_nev, u.email AS fiok_email, u.utolso_belepes,
            (SELECT COUNT(*)::int FROM ingatlanok x WHERE x.ugynok_id = a.id AND x.statusz IN ('aktiv', 'fuggo')) AS hirdetes_db,
@@ -896,6 +896,10 @@ router.put("/api/irodak/:id/csapat/:uid", csakBelepve, async (req, res) => {
         if (email && !EMAIL_RE.test(email)) return res.status(400).json({ error: "bad_email" });
         await db.query("UPDATE iroda_ugynokok SET nev = $2, telefon = $3, email = $4, aktiv = $5 WHERE id = $1",
             [a.id, szoveg(b.nev, 100) || a.nev, szoveg(b.telefon, 40), email, j.vezeto ? b.aktiv !== false : a.aktiv]);
+        // Szakterület (mivel foglalkozik) és terület (hol dolgozik): csak a vezető állítja
+        if (j.vezeto && ("szakterulet" in b || "terulet" in b)) {
+            await db.query("UPDATE iroda_ugynokok SET szakterulet = $2, terulet = $3 WHERE id = $1", [a.id, szoveg(b.szakterulet, 120), szoveg(b.terulet, 160)]);
+        }
         if (j.vezeto && a.user_id && (b.szerep === "vezeto" || b.szerep === "tag")) {
             if (b.szerep === "tag") {
                 const v = await db.query("SELECT user_id FROM iroda_tagok WHERE iroda_id = $1 AND szerep = 'vezeto' AND COALESCE(statusz, 'aktiv') = 'aktiv'", [id]);

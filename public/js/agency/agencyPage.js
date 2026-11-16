@@ -1233,6 +1233,7 @@ class AgencyPage {
                                 </div>
                             </div>
                             <div class="small mt-2">
+                                ${a.szakterulet || a.terulet ? `<div class="fw-semibold"><i class="fa-solid fa-briefcase fa-fw" aria-hidden="true"></i> ${esc([a.szakterulet, a.terulet].filter(Boolean).join(" · "))}</div>` : ""}
                                 ${a.telefon ? `<div><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> ${esc(a.telefon)}</div>` : ""}
                                 ${a.email ? `<div class="text-truncate"><i class="fa-regular fa-envelope fa-fw" aria-hidden="true"></i> ${esc(a.email)}</div>` : ""}
                             </div>
@@ -1368,6 +1369,13 @@ class AgencyPage {
                 <input class="form-control mb-2" id="weTel" type="tel" maxlength="40" value="${esc(a.telefon || "")}">
                 <label class="form-label small mb-1" for="weEmail">${I18n.t("authEmail")}</label>
                 <input class="form-control mb-3" id="weEmail" type="email" maxlength="160" value="${esc(a.email || "")}">
+                <div class="row g-2 mb-1">
+                    <div class="col-sm-6"><label class="form-label small mb-1" for="weSzak">${I18n.t("wsSpec")}</label>
+                        <input class="form-control" id="weSzak" maxlength="120" value="${esc(a.szakterulet || "")}" placeholder="${esc(I18n.t("wsSpecPh"))}" ${vezeto ? "" : "disabled"}></div>
+                    <div class="col-sm-6"><label class="form-label small mb-1" for="weTer">${I18n.t("wsArea")}</label>
+                        <input class="form-control" id="weTer" maxlength="160" value="${esc(a.terulet || "")}" placeholder="${esc(I18n.t("wsAreaPh"))}" ${vezeto ? "" : "disabled"}></div>
+                </div>
+                <p class="small text-body-secondary mb-3">${I18n.t(vezeto ? "wsSpecHelp" : "wsSpecHelpAgent")}</p>
                 ${vezeto && a.allapot !== "kapcsolattarto" ? `
                 <label class="form-label small mb-1" for="weSzerep">${I18n.t("agRole")}</label>
                 <select class="form-select mb-3" id="weSzerep">
@@ -1391,6 +1399,7 @@ class AgencyPage {
             e.preventDefault();
             AgencyPage.api(`/api/irodak/${ir.id}/csapat/${a.id}`, "PUT", {
                 nev: $("#weNev").value, telefon: $("#weTel").value, email: $("#weEmail").value,
+                ...(vezeto ? { szakterulet: $("#weSzak").value, terulet: $("#weTer").value } : {}),
                 aktiv: $("#weAktiv") ? $("#weAktiv").checked : true, szerep: $("#weSzerep") ? $("#weSzerep").value : undefined
             }).then(() => { modal.hide(); AuthManager.refresh(); utana(); }).catch(err => alert(AgencyPage.hibaSzoveg(err)));
         };
